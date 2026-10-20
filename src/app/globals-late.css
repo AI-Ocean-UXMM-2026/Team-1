@@ -1,66 +1,23 @@
-.manager-home-primary,
-.manager-home-secondary,
 .manager-profile-card,
 .manager-insights-card,
 .manager-live-orders,
 .manager-track-map {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
-.manager-home-primary {
-  min-height: 250px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 18px;
-  padding: 28px;
-}
-
-.manager-home-primary h2 {
-  margin: 8px 0;
-  color: var(--color-brand-navy);
-  font-size: 26px;
-  line-height: 32px;
-}
-
-.manager-home-primary p {
-  max-width: 52ch;
-  margin: 0;
-  color: var(--color-text-secondary-subtle);
-  font-size: 14px;
-  line-height: 21px;
-}
-
-.manager-home-primary > .metric-icon {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-}
-
-.manager-home-secondary {
-  display: grid;
-  padding: 8px;
-}
-
-.manager-home-secondary a,
 .manager-insights-card {
-  min-height: 72px;
   display: flex;
   align-items: center;
   gap: 13px;
   padding: 14px;
-  border-radius: var(--radius-md);
 }
 
-.manager-home-secondary a:hover,
 .manager-insights-card:hover {
   background: var(--color-surface-subtle);
 }
 
-.manager-home-secondary a > span,
 .manager-insights-card > span {
   min-width: 0;
   display: grid;
@@ -68,13 +25,11 @@
   gap: 3px;
 }
 
-.manager-home-secondary strong,
 .manager-insights-card strong {
   color: var(--color-text-primary);
   font-size: 14px;
 }
 
-.manager-home-secondary small,
 .manager-insights-card small {
   color: var(--color-text-secondary-subtle);
   font-size: 12px;
@@ -155,13 +110,15 @@
 
 .manager-profile-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.6fr);
+  margin-bottom: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
 }
 
 .manager-profile-card {
   min-height: 132px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 18px;
   padding: 22px;
@@ -841,40 +798,6 @@
   color: var(--color-info);
 }
 
-.dash-table {
-  display: grid;
-  font-size: 13px;
-}
-
-.dash-table-head,
-.dash-table-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) 84px 96px;
-  gap: var(--space-3);
-  align-items: center;
-  padding: 10px 0;
-}
-
-.dash-table-head {
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.dash-table-row {
-  color: var(--color-text-secondary-subtle);
-  border-bottom: 1px solid var(--color-border);
-  text-decoration: none;
-}
-
-.dash-table-row:last-child {
-  border-bottom: 0;
-}
-
-.dash-table-row:hover {
-  background: var(--color-surface-subtle);
-}
-
 .dash-cell-main {
   display: grid;
   min-width: 0;
@@ -958,12 +881,25 @@
   font-size: 13px;
 }
 
-@media (max-width: 1100px) {
+@container (max-width: 880px) {
   .dash-overview {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .dash-main {
+    display: contents;
+  }
+
+  .dash-main > * {
+    order: 2;
+  }
+
+  .dash-main > :first-child {
+    order: 0;
+  }
+
   .dash-rail {
+    order: 1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1007,18 +943,265 @@
   .dash-rail {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .dash-table-head {
-    display: none;
-  }
+/* Dashboard polish: alignment, feedback, table semantics */
+.manager-content {
+  container-type: inline-size;
+}
 
-  .dash-table-head,
-  .dash-table-row {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-  }
+.dash-kpi {
+  align-content: start;
+}
 
-  .dash-table-row > span:nth-child(3),
-  .dash-table-row > span:nth-child(4) {
+.dash-trend-empty {
+  color: var(--color-text-secondary);
+}
+
+.dash-signin {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-8);
+}
+
+.dash-signin h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.dash-signin p {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dash-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 var(--space-3);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.dash-notice.is-success {
+  background: var(--color-success-surface);
+  color: var(--color-success-text);
+}
+
+.dash-notice.is-error {
+  background: var(--color-error-surface);
+  color: var(--color-error-text);
+}
+
+.dash-map {
+  position: relative;
+}
+
+.dash-map-empty {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 50%;
+  margin: 0;
+  padding: 6px 12px;
+  transform: translateX(-50%);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.manager-app .map-card {
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.manager-app .map-card-compact .map-viewport {
+  height: 280px;
+}
+
+.dash-cell-main a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.dash-cell-main a:focus-visible {
+  outline: none;
+}
+
+.dash-cell-main a::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+.dash-cell-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-list li.is-alert strong {
+  color: var(--color-warning-text);
+}
+
+.dash-list li.is-clear strong {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* Suggested riders: four-column card, not clickable as a whole */
+.manager-app .recommendation-card {
+  grid-template-columns: 28px minmax(0, 1fr) 42px auto;
+  cursor: default;
+}
+
+.manager-app .recommendation-card:hover {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+.manager-app .recommendation-card.is-selected {
+  border-color: var(--color-info);
+  box-shadow: none;
+}
+
+/* Legacy manager panels share the dashboard card language */
+.manager-app .manager-orders-panel,
+.manager-app .manager-map-panel,
+.manager-app .road-knowledge-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.manager-app .manager-order-row {
+  border-bottom-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.manager-app .manager-order-row:hover {
+  background: var(--color-surface-subtle);
+}
+
+.manager-app .manager-order-row.is-selected {
+  background: color-mix(
+    in srgb,
+    var(--color-info-surface) 40%,
+    var(--color-surface)
+  );
+  box-shadow: inset 3px 0 var(--color-info);
+}
+
+/* Recent deliveries: native table, whole row is the link target */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.dash-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.dash-table th:nth-child(1) {
+  width: 30%;
+}
+
+.dash-table th:nth-child(2) {
+  width: 20%;
+}
+
+.dash-table th:nth-child(3) {
+  width: 20%;
+}
+
+.dash-table th:nth-child(4) {
+  width: 14%;
+}
+
+.dash-table th:nth-child(5) {
+  width: 16%;
+}
+
+.dash-table td.dash-cell-main {
+  display: table-cell;
+}
+
+.dash-cell-main a,
+.dash-cell-main small {
+  display: block;
+}
+
+.dash-table th,
+.dash-table td {
+  padding: 10px var(--space-3) 10px 0;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.dash-table th {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.dash-table th:nth-child(n + 4),
+.dash-table td:nth-child(n + 4) {
+  padding-right: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-table td {
+  overflow: hidden;
+  color: var(--color-text-secondary-subtle);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dash-table-row {
+  position: relative;
+}
+
+.dash-table-row:hover {
+  background: var(--color-surface-subtle);
+}
+
+.dash-table-row:has(a:focus-visible) {
+  outline: 2px solid var(--color-info);
+  outline-offset: -2px;
+}
+
+@media (max-width: 640px) {
+  .dash-table th:nth-child(3),
+  .dash-table td:nth-child(3),
+  .dash-table th:nth-child(4),
+  .dash-table td:nth-child(4) {
     display: none;
   }
 }

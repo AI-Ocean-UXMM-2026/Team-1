@@ -46,12 +46,14 @@ export function LocationMap({
   mode = "customer",
   isDemo,
   tall = false,
+  compact = false,
 }: {
   order: DeliveryOrder | null;
   orders?: DeliveryOrder[];
   mode?: "customer" | "rider" | "manager";
   isDemo: boolean;
   tall?: boolean;
+  compact?: boolean;
 }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [now, setNow] = useState(0);
@@ -256,36 +258,38 @@ export function LocationMap({
 
   return (
     <section
-      className={`map-card ${tall ? "map-card-tall" : ""}`}
+      className={`map-card ${tall ? "map-card-tall" : ""} ${compact ? "map-card-compact" : ""}`}
       aria-label="Delivery location map"
     >
-      <div className="map-toolbar">
-        <div className="map-toolbar-copy">
-          <span className="map-toolbar-eyebrow">
-            {mode === "manager" ? "Dispatch map" : "Delivery map"}
-          </span>
-          <span className="map-toolbar-title">
-            {order?.tracking_code ?? "Yangon operations"}
-          </span>
+      {!compact && (
+        <div className="map-toolbar">
+          <div className="map-toolbar-copy">
+            <span className="map-toolbar-eyebrow">
+              {mode === "manager" ? "Dispatch map" : "Delivery map"}
+            </span>
+            <span className="map-toolbar-title">
+              {order?.tracking_code ?? "Yangon operations"}
+            </span>
+          </div>
+          <div
+            className={`map-live-pill ${liveRiderCount && !isDemo ? "is-connected" : ""}`}
+          >
+            <span className="live-dot" />
+            {isDemo
+              ? "Simulated tracking"
+              : mode === "manager" && liveRiderCount
+                ? `${liveRiderCount} ${liveRiderCount === 1 ? "rider" : "riders"} live`
+                : mode !== "manager" &&
+                    parcelLocationState(order, now) === "closed"
+                  ? "Tracking ended"
+                  : liveRiderCount
+                    ? "Live GPS"
+                    : trackedOrders.length
+                      ? "Last known location"
+                      : "Location pending"}
+          </div>
         </div>
-        <div
-          className={`map-live-pill ${liveRiderCount && !isDemo ? "is-connected" : ""}`}
-        >
-          <span className="live-dot" />
-          {isDemo
-            ? "Simulated tracking"
-            : mode === "manager" && liveRiderCount
-              ? `${liveRiderCount} ${liveRiderCount === 1 ? "rider" : "riders"} live`
-              : mode !== "manager" &&
-                  parcelLocationState(order, now) === "closed"
-                ? "Tracking ended"
-                : liveRiderCount
-                  ? "Live GPS"
-                  : trackedOrders.length
-                    ? "Last known location"
-                    : "Location pending"}
-        </div>
-      </div>
+      )}
 
       <div data-map-id={mode} className="map-viewport">
         {tiles.length ? (

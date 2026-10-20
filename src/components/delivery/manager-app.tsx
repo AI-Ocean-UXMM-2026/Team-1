@@ -45,6 +45,12 @@ const managerNavItems = [
 export type ManagerView = (typeof managerNavItems)[number]["id"];
 
 type OrderFilter = "all" | "unassigned" | "moving";
+type Workspace = ReturnType<typeof useWorkspace>;
+type Notice = {
+  scope: "assign" | "reports" | "riders";
+  tone: "success" | "error";
+  text: string;
+};
 
 function vehicleText(value: string) {
   return value
@@ -62,12 +68,24 @@ export function ManagerApp({ view }: { view: ManagerView }) {
 }
 
 function ManagerWorkspace({ view }: { view: ManagerView }) {
-  const searchParams = useSearchParams();
   const workspace = useWorkspace("manager");
+  return <ManagerDashboard view={view} workspace={workspace} />;
+}
+
+export function ManagerDashboard({
+  view,
+  workspace,
+}: {
+  view: ManagerView;
+  workspace: Workspace;
+}) {
+  const searchParams = useSearchParams();
   const [selectedId, setSelectedId] = useState(searchParams.get("id") ?? "");
   const [authOpen, setAuthOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [filter, setFilter] = useState<OrderFilter>(
     searchParams.get("filter") === "unassigned" ? "unassigned" : "all",
   );
@@ -150,6 +168,17 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
     if (view === "track") setFilter("moving");
   }, [view]);
 
+  useEffect(() => {
+    if (!workspace.isLoading && workspace.data)
+      setUpdatedAt(new Date().toISOString());
+  }, [workspace.isLoading, workspace.data]);
+
+  useEffect(() => {
+    if (notice?.tone !== "success") return;
+    const timer = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   if (workspace.isLoading)
     return <LoadingBlock title="Opening dispatch operations…" />;
 
@@ -159,7 +188,8 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
   ) {
     if (!selectedOrder || !canAssign) return;
     setSaving(true);
-    setError(null);
+    setPendingKey(`${driverId}-${vehicleId ?? "none"}`);
+    setNotice(null);
     try {
       if (workspace.isDemo || selectedOrder.id.startsWith("demo-")) {
         const driver = workspace.data.drivers.find(
@@ -203,20 +233,32 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
         });
         await workspace.refresh();
       }
+      const riderName =
+        workspace.data.drivers.find((item) => item.id === driverId)
+          ?.full_name || "the rider";
+      setNotice({
+        scope: "assign",
+        tone: "success",
+        text: `${selectedOrder.tracking_code} assigned to ${riderName}.`,
+      });
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not assign this delivery.",
-      );
+      setNotice({
+        scope: "assign",
+        tone: "error",
+        text:
+          cause instanceof Error
+            ? cause.message
+            : "Could not assign this delivery.",
+      });
     } finally {
       setSaving(false);
+      setPendingKey(null);
     }
   }
 
   async function toggleAvailability(driver: DriverOption) {
     setSaving(true);
-    setError(null);
+    setNotice(null);
     const availability =
       driver.availability === "off_duty"
         ? assignedDrivers.has(driver.id)
@@ -239,12 +281,20 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
           "Refresh your manager workspace before changing rider availability.",
         );
       }
+      setNotice({
+        scope: "riders",
+        tone: "success",
+        text: `${driver.full_name || "Rider"} is now ${availability === "off_duty" ? "off duty" : "on duty"}.`,
+      });
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not update this rider's availability.",
-      );
+      setNotice({
+        scope: "riders",
+        tone: "error",
+        text:
+          cause instanceof Error
+            ? cause.message
+            : "Could not update this rider's availability.",
+      });
     } finally {
       setSaving(false);
     }
@@ -255,7 +305,7 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
     decision: "verified" | "rejected",
   ) {
     setSaving(true);
-    setError(null);
+    setNotice(null);
     try {
       if (workspace.isDemo || reportId.startsWith("demo-")) {
         workspace.updateData((previous) => ({
@@ -272,16 +322,34 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
           "Refresh the manager workspace before reviewing reports.",
         );
       }
+      setNotice({
+        scope: "reports",
+        tone: "success",
+        text:
+          decision === "verified"
+            ? "Report verified. It now feeds ETA predictions."
+            : "Report rejected.",
+      });
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not review this road report.",
-      );
+      setNotice({
+        scope: "reports",
+        tone: "error",
+        text:
+          cause instanceof Error
+            ? cause.message
+            : "Could not review this road report.",
+      });
     } finally {
       setSaving(false);
     }
   }
+
+  const signedOut = !workspace.isAuthenticated && !workspace.isDemo;
+  const attentionTotal =
+    summary.needsRider +
+    summary.delayed +
+    summary.codPending +
+    summary.pendingReports;
 
   const pageCopy = {
     home: {
@@ -318,8 +386,12 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
             >
               <Icon name={item.icon} size={17} />
               {item.label}
-              {item.id === "track" && <span>{movingCount}</span>}
-              {item.id === "order" && <span>{orders.length}</span>}
+              {item.id === "track" && movingCount > 0 && (
+                <span>{movingCount}</span>
+              )}
+              {item.id === "order" && orders.length > 0 && (
+                <span>{orders.length}</span>
+              )}
             </Link>
           ))}
           <Link href="/manager/insights">
@@ -342,8 +414,21 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
           <Brand href="/manager/home" />
           <div className="manager-topbar-right">
             <span className="manager-date">
-              <Icon name="history" size={14} /> Live operations · Yangon
+              {signedOut
+                ? "Not signed in"
+                : updatedAt
+                  ? `Updated ${formatTime(updatedAt)}`
+                  : "Loading…"}
             </span>
+            <button
+              type="button"
+              className="icon-button manager-refresh"
+              aria-label="Refresh data"
+              onClick={() => void workspace.refresh()}
+              disabled={saving || signedOut}
+            >
+              <Icon name="history" size={16} />
+            </button>
             <UserActions
               profile={workspace.profile}
               isAuthenticated={workspace.isAuthenticated}
@@ -363,18 +448,12 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
               </span>
             </div>
           )}
-          {(error || workspace.error) && (
+          {workspace.error && (
             <div className="error-notice manager-error" role="alert">
               <Icon name="warning" size={17} />
-              {error ?? workspace.error}
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  void workspace.refresh();
-                }}
-              >
-                Dismiss
+              {workspace.error}
+              <button type="button" onClick={() => void workspace.refresh()}>
+                Retry
               </button>
             </div>
           )}
@@ -384,7 +463,28 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
             <p>{pageCopy.description}</p>
           </header>
 
-          {view === "home" && (
+          {view === "home" && signedOut && (
+            <section
+              className="dash-card dash-signin"
+              aria-label="Sign in required"
+            >
+              <h2>Sign in to see live operations</h2>
+              <p>
+                Deliveries, riders and road reports appear here once you are
+                signed in with a manager account.
+              </p>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => setAuthOpen(true)}
+              >
+                Sign in
+                <Icon name="arrow-right" size={16} />
+              </button>
+            </section>
+          )}
+
+          {view === "home" && !signedOut && (
             <div className="dash-overview">
               <div className="dash-main">
                 <section className="dash-card" aria-label="Delivery metrics">
@@ -392,18 +492,18 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
                     <KpiCell
                       label="Live now"
                       value={movingCount}
-                      hint="Parcels on the move"
+                      hint="On the road"
                       tone="live"
                     />
                     <KpiCell
                       label="Active"
                       value={activeCount}
-                      hint="Assigned or in progress"
+                      hint="Assigned or moving"
                     />
                     <KpiCell
                       label="Delivered"
                       value={deliveredCount}
-                      hint="Completed in this queue"
+                      hint="All time"
                     />
                     <KpiCell
                       label="At risk"
@@ -414,18 +514,30 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
                   </div>
                   <div className="dash-trend">
                     <span>Orders created · last 12 h</span>
-                    <Sparkline values={hourly} />
+                    {hourly.some((count) => count > 0) ? (
+                      <Sparkline values={hourly} />
+                    ) : (
+                      <span className="dash-trend-empty">
+                        None in the last 12 h
+                      </span>
+                    )}
                   </div>
                 </section>
 
                 <section className="dash-card" aria-label="Live map">
                   <CardHeader title="Live map" meta={`${movingCount} live`} />
-                  <LocationMap
-                    order={null}
-                    orders={movingOrders}
-                    mode="manager"
-                    isDemo={workspace.isDemo}
-                  />
+                  <div className="dash-map">
+                    <LocationMap
+                      order={null}
+                      orders={movingOrders}
+                      mode="manager"
+                      isDemo={workspace.isDemo}
+                      compact
+                    />
+                    {movingCount === 0 && (
+                      <p className="dash-map-empty">No parcels on the move</p>
+                    )}
+                  </div>
                 </section>
 
                 <section className="dash-card" aria-label="Recent deliveries">
@@ -434,75 +546,90 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
                       View queue
                     </Link>
                   </CardHeader>
-                  <div className="dash-table">
-                    <div className="dash-table-head">
-                      <span>Delivery</span>
-                      <span>Status</span>
-                      <span>Rider</span>
-                      <span>ETA</span>
-                      <span>COD</span>
-                    </div>
-                    {recentList.map((order) => (
-                      <Link
-                        key={order.id}
-                        className="dash-table-row"
-                        href={`/manager/order?id=${order.id}`}
-                      >
-                        <span className="dash-cell-main">
-                          <strong>{order.tracking_code}</strong>
-                          <small>{order.customer_name}</small>
-                        </span>
-                        <span>
-                          <StatusBadge status={order.status} />
-                        </span>
-                        <span>{order.driver_name || "Unassigned"}</span>
-                        <span>{formatTime(order.estimated_delivery_at)}</span>
-                        <span>
-                          {order.cod_amount > 0
-                            ? currency.format(order.cod_amount)
-                            : "—"}
-                        </span>
-                      </Link>
-                    ))}
-                    {!recentList.length && (
-                      <p className="dash-empty">No deliveries yet.</p>
-                    )}
-                  </div>
+                  <table className="dash-table">
+                    <caption className="visually-hidden">
+                      Recent deliveries
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Delivery</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Rider</th>
+                        <th scope="col">ETA</th>
+                        <th scope="col">COD</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentList.map((order) => (
+                        <tr key={order.id} className="dash-table-row">
+                          <td className="dash-cell-main">
+                            <Link href={`/manager/order?id=${order.id}`}>
+                              <strong>{order.tracking_code}</strong>
+                            </Link>
+                            <small>{order.customer_name}</small>
+                          </td>
+                          <td>
+                            <StatusBadge status={order.status} />
+                          </td>
+                          <td className="dash-cell-truncate">
+                            {order.driver_name || "Unassigned"}
+                          </td>
+                          <td>{formatTime(order.estimated_delivery_at)}</td>
+                          <td>
+                            {order.cod_amount > 0
+                              ? currency.format(order.cod_amount)
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!recentList.length && (
+                    <p className="dash-empty">No deliveries yet.</p>
+                  )}
                 </section>
               </div>
 
               <aside className="dash-rail">
                 <section className="dash-card" aria-label="Needs attention">
-                  <CardHeader title="Needs attention" />
+                  <CardHeader
+                    title="Needs attention"
+                    meta={
+                      attentionTotal ? `${attentionTotal} open` : "All clear"
+                    }
+                  />
                   <ul className="dash-list">
-                    <li>
-                      <Link href="/manager/order?filter=unassigned">
-                        <span>Needs rider</span>
-                        <strong>{summary.needsRider}</strong>
-                        <Icon name="arrow-right" size={14} />
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/manager/track">
-                        <span>Delayed on route</span>
-                        <strong>{summary.delayed}</strong>
-                        <Icon name="arrow-right" size={14} />
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/manager/insights">
-                        <span>COD to settle</span>
-                        <strong>{summary.codPending}</strong>
-                        <Icon name="arrow-right" size={14} />
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/manager/track#road-knowledge">
-                        <span>Road reports</span>
-                        <strong>{summary.pendingReports}</strong>
-                        <Icon name="arrow-right" size={14} />
-                      </Link>
-                    </li>
+                    {(
+                      [
+                        [
+                          "Needs rider",
+                          summary.needsRider,
+                          "/manager/order?filter=unassigned",
+                        ],
+                        ["Delayed on route", summary.delayed, "/manager/track"],
+                        [
+                          "COD to settle",
+                          summary.codPending,
+                          "/manager/insights",
+                        ],
+                        [
+                          "Road reports",
+                          summary.pendingReports,
+                          "/manager/track#road-knowledge",
+                        ],
+                      ] as const
+                    ).map(([label, value, href]) => (
+                      <li
+                        key={label}
+                        className={value > 0 ? "is-alert" : "is-clear"}
+                      >
+                        <Link href={href}>
+                          <span>{label}</span>
+                          <strong>{value}</strong>
+                          <Icon name="arrow-right" size={14} />
+                        </Link>
+                      </li>
+                    ))}
                   </ul>
                 </section>
 
@@ -513,8 +640,14 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
                       <Link href="/manager/profile">
                         <span>Riders free</span>
                         <strong>
-                          {freeRiders}
-                          <small> / {workspace.data.drivers.length}</small>
+                          {workspace.data.drivers.length ? (
+                            <>
+                              {freeRiders}
+                              <small> / {workspace.data.drivers.length}</small>
+                            </>
+                          ) : (
+                            "—"
+                          )}
                         </strong>
                         <Icon name="arrow-right" size={14} />
                       </Link>
@@ -523,8 +656,14 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
                       <Link href="/manager/profile">
                         <span>Vehicles ready</span>
                         <strong>
-                          {availableVehicles.length}
-                          <small> / {workspace.data.vehicles.length}</small>
+                          {workspace.data.vehicles.length ? (
+                            <>
+                              {availableVehicles.length}
+                              <small> / {workspace.data.vehicles.length}</small>
+                            </>
+                          ) : (
+                            "—"
+                          )}
                         </strong>
                         <Icon name="arrow-right" size={14} />
                       </Link>
@@ -658,6 +797,7 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
                           </span>
                           <small>Workload · proximity · vehicle fit</small>
                         </div>
+                        <NoticeStrip notice={notice} scope="assign" />
                         {recommendations.length ? (
                           <div className="recommendation-list">
                             {recommendations.map((recommendation, index) => {
@@ -712,11 +852,14 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
                                       saving || !!workspace.error || isCurrent
                                     }
                                   >
-                                    {isCurrent
-                                      ? "Assigned"
-                                      : selectedOrder.driver_id
-                                        ? "Reassign"
-                                        : "Assign"}
+                                    {pendingKey ===
+                                    `${recommendation.driverId}-${recommendation.vehicleId ?? "none"}`
+                                      ? "Assigning…"
+                                      : isCurrent
+                                        ? "Assigned"
+                                        : selectedOrder.driver_id
+                                          ? "Reassign"
+                                          : "Assign"}
                                   </button>
                                 </div>
                               );
@@ -806,6 +949,7 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
           {view === "profile" && (
             <section className="dash-card" id="drivers">
               <CardHeader title="Riders" />
+              <NoticeStrip notice={notice} scope="riders" />
               <ul className="dash-list dash-roster">
                 {workspace.data.drivers.map((driver) => {
                   const riding = assignedDrivers.has(driver.id);
@@ -925,6 +1069,7 @@ function ManagerWorkspace({ view }: { view: ManagerView }) {
                 Verify fresh rider reports before they influence predictive
                 ETAs.
               </p>
+              <NoticeStrip notice={notice} scope="reports" />
               <div className="road-report-list">
                 {workspace.data.roadReports
                   .filter((report) => report.status === "pending")
@@ -1003,9 +1148,7 @@ function KpiCell({
   return (
     <div className={`dash-kpi ${tone ? `is-${tone}` : ""}`}>
       <span className="dash-kpi-label">{label}</span>
-      <strong className="dash-kpi-value">
-        {value.toString().padStart(2, "0")}
-      </strong>
+      <strong className="dash-kpi-value">{value}</strong>
       <span className="dash-kpi-hint">{hint}</span>
     </div>
   );
@@ -1031,8 +1174,32 @@ function CardHeader({
   );
 }
 
+function NoticeStrip({
+  notice,
+  scope,
+}: {
+  notice: Notice | null;
+  scope: Notice["scope"];
+}) {
+  const active = notice?.scope === scope ? notice : null;
+  return (
+    <div className="dash-notice-slot" aria-live="polite">
+      {active && (
+        <p className={`dash-notice is-${active.tone}`}>
+          <Icon
+            name={active.tone === "success" ? "check" : "warning"}
+            size={15}
+          />
+          {active.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Sparkline({ values }: { values: number[] }) {
   const max = Math.max(1, ...values);
+  const total = values.reduce((sum, value) => sum + value, 0);
   const step = values.length > 1 ? 100 / (values.length - 1) : 100;
   const points = values
     .map((value, index) => {
@@ -1046,7 +1213,8 @@ function Sparkline({ values }: { values: number[] }) {
       className="dash-sparkline"
       viewBox="0 0 100 24"
       preserveAspectRatio="none"
-      aria-hidden="true"
+      role="img"
+      aria-label={`${total} orders created in the last ${values.length} hours, at most ${max} in one hour`}
     >
       <polyline
         points={points}
