@@ -4669,8 +4669,8 @@ summary:focus-visible {
   display: grid;
   gap: 7px;
   padding: 14px;
-  border-left: 3px solid var(--color-info);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  border: 1px solid color-mix(in srgb, var(--color-info) 22%, transparent);
+  border-radius: var(--radius-md);
   background: var(--color-info-surface);
 }
 
