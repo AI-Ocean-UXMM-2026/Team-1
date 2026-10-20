@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -8,7 +9,6 @@ import {
   Brand,
   DemoBadge,
   LoadingBlock,
-  MobileNav,
   StatusBadge,
   signOut,
   UserActions,
@@ -94,6 +94,7 @@ export function RiderApp({ view }: { view: RiderView }) {
   );
   const [locationError, setLocationError] = useState<string | null>(null);
   const [lastLocationSent, setLastLocationSent] = useState<string | null>(null);
+  const [mapExpanded, setMapExpanded] = useState(false);
   const [codBusy, setCodBusy] = useState(false);
   const [energyLevel, setEnergyLevel] = useState("");
   const [roadCategory, setRoadCategory] =
@@ -581,7 +582,7 @@ export function RiderApp({ view }: { view: RiderView }) {
     selectedOrder && ["picked_up", "in_transit"].includes(selectedOrder.status);
 
   return (
-    <main className="rider-app">
+    <main className={`rider-app ${mapExpanded ? "rider-map-is-expanded" : ""}`}>
       <header className="workspace-header rider-header">
         <div className="workspace-header-inner">
           <div className="workspace-title-lockup">
@@ -614,6 +615,20 @@ export function RiderApp({ view }: { view: RiderView }) {
           </div>
         </div>
       </header>
+
+      <nav className="rider-tool-nav" aria-label="Rider tools">
+        {riderNavItems.map((item) => (
+          <Link
+            key={item.id}
+            href={item.href}
+            className={item.id === view ? "is-active" : undefined}
+            aria-current={item.id === view ? "page" : undefined}
+          >
+            <Icon name={item.icon} size={16} />
+            {item.label}
+          </Link>
+        ))}
+      </nav>
 
       {workspace.isDemo && (
         <div className="workspace-demo">
@@ -666,13 +681,55 @@ export function RiderApp({ view }: { view: RiderView }) {
           <div className={`rider-layout rider-layout-${view}`}>
             {view === "route" && (
               <section className="rider-main-column">
-                <div className="rider-map-wrap" id="route">
+                <div className={`rider-map-wrap ${mapExpanded ? "is-expanded" : ""}`} id="route">
+                  <button
+                    type="button"
+                    className="rider-map-mode-button"
+                    onClick={() => setMapExpanded((expanded) => !expanded)}
+                    aria-label={mapExpanded ? "Close full-screen map" : "Open full-screen map"}
+                  >
+                    <Icon name={mapExpanded ? "close" : "navigation"} size={16} />
+                    {mapExpanded ? "Close map" : "Full-screen map"}
+                  </button>
                   <LocationMap
                     order={selectedOrder}
                     mode="rider"
                     isDemo={workspace.isDemo}
                     tall
                   />
+                  {mapExpanded && selectedOrder && (
+                    <div className="rider-map-sheet" aria-live="polite">
+                      <div className="rider-map-sheet-heading">
+                        <div>
+                          <small>
+                            {selectedOrder.status === "in_transit"
+                              ? "Heading your way"
+                              : action?.label ?? "Current delivery"}
+                          </small>
+                          <strong>
+                            {navigatingToPickup
+                              ? "Arriving at pickup"
+                              : "Arriving at customer"}
+                          </strong>
+                        </div>
+                        <StatusBadge status={selectedOrder.status} />
+                      </div>
+                      <div className="rider-map-sheet-route">
+                        <Icon name="location" size={16} />
+                        <span>
+                          {navigatingToPickup
+                            ? selectedOrder.pickup_address
+                            : selectedOrder.delivery_address}
+                        </span>
+                      </div>
+                      <div className="rider-map-sheet-meta">
+                        <span>
+                          <Icon name="history" size={14} /> ETA {formatTime(selectedOrder.estimated_delivery_at)}
+                        </span>
+                        <span>{selectedOrder.tracking_code}</span>
+                      </div>
+                    </div>
+                  )}
                   <div
                     className={`location-sharing-strip ${locationSharing ? "is-sharing" : ""}`}
                   >
@@ -902,7 +959,7 @@ export function RiderApp({ view }: { view: RiderView }) {
                     {action && (
                       <button
                         type="button"
-                        className="button button-primary rider-primary-action"
+                        className={`button button-primary rider-primary-action${mapExpanded ? " rider-primary-action-in-dock" : ""}`}
                         onClick={() => void advanceDelivery()}
                         disabled={
                           busyAction ||
@@ -1218,7 +1275,6 @@ export function RiderApp({ view }: { view: RiderView }) {
           <a href="/manager/home">Operations sign-in</a>
         </footer>
       </div>
-      <MobileNav label="Rider app" items={riderNavItems} activeId={view} />
       <AuthDialog
         open={authOpen}
         audience="team"
