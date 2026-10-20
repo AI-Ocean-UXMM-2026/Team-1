@@ -5048,7 +5048,7 @@ summary:focus-visible {
 
 .provider-tracking-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
