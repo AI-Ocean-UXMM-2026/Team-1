@@ -32,6 +32,26 @@ const theme = createTheme({
       styleOverrides: { root: { minWidth: 48, minHeight: 48 } },
     },
     MuiChip: { styleOverrides: { root: { fontWeight: 650 } } },
+    // Outlined inputs match the native field spec in src/app/form-fields.css.
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          minHeight: 52,
+          borderRadius: 12,
+          background: "#ffffff",
+          fontSize: 16,
+          "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+            borderColor: "#2563eb",
+            borderWidth: 2,
+          },
+          "&.Mui-error .MuiOutlinedInput-notchedOutline": {
+            borderColor: "#dc2626",
+            borderWidth: 2,
+          },
+        },
+        notchedOutline: { borderColor: "#64748b" },
+      },
+    },
   },
 });
 

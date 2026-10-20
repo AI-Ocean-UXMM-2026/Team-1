@@ -776,6 +776,7 @@ export function ManagerDashboard({
                   mode="manager"
                   isDemo={workspace.isDemo}
                   tall
+                  onSelectOrder={setSelectedId}
                 />
                 {selectedOrder ? (
                   <div className="dispatch-detail">
@@ -1037,6 +1038,7 @@ export function ManagerDashboard({
                   mode="manager"
                   isDemo={workspace.isDemo}
                   tall
+                  onSelectOrder={setSelectedId}
                 />
                 {selectedOrder && (
                   <div className="manager-track-summary">

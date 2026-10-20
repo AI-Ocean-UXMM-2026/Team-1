@@ -3,11 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
+import { MapboxLocationMap } from "@/components/delivery/mapbox-location-map";
+import {
+  dispatchRows,
+  latestRecordedAt,
+  locationStatusText,
+} from "@/lib/delivery/dispatch-rows";
 import {
   canShowParcelLocation,
-  hasCollectedParcel,
   parcelLocationState,
 } from "@/lib/delivery/location-state";
+import { hasMapbox } from "@/lib/delivery/mapbox";
 import type { DeliveryOrder } from "@/lib/delivery/types";
 
 type Point = { latitude: number; longitude: number };
@@ -40,7 +46,21 @@ function pointAt(
   };
 }
 
-export function LocationMap({
+export type LocationMapProps = Parameters<typeof OsmLocationMap>[0] & {
+  /** Selects a rider's order from the Mapbox dispatch markers. */
+  onSelectOrder?: (orderId: string) => void;
+};
+
+/** Mapbox when a token is configured; the OSM tile map otherwise. */
+export function LocationMap({ onSelectOrder, ...props }: LocationMapProps) {
+  return hasMapbox ? (
+    <MapboxLocationMap {...props} onSelectOrder={onSelectOrder} />
+  ) : (
+    <OsmLocationMap {...props} />
+  );
+}
+
+function OsmLocationMap({
   order,
   orders,
   mode = "customer",
@@ -98,46 +118,7 @@ export function LocationMap({
       : null;
   const sourceOrders =
     mode === "manager" ? (orders ?? []) : order ? [order] : [];
-  const candidateRows = sourceOrders.flatMap((item) => {
-    const latestLocation = item.latest_location;
-    if (!latestLocation || !canShowParcelLocation(item.status)) return [];
-    return [
-      {
-        order: item,
-        rider: {
-          latitude: latestLocation.latitude,
-          longitude: latestLocation.longitude,
-        },
-        destination:
-          item.delivery_latitude != null && item.delivery_longitude != null
-            ? {
-                latitude: item.delivery_latitude,
-                longitude: item.delivery_longitude,
-              }
-            : null,
-      },
-    ];
-  });
-  const markerRows =
-    mode === "manager"
-      ? Array.from(
-          candidateRows
-            .reduce((rows, row) => {
-              const key = row.order.driver_id ?? row.order.id;
-              const previous = rows.get(key);
-              if (
-                !previous ||
-                row.order.id === order?.id ||
-                (previous.order.id !== order?.id &&
-                  (row.order.latest_location?.recorded_at ?? "") >
-                    (previous.order.latest_location?.recorded_at ?? ""))
-              )
-                rows.set(key, row);
-              return rows;
-            }, new Map<string, (typeof candidateRows)[number]>())
-            .values(),
-        )
-      : candidateRows;
+  const markerRows = dispatchRows(sourceOrders, mode, order);
   const trackedOrders = markerRows.map((row) => row.order);
   const liveRiderCount = trackedOrders.filter(
     (item) => parcelLocationState(item, now) === "live",
@@ -233,28 +214,15 @@ export function LocationMap({
   const pickupPosition = pickupPoint
     ? pointAt(pickupPoint, center, size, zoom)
     : null;
-  const latestTimestamp = trackedOrders.reduce<string | null>(
-    (latest, item) => {
-      const current = item.latest_location?.recorded_at;
-      return current && (!latest || current > latest) ? current : latest;
-    },
-    livePoint ? (order?.latest_location?.recorded_at ?? null) : null,
-  );
-  const locationTime = latestTimestamp
-    ? Math.max(
-        0,
-        Math.floor((now - new Date(latestTimestamp).getTime()) / 60_000),
-      )
-    : null;
-  const locationText = isDemo
-    ? "Simulated location"
-    : locationTime === null
-      ? order && hasCollectedParcel(order.status)
-        ? "Waiting for GPS"
-        : "Available after pickup"
-      : locationTime < 1
-        ? "Just updated"
-        : `Updated ${locationTime}m ago`;
+  const locationText = locationStatusText({
+    isDemo,
+    latestTimestamp: latestRecordedAt(
+      trackedOrders,
+      livePoint ? (order?.latest_location?.recorded_at ?? null) : null,
+    ),
+    now,
+    order,
+  });
 
   return (
     <section

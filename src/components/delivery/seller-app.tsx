@@ -399,7 +399,13 @@ export function SellerApp() {
               <div className="operations-form-row">
                 <label>
                   Tracking code
-                  <input name="tracking" required />
+                  <input
+                    name="tracking"
+                    required
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
                 </label>
                 <label>
                   Order reference

@@ -1,0 +1,193 @@
+import type { GeoJSONSource, Map as MapboxMap } from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { type RefObject, useEffect, useState } from "react";
+
+import type { MapPoint } from "@/lib/delivery/map-projection";
+import { MAPBOX_TOKEN, mapStyle } from "@/lib/delivery/mapbox";
+
+import "./mapbox-map.css";
+
+export type Coordinate = [number, number];
+export type MapboxGl = Awaited<ReturnType<typeof loadMapbox>>;
+
+const YANGON = { latitude: 16.8007, longitude: 96.15 };
+
+/** mapbox-gl is large, so it loads only in the browser, on first map mount. */
+export async function loadMapbox() {
+  const { default: mapboxgl } = await import("mapbox-gl");
+  mapboxgl.accessToken = MAPBOX_TOKEN;
+  return mapboxgl;
+}
+
+export function prefersDark() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
+}
+
+/** Route colours from DESIGN.md §6.3 (map tokens), light and dark. */
+export function mapPalette(dark: boolean) {
+  return dark
+    ? {
+        route: "#60A5FA",
+        casing: "#0F172A",
+        driver: "#F8FAFC",
+        driverCasing: "#0F172A",
+        destination: "#FB923C",
+        origin: "#94A3B8",
+        completed: "#4ADE80",
+        alert: "#F87171",
+      }
+    : {
+        route: "#2563EB",
+        casing: "#FFFFFF",
+        driver: "#172B4D",
+        driverCasing: "#FFFFFF",
+        destination: "#C2410C",
+        origin: "#64748B",
+        completed: "#16A34A",
+        alert: "#DC2626",
+      };
+}
+
+export function lngLat(point: MapPoint): Coordinate {
+  return [point.longitude, point.latitude];
+}
+
+/**
+ * Creates the map once and reports it when the style has loaded.
+ * `null` until then; callers draw nothing before that.
+ */
+export function useMapboxMap(
+  container: RefObject<HTMLDivElement | null>,
+  interactive: boolean,
+) {
+  const [state, setState] = useState<{
+    map: MapboxMap;
+    gl: MapboxGl;
+  } | null>(null);
+
+  useEffect(() => {
+    let map: MapboxMap | null = null;
+    let cancelled = false;
+    loadMapbox().then((gl) => {
+      if (cancelled || !container.current) return;
+      map = new gl.Map({
+        container: container.current,
+        style: mapStyle(prefersDark()),
+        center: lngLat(YANGON),
+        zoom: 14,
+        interactive,
+        attributionControl: true,
+      });
+      const created = map;
+      created.on("load", () => {
+        if (!cancelled) setState({ map: created, gl });
+      });
+    });
+    return () => {
+      cancelled = true;
+      map?.remove();
+      setState(null);
+    };
+  }, [container, interactive]);
+
+  return state;
+}
+
+/** Fits the view to `points`, keeping room for the overlay bands. */
+export function fitToPoints(
+  map: MapboxMap,
+  points: MapPoint[],
+  padding: { x: number; top: number; bottom: number },
+  maxZoom: number,
+) {
+  if (!points.length) return;
+  if (points.length === 1) {
+    map.easeTo({
+      center: lngLat(points[0]),
+      zoom: Math.min(maxZoom, 16),
+      duration: 600,
+    });
+    return;
+  }
+  const longitudes = points.map((point) => point.longitude);
+  const latitudes = points.map((point) => point.latitude);
+  map.fitBounds(
+    [
+      [Math.min(...longitudes), Math.min(...latitudes)],
+      [Math.max(...longitudes), Math.max(...latitudes)],
+    ],
+    {
+      padding: {
+        top: padding.top,
+        bottom: padding.bottom,
+        left: padding.x,
+        right: padding.x,
+      },
+      maxZoom,
+      duration: 600,
+    },
+  );
+}
+
+type LineStyle = { color: string; width: number; dash?: number[] };
+
+/**
+ * Draws (or replaces) one GeoJSON line layer. Call only after the map has
+ * loaded. Layers added later sit above earlier ones, so draw casings first.
+ */
+export function drawLines(
+  map: MapboxMap,
+  id: string,
+  lines: Coordinate[][],
+  style: LineStyle,
+) {
+  const data = {
+    type: "FeatureCollection" as const,
+    features: lines
+      .filter((coordinates) => coordinates.length > 1)
+      .map((coordinates) => ({
+        type: "Feature" as const,
+        properties: {},
+        geometry: { type: "LineString" as const, coordinates },
+      })),
+  };
+  const source = map.getSource<GeoJSONSource>(id);
+  if (source) {
+    source.setData(data);
+    return;
+  }
+  map.addSource(id, { type: "geojson", data });
+  map.addLayer({
+    id,
+    type: "line",
+    source: id,
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": style.color,
+      "line-width": style.width,
+      ...(style.dash ? { "line-dasharray": style.dash } : {}),
+    },
+  });
+}
+
+/**
+ * A marker element holding a static SVG. Only pass literal markup or numbers
+ * here; text from data goes in through `textContent` or attributes.
+ */
+export function svgMarker(inner: string, size: number, viewBox: string) {
+  const element = document.createElement("div");
+  element.className = "mapbox-marker";
+  element.innerHTML = `<svg width="${size}" height="${size}" viewBox="${viewBox}" aria-hidden="true" overflow="visible">${inner}</svg>`;
+  return element;
+}
+
+/** A label that shows data safely as text, styled to read over the map. */
+export function labelElement(text: string) {
+  const label = document.createElement("span");
+  label.className = "mapbox-marker-label";
+  label.textContent = text;
+  return label;
+}

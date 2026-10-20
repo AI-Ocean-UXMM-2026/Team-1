@@ -796,7 +796,6 @@ function TrackingField({
         </InputAdornment>
       }
       sx={{
-        borderRadius: "999px",
         bgcolor: "background.paper",
         pr: 0.5,
         pl: 1.5,

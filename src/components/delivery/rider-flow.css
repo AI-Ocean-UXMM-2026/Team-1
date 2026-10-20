@@ -989,12 +989,50 @@
   overflow-wrap: anywhere;
 }
 
-.rf-contact {
+.rf-quick-actions {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  margin: 10px 0 0;
+  padding: 0;
+  border: none;
+}
+
+.rf-quick-action {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  width: 100%;
-  margin-top: 6px;
+  flex: 1;
+  place-items: center;
+  gap: 3px;
+  min-height: 56px;
+  padding: 6px 4px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.rf-quick-action:active {
+  background: var(--color-surface-subtle);
+}
+
+.rf-must-know {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rf-leg-type.is-pickup {
+  color: #64748b;
+}
+
+.rf-leg-type.is-dropoff {
+  color: var(--color-map-destination);
 }
 
 .rf-sheet-actions {
@@ -1622,13 +1660,190 @@
 
 @media (max-width: 359px) {
   .rf-choice-row,
-  .rf-dialog-actions,
-  .rf-contact {
+  .rf-dialog-actions {
     grid-template-columns: 1fr;
+  }
+
+  .rf-quick-actions {
+    flex-wrap: wrap;
+  }
+
+  .rf-quick-action {
+    flex: 1 1 calc(50% - 4px);
   }
 
   .rf-nav-instruction strong {
     font-size: 18px;
     line-height: 24px;
   }
+}
+
+/* ---------- route progress (nav header) ---------- */
+
+.rf-route-progress {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-surface);
+  box-shadow: var(--rf-shadow-float);
+}
+
+.rf-route-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-brand-orange-action);
+  transition: width 240ms var(--rf-ease);
+}
+
+/* ---------- outcome step indicator ---------- */
+
+.rf-step-dots {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.rf-step-dots li {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.rf-step-dots li > span {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+.rf-step-dots li.is-current,
+.rf-step-dots li.is-done {
+  color: var(--color-text-primary);
+}
+
+.rf-step-dots li.is-current > span,
+.rf-step-dots li.is-done > span {
+  background: var(--color-brand-orange-action);
+}
+
+/* ---------- outcome review card ---------- */
+
+.rf-review-card {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.rf-review-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.rf-review-row > span {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.rf-review-row > strong {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.rf-review-row > strong.is-success {
+  color: var(--color-success);
+}
+
+.rf-review-row > strong.is-failed {
+  color: var(--color-error);
+}
+
+/* ---------- slide to confirm ---------- */
+
+.rf-confirm-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.rf-slide-track {
+  position: relative;
+  height: 56px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  overflow: hidden;
+  touch-action: none;
+}
+
+.rf-slide-track.is-disabled {
+  opacity: 0.6;
+}
+
+.rf-slide-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--color-brand-orange-action);
+  opacity: 0.18;
+}
+
+.rf-slide-track.is-dragging .rf-slide-fill {
+  transition: none;
+}
+
+.rf-slide-track:not(.is-dragging) .rf-slide-fill {
+  transition: width 180ms var(--rf-ease);
+}
+
+.rf-slide-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.rf-slide-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-brand-orange-action);
+  color: var(--color-text-inverse);
+  cursor: grab;
+  touch-action: none;
+}
+
+.rf-slide-track:not(.is-dragging) .rf-slide-thumb {
+  transition: transform 180ms var(--rf-ease);
+}
+
+.rf-slide-thumb:active {
+  cursor: grabbing;
+}
+
+.rf-slide-thumb:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }

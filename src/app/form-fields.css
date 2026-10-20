@@ -1,0 +1,87 @@
+/*
+ * Shared form fields. One spec for every text input, select and textarea
+ * (DESIGN.md §9.6). Loaded after the per-screen stylesheets so it wins the
+ * cascade; new field wrappers should be added to FIELD_WRAPPERS below.
+ */
+
+/* Wrappers that hold a label and its field. */
+:is(.field-label, .rf-field, .operations-field, .operations-form, .form-field)
+  :is(input, select, textarea):not([type="radio"], [type="checkbox"], [type="hidden"]) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  height: auto;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  /* 16px keeps mobile browsers from zooming in on focus. */
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 22px;
+  caret-color: var(--color-brand-orange-action);
+}
+
+:is(.field-label, .rf-field, .operations-field, .operations-form, .form-field)
+  textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+:is(.field-label, .rf-field, .operations-field, .operations-form, .form-field)
+  :is(input, select, textarea):not([type="radio"], [type="checkbox"], [type="hidden"]):focus-visible {
+  outline: 3px solid var(--color-info);
+  outline-offset: 0;
+  border-color: var(--color-info);
+}
+
+:is(.field-label, .rf-field, .operations-field, .operations-form, .form-field)
+  :is(input, select, textarea)::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 1;
+}
+
+:is(.field-label, .rf-field, .operations-field, .operations-form, .form-field)
+  :is(input, select, textarea):disabled {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+
+/* Error state: a 2px red boundary, set by aria-invalid on the field. */
+:is(.field-label, .rf-field, .operations-field, .operations-form, .form-field)
+  :is(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--color-error);
+  box-shadow: inset 0 0 0 1px var(--color-error);
+}
+
+/* Labels share one size and weight across every form. */
+.field-label,
+.rf-field,
+.operations-field,
+.operations-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.rf-field-help,
+.rf-field-warn {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Inline messages match the field text size. */
+.form-message {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  line-height: 20px;
+}

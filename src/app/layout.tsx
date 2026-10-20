@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./globals-late.css";
+import "./form-fields.css";
 import { MuiProvider } from "@/components/delivery/mui-provider";
 
 export const metadata: Metadata = {

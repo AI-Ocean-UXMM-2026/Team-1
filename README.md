@@ -34,7 +34,7 @@ Signed-out visitors and accounts with no orders see clearly labeled sample deliv
 
 Rider pickup confirmation enables browser GPS sharing after location permission is granted. One GPS watch updates every collected parcel assigned to that rider, even when another task is selected. Customer and management maps subscribe to Supabase Realtime; reconnection and periodic refresh reconcile missed updates and new assignments. Tracking stops for an order when it is delivered, failed, or cancelled. Stale points are identified as last-known locations.
 
-GPS sharing requires the rider app to remain open. Browser tracking does not provide reliable background operation when the phone locks or the app closes. ETA is recalculated from route progress, the assigned vehicle's expected speed, and verified rider road reports. It is an operational estimate rather than live traffic-provider routing. Automatic street routing, push/SMS notifications, and native background tracking remain future work. Map lines show parcel positions and destinations; navigation opens Google Maps.
+GPS sharing requires the rider app to remain open. Browser tracking does not provide reliable background operation when the phone locks or the app closes. ETA is recalculated from route progress, the assigned vehicle's expected speed, and verified rider road reports. It is an operational estimate rather than live traffic-provider routing. Push/SMS notifications and native background tracking remain future work. With `NEXT_PUBLIC_MAPBOX_TOKEN` set, maps draw road routes with drive time; without it they fall back to OpenStreetMap tiles with straight-line lines. Turn-by-turn navigation still opens Google Maps.
 
 ## Product capabilities
 
@@ -45,7 +45,7 @@ GPS sharing requires the rider app to remain open. Browser tracking does not pro
 - **Seller and support operations:** Accept seller delivery requests and external order imports, monitor provider shipments, and manage customer support cases.
 - **Fleet and cost analytics:** Record maintenance history, due service, fuel, charging, toll, labor, and other delivery costs.
 - **Integrations:** Register commerce or logistics providers and combine local and external shipments in customer, seller, and support views.
-- **Intelligence and automation:** Explainable rider and vehicle recommendations, route-progress ETA predictions, and manager-verified road knowledge, with automatic street routing and exception alerts still to come.
+- **Intelligence and automation:** Explainable rider and vehicle recommendations, route-progress ETA predictions, and manager-verified road knowledge, with exception alerts still to come.
 
 ## Development roadmap
 
@@ -57,7 +57,7 @@ Order and fleet management, manual delivery assignment with basic recommendation
 
 ### P1 · Intelligence and automation
 
-Explainable assignment recommendations, validated driver-submitted local road knowledge, predictive ETA, fuel and battery route readiness, and seller order views are available in the current application. Automated assignment, automatic street routing, delayed-delivery alerts, and deeper operational analytics remain planned.
+Explainable assignment recommendations, validated driver-submitted local road knowledge, predictive ETA, fuel and battery route readiness, and seller order views are available in the current application. Automated assignment, delayed-delivery alerts, and deeper operational analytics remain planned.
 
 ### P2 · Advanced optimization and integrations
 
@@ -94,6 +94,14 @@ bun run start
 ```
 
 The regression tests use Node's built-in test runner with TypeScript stripping (Node 22.18 or later). They cover assignment recommendations, multi-parcel GPS sharing, lifecycle cleanup, location freshness, and workspace Realtime updates. SQL workflow checks in `supabase/tests/delivery_workflows.sql` run inside a transaction and roll back their fixture records.
+
+## Maps
+
+Maps use Mapbox GL for road routes and drive times. Add a public Mapbox token to `.env.local`. Without it, the app uses the OpenStreetMap fallback:
+
+```bash
+NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_public_token
+```
 
 ## Supabase
 

@@ -132,7 +132,13 @@ export function CustomerProviderTracking() {
             </label>
             <label>
               Tracking code
-              <input name="tracking" required />
+              <input
+                name="tracking"
+                required
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+              />
             </label>
             <label>
               Tracking URL

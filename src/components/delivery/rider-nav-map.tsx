@@ -4,6 +4,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
+import { MapboxRiderNavMap } from "@/components/delivery/mapbox-rider-nav-map";
 import {
   type MapPoint,
   pointAt,
@@ -11,6 +12,7 @@ import {
   tilesFor,
   toWorldPixel,
 } from "@/lib/delivery/map-projection";
+import { hasMapbox, type RoadRoute } from "@/lib/delivery/mapbox";
 
 export type NavStop = {
   id: string;
@@ -23,6 +25,20 @@ export type NavStop = {
 const MAX_ZOOM = 17;
 const MIN_ZOOM = 11;
 const YANGON = { latitude: 16.8007, longitude: 96.15 };
+
+export type RiderNavMapProps = Parameters<typeof OsmRiderNavMap>[0] & {
+  /** Mapbox road route. When absent, the straight-line fallback is drawn. */
+  road?: RoadRoute | null;
+};
+
+/** Mapbox when a token is configured; the OSM tile map otherwise. */
+export function RiderNavMap({ road = null, ...props }: RiderNavMapProps) {
+  return hasMapbox ? (
+    <MapboxRiderNavMap {...props} road={road} />
+  ) : (
+    <OsmRiderNavMap {...props} />
+  );
+}
 
 function fitZoom(
   points: MapPoint[],
@@ -52,7 +68,7 @@ function fitZoom(
  * Full-bleed rider map. Draws a direct line from the rider to the next target —
  * Oern has no street-routing service yet, so the line is never presented as a road route.
  */
-export function RiderNavMap({
+function OsmRiderNavMap({
   driver,
   heading,
   target,

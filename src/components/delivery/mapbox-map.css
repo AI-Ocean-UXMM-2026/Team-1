@@ -1,0 +1,33 @@
+/* Mapbox markers are plain DOM nodes, so they are styled here, outside the SVG overlays. */
+
+.mapbox-marker {
+  display: block;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.mapbox-marker-label {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 4px);
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--color-surface-raised, #ffffff);
+  color: var(--color-text-primary, #172b4d);
+  box-shadow: 0 1px 3px rgb(23 43 77 / 0.25);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.mapboxgl-ctrl-attrib {
+  font-size: 10px;
+}
+
+.mapbox-canvas {
+  position: absolute;
+  inset: 0;
+}

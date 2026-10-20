@@ -29,6 +29,7 @@ import {
 } from "@/lib/delivery/actions";
 import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
 import { currency, formatTime } from "@/lib/delivery/format";
+import { formatDriveMinutes } from "@/lib/delivery/mapbox";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
 import {
   bearingDegrees,
@@ -48,6 +49,7 @@ import type {
   RoadReport,
   WorkspaceData,
 } from "@/lib/delivery/types";
+import { useRoadRoute } from "@/lib/delivery/use-road-route";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
@@ -192,7 +194,7 @@ export function RiderApp() {
   const [warning, setWarning] = useState<string | null>(null);
   const [arrived, setArrived] = useState<string[]>([]);
   const [draft, setDraft] = useState<OutcomeDraft>(EMPTY_DRAFT);
-  const [confirming, setConfirming] = useState(false);
+  const [outcomeStep, setOutcomeStep] = useState<1 | 2 | 3>(1);
   const [lastResult, setLastResult] = useState<{
     orderId: string;
     outcome: "delivered" | "failed";
@@ -261,7 +263,7 @@ export function RiderApp() {
   useEffect(() => {
     if (!currentId) return;
     setDraft(readStore(`${storeKey}.draft.${currentId}`, EMPTY_DRAFT));
-    setConfirming(false);
+    setOutcomeStep(1);
   }, [currentId, storeKey]);
   const updateDraft = (patch: Partial<OutcomeDraft>) => {
     setDraft((previous) => {
@@ -376,6 +378,14 @@ export function RiderApp() {
     riderPoint && leg?.point ? bearingDegrees(riderPoint, leg.point) : null;
   const atTarget = legDistance != null && legDistance <= ARRIVAL_RADIUS_KM;
   const hasArrived = current ? arrived.includes(current.id) : false;
+
+  const routeLegs = route.active.flatMap((order) => {
+    const point = legFor(order).point;
+    return point ? [point] : [];
+  });
+  // Road routes for the active leg (navigation header) and the whole route (overview).
+  const legRoute = useRoadRoute(riderPoint, leg?.point ? [leg.point] : []);
+  const routeSummary = useRoadRoute(riderPoint, routeLegs);
 
   const remainingDistance = useMemo(() => {
     let from = riderPoint;
@@ -618,7 +628,6 @@ export function RiderApp() {
       }
       writeStore(`${storeKey}.draft.${order.id}`, null);
       setArrived((ids) => ids.filter((id) => id !== order.id));
-      setConfirming(false);
       setLastResult({
         orderId: order.id,
         outcome: draft.outcome,
@@ -1118,16 +1127,26 @@ export function RiderApp() {
     );
   }
 
-  /* ----- Screen 5: report outcome ----- */
+  /* ----- Screen 5: report outcome (stepped: result → details → confirm) ----- */
   if (activeScreen === "outcome" && current) {
+    const stepLabels = [
+      "Result",
+      draft.outcome === "failed" ? "Reason" : "Details",
+      "Confirm",
+    ];
+    const goBack = () => {
+      if (outcomeStep > 1)
+        setOutcomeStep((step) => (step === 3 ? 2 : 1) as 1 | 2 | 3);
+      else setScreen("navigate");
+    };
     return (
       <main className="rf-app rf-outcome">
         <header className="rf-topbar">
           <button
             type="button"
             className="rf-icon-btn"
-            onClick={() => setScreen("navigate")}
-            aria-label="Back to the map"
+            onClick={goBack}
+            aria-label={outcomeStep > 1 ? "Previous step" : "Back to the map"}
           >
             <Icon name="arrow-left" size={22} />
           </button>
@@ -1138,261 +1157,361 @@ export function RiderApp() {
             <strong>{recipientLabel(current)}</strong>
           </div>
         </header>
+        <ol className="rf-step-dots" aria-label={`Step ${outcomeStep} of 3`}>
+          {stepLabels.map((label, index) => {
+            const step = index + 1;
+            return (
+              <li
+                key={label}
+                className={
+                  step === outcomeStep
+                    ? "is-current"
+                    : step < outcomeStep
+                      ? "is-done"
+                      : ""
+                }
+              >
+                <span aria-hidden="true" />
+                {label}
+              </li>
+            );
+          })}
+        </ol>
         {connectivityBanner}
-        <h1>How did this delivery go?</h1>
-        <fieldset className="rf-choice-row">
-          <legend className="rf-sr-only">Delivery outcome</legend>
-          <label
-            className={`rf-choice is-success ${draft.outcome === "delivered" ? "is-selected" : ""}`}
-          >
-            <input
-              type="radio"
-              name="delivery-outcome"
-              checked={draft.outcome === "delivered"}
-              onChange={() => updateDraft({ outcome: "delivered" })}
-            />
-            <span className="rf-choice-mark">
-              <Icon name="check" size={22} strokeWidth={2.4} />
-            </span>
-            Delivered successfully
-          </label>
-          <label
-            className={`rf-choice is-failed ${draft.outcome === "failed" ? "is-selected" : ""}`}
-          >
-            <input
-              type="radio"
-              name="delivery-outcome"
-              checked={draft.outcome === "failed"}
-              onChange={() => updateDraft({ outcome: "failed" })}
-            />
-            <span className="rf-choice-mark">
-              <Icon name="close" size={22} strokeWidth={2.4} />
-            </span>
-            Unable to deliver
-          </label>
-        </fieldset>
 
-        {draft.outcome === "delivered" && (
-          <div className="rf-form">
-            <label className="rf-field">
-              <span>Received by</span>
-              <input
-                value={draft.recipientName}
-                autoComplete="off"
-                placeholder={
-                  current.recipient_name ??
-                  "Name of the person who took the parcel"
-                }
-                onChange={(event) =>
-                  updateDraft({ recipientName: event.target.value })
-                }
-              />
-              {current.recipient_name && !draft.recipientName && (
-                <button
-                  type="button"
-                  className="rf-link rf-field-help"
-                  onClick={() =>
-                    updateDraft({ recipientName: current.recipient_name ?? "" })
+        {outcomeStep === 1 && (
+          <>
+            <h1>How did this delivery go?</h1>
+            <fieldset className="rf-choice-row">
+              <legend className="rf-sr-only">Delivery outcome</legend>
+              <label
+                className={`rf-choice is-success ${draft.outcome === "delivered" ? "is-selected" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="delivery-outcome"
+                  checked={draft.outcome === "delivered"}
+                  onChange={() => {
+                    updateDraft({ outcome: "delivered" });
+                    setOutcomeStep(2);
+                  }}
+                />
+                <span className="rf-choice-mark">
+                  <Icon name="check" size={22} strokeWidth={2.4} />
+                </span>
+                Delivered successfully
+              </label>
+              <label
+                className={`rf-choice is-failed ${draft.outcome === "failed" ? "is-selected" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="delivery-outcome"
+                  checked={draft.outcome === "failed"}
+                  onChange={() => {
+                    updateDraft({ outcome: "failed" });
+                    setOutcomeStep(2);
+                  }}
+                />
+                <span className="rf-choice-mark">
+                  <Icon name="close" size={22} strokeWidth={2.4} />
+                </span>
+                Unable to deliver
+              </label>
+            </fieldset>
+          </>
+        )}
+
+        {outcomeStep === 2 && draft.outcome === "delivered" && (
+          <>
+            <h1>Delivery details</h1>
+            <div className="rf-form">
+              <label className="rf-field">
+                <span>Received by</span>
+                <input
+                  value={draft.recipientName}
+                  autoComplete="off"
+                  placeholder={
+                    current.recipient_name ??
+                    "Name of the person who took the parcel"
+                  }
+                  onChange={(event) =>
+                    updateDraft({ recipientName: event.target.value })
+                  }
+                />
+                {current.recipient_name && !draft.recipientName && (
+                  <button
+                    type="button"
+                    className="rf-link rf-field-help"
+                    onClick={() =>
+                      updateDraft({
+                        recipientName: current.recipient_name ?? "",
+                      })
+                    }
+                  >
+                    Use “{current.recipient_name}”
+                  </button>
+                )}
+              </label>
+              {codNeeded && (
+                <fieldset className="rf-cod-panel">
+                  <legend>
+                    <Icon name="coin" size={17} /> Cash on delivery
+                  </legend>
+                  <div className="rf-cod-due">
+                    <span>COD due</span>
+                    <strong>{currency.format(codExpected)}</strong>
+                  </div>
+                  <div className="rf-reasons">
+                    <label
+                      className={`rf-reason is-positive ${draft.codConfirmed === true ? "is-selected" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="cod-collected"
+                        checked={draft.codConfirmed === true}
+                        onChange={() =>
+                          updateDraft({
+                            codConfirmed: true,
+                            codAmount:
+                              draft.codAmount === ""
+                                ? String(codExpected)
+                                : draft.codAmount,
+                          })
+                        }
+                      />
+                      I received cash from the recipient
+                    </label>
+                    <label
+                      className={`rf-reason ${draft.codConfirmed === false ? "is-selected" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="cod-collected"
+                        checked={draft.codConfirmed === false}
+                        onChange={() => updateDraft({ codConfirmed: false })}
+                      />
+                      Cash was not collected
+                    </label>
+                  </div>
+                  {draft.codConfirmed && (
+                    <label className="rf-field">
+                      <span>Amount received (MMK)</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={draft.codAmount}
+                        onChange={(event) =>
+                          updateDraft({ codAmount: event.target.value })
+                        }
+                      />
+                    </label>
+                  )}
+                  {(codMismatch || draft.codConfirmed === false) && (
+                    <label className="rf-field">
+                      <span>
+                        {draft.codConfirmed
+                          ? "Why is the amount different?"
+                          : "Why wasn’t cash collected?"}
+                      </span>
+                      <textarea
+                        value={draft.codReason}
+                        maxLength={240}
+                        placeholder={
+                          draft.codConfirmed
+                            ? "Customer paid part now, rest by transfer"
+                            : "Customer says it was prepaid"
+                        }
+                        onChange={(event) =>
+                          updateDraft({ codReason: event.target.value })
+                        }
+                      />
+                    </label>
+                  )}
+                  {codMismatch && (
+                    <p className="rf-field-warn">
+                      <Icon name="warning" size={15} />{" "}
+                      {currency.format(codValue ?? 0)} doesn’t match{" "}
+                      {currency.format(codExpected)}. COD stays open for
+                      operations to review.
+                    </p>
+                  )}
+                </fieldset>
+              )}
+              <label className="rf-field">
+                <span>Delivery note (optional)</span>
+                <textarea
+                  value={draft.note}
+                  maxLength={500}
+                  placeholder="Left with building security"
+                  onChange={(event) =>
+                    updateDraft({ note: event.target.value })
+                  }
+                />
+              </label>
+            </div>
+            {errorBanner}
+            <div className="rf-dock">
+              <button
+                type="button"
+                className="rf-btn rf-btn-primary"
+                disabled={!outcomeReady}
+                onClick={() => setOutcomeStep(3)}
+              >
+                Continue <Icon name="arrow-right" size={18} />
+              </button>
+            </div>
+          </>
+        )}
+
+        {outcomeStep === 2 && draft.outcome === "failed" && (
+          <>
+            <h1>What happened?</h1>
+            <div className="rf-form">
+              <fieldset className="rf-reasons">
+                <legend>What happened?</legend>
+                {FAILURE_REASONS.map((reason) => (
+                  <label
+                    key={reason.id}
+                    className={`rf-reason ${draft.failureReason === reason.id ? "is-selected" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="failure-reason"
+                      checked={draft.failureReason === reason.id}
+                      onChange={() => updateDraft({ failureReason: reason.id })}
+                    />
+                    {reason.label}
+                  </label>
+                ))}
+              </fieldset>
+              <label className="rf-field">
+                <span>
+                  {draft.failureReason === "other"
+                    ? "Describe what happened"
+                    : "Note (optional)"}
+                </span>
+                <textarea
+                  value={draft.note}
+                  maxLength={500}
+                  placeholder="Called twice, no answer. Gate locked."
+                  onChange={(event) =>
+                    updateDraft({ note: event.target.value })
+                  }
+                />
+              </label>
+            </div>
+            {errorBanner}
+            <div className="rf-dock">
+              <button
+                type="button"
+                className="rf-btn rf-btn-primary"
+                disabled={!outcomeReady}
+                onClick={() => setOutcomeStep(3)}
+              >
+                Continue <Icon name="arrow-right" size={18} />
+              </button>
+            </div>
+          </>
+        )}
+
+        {outcomeStep === 3 && (
+          <>
+            <h1>
+              {draft.outcome === "delivered"
+                ? "Confirm delivery"
+                : "Confirm outcome"}
+            </h1>
+            <section className="rf-review-card">
+              <div className="rf-review-row">
+                <span>Outcome</span>
+                <strong
+                  className={
+                    draft.outcome === "delivered" ? "is-success" : "is-failed"
                   }
                 >
-                  Use “{current.recipient_name}”
-                </button>
-              )}
-            </label>
-            {codNeeded && (
-              <fieldset className="rf-cod-panel">
-                <legend>
-                  <Icon name="coin" size={17} /> Cash on delivery
-                </legend>
-                <div className="rf-cod-due">
-                  <span>COD due</span>
-                  <strong>{currency.format(codExpected)}</strong>
-                </div>
-                <div className="rf-reasons">
-                  <label
-                    className={`rf-reason is-positive ${draft.codConfirmed === true ? "is-selected" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="cod-collected"
-                      checked={draft.codConfirmed === true}
-                      onChange={() =>
-                        updateDraft({
-                          codConfirmed: true,
-                          codAmount:
-                            draft.codAmount === ""
-                              ? String(codExpected)
-                              : draft.codAmount,
-                        })
-                      }
-                    />
-                    I received cash from the recipient
-                  </label>
-                  <label
-                    className={`rf-reason ${draft.codConfirmed === false ? "is-selected" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="cod-collected"
-                      checked={draft.codConfirmed === false}
-                      onChange={() => updateDraft({ codConfirmed: false })}
-                    />
-                    Cash was not collected
-                  </label>
-                </div>
-                {draft.codConfirmed && (
-                  <label className="rf-field">
-                    <span>Amount received (MMK)</span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      value={draft.codAmount}
-                      onChange={(event) =>
-                        updateDraft({ codAmount: event.target.value })
-                      }
-                    />
-                  </label>
-                )}
-                {(codMismatch || draft.codConfirmed === false) && (
-                  <label className="rf-field">
-                    <span>
-                      {draft.codConfirmed
-                        ? "Why is the amount different?"
-                        : "Why wasn’t cash collected?"}
-                    </span>
-                    <textarea
-                      value={draft.codReason}
-                      maxLength={240}
-                      placeholder={
-                        draft.codConfirmed
-                          ? "Customer paid part now, rest by transfer"
-                          : "Customer says it was prepaid"
-                      }
-                      onChange={(event) =>
-                        updateDraft({ codReason: event.target.value })
-                      }
-                    />
-                  </label>
-                )}
-                {codMismatch && (
-                  <p className="rf-field-warn">
-                    <Icon name="warning" size={15} />{" "}
-                    {currency.format(codValue ?? 0)} doesn’t match{" "}
-                    {currency.format(codExpected)}. COD stays open for
-                    operations to review.
-                  </p>
-                )}
-              </fieldset>
-            )}
-            <label className="rf-field">
-              <span>Delivery note (optional)</span>
-              <textarea
-                value={draft.note}
-                maxLength={500}
-                placeholder="Left with building security"
-                onChange={(event) => updateDraft({ note: event.target.value })}
-              />
-            </label>
-          </div>
-        )}
-
-        {draft.outcome === "failed" && (
-          <div className="rf-form">
-            <fieldset className="rf-reasons">
-              <legend>What happened?</legend>
-              {FAILURE_REASONS.map((reason) => (
-                <label
-                  key={reason.id}
-                  className={`rf-reason ${draft.failureReason === reason.id ? "is-selected" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="failure-reason"
-                    checked={draft.failureReason === reason.id}
-                    onChange={() => updateDraft({ failureReason: reason.id })}
-                  />
-                  {reason.label}
-                </label>
-              ))}
-            </fieldset>
-            <label className="rf-field">
-              <span>
-                {draft.failureReason === "other"
-                  ? "Describe what happened"
-                  : "Note (optional)"}
-              </span>
-              <textarea
-                value={draft.note}
-                maxLength={500}
-                placeholder="Called twice, no answer. Gate locked."
-                onChange={(event) => updateDraft({ note: event.target.value })}
-              />
-            </label>
-          </div>
-        )}
-
-        {errorBanner}
-        <div className="rf-dock">
-          <button
-            type="button"
-            className="rf-btn rf-btn-primary"
-            disabled={!outcomeReady || !online || busy != null}
-            onClick={() => setConfirming(true)}
-          >
-            {draft.outcome === "failed" ? "Submit outcome" : "Confirm delivery"}
-          </button>
-          {!online && (
-            <p className="rf-dock-note">
-              Waiting for a connection. Your entries are kept.
-            </p>
-          )}
-        </div>
-
-        {confirming && (
-          <div className="rf-scrim">
-            <section
-              className="rf-dialog"
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="rf-confirm-title"
-            >
-              <h2 id="rf-confirm-title">
-                {draft.outcome === "delivered"
-                  ? "Mark as delivered?"
-                  : "Mark as not delivered?"}
-              </h2>
-              <p>
-                {draft.outcome === "delivered"
-                  ? `${recipientLabel(current)} will see the parcel as delivered.`
-                  : `${recipientLabel(current)} and operations will see a delivery issue: ${FAILURE_REASONS.find((r) => r.id === draft.failureReason)?.label.toLowerCase()}.`}
-                {codNeeded && draft.outcome === "delivered"
-                  ? draft.codConfirmed && !codMismatch
-                    ? ` COD ${currency.format(codExpected)} will be recorded as collected.`
-                    : " COD will stay open with your note."
-                  : ""}{" "}
-                This can’t be undone from the app.
-              </p>
-              <div className="rf-dialog-actions">
-                <button
-                  type="button"
-                  className="rf-btn rf-btn-secondary"
-                  onClick={() => setConfirming(false)}
-                  disabled={busy != null}
-                >
-                  Go back
-                </button>
-                <button
-                  type="button"
-                  className="rf-btn rf-btn-primary"
-                  onClick={() => void submitOutcome()}
-                  disabled={busy != null}
-                >
-                  {busy === "outcome" ? "Saving…" : "Yes, submit"}
-                </button>
+                  {draft.outcome === "delivered"
+                    ? "Delivered"
+                    : "Not delivered"}
+                </strong>
               </div>
+              {draft.outcome === "delivered" && (
+                <div className="rf-review-row">
+                  <span>Received by</span>
+                  <strong>{draft.recipientName || "Not noted"}</strong>
+                </div>
+              )}
+              {draft.outcome === "delivered" && codNeeded && (
+                <div className="rf-review-row">
+                  <span>Cash on delivery</span>
+                  <strong>
+                    {draft.codConfirmed
+                      ? `${currency.format(codValue ?? 0)} collected`
+                      : "Not collected"}
+                  </strong>
+                </div>
+              )}
+              {draft.outcome === "failed" && (
+                <div className="rf-review-row">
+                  <span>Reason</span>
+                  <strong>
+                    {
+                      FAILURE_REASONS.find(
+                        (reason) => reason.id === draft.failureReason,
+                      )?.label
+                    }
+                  </strong>
+                </div>
+              )}
+              {draft.note.trim() && (
+                <div className="rf-review-row">
+                  <span>Note</span>
+                  <strong>{draft.note}</strong>
+                </div>
+              )}
             </section>
-          </div>
+            <p className="rf-muted">
+              {draft.outcome === "delivered"
+                ? `${recipientLabel(current)} will see the parcel as delivered.`
+                : `${recipientLabel(current)} and operations will see a delivery issue.`}
+              {codNeeded && draft.outcome === "delivered"
+                ? draft.codConfirmed && !codMismatch
+                  ? ` COD ${currency.format(codExpected)} will be recorded as collected.`
+                  : " COD will stay open with your note."
+                : ""}{" "}
+              This can’t be undone from the app.
+            </p>
+            {errorBanner}
+            <div className="rf-dock">
+              <div className="rf-confirm-actions">
+                <button
+                  type="button"
+                  className="rf-btn rf-btn-quiet"
+                  onClick={() => setOutcomeStep(2)}
+                  disabled={busy != null}
+                >
+                  Edit details
+                </button>
+                <SlideToConfirm
+                  label={
+                    draft.outcome === "failed"
+                      ? "Slide to submit"
+                      : "Slide to confirm delivery"
+                  }
+                  busyLabel="Saving…"
+                  busy={busy === "outcome"}
+                  disabled={!online}
+                  onConfirm={() => void submitOutcome()}
+                />
+              </div>
+              {!online && (
+                <p className="rf-dock-note">
+                  Waiting for a connection. Your entries are kept.
+                </p>
+              )}
+            </div>
+          </>
         )}
       </main>
     );
@@ -1421,10 +1540,15 @@ export function RiderApp() {
               title: pickup ? "You’re at the pickup" : "You’re at the drop-off",
               sub: "Stop safely, then confirm arrival",
             }
-          : {
-              title: `Head ${compassDirection(legBearing ?? 0)}`,
-              sub: `${formatDistance(legDistance)} straight-line to ${pickup ? "pickup" : "drop-off"}`,
-            };
+          : legRoute?.firstStep
+            ? {
+                title: legRoute.firstStep.instruction,
+                sub: `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} by road to ${pickup ? "pickup" : "drop-off"}`,
+              }
+            : {
+                title: `Head ${compassDirection(legBearing ?? 0)}`,
+                sub: `${formatDistance(legDistance)} straight-line to ${pickup ? "pickup" : "drop-off"}`,
+              };
     const etaText =
       !pickup && current.estimated_delivery_at
         ? formatTime(current.estimated_delivery_at)
@@ -1443,10 +1567,25 @@ export function RiderApp() {
             top: 168,
             bottom: sheetOpen ? Math.round(viewHeight * 0.6) + 16 : 300,
           }}
+          road={legRoute}
           label={`Map to stop ${stopNumber(current)}: ${leg.address}`}
         />
 
         <header className="rf-nav-top">
+          <div
+            className="rf-route-progress"
+            role="progressbar"
+            aria-label="Stops completed"
+            aria-valuemin={0}
+            aria-valuemax={route.stops.length}
+            aria-valuenow={route.closedToday.length}
+          >
+            <span
+              style={{
+                width: `${(route.closedToday.length / Math.max(1, route.stops.length)) * 100}%`,
+              }}
+            />
+          </div>
           <div className="rf-nav-instruction">
             <span className="rf-turn" aria-hidden="true">
               {leg.point && riderPoint && !atTarget ? (
@@ -1531,7 +1670,7 @@ export function RiderApp() {
           <SheetHandle open={sheetOpen} onToggle={setSheetOpen} />
           <div className="rf-sheet-head">
             <div>
-              <small>
+              <small className={`rf-leg-type is-${leg.kind}`}>
                 Stop {stopNumber(current)} of {route.stops.length} ·{" "}
                 {pickup ? "Collect parcel" : "Deliver parcel"}
               </small>
@@ -1569,20 +1708,75 @@ export function RiderApp() {
             </Notice>
           )}
 
+          <fieldset className="rf-quick-actions">
+            <legend className="rf-sr-only">Quick actions for this stop</legend>
+            {!pickup && current.recipient_phone && (
+              <a
+                className="rf-quick-action"
+                href={`tel:${current.recipient_phone.replace(/\s+/g, "")}`}
+              >
+                <Icon name="phone" size={18} />
+                <span>Call</span>
+              </a>
+            )}
+            {!pickup && current.recipient_phone && (
+              <a
+                className="rf-quick-action"
+                href={`sms:${current.recipient_phone.replace(/\s+/g, "")}`}
+              >
+                <Icon name="share" size={18} />
+                <span>Message</span>
+              </a>
+            )}
+            <a
+              className="rf-quick-action"
+              href={mapsUrl(legDestination(current))}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Icon name="navigation" size={18} />
+              <span>Directions</span>
+            </a>
+            <button
+              type="button"
+              className="rf-quick-action"
+              onClick={() => void navigator.clipboard?.writeText(leg.address)}
+            >
+              <Icon name="copy" size={18} />
+              <span>Copy address</span>
+            </button>
+          </fieldset>
+
+          {(codNeeded || current.parcel_description) && (
+            <div className="rf-must-know">
+              {codNeeded && (
+                <Notice tone="warning" icon="coin">
+                  <strong>Collect {currency.format(codExpected)} cash</strong>{" "}
+                  {pickup
+                    ? "at drop-off, not at pickup."
+                    : "from the recipient before you leave."}
+                </Notice>
+              )}
+              {current.parcel_description && (
+                <Notice tone="neutral" icon="package">
+                  {current.parcel_description}
+                  {current.parcel_weight_kg
+                    ? ` · ${current.parcel_weight_kg} kg`
+                    : ""}
+                  {current.parcel_weight_kg != null &&
+                  current.parcel_weight_kg >= 5
+                    ? " · heavy, plan for help carrying it"
+                    : ""}
+                </Notice>
+              )}
+            </div>
+          )}
+
           {sheetOpen && (
             <div className="rf-sheet-body">
               <div className="rf-detail">
                 <h3>{pickup ? "Pickup" : "Address"}</h3>
                 <p>{leg.address}</p>
-                <button
-                  type="button"
-                  className="rf-link"
-                  onClick={() =>
-                    void navigator.clipboard?.writeText(leg.address)
-                  }
-                >
-                  Copy address
-                </button>
               </div>
               {!pickup && (
                 <div className="rf-detail">
@@ -1593,22 +1787,7 @@ export function RiderApp() {
                       ? ` · ${current.recipient_phone}`
                       : ""}
                   </p>
-                  {current.recipient_phone ? (
-                    <div className="rf-contact">
-                      <a
-                        className="rf-btn rf-btn-secondary"
-                        href={`tel:${current.recipient_phone.replace(/\s+/g, "")}`}
-                      >
-                        <Icon name="phone" size={18} /> Call
-                      </a>
-                      <a
-                        className="rf-btn rf-btn-secondary"
-                        href={`sms:${current.recipient_phone.replace(/\s+/g, "")}`}
-                      >
-                        <Icon name="share" size={18} /> Message
-                      </a>
-                    </div>
-                  ) : (
+                  {!current.recipient_phone && (
                     <p className="rf-muted">
                       No phone number on this order. Contact operations if you
                       can’t find the recipient.
@@ -1761,12 +1940,16 @@ export function RiderApp() {
             </div>
             <div>
               <strong>
-                {remainingDistance == null
-                  ? "—"
-                  : formatDistance(remainingDistance)}
+                {formatDistance(routeSummary?.distanceKm ?? remainingDistance)}
               </strong>
-              <span>Direct distance</span>
+              <span>{routeSummary ? "Road distance" : "Direct distance"}</span>
             </div>
+            {routeSummary && (
+              <div>
+                <strong>{formatDriveMinutes(routeSummary.durationMin)}</strong>
+                <span>Drive time</span>
+              </div>
+            )}
             <div>
               <strong>{lastEta ? formatTime(lastEta) : "—"}</strong>
               <span>Last ETA</span>
@@ -1782,6 +1965,7 @@ export function RiderApp() {
                 stops={navStops}
                 padding={{ x: 28, top: 28, bottom: 28 }}
                 routeThroughStops
+                road={routeSummary}
                 interactive={false}
                 label="Preview of today’s stops"
               />
@@ -2017,5 +2201,100 @@ function SheetHandle({
     >
       <span className="rf-handle" />
     </button>
+  );
+}
+
+function SlideToConfirm({
+  label,
+  busyLabel,
+  busy,
+  disabled,
+  onConfirm,
+}: {
+  label: string;
+  busyLabel: string;
+  busy: boolean;
+  disabled?: boolean;
+  onConfirm: () => void;
+}) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const maxX = useRef(0);
+  const startX = useRef<number | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const THUMB = 52;
+
+  // Reset the thumb once a submit finishes (success moves to another screen;
+  // a failure leaves the rider free to try again).
+  useEffect(() => {
+    if (!busy) setDragX(0);
+  }, [busy]);
+
+  const locked = disabled || busy;
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (locked) return;
+    const track = trackRef.current;
+    if (!track) return;
+    maxX.current = Math.max(0, track.getBoundingClientRect().width - THUMB);
+    startX.current = event.clientX - dragX;
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const handlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (startX.current == null) return;
+    const next = Math.min(
+      Math.max(0, event.clientX - startX.current),
+      maxX.current,
+    );
+    setDragX(next);
+  };
+  const handlePointerUp = () => {
+    if (startX.current == null) return;
+    startX.current = null;
+    setDragging(false);
+    if (maxX.current > 0 && dragX >= maxX.current * 0.82) {
+      setDragX(maxX.current);
+      onConfirm();
+    } else {
+      setDragX(0);
+    }
+  };
+
+  return (
+    <div
+      className={`rf-slide-track ${dragging ? "is-dragging" : ""} ${locked ? "is-disabled" : ""}`}
+      ref={trackRef}
+    >
+      <span
+        className="rf-slide-fill"
+        style={{ width: dragX + THUMB / 2 }}
+        aria-hidden="true"
+      />
+      <span className="rf-slide-label">{busy ? busyLabel : label}</span>
+      <button
+        type="button"
+        className="rf-slide-thumb"
+        disabled={locked}
+        aria-label={label}
+        style={{ transform: `translateX(${dragX}px)` }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onKeyDown={(event) => {
+          if (!locked && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            onConfirm();
+          }
+        }}
+      >
+        <Icon
+          name={busy ? "history" : "arrow-right"}
+          size={20}
+          strokeWidth={2.4}
+        />
+      </button>
+    </div>
   );
 }
