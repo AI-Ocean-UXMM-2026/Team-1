@@ -6,8 +6,8 @@ import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
   Brand,
   DemoBadge,
-  Eyebrow,
   LoadingBlock,
+  MobileNav,
   StatusBadge,
   signOut,
   UserActions,
@@ -26,6 +26,23 @@ import type { DeliveryStatus, WorkspaceData } from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
+
+const riderNavItems = [
+  { id: "route", label: "Route", href: "#route", icon: "navigation" },
+  {
+    id: "deliveries",
+    label: "Deliveries",
+    href: "#deliveries",
+    icon: "package",
+  },
+  { id: "cod", label: "COD", href: "#cod", icon: "coin" },
+  {
+    id: "rider-account",
+    label: "Profile",
+    href: "#rider-account",
+    icon: "user",
+  },
+] as const;
 
 function nextAction(status: DeliveryStatus) {
   if (status === "assigned")
@@ -391,7 +408,7 @@ export function RiderApp() {
             <Brand />
             <span className="workspace-divider" />
             <div>
-              <small>RIDER WORKSPACE</small>
+              <small>Rider workspace</small>
               <strong>Today’s route</strong>
             </div>
           </div>
@@ -412,7 +429,7 @@ export function RiderApp() {
 
       {workspace.isDemo && (
         <div className="workspace-demo">
-          <DemoBadge>DEMO ROUTE</DemoBadge>
+          <DemoBadge>Demo route</DemoBadge>
           <span>
             Preview actions stay in this browser and do not update Supabase or
             share GPS.
@@ -432,19 +449,18 @@ export function RiderApp() {
       <div className="rider-page-shell">
         <div className="rider-welcome">
           <div>
-            <Eyebrow>TODAY · YANGON CITY</Eyebrow>
             <h1>Ready for the road?</h1>
             <p>Every update keeps the customer close to their parcel.</p>
           </div>
           <div className="rider-shift-stat">
             <strong>{activeOrders.length.toString().padStart(2, "0")}</strong>
-            <span>ACTIVE STOPS</span>
+            <span>Active stops</span>
           </div>
         </div>
 
         <div className="rider-layout">
           <section className="rider-main-column">
-            <div className="rider-map-wrap">
+            <div className="rider-map-wrap" id="route">
               <LocationMap
                 order={selectedOrder}
                 mode="rider"
@@ -491,10 +507,9 @@ export function RiderApp() {
             </div>
 
             {selectedOrder ? (
-              <div className="rider-task-card">
+              <div className="rider-task-card" id="cod">
                 <div className="rider-task-header">
                   <div>
-                    <Eyebrow>DELIVERY TASK</Eyebrow>
                     <h2>{selectedOrder.tracking_code}</h2>
                   </div>
                   <StatusBadge status={selectedOrder.status} />
@@ -505,7 +520,7 @@ export function RiderApp() {
                       <Icon name="box" size={15} />
                     </span>
                     <div>
-                      <small>COLLECT FROM</small>
+                      <small>Collect from</small>
                       <strong>{selectedOrder.pickup_address}</strong>
                       <span>
                         {selectedOrder.status === "assigned" ||
@@ -521,7 +536,7 @@ export function RiderApp() {
                       <Icon name="location" size={15} />
                     </span>
                     <div>
-                      <small>DELIVER TO</small>
+                      <small>Deliver to</small>
                       <strong>{selectedOrder.delivery_address}</strong>
                       <span>
                         {selectedOrder.recipient_name || "Recipient"}
@@ -558,7 +573,9 @@ export function RiderApp() {
                 {selectedOrder.cod_amount > 0 && (
                   <div className="rider-cod-row">
                     <div>
-                      <small>COLLECT ON DELIVERY</small>
+                      <small>
+                        <Icon name="coin" size={14} /> COD due
+                      </small>
                       <strong>
                         {currency.format(selectedOrder.cod_amount)}
                       </strong>
@@ -633,10 +650,9 @@ export function RiderApp() {
           </section>
 
           <aside className="rider-stops-column">
-            <div className="stops-card">
+            <div className="stops-card" id="deliveries">
               <div className="section-head-block stops-heading">
                 <div>
-                  <Eyebrow>YOUR ASSIGNMENTS</Eyebrow>
                   <h2>Active stops</h2>
                 </div>
                 <span className="stops-count">{activeOrders.length}</span>
@@ -687,11 +703,12 @@ export function RiderApp() {
           </aside>
         </div>
 
-        <footer className="workspace-footer">
+        <footer className="workspace-footer" id="rider-account">
           <span>Oern Rider · Help center</span>
           <a href="/manager">Operations sign-in</a>
         </footer>
       </div>
+      <MobileNav label="Rider app" items={riderNavItems} />
       <AuthDialog
         open={authOpen}
         audience="team"

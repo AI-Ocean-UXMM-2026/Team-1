@@ -8,6 +8,7 @@ export type IconName =
   | "check"
   | "chevron-down"
   | "close"
+  | "coin"
   | "compass"
   | "delivery"
   | "external"
@@ -43,6 +44,12 @@ const pathByName: Record<IconName, ReactNode> = {
   check: <path d="m5 12 4 4L19 6" />,
   "chevron-down": <path d="m6 9 6 6 6-6" />,
   close: <path d="m6 6 12 12M18 6 6 18" />,
+  coin: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M15.5 8.5h-5a2 2 0 0 0 0 4h3a2 2 0 0 1 0 4h-5M12 6.5v11" />
+    </>
+  ),
   compass: (
     <>
       <circle cx="12" cy="12" r="9" />

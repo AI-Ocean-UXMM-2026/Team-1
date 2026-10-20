@@ -8,6 +8,7 @@ import {
   DemoBadge,
   Eyebrow,
   LoadingBlock,
+  MobileNav,
   StatusBadge,
   signOut,
   UserActions,
@@ -36,6 +37,13 @@ function etaCopy(order: DeliveryOrder) {
   if (!hasCollectedParcel(order.status)) return "After parcel pickup";
   return timeUntil(order.estimated_delivery_at);
 }
+
+const customerNavItems = [
+  { id: "delivery", label: "Home", href: "#delivery", icon: "delivery" },
+  { id: "tracking", label: "Track", href: "#tracking", icon: "track" },
+  { id: "history", label: "Orders", href: "#history", icon: "package" },
+  { id: "account", label: "Profile", href: "#account", icon: "user" },
+] as const;
 
 export function CustomerApp() {
   const workspace = useWorkspace("customer");
@@ -117,7 +125,6 @@ export function CustomerApp() {
 
       <section className="customer-intro shell-width" id="delivery">
         <div>
-          <Eyebrow>DOOR TO DOOR, IN FULL VIEW</Eyebrow>
           <h1>
             {selectedOrder?.status === "in_transit"
               ? "Your parcel is on the move."
@@ -135,7 +142,7 @@ export function CustomerApp() {
 
       {workspace.isDemo && (
         <div className="demo-notice shell-width">
-          <DemoBadge>PREVIEW MODE</DemoBadge>
+          <DemoBadge>Preview mode</DemoBadge>
           <span>
             {workspace.isAuthenticated
               ? "These are sample deliveries. No orders are linked to this account yet."
@@ -161,12 +168,13 @@ export function CustomerApp() {
       {selectedOrder ? (
         <section
           className="tracking-layout shell-width"
+          id="tracking"
           aria-label="Selected delivery"
         >
           <div className="tracking-map-column">
             <div className="selected-order-kicker">
               <div>
-                <Eyebrow>TRACKING NUMBER</Eyebrow>
+                <Eyebrow>Tracking number</Eyebrow>
                 <strong>{selectedOrder.tracking_code}</strong>
               </div>
               <StatusBadge status={selectedOrder.status} />
@@ -196,8 +204,8 @@ export function CustomerApp() {
               <div className="eta-head">
                 <span className="eta-label">
                   {selectedOrder.status === "delivered"
-                    ? "DELIVERY COMPLETE"
-                    : "ESTIMATED ARRIVAL"}
+                    ? "Delivery complete"
+                    : "Estimated arrival"}
                 </span>
                 <span className="eta-icon">
                   <Icon name="navigation" size={17} />
@@ -244,7 +252,7 @@ export function CustomerApp() {
                   <Icon name="box" size={14} />
                 </span>
                 <div>
-                  <small>FROM</small>
+                  <small>From</small>
                   <strong>{selectedOrder.pickup_address}</strong>
                 </div>
               </div>
@@ -254,7 +262,7 @@ export function CustomerApp() {
                   <Icon name="location" size={14} />
                 </span>
                 <div>
-                  <small>TO</small>
+                  <small>To</small>
                   <strong>{selectedOrder.delivery_address}</strong>
                 </div>
               </div>
@@ -311,7 +319,7 @@ export function CustomerApp() {
                 <Icon name="user" size={21} />
               </div>
               <div className="rider-card-copy">
-                <small>YOUR RIDER</small>
+                <small>Your rider</small>
                 <strong>
                   {selectedOrder.driver_name ?? "Finding your rider"}
                 </strong>
@@ -336,10 +344,10 @@ export function CustomerApp() {
             {selectedOrder.cod_amount > 0 && (
               <div className="cod-card">
                 <span className="cod-icon">
-                  <Icon name="box" size={17} />
+                  <Icon name="coin" size={18} />
                 </span>
                 <div>
-                  <small>CASH ON DELIVERY</small>
+                  <small>Cash on delivery</small>
                   <strong>{currency.format(selectedOrder.cod_amount)}</strong>
                 </div>
                 <span
@@ -347,8 +355,8 @@ export function CustomerApp() {
                 >
                   {selectedOrder.cod_status === "collected" ||
                   selectedOrder.cod_status === "settled"
-                    ? "Paid"
-                    : "Due at door"}
+                    ? "COD collected"
+                    : "COD due"}
                 </span>
               </div>
             )}
@@ -369,7 +377,6 @@ export function CustomerApp() {
       <section className="delivery-list shell-width" id="history">
         <div className="section-head-block">
           <div>
-            <Eyebrow>YOUR PARCELS</Eyebrow>
             <h2>{showAll ? "All deliveries" : "Recent deliveries"}</h2>
           </div>
           <button
@@ -407,7 +414,7 @@ export function CustomerApp() {
         </div>
       </section>
 
-      <footer className="customer-footer shell-width">
+      <footer className="customer-footer shell-width" id="account">
         <Brand />
         <span>Every parcel deserves a clear path home.</span>
         <div className="workspace-links">
@@ -419,6 +426,7 @@ export function CustomerApp() {
           </a>
         </div>
       </footer>
+      <MobileNav label="Customer app" items={customerNavItems} />
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
     </main>
   );

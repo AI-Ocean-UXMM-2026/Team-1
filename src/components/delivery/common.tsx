@@ -1,11 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
-import { Icon } from "@/components/delivery/icons";
+import { Icon, type IconName } from "@/components/delivery/icons";
 import type { DeliveryStatus, WorkspaceProfile } from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
+
+const iconByStatus: Record<DeliveryStatus, IconName> = {
+  pending: "history",
+  assigned: "package",
+  accepted: "check",
+  picked_up: "package",
+  in_transit: "truck",
+  delivered: "check",
+  failed: "warning",
+  cancelled: "close",
+};
 
 export function Brand({ href = "/" }: { href?: string }) {
   return (
@@ -23,7 +34,7 @@ export function Brand({ href = "/" }: { href?: string }) {
 export function StatusBadge({ status }: { status: DeliveryStatus }) {
   return (
     <span className={`status-badge ${statusTone(status)}`}>
-      <span className="status-bullet" />
+      <Icon name={iconByStatus[status]} size={13} strokeWidth={2.2} />
       {STATUS_LABELS[status]}
     </span>
   );
@@ -47,7 +58,7 @@ function statusTone(status: DeliveryStatus) {
   }
 }
 
-export function DemoBadge({ children = "DEMO DATA" }: { children?: string }) {
+export function DemoBadge({ children = "Demo data" }: { children?: string }) {
   return (
     <span className="demo-badge">
       <span className="demo-mark">D</span>
@@ -109,6 +120,55 @@ export function LoadingBlock({ title }: { title: string }) {
       <span className="loading-orbit" />
       <p>{title}</p>
     </div>
+  );
+}
+
+export type MobileNavItem = {
+  id: string;
+  label: string;
+  href: string;
+  icon: IconName;
+};
+
+export function MobileNav({
+  label,
+  items,
+}: {
+  label: string;
+  items: readonly MobileNavItem[];
+}) {
+  const [activeId, setActiveId] = useState(items[0]?.id ?? "");
+
+  useEffect(() => {
+    const syncHash = () => {
+      const next = window.location.hash.slice(1);
+      if (items.some((item) => item.id === next)) setActiveId(next);
+    };
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, [items]);
+
+  return (
+    <nav className="mobile-bottom-nav" aria-label={label}>
+      {items.map((item) => {
+        const active = item.id === activeId;
+        return (
+          <a
+            key={item.id}
+            className={active ? "is-active" : undefined}
+            href={item.href}
+            aria-current={active ? "page" : undefined}
+            onClick={() => setActiveId(item.id)}
+          >
+            <span className="mobile-nav-icon">
+              <Icon name={item.icon} size={21} strokeWidth={2} />
+            </span>
+            <span>{item.label}</span>
+          </a>
+        );
+      })}
+    </nav>
   );
 }
 

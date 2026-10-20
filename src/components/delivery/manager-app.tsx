@@ -7,8 +7,8 @@ import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
   Brand,
   DemoBadge,
-  Eyebrow,
   LoadingBlock,
+  MobileNav,
   StatusBadge,
   signOut,
   UserActions,
@@ -30,6 +30,13 @@ import type {
 } from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
+
+const managerNavItems = [
+  { id: "overview", label: "Overview", href: "#overview", icon: "delivery" },
+  { id: "orders", label: "Orders", href: "#orders", icon: "package" },
+  { id: "drivers", label: "Drivers", href: "#drivers", icon: "users" },
+  { id: "more", label: "More", href: "#more", icon: "more" },
+] as const;
 
 type OrderForm = {
   customerId: string;
@@ -392,7 +399,7 @@ export function ManagerApp() {
     <main className="manager-app">
       <aside className="manager-sidebar">
         <Brand />
-        <div className="manager-sidebar-label">WORKSPACE</div>
+        <div className="manager-sidebar-label">Workspace</div>
         <nav className="manager-side-nav" aria-label="Manager workspace">
           <a className="side-nav-active" href="#overview">
             <Icon name="delivery" size={17} />
@@ -419,11 +426,7 @@ export function ManagerApp() {
 
       <div className="manager-main">
         <header className="manager-topbar">
-          <div className="breadcrumb">
-            <span>Oern</span>
-            <Icon name="arrow-right" size={13} />
-            <strong>Operations</strong>
-          </div>
+          <Brand href="/manager" />
           <div className="manager-topbar-right">
             <span className="manager-date">
               <Icon name="history" size={14} /> Live operations · Yangon
@@ -441,7 +444,7 @@ export function ManagerApp() {
         <div className="manager-content" id="overview">
           {workspace.isDemo && (
             <div className="workspace-demo manager-demo">
-              <DemoBadge>DEMO OPERATIONS</DemoBadge>
+              <DemoBadge>Demo operations</DemoBadge>
               <span>
                 {workspace.canUseLiveData
                   ? "You're viewing sample deliveries. Create a delivery to start your dispatch board; sample edits stay in this preview."
@@ -467,7 +470,6 @@ export function ManagerApp() {
 
           <div className="manager-page-title">
             <div>
-              <Eyebrow>CENTRAL OPERATIONS</Eyebrow>
               <h1>Dispatch, made visible.</h1>
               <p>Every rider, parcel, and delivery status in one live view.</p>
             </div>
@@ -488,7 +490,7 @@ export function ManagerApp() {
                 <span className="metric-icon metric-orange">
                   <Icon name="track" size={17} />
                 </span>
-                <span className="metric-caption">LIVE NOW</span>
+                <span className="metric-caption">Live now</span>
               </div>
               <strong>{movingCount.toString().padStart(2, "0")}</strong>
               <div className="metric-foot">
@@ -501,7 +503,7 @@ export function ManagerApp() {
                 <span className="metric-icon metric-blue">
                   <Icon name="delivery" size={17} />
                 </span>
-                <span className="metric-caption">ACTIVE DELIVERY</span>
+                <span className="metric-caption">Active deliveries</span>
               </div>
               <strong>{activeCount.toString().padStart(2, "0")}</strong>
               <div className="metric-foot">Orders being handled</div>
@@ -511,7 +513,7 @@ export function ManagerApp() {
                 <span className="metric-icon metric-green">
                   <Icon name="users" size={17} />
                 </span>
-                <span className="metric-caption">RIDERS AVAILABLE</span>
+                <span className="metric-caption">Riders available</span>
               </div>
               <strong>{freeRiders.toString().padStart(2, "0")}</strong>
               <div className="metric-foot">
@@ -523,7 +525,7 @@ export function ManagerApp() {
                 <span className="metric-icon metric-violet">
                   <Icon name="truck" size={17} />
                 </span>
-                <span className="metric-caption">FLEET READY</span>
+                <span className="metric-caption">Fleet ready</span>
               </div>
               <strong>
                 {availableVehicles.length.toString().padStart(2, "0")}
@@ -538,7 +540,6 @@ export function ManagerApp() {
             <div className="manager-orders-panel" id="orders">
               <div className="panel-heading-row">
                 <div>
-                  <Eyebrow>DISPATCH BOARD</Eyebrow>
                   <h2>Delivery orders</h2>
                 </div>
                 <button
@@ -627,10 +628,9 @@ export function ManagerApp() {
               </button>
             </div>
 
-            <div className="manager-map-panel" id="fleet">
+            <div className="manager-map-panel" id="fleet-map">
               <div className="panel-heading-row manager-map-heading">
                 <div>
-                  <Eyebrow>LIVE VISIBILITY</Eyebrow>
                   <h2>Delivery map</h2>
                 </div>
                 <span className="manager-live-tag">
@@ -767,9 +767,8 @@ export function ManagerApp() {
             </div>
           </section>
 
-          <section className="fleet-strip">
+          <section className="fleet-strip" id="drivers">
             <div>
-              <Eyebrow>FLEET AT A GLANCE</Eyebrow>
               <h2>Riders and vehicles</h2>
             </div>
             <div className="fleet-item-list">
@@ -835,7 +834,7 @@ export function ManagerApp() {
             </div>
           </section>
 
-          <footer className="manager-footer">
+          <footer className="manager-footer" id="more">
             <span>Oern Dispatch · Yangon operations</span>
             <a href="#overview">
               Back to overview <Icon name="arrow-right" size={13} />
@@ -843,6 +842,8 @@ export function ManagerApp() {
           </footer>
         </div>
       </div>
+
+      <MobileNav label="Operations app" items={managerNavItems} />
 
       {createOpen && (
         <ModalPanel
@@ -858,7 +859,7 @@ export function ManagerApp() {
           >
             <Icon name="close" size={19} />
           </button>
-          <span className="eyebrow">DISPATCH BOARD · NEW ORDER</span>
+          <span className="eyebrow">New delivery</span>
           <h2 id="create-title">Create a delivery</h2>
           <p>
             Set the handoff and destination. Assign a rider from the dispatch

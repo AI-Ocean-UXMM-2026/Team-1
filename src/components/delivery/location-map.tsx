@@ -273,17 +273,17 @@ export function LocationMap({
         >
           <span className="live-dot" />
           {isDemo
-            ? "DEMO LOCATION"
+            ? "Demo location"
             : mode === "manager" && liveRiderCount
-              ? `${liveRiderCount} ${liveRiderCount === 1 ? "RIDER" : "RIDERS"} LIVE`
+              ? `${liveRiderCount} ${liveRiderCount === 1 ? "rider" : "riders"} live`
               : mode !== "manager" &&
                   parcelLocationState(order, now) === "closed"
-                ? "TRACKING ENDED"
+                ? "Tracking ended"
                 : liveRiderCount
-                  ? "LIVE GPS"
+                  ? "Live GPS"
                   : trackedOrders.length
-                    ? "LAST KNOWN LOCATION"
-                    : "LOCATION PENDING"}
+                    ? "Last known location"
+                    : "Location pending"}
         </div>
       </div>
 
