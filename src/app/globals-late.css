@@ -515,3 +515,10 @@
     color: var(--color-text-primary);
   }
 }
+
+/* .mobile-bottom-nav is always fixed, regardless of viewport width, but
+   .operations-app (seller, manager/insights) only reserved clearance for it
+   below 760px. Above that the nav still overlapped the last row of content. */
+.operations-app {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
