@@ -56,3 +56,14 @@ bun run lint
 bun run build
 bun run start
 ```
+
+## Supabase
+
+The app connects to Supabase through browser and server clients. Copy the following variables into the root `.env.local` file and use the project-specific values from the Supabase dashboard:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_project_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+```
+
+The core delivery schema is versioned in `supabase/migrations/`. It includes profile roles, orders, fleet, routes and stops, assignment, COD, status history, notifications, and delivery locations. Customer location access is limited to their own orders after pickup and while the delivery is active. Manager and driver roles must be assigned through a trusted administrative process; signups default to the customer role.
