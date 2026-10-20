@@ -133,6 +133,10 @@ export async function assignDelivery(
   if (error) throw new Error(error.message);
   if (!data)
     throw new Error("The assignment was not saved. Refresh and try again.");
+  const { error: routeError } = await supabase.rpc("ensure_delivery_route", {
+    target_order_id: input.orderId,
+  });
+  if (routeError) throw new Error(routeError.message);
   return data;
 }
 

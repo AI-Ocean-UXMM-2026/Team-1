@@ -331,6 +331,8 @@ export const DEMO_WORKSPACE: WorkspaceData = {
   vehicles: DEMO_VEHICLES,
   statusEvents: DEMO_STATUS_EVENTS,
   roadReports: DEMO_ROAD_REPORTS,
+  routes: [],
+  routeStops: [],
 };
 
 export function cloneDemoWorkspace(currentTime = Date.now()): WorkspaceData {

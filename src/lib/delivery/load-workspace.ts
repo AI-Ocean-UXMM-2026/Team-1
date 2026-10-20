@@ -4,10 +4,12 @@ import { cloneDemoWorkspace } from "@/lib/delivery/demo-data";
 import type {
   DeliveryLocation,
   DeliveryOrder,
+  DeliveryRoute,
   DeliveryStatus,
   DriverOption,
   ProfileOption,
   RoadReport,
+  RouteStop,
   StatusEvent,
   VehicleOption,
   WorkspaceData,
@@ -76,6 +78,8 @@ export async function loadWorkspace(
     locationsResult,
     eventsResult,
     roadReportsResult,
+    routesResult,
+    routeStopsResult,
   ] = await Promise.all([
     supabase
       .from("delivery_orders")
@@ -103,6 +107,11 @@ export async function loadWorkspace(
         "id, driver_id, order_id, category, severity, description, latitude, longitude, status, reported_at, expires_at",
       )
       .order("reported_at", { ascending: false }),
+    supabase.from("delivery_routes").select("*").order("planned_at", { ascending: true }),
+    supabase
+      .from("route_stops")
+      .select("*")
+      .order("sequence_number", { ascending: true }),
   ]);
 
   const firstError =
@@ -113,7 +122,9 @@ export async function loadWorkspace(
     vehiclesResult.error ??
     locationsResult.error ??
     eventsResult.error ??
-    roadReportsResult.error;
+    roadReportsResult.error ??
+    routesResult.error ??
+    routeStopsResult.error;
   if (firstError) throw firstError;
 
   const orders = (ordersResult.data ?? []) as DeliveryOrderRow[];
@@ -179,6 +190,8 @@ export async function loadWorkspace(
         capacity_kg: item.capacity_kg,
       }));
       data.roadReports = roadReports;
+      data.routes = (routesResult.data ?? []) as DeliveryRoute[];
+      data.routeStops = (routeStopsResult.data ?? []) as RouteStop[];
     }
 
     return { profile, data, isDemo: true };
@@ -188,6 +201,8 @@ export async function loadWorkspace(
   const vehicles = (vehiclesResult.data ?? []) as VehicleRow[];
   const locations = (locationsResult.data ?? []) as LocationRow[];
   const events = (eventsResult.data ?? []) as StatusEvent[];
+  const routes = (routesResult.data ?? []) as DeliveryRoute[];
+  const routeStops = (routeStopsResult.data ?? []) as RouteStop[];
 
   const vehicleById = new Map(vehicles.map((item) => [item.id, item]));
   const assignmentByOrder = new Map<string, AssignmentRow>();
@@ -252,6 +267,7 @@ export async function loadWorkspace(
       vehicle_label: vehicle
         ? `${vehicle.registration_number} · ${vehicleTypeLabels[vehicle.vehicle_type] ?? vehicle.vehicle_type}`
         : null,
+      route_id: assignment?.route_id ?? null,
       latest_location: locationByOrder.get(order.id) ?? null,
     };
   });
@@ -291,6 +307,8 @@ export async function loadWorkspace(
         status: event.status as DeliveryStatus,
       })),
       roadReports,
+      routes,
+      routeStops,
     },
   };
 }

@@ -149,6 +149,20 @@ export function subscribeWorkspaceRealtime(
         if (active) refresh();
       },
     )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "delivery_routes" },
+      () => {
+        if (active) refresh();
+      },
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "route_stops" },
+      () => {
+        if (active) refresh();
+      },
+    )
     .subscribe((status) => {
       if (active && status === "SUBSCRIBED") refresh();
     });
