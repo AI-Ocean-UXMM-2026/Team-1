@@ -1,54 +1,150 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
   <defs>
-    <radialGradient id="pickupShadow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#1A2B48" stop-opacity="0.22" />
-      <stop offset="70%" stop-color="#1A2B48" stop-opacity="0.06" />
+    <!-- Soft Ground Shadow -->
+    <radialGradient id="groundShadowPickup" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1A2B48" stop-opacity="0.28" />
+      <stop offset="70%" stop-color="#1A2B48" stop-opacity="0.08" />
       <stop offset="100%" stop-color="#1A2B48" stop-opacity="0" />
     </radialGradient>
-    <linearGradient id="pickupPinFront" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FF7A1A" />
-      <stop offset="100%" stop-color="#C2410C" />
+
+    <!-- Truck Exterior (Brand Orange) -->
+    <linearGradient id="truckFrame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8A3D" />
+      <stop offset="55%" stop-color="#FF6200" />
+      <stop offset="100%" stop-color="#C94600" />
     </linearGradient>
-    <linearGradient id="pickupBoxTop" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFE0B2" />
-      <stop offset="100%" stop-color="#FFBC7D" />
+
+    <!-- Open Cargo Doors (Angled 3D Perspective) -->
+    <linearGradient id="doorLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF9E5E" />
+      <stop offset="100%" stop-color="#E05200" />
     </linearGradient>
-    <linearGradient id="pickupBoxLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2C4268" />
-      <stop offset="100%" stop-color="#172B4D" />
+    <linearGradient id="doorRight" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF9E5E" />
+      <stop offset="100%" stop-color="#D14700" />
     </linearGradient>
-    <linearGradient id="pickupBoxRight" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#3C5578" />
-      <stop offset="100%" stop-color="#223A5E" />
+
+    <!-- Dark Cargo Bay Interior -->
+    <linearGradient id="cargoInterior" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#121E33" />
+      <stop offset="75%" stop-color="#1E3152" />
+      <stop offset="100%" stop-color="#2A436E" />
+    </linearGradient>
+
+    <!-- Cardboard Parcel Gradients -->
+    <linearGradient id="parcelLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE4B5" />
+      <stop offset="100%" stop-color="#F6AD55" />
+    </linearGradient>
+    <linearGradient id="parcelMed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F6AD55" />
+      <stop offset="100%" stop-color="#DD6B20" />
+    </linearGradient>
+    <linearGradient id="parcelDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EAA04B" />
+      <stop offset="100%" stop-color="#C05621" />
+    </linearGradient>
+
+    <!-- Navy Chassis & Tires -->
+    <linearGradient id="navyMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2D436C" />
+      <stop offset="100%" stop-color="#142036" />
     </linearGradient>
   </defs>
 
-  <ellipse cx="60" cy="100" rx="34" ry="9" fill="url(#pickupShadow)" />
+  <!-- Floating Ground Shadow -->
+  <ellipse cx="60" cy="104" rx="46" ry="9" fill="url(#groundShadowPickup)" />
 
-  <!-- 3D box, sitting below the pin -->
-  <g transform="translate(0, 10)">
-    <path d="M60 46 L90 60 L60 74 L30 60 Z" fill="url(#pickupBoxTop)" />
-    <path d="M30 60 L60 74 L60 96 L30 82 Z" fill="url(#pickupBoxLeft)" />
-    <path d="M60 74 L90 60 L90 82 L60 96 Z" fill="url(#pickupBoxRight)" />
-    <path d="M30 60 L60 74 L90 60" fill="none" stroke="#FFF3E0" stroke-width="1.5" stroke-linecap="round" opacity="0.6" />
+  <!-- Rear Wheels (Tucked under chassis) -->
+  <rect x="27" y="80" width="14" height="20" rx="5" fill="#101A2B" />
+  <rect x="29" y="84" width="4" height="12" rx="2" fill="#2D436C" opacity="0.5" />
+
+  <rect x="79" y="80" width="14" height="20" rx="5" fill="#101A2B" />
+  <rect x="87" y="84" width="4" height="12" rx="2" fill="#2D436C" opacity="0.5" />
+
+  <!-- Main Truck Rear Body Frame -->
+  <rect x="23" y="20" width="74" height="64" rx="9" fill="url(#truckFrame)" />
+  <!-- Roof Glossy Highlight -->
+  <path d="M32 20 H88 A9 9 0 0 1 97 29 V31 H23 V29 A9 9 0 0 1 32 20 Z" fill="#FFAD75" opacity="0.7" />
+
+  <!-- Open Cargo Bay Recess (Inside the Truck) -->
+  <rect x="29" y="26" width="62" height="52" rx="4" fill="url(#cargoInterior)" />
+
+  <!-- Interior Floor Perspective Lines -->
+  <polygon points="29,78 91,78 83,68 37,68" fill="#365382" opacity="0.45" />
+  <!-- Interior Overhead Light Glow -->
+  <rect x="52" y="28" width="16" height="3" rx="1.5" fill="#FFF3BF" opacity="0.8" />
+
+  <!-- === CARGOS / PARCELS STACKED INSIDE === -->
+  <!-- Back Row Box (Tall) -->
+  <g transform="translate(46, 34)">
+    <rect x="0" y="0" width="26" height="24" rx="2" fill="url(#parcelDark)" />
+    <rect x="11" y="0" width="4" height="10" fill="#FF6200" />
   </g>
 
-  <!-- Location pin, lifting the parcel -->
-  <g filter="none">
-    <path
-      d="M60 14 C47 14 37 24 37 37 C37 54 60 76 60 76 C60 76 83 54 83 37 C83 24 73 14 60 14 Z"
-      fill="url(#pickupPinFront)"
-      stroke="#9A3412"
-      stroke-width="1.5"
-    />
-    <circle cx="60" cy="37" r="12" fill="#FFF7ED" />
-    <path
-      d="M60 30 L60 44 M54 38 L60 44 L66 38"
-      fill="none"
-      stroke="#C2410C"
-      stroke-width="3"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
+  <!-- Left Front Box (Large) -->
+  <g transform="translate(33, 47)">
+    <!-- Box Top Bevel -->
+    <polygon points="0,3 3,0 27,0 30,3" fill="#FFF3E0" />
+    <!-- Box Front -->
+    <rect x="0" y="3" width="30" height="26" rx="2" fill="url(#parcelLight)" />
+    <!-- Orange Brand Tape -->
+    <rect x="12" y="0" width="5" height="12" fill="#FF6200" />
+    <!-- Shipping Barcode Sticker -->
+    <rect x="4" y="18" width="10" height="6" rx="1" fill="#FFFFFF" opacity="0.9" />
+    <line x1="6" y1="21" x2="12" y2="21" stroke="#1A2B48" stroke-width="1.5" stroke-linecap="round" />
   </g>
+
+  <!-- Right Front Box (Medium) -->
+  <g transform="translate(61, 52)">
+    <polygon points="0,3 3,0 24,0 27,3" fill="#FFE0B2" />
+    <rect x="0" y="3" width="27" height="21" rx="2" fill="url(#parcelMed)" />
+    <rect x="11" y="0" width="5" height="10" fill="#FF6200" />
+    <rect x="17" y="15" width="6" height="5" rx="1" fill="#FFFFFF" opacity="0.85" />
+  </g>
+
+  <!-- Top Small Parcel (Perched on stack) -->
+  <g transform="translate(55, 39)">
+    <rect x="0" y="0" width="20" height="15" rx="2" fill="url(#parcelLight)" />
+    <rect x="8" y="0" width="4" height="7" fill="#FF6200" />
+  </g>
+
+  <!-- === SWUNG OPEN 3D CARGO DOORS === -->
+  <!-- Left Open Door (Swung Outward) -->
+  <g>
+    <path d="M25 26 L7 33 C5 34 4 36 4 38 V72 C4 74 5 76 7 77 L25 78 Z" fill="url(#doorLeft)" />
+    <!-- Inner Door Panel Recess -->
+    <polygon points="22,31 9,36 9,72 22,73" fill="#B83E00" opacity="0.35" />
+    <!-- Hinges -->
+    <rect x="23" y="32" width="4" height="5" rx="1" fill="#1A2B48" />
+    <rect x="23" y="66" width="4" height="5" rx="1" fill="#1A2B48" />
+    <!-- Door Latch Handle -->
+    <rect x="11" y="50" width="3" height="9" rx="1.5" fill="#FFF3E0" />
+  </g>
+
+  <!-- Right Open Door (Swung Outward) -->
+  <g>
+    <path d="M95 26 L113 33 C115 34 116 36 116 38 V72 C116 74 115 76 113 77 L95 78 Z" fill="url(#doorRight)" />
+    <!-- Inner Door Panel Recess -->
+    <polygon points="98,31 111,36 111,72 98,73" fill="#B83E00" opacity="0.35" />
+    <!-- Hinges -->
+    <rect x="93" y="32" width="4" height="5" rx="1" fill="#1A2B48" />
+    <rect x="93" y="66" width="4" height="5" rx="1" fill="#1A2B48" />
+    <!-- Door Latch Handle -->
+    <rect x="106" y="50" width="3" height="9" rx="1.5" fill="#FFF3E0" />
+  </g>
+
+  <!-- Heavy-Duty Rear Bumper & Step Plate -->
+  <rect x="19" y="80" width="82" height="9" rx="4" fill="url(#navyMetal)" />
+
+  <!-- Left & Right Glowing Tail Lights -->
+  <rect x="23" y="82" width="9" height="5" rx="2" fill="#FF4D4F" />
+  <rect x="25" y="83" width="5" height="3" rx="1" fill="#FFCCC7" />
+
+  <rect x="88" y="82" width="9" height="5" rx="2" fill="#FF4D4F" />
+  <rect x="90" y="83" width="5" height="3" rx="1" fill="#FFCCC7" />
+
+  <!-- Center Step Dock / License Plate Recess -->
+  <rect x="46" y="82" width="28" height="5" rx="2" fill="#0F192B" />
+  <line x1="51" y1="84.5" x2="69" y2="84.5" stroke="#6384B8" stroke-width="2" stroke-linecap="round" />
 </svg>
