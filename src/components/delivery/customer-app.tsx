@@ -195,6 +195,22 @@ export function CustomerApp({ view }: { view: CustomerView }) {
     }
   }, [readKey]);
 
+  // The welcome screen's "I already have an account" button links here with
+  // ?signin=1 so the dialog opens right away; drop the flag from the URL
+  // once read so a refresh doesn't reopen it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("signin") !== "1") return;
+    setAuthOpen(true);
+    params.delete("signin");
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
+    );
+  }, []);
+
   useEffect(() => {
     try {
       setDemoDismissed(
