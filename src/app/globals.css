@@ -1118,6 +1118,20 @@ a {
   color: #aec5b8;
   font-size: 8px;
 }
+.tracking-freshness-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  color: #aec5b8;
+  font-size: 8px;
+}
+.tracking-freshness-row strong {
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
 .order-route-card,
 .tracking-timeline-card,
 .rider-card,
@@ -1760,6 +1774,68 @@ a {
 .rider-task-meta svg {
   color: #9ca79e;
 }
+.rider-next-action {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 2px 0 11px;
+  padding: 10px 11px;
+  border: 1px solid #dcebe1;
+  border-radius: 9px;
+  background: #f3faf5;
+}
+.rider-next-action-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #28764e;
+  box-shadow: 0 0 0 4px #dcefe3;
+}
+.rider-next-action div {
+  display: grid;
+  gap: 3px;
+}
+.rider-next-action small {
+  color: #6f8b78;
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.rider-next-action strong {
+  color: #28583d;
+  font-size: 11px;
+}
+.rider-details {
+  border-top: 1px solid var(--soft-line);
+  padding-top: 10px;
+}
+.rider-details summary {
+  color: #637169;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  list-style-position: inside;
+}
+.rider-details-content {
+  display: grid;
+  gap: 8px;
+  padding: 10px 4px 2px 20px;
+  color: #78847b;
+  font-size: 9px;
+  line-height: 1.45;
+}
+.rider-details-content span {
+  display: grid;
+  gap: 2px;
+}
+.rider-details-content strong {
+  color: #3e4c42;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
 .rider-cod-row {
   display: flex;
   align-items: center;
@@ -2171,6 +2247,34 @@ a {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 11px;
   margin-bottom: 17px;
+}
+.manager-exception-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.manager-exception-strip a {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  border: 1px solid #e1e6df;
+  border-radius: 10px;
+  color: inherit;
+  background: #fff;
+  text-decoration: none;
+}
+.manager-exception-strip a:hover {
+  border-color: #b9cabb;
+}
+.manager-exception-strip strong {
+  color: var(--forest-deep);
+  font-size: 18px;
+  line-height: 1;
+}
+.manager-exception-strip span {
+  color: #7a867e;
+  font-size: 9px;
 }
 .metric-card {
   min-width: 0;

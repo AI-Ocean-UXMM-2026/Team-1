@@ -46,7 +46,9 @@ import {
   currency,
   formatDateTime,
   formatTime,
+  nextCustomerAction,
   prioritiseOrders,
+  relativeUpdatedAt,
   timeUntil,
 } from "@/lib/delivery/format";
 import {
@@ -464,6 +466,21 @@ export function CustomerApp({ view }: { view: CustomerView }) {
                         : "Updated from the rider’s route progress."}
                     </div>
                   )}
+                <div className="tracking-freshness-row">
+                  <span>
+                    {relativeUpdatedAt(
+                      selectedOrder.latest_location?.recorded_at ??
+                        selectedOrder.eta_updated_at,
+                      now,
+                    )}
+                  </span>
+                  <strong>
+                    {nextCustomerAction(
+                      selectedOrder.status,
+                      selectedOrder.traffic_delay_minutes > 0,
+                    )}
+                  </strong>
+                </div>
                 <div className="eta-meter">
                   <span
                     style={{

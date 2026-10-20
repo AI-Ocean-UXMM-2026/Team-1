@@ -759,6 +759,39 @@ export function RiderApp({ view }: { view: RiderView }) {
                         </span>
                       )}
                     </div>
+                    <output className="rider-next-action">
+                      <span className="rider-next-action-dot" />
+                      <div>
+                        <small>Next best action</small>
+                        <strong>
+                          {action?.label ??
+                            (selectedOrder.status === "delivered"
+                              ? "Delivery complete"
+                              : "Review this stop")}
+                        </strong>
+                      </div>
+                    </output>
+                    <details className="rider-details">
+                      <summary>Parcel and route details</summary>
+                      <div className="rider-details-content">
+                        <span>
+                          <strong>Parcel</strong>
+                          {selectedOrder.parcel_description ??
+                            "Details not provided"}
+                        </span>
+                        <span>
+                          <strong>Customer</strong>
+                          {selectedOrder.recipient_name ?? "Recipient"}
+                          {selectedOrder.recipient_phone
+                            ? ` · ${selectedOrder.recipient_phone}`
+                            : ""}
+                        </span>
+                        <span>
+                          <strong>Tracking</strong>
+                          {selectedOrder.tracking_code}
+                        </span>
+                      </div>
+                    </details>
                     <div
                       className={`energy-readiness-card energy-${energyAssessment?.status ?? "unknown"}`}
                     >

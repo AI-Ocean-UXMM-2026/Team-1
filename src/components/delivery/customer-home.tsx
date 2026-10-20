@@ -79,6 +79,7 @@ import {
   currency,
   formatDateTime,
   formatTime,
+  nextCustomerAction,
   timeUntil,
 } from "@/lib/delivery/format";
 import type {
@@ -522,6 +523,7 @@ function ContextChips({
 function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
   const copy = heroCopy(order, now);
   const delay = describeDelay(order, now);
+  const primaryAction = nextCustomerAction(order.status, delay.isDelayed);
   return (
     <Card
       elevation={0}
@@ -647,7 +649,7 @@ function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
               fontWeight: 700,
             }}
           >
-            Track <ArrowForward fontSize="small" />
+            {primaryAction} <ArrowForward fontSize="small" />
           </Box>
         </Stack>
       </CardActionArea>

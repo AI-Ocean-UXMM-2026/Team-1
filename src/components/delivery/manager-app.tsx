@@ -150,6 +150,15 @@ export function ManagerApp({ view }: { view: ManagerView }) {
     (driver) =>
       driver.availability === "available" && !assignedDrivers.has(driver.id),
   ).length;
+  const exceptionCount = orders.filter(
+    (order) =>
+      order.status === "failed" ||
+      order.status === "cancelled" ||
+      order.traffic_delay_minutes > 0,
+  ).length;
+  const codDueCount = orders.filter(
+    (order) => order.cod_amount > 0 && order.cod_status === "pending",
+  ).length;
   const assignableDrivers = workspace.data.drivers.filter(
     (driver) => driver.availability !== "off_duty",
   );
@@ -619,6 +628,28 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                   {workspace.data.vehicles.length} vehicles registered
                 </div>
               </article>
+            </section>
+          )}
+
+          {view === "home" && (
+            <section
+              className="manager-exception-strip"
+              aria-label="Needs attention"
+            >
+              <Link href="/manager/order?filter=unassigned">
+                <strong>
+                  {orders.filter((order) => !order.driver_id).length}
+                </strong>
+                <span>Needs rider</span>
+              </Link>
+              <Link href="/manager/track">
+                <strong>{exceptionCount}</strong>
+                <span>Needs attention</span>
+              </Link>
+              <Link href="/manager/insights">
+                <strong>{codDueCount}</strong>
+                <span>COD to reconcile</span>
+              </Link>
             </section>
           )}
 

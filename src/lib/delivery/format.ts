@@ -41,6 +41,24 @@ export function isLiveStatus(status: DeliveryStatus) {
   return status === "picked_up" || status === "in_transit";
 }
 
+export function nextCustomerAction(status: DeliveryStatus, delayed = false) {
+  if (status === "failed" || status === "cancelled") return "Get help";
+  if (status === "delivered") return "View delivery details";
+  if (delayed) return "View delay";
+  if (status === "picked_up" || status === "in_transit") return "Track live";
+  if (status === "assigned") return "See rider details";
+  return "View order";
+}
+
+export function relativeUpdatedAt(value: string | null, now = Date.now()) {
+  if (!value) return "Not updated yet";
+  const minutes = Math.max(0, Math.round((now - Date.parse(value)) / 60_000));
+  if (minutes < 1) return "Updated just now";
+  if (minutes === 1) return "Updated 1 min ago";
+  if (minutes < 60) return `Updated ${minutes} min ago`;
+  return `Updated ${Math.round(minutes / 60)} hr ago`;
+}
+
 export function statusTone(status: DeliveryStatus) {
   if (status === "delivered") return "status-success";
   if (status === "failed" || status === "cancelled") return "status-danger";
