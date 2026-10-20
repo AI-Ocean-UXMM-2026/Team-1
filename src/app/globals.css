@@ -2937,27 +2937,11 @@ a {
   line-height: 0;
 }
 
-.mascot-poster,
-.mascot-video {
-  position: absolute;
-  inset: 0;
+.mascot-poster {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
-}
-
-.mascot-poster {
-  z-index: 0;
-}
-
-.mascot-video {
-  z-index: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mascot-video {
-    display: none;
-  }
 }
 .loading-screen p {
   margin: 0;
