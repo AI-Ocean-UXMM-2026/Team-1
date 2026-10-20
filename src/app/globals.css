@@ -5324,3 +5324,703 @@ summary:focus-visible {
     transition-duration: 0.01ms;
   }
 }
+
+/* Manager desktop workspace */
+.manager-app {
+  width: 100%;
+  max-width: none;
+  min-width: 1024px;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  background: var(--color-background);
+  box-shadow: none;
+}
+
+.manager-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  width: 248px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 18px 18px;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.manager-sidebar > .brand-lockup {
+  margin: 0 10px 42px;
+}
+
+.manager-sidebar-label {
+  margin: 0 10px 10px;
+  color: var(--color-text-secondary-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.manager-side-nav {
+  display: grid;
+  gap: 6px;
+}
+
+.manager-side-nav a {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.manager-side-nav a:hover {
+  color: var(--color-brand-navy);
+  background: var(--color-surface-subtle);
+}
+
+.manager-side-nav a.side-nav-active {
+  color: var(--color-info-text);
+  background: var(--color-info-surface);
+}
+
+.manager-side-nav a > span {
+  min-width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  border-radius: 7px;
+  color: var(--color-text-secondary-subtle);
+  background: var(--color-surface-subtle);
+  font-size: 11px;
+}
+
+.manager-sidebar-bottom {
+  margin-top: auto;
+  padding: 16px 8px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.manager-sidebar-bottom strong {
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+
+.manager-sidebar-bottom small {
+  color: var(--color-text-secondary-subtle);
+  font-size: 11px;
+}
+
+.manager-main {
+  min-width: 0;
+  width: auto;
+}
+
+.manager-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  width: 100%;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgb(255 255 255 / 96%);
+}
+
+.manager-topbar > .brand-lockup {
+  display: none;
+}
+
+.manager-topbar-right,
+.manager-date {
+  display: flex;
+}
+
+.manager-date {
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+}
+
+.manager-app .user-meta {
+  display: grid;
+}
+
+.manager-content {
+  width: min(1440px, calc(100% - 64px));
+  margin-inline: auto;
+  padding: 32px 0 40px;
+}
+
+.manager-page-title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 8px 0 24px;
+}
+
+.manager-page-title h1 {
+  max-width: none;
+  margin: 7px 0 6px;
+  font-size: clamp(30px, 3vw, 42px);
+  line-height: 1.08;
+}
+
+.manager-page-title p {
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.manager-page-title .button {
+  width: auto;
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.manager-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.manager-metrics .metric-card {
+  min-height: 150px;
+  padding: 20px;
+}
+
+.manager-metrics .metric-card > strong {
+  font-size: 32px;
+  line-height: 38px;
+}
+
+.manager-home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
+  gap: 16px;
+}
+
+.manager-home-primary,
+.manager-home-secondary,
+.manager-profile-card,
+.manager-insights-card,
+.manager-live-orders,
+.manager-track-map {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.manager-home-primary {
+  min-height: 250px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 28px;
+}
+
+.manager-home-primary h2 {
+  margin: 8px 0;
+  color: var(--color-brand-navy);
+  font-size: 26px;
+  line-height: 32px;
+}
+
+.manager-home-primary p {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.manager-home-primary > .metric-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+}
+
+.manager-home-secondary {
+  display: grid;
+  padding: 8px;
+}
+
+.manager-home-secondary a,
+.manager-insights-card {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+}
+
+.manager-home-secondary a:hover,
+.manager-insights-card:hover {
+  background: var(--color-surface-subtle);
+}
+
+.manager-home-secondary a > span,
+.manager-insights-card > span {
+  min-width: 0;
+  display: grid;
+  flex: 1;
+  gap: 3px;
+}
+
+.manager-home-secondary strong,
+.manager-insights-card strong {
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.manager-home-secondary small,
+.manager-insights-card small {
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+}
+
+.manager-operations-grid {
+  grid-template-columns: minmax(380px, 0.9fr) minmax(520px, 1.25fr);
+  gap: 16px;
+  padding-top: 0;
+}
+
+.manager-orders-panel,
+.manager-map-panel,
+.manager-live-orders,
+.manager-track-map {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.manager-map-panel .map-viewport,
+.manager-map-panel .map-card-tall .map-viewport {
+  height: 340px;
+}
+
+.manager-track-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.75fr) minmax(560px, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.manager-live-orders .manager-order-list {
+  max-height: 610px;
+  overflow-y: auto;
+}
+
+.manager-track-map .map-card {
+  border: 0;
+  border-radius: 0;
+}
+
+.manager-track-map .map-viewport,
+.manager-track-map .map-card-tall .map-viewport {
+  height: 560px;
+}
+
+.manager-track-summary {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.manager-track-summary > span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.manager-track-summary strong {
+  color: var(--color-brand-navy);
+  font-size: 14px;
+}
+
+.manager-track-summary small {
+  overflow: hidden;
+  color: var(--color-text-secondary-subtle);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manager-track-grid + .road-knowledge-panel {
+  margin-top: 16px;
+}
+
+.manager-profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.6fr);
+  gap: 16px;
+}
+
+.manager-profile-card {
+  min-height: 132px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+}
+
+.manager-profile-avatar {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-lg);
+  color: var(--color-text-inverse);
+  background: var(--color-brand-navy);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.manager-profile-card > div {
+  min-width: 0;
+  display: grid;
+  flex: 1;
+}
+
+.manager-profile-card h2 {
+  margin: 5px 0 2px;
+  color: var(--color-brand-navy);
+  font-size: 20px;
+}
+
+.manager-profile-card p {
+  margin: 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+}
+
+.manager-insights-card {
+  min-height: 132px;
+}
+
+.manager-app .fleet-strip {
+  display: grid;
+  gap: 18px;
+  margin-top: 16px;
+  padding: 20px;
+}
+
+.manager-app .fleet-item-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  overflow: visible;
+}
+
+.manager-app .fleet-item {
+  width: auto;
+  min-width: 0;
+  min-height: 64px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.manager-footer {
+  min-height: 72px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0 0;
+}
+
+/* Route-based customer and rider pages */
+.customer-profile-page,
+.rider-cod-page,
+.rider-profile-page {
+  display: grid;
+  gap: 16px;
+  padding-top: 28px;
+  padding-bottom: 24px;
+}
+
+.customer-profile-card,
+.rider-profile-card,
+.rider-profile-details,
+.rider-cod-page,
+.rider-cod-action-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.customer-profile-card,
+.rider-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+}
+
+.customer-profile-card > div,
+.rider-profile-card > div {
+  min-width: 0;
+  display: grid;
+  flex: 1;
+  gap: 3px;
+}
+
+.customer-profile-card h1,
+.rider-profile-card h2 {
+  margin: 3px 0;
+  color: var(--color-brand-navy);
+  font-size: 20px;
+  line-height: 26px;
+}
+
+.customer-profile-card p,
+.rider-profile-card p {
+  margin: 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.customer-profile-avatar,
+.rider-profile-avatar {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-lg);
+  color: var(--color-text-inverse);
+  background: var(--color-brand-navy);
+  font-weight: 700;
+}
+
+.customer-profile-links {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.customer-profile-links a {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.customer-profile-links a:last-child {
+  border-bottom: 0;
+}
+
+.customer-profile-links a > span {
+  min-width: 0;
+  display: grid;
+  flex: 1;
+  gap: 3px;
+}
+
+.customer-profile-links strong,
+.customer-profile-links small {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.customer-profile-links small {
+  color: var(--color-text-secondary-subtle);
+}
+
+.rider-layout-deliveries {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.rider-cod-page {
+  padding: 16px;
+}
+
+.rider-cod-page > .section-head-block {
+  margin: 0;
+}
+
+.rider-cod-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.rider-cod-item {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  text-align: left;
+  background: var(--color-surface);
+}
+
+.rider-cod-item:last-child {
+  border-bottom: 0;
+}
+
+.rider-cod-item.is-selected {
+  background: var(--color-info-surface);
+}
+
+.rider-cod-item > span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.rider-cod-item > span:last-child {
+  justify-items: end;
+  text-transform: capitalize;
+}
+
+.rider-cod-item strong {
+  color: var(--color-brand-navy);
+  font-size: 14px;
+}
+
+.rider-cod-item small {
+  overflow: hidden;
+  color: var(--color-text-secondary-subtle);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rider-cod-action-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.rider-cod-action-card > div {
+  display: grid;
+  gap: 4px;
+}
+
+.rider-cod-action-card small,
+.rider-cod-action-card span {
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+}
+
+.rider-cod-action-card strong {
+  color: var(--color-brand-navy);
+  font-size: 17px;
+}
+
+.rider-profile-details {
+  display: grid;
+  overflow: hidden;
+}
+
+.rider-profile-details > div {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rider-profile-details > div:last-child {
+  border-bottom: 0;
+}
+
+.rider-profile-details span {
+  display: grid;
+  gap: 3px;
+}
+
+.rider-profile-details small {
+  color: var(--color-text-secondary-subtle);
+}
+
+.rider-profile-card .status-badge {
+  flex: 0 0 auto;
+}
+
+.rider-app .rider-cod-page,
+.rider-app .rider-profile-page {
+  width: 100%;
+  display: grid;
+  gap: 16px;
+}
+
+.rider-app .rider-cod-page {
+  padding: 16px;
+}
+
+.rider-app .rider-cod-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 14px;
+}
+
+.rider-app .rider-cod-item > span:first-child {
+  min-width: 0;
+}
+
+.rider-app .rider-cod-item > span:last-child {
+  min-width: 96px;
+}
+
+.rider-app .rider-profile-card h2,
+.rider-app .rider-profile-details strong {
+  color: var(--color-text-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+  .rider-app .rider-cod-page,
+  .rider-app .rider-cod-list,
+  .rider-app .rider-cod-item,
+  .rider-app .rider-cod-action-card,
+  .rider-app .rider-profile-card,
+  .rider-app .rider-profile-details {
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .rider-app .rider-cod-item.is-selected {
+    background: var(--color-info-surface);
+  }
+
+  .rider-app .rider-cod-item strong,
+  .rider-app .rider-cod-action-card strong,
+  .rider-app .rider-profile-card h2,
+  .rider-app .rider-profile-details strong {
+    color: var(--color-text-primary);
+  }
+}

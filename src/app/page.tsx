@@ -1,5 +1,5 @@
-import { CustomerApp } from "@/components/delivery/customer-app";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <CustomerApp />;
+  redirect("/home");
 }

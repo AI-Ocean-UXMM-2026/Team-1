@@ -36,21 +36,23 @@ import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
 const riderNavItems = [
-  { id: "route", label: "Route", href: "#route", icon: "navigation" },
+  { id: "route", label: "Route", href: "/rider/route", icon: "navigation" },
   {
     id: "deliveries",
     label: "Deliveries",
-    href: "#deliveries",
+    href: "/rider/deliveries",
     icon: "package",
   },
-  { id: "cod", label: "COD", href: "#cod", icon: "coin" },
+  { id: "cod", label: "COD", href: "/rider/cod", icon: "coin" },
   {
-    id: "rider-account",
+    id: "profile",
     label: "Profile",
-    href: "#rider-account",
+    href: "/rider/profile",
     icon: "user",
   },
 ] as const;
+
+export type RiderView = (typeof riderNavItems)[number]["id"];
 
 function nextAction(status: DeliveryStatus) {
   if (status === "assigned")
@@ -80,7 +82,7 @@ function nextAction(status: DeliveryStatus) {
   return null;
 }
 
-export function RiderApp() {
+export function RiderApp({ view }: { view: RiderView }) {
   const workspace = useWorkspace("driver");
   const [selectedId, setSelectedId] = useState("");
   const [authOpen, setAuthOpen] = useState(false);
@@ -564,11 +566,19 @@ export function RiderApp() {
       <header className="workspace-header rider-header">
         <div className="workspace-header-inner">
           <div className="workspace-title-lockup">
-            <Brand />
+            <Brand href="/rider/route" />
             <span className="workspace-divider" />
             <div>
               <small>Rider workspace</small>
-              <strong>Today’s route</strong>
+              <strong>
+                {view === "route"
+                  ? "Today’s route"
+                  : view === "deliveries"
+                    ? "Assigned deliveries"
+                    : view === "cod"
+                      ? "Cash collection"
+                      : "Rider profile"}
+              </strong>
             </div>
           </div>
           <div className="workspace-header-right">
@@ -608,8 +618,24 @@ export function RiderApp() {
       <div className="rider-page-shell">
         <div className="rider-welcome">
           <div>
-            <h1>Ready for the road?</h1>
-            <p>Every update keeps the customer close to their parcel.</p>
+            <h1>
+              {view === "route"
+                ? "Ready for the road?"
+                : view === "deliveries"
+                  ? "Your delivery queue."
+                  : view === "cod"
+                    ? "Cash to collect."
+                    : "Your rider profile."}
+            </h1>
+            <p>
+              {view === "route"
+                ? "Every update keeps the customer close to their parcel."
+                : view === "deliveries"
+                  ? "Choose a stop and keep operations informed about road conditions."
+                  : view === "cod"
+                    ? "Record cash only after receiving it from the customer."
+                    : "Review your account, vehicle, and shift information."}
+            </p>
           </div>
           <div className="rider-shift-stat">
             <strong>{activeOrders.length.toString().padStart(2, "0")}</strong>
@@ -617,381 +643,530 @@ export function RiderApp() {
           </div>
         </div>
 
-        <div className="rider-layout">
-          <section className="rider-main-column">
-            <div className="rider-map-wrap" id="route">
-              <LocationMap
-                order={selectedOrder}
-                mode="rider"
-                isDemo={workspace.isDemo}
-                tall
-              />
-              <div
-                className={`location-sharing-strip ${locationSharing ? "is-sharing" : ""}`}
-              >
-                <span className="sharing-signal">
-                  <Icon name="track" size={18} />
-                </span>
-                <div className="sharing-copy">
-                  <strong>{locationState}</strong>
-                  <span>
-                    {workspace.isDemo
-                      ? "Sample location only. Your device’s GPS is never used."
-                      : lastLocationSent && locationSharing
-                        ? `Last point sent at ${formatTime(lastLocationSent)} · keep this app open while delivering`
-                        : collectedOrderIds.length
-                          ? "Share your location for every collected parcel. Keep this app open during delivery."
-                          : "Customer tracking begins when you receive the parcel."}
-                  </span>
-                </div>
-                {collectedOrderIds.length > 0 &&
-                  !locationSharing &&
-                  !workspace.isDemo &&
-                  workspace.canUseLiveData && (
-                    <button
-                      type="button"
-                      className="button button-small button-dark"
-                      onClick={startLocationSharing}
-                    >
-                      Share location
-                    </button>
+        {(view === "route" || view === "deliveries") && (
+          <div className={`rider-layout rider-layout-${view}`}>
+            {view === "route" && (
+              <section className="rider-main-column">
+                <div className="rider-map-wrap" id="route">
+                  <LocationMap
+                    order={selectedOrder}
+                    mode="rider"
+                    isDemo={workspace.isDemo}
+                    tall
+                  />
+                  <div
+                    className={`location-sharing-strip ${locationSharing ? "is-sharing" : ""}`}
+                  >
+                    <span className="sharing-signal">
+                      <Icon name="track" size={18} />
+                    </span>
+                    <div className="sharing-copy">
+                      <strong>{locationState}</strong>
+                      <span>
+                        {workspace.isDemo
+                          ? "Sample location only. Your device’s GPS is never used."
+                          : lastLocationSent && locationSharing
+                            ? `Last point sent at ${formatTime(lastLocationSent)} · keep this app open while delivering`
+                            : collectedOrderIds.length
+                              ? "Share your location for every collected parcel. Keep this app open during delivery."
+                              : "Customer tracking begins when you receive the parcel."}
+                      </span>
+                    </div>
+                    {collectedOrderIds.length > 0 &&
+                      !locationSharing &&
+                      !workspace.isDemo &&
+                      workspace.canUseLiveData && (
+                        <button
+                          type="button"
+                          className="button button-small button-dark"
+                          onClick={startLocationSharing}
+                        >
+                          Share location
+                        </button>
+                      )}
+                  </div>
+                  {locationError && (
+                    <div className="inline-alert" role="alert">
+                      <Icon name="warning" size={15} />
+                      {locationError}
+                    </div>
                   )}
-              </div>
-              {locationError && (
-                <div className="inline-alert" role="alert">
-                  <Icon name="warning" size={15} />
-                  {locationError}
                 </div>
-              )}
-            </div>
 
-            {selectedOrder ? (
-              <div className="rider-task-card" id="cod">
-                <div className="rider-task-header">
-                  <div>
-                    <h2>{selectedOrder.tracking_code}</h2>
-                  </div>
-                  <StatusBadge status={selectedOrder.status} />
-                </div>
-                <div className="rider-task-route">
-                  <div className="task-route-point">
-                    <span className="task-route-mark task-pickup-mark">
-                      <Icon name="box" size={15} />
-                    </span>
-                    <div>
-                      <small>Collect from</small>
-                      <strong>{selectedOrder.pickup_address}</strong>
-                      <span>
-                        {selectedOrder.status === "assigned" ||
-                        selectedOrder.status === "accepted"
-                          ? "Parcel handoff point"
-                          : "Parcel collected"}
-                      </span>
+                {selectedOrder ? (
+                  <div className="rider-task-card" id="cod">
+                    <div className="rider-task-header">
+                      <div>
+                        <h2>{selectedOrder.tracking_code}</h2>
+                      </div>
+                      <StatusBadge status={selectedOrder.status} />
                     </div>
-                  </div>
-                  <div className="task-route-rule" />
-                  <div className="task-route-point">
-                    <span className="task-route-mark task-drop-mark">
-                      <Icon name="location" size={15} />
-                    </span>
-                    <div>
-                      <small>Deliver to</small>
-                      <strong>{selectedOrder.delivery_address}</strong>
-                      <span>
-                        {selectedOrder.recipient_name || "Recipient"}
-                        {selectedOrder.recipient_phone
-                          ? ` · ${selectedOrder.recipient_phone}`
-                          : ""}
-                      </span>
+                    <div className="rider-task-route">
+                      <div className="task-route-point">
+                        <span className="task-route-mark task-pickup-mark">
+                          <Icon name="box" size={15} />
+                        </span>
+                        <div>
+                          <small>Collect from</small>
+                          <strong>{selectedOrder.pickup_address}</strong>
+                          <span>
+                            {selectedOrder.status === "assigned" ||
+                            selectedOrder.status === "accepted"
+                              ? "Parcel handoff point"
+                              : "Parcel collected"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="task-route-rule" />
+                      <div className="task-route-point">
+                        <span className="task-route-mark task-drop-mark">
+                          <Icon name="location" size={15} />
+                        </span>
+                        <div>
+                          <small>Deliver to</small>
+                          <strong>{selectedOrder.delivery_address}</strong>
+                          <span>
+                            {selectedOrder.recipient_name || "Recipient"}
+                            {selectedOrder.recipient_phone
+                              ? ` · ${selectedOrder.recipient_phone}`
+                              : ""}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className="rider-task-meta">
-                  <span>
-                    <Icon name="box" size={15} />
-                    {selectedOrder.parcel_description ??
-                      "Parcel details not provided"}
-                  </span>
-                  <span>
-                    <Icon name="history" size={15} />
-                    ETA {formatTime(selectedOrder.estimated_delivery_at)}
-                  </span>
-                  {selectedOrder.route_progress_percent != null && (
-                    <span>
-                      <Icon name="navigation" size={15} />
-                      {Math.round(selectedOrder.route_progress_percent)}% of
-                      route complete
-                    </span>
-                  )}
-                  {selectedOrder.traffic_delay_minutes > 0 && (
-                    <span className="traffic-delay">
-                      <Icon name="warning" size={15} />+
-                      {selectedOrder.traffic_delay_minutes} min from verified
-                      road reports
-                    </span>
-                  )}
-                </div>
-                <div
-                  className={`energy-readiness-card energy-${energyAssessment?.status ?? "unknown"}`}
-                >
-                  <span className="energy-readiness-icon">
-                    <Icon name="navigation" size={18} />
-                  </span>
-                  <div>
-                    <small>
-                      {selectedVehicle?.energy_source === "electric"
-                        ? "Battery-aware route"
-                        : "Fuel-aware route"}
-                    </small>
-                    <strong>
-                      {energyAssessment?.message ??
-                        "Assign a vehicle to check readiness."}
-                    </strong>
-                    <span>
-                      {energyAssessment?.distanceKm != null
-                        ? `${energyAssessment.distanceKm} km estimated · ${energyAssessment.availableRangeKm} km usable range`
-                        : "Route pins and vehicle range are required."}
-                    </span>
-                  </div>
-                  {selectedVehicle && (
-                    <div className="energy-level-control">
-                      <input
-                        aria-label="Current vehicle energy percent"
-                        type="number"
-                        min="0"
-                        max="100"
-                        placeholder={`${energyAssessment?.energyLevelPercent ?? 0}%`}
-                        value={energyLevel}
-                        onChange={(event) => setEnergyLevel(event.target.value)}
-                      />
+                    <div className="rider-task-meta">
+                      <span>
+                        <Icon name="box" size={15} />
+                        {selectedOrder.parcel_description ??
+                          "Parcel details not provided"}
+                      </span>
+                      <span>
+                        <Icon name="history" size={15} />
+                        ETA {formatTime(selectedOrder.estimated_delivery_at)}
+                      </span>
+                      {selectedOrder.route_progress_percent != null && (
+                        <span>
+                          <Icon name="navigation" size={15} />
+                          {Math.round(selectedOrder.route_progress_percent)}% of
+                          route complete
+                        </span>
+                      )}
+                      {selectedOrder.traffic_delay_minutes > 0 && (
+                        <span className="traffic-delay">
+                          <Icon name="warning" size={15} />+
+                          {selectedOrder.traffic_delay_minutes} min from
+                          verified road reports
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className={`energy-readiness-card energy-${energyAssessment?.status ?? "unknown"}`}
+                    >
+                      <span className="energy-readiness-icon">
+                        <Icon name="navigation" size={18} />
+                      </span>
+                      <div>
+                        <small>
+                          {selectedVehicle?.energy_source === "electric"
+                            ? "Battery-aware route"
+                            : "Fuel-aware route"}
+                        </small>
+                        <strong>
+                          {energyAssessment?.message ??
+                            "Assign a vehicle to check readiness."}
+                        </strong>
+                        <span>
+                          {energyAssessment?.distanceKm != null
+                            ? `${energyAssessment.distanceKm} km estimated · ${energyAssessment.availableRangeKm} km usable range`
+                            : "Route pins and vehicle range are required."}
+                        </span>
+                      </div>
+                      {selectedVehicle && (
+                        <div className="energy-level-control">
+                          <input
+                            aria-label="Current vehicle energy percent"
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder={`${energyAssessment?.energyLevelPercent ?? 0}%`}
+                            value={energyLevel}
+                            onChange={(event) =>
+                              setEnergyLevel(event.target.value)
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void saveEnergyLevel()}
+                            disabled={busyAction || !energyLevel}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <a
+                      className="button button-outline rider-primary-action"
+                      href={navigationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Icon name="navigation" size={18} />
+                      {navigatingToPickup
+                        ? "Navigate to pickup"
+                        : "Navigate to customer"}
+                      <Icon name="arrow-right" size={17} />
+                    </a>
+                    {selectedOrder.cod_amount > 0 && (
+                      <div className="rider-cod-row">
+                        <div>
+                          <small>
+                            <Icon name="coin" size={14} /> COD due
+                          </small>
+                          <strong>
+                            {currency.format(selectedOrder.cod_amount)}
+                          </strong>
+                        </div>
+                        {selectedOrder.cod_status === "pending" ? (
+                          <button
+                            type="button"
+                            className="button button-outline button-small"
+                            onClick={() => void collectPayment()}
+                            disabled={codBusy || !canCollectCod}
+                          >
+                            {codBusy
+                              ? "Saving…"
+                              : canCollectCod
+                                ? "Record cash"
+                                : "After pickup"}
+                          </button>
+                        ) : (
+                          <span className="cod-paid">
+                            <Icon name="check" size={14} />
+                            Collected
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {action && (
                       <button
                         type="button"
-                        onClick={() => void saveEnergyLevel()}
-                        disabled={busyAction || !energyLevel}
+                        className="button button-primary rider-primary-action"
+                        onClick={() => void advanceDelivery()}
+                        disabled={
+                          busyAction ||
+                          (action.status === "delivered" && !canFinish)
+                        }
                       >
-                        Save
+                        <Icon name={action.icon} size={18} />
+                        {busyAction
+                          ? "Updating delivery…"
+                          : action.status === "delivered" && !canFinish
+                            ? "Collect COD before closing delivery"
+                            : action.label}
+                        <Icon name="arrow-right" size={17} />
                       </button>
-                    </div>
-                  )}
-                </div>
-                <a
-                  className="button button-outline rider-primary-action"
-                  href={navigationUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon name="navigation" size={18} />
-                  {navigatingToPickup
-                    ? "Navigate to pickup"
-                    : "Navigate to customer"}
-                  <Icon name="arrow-right" size={17} />
-                </a>
-                {selectedOrder.cod_amount > 0 && (
-                  <div className="rider-cod-row">
-                    <div>
-                      <small>
-                        <Icon name="coin" size={14} /> COD due
-                      </small>
-                      <strong>
-                        {currency.format(selectedOrder.cod_amount)}
-                      </strong>
-                    </div>
-                    {selectedOrder.cod_status === "pending" ? (
-                      <button
-                        type="button"
-                        className="button button-outline button-small"
-                        onClick={() => void collectPayment()}
-                        disabled={codBusy || !canCollectCod}
-                      >
-                        {codBusy
-                          ? "Saving…"
-                          : canCollectCod
-                            ? "Record cash"
-                            : "After pickup"}
-                      </button>
-                    ) : (
-                      <span className="cod-paid">
-                        <Icon name="check" size={14} />
-                        Collected
-                      </span>
+                    )}
+                    {selectedOrder.status !== "delivered" &&
+                      selectedOrder.status !== "failed" &&
+                      selectedOrder.status !== "cancelled" && (
+                        <button
+                          type="button"
+                          className="rider-issue-action"
+                          onClick={() => void reportDeliveryIssue()}
+                          disabled={busyAction}
+                        >
+                          <Icon name="warning" size={14} /> Report a delivery
+                          issue
+                        </button>
+                      )}
+                    {actionError && (
+                      <div className="form-message form-error" role="alert">
+                        {actionError}
+                      </div>
                     )}
                   </div>
-                )}
-                {action && (
-                  <button
-                    type="button"
-                    className="button button-primary rider-primary-action"
-                    onClick={() => void advanceDelivery()}
-                    disabled={
-                      busyAction ||
-                      (action.status === "delivered" && !canFinish)
-                    }
-                  >
-                    <Icon name={action.icon} size={18} />
-                    {busyAction
-                      ? "Updating delivery…"
-                      : action.status === "delivered" && !canFinish
-                        ? "Collect COD before closing delivery"
-                        : action.label}
-                    <Icon name="arrow-right" size={17} />
-                  </button>
-                )}
-                {selectedOrder.status !== "delivered" &&
-                  selectedOrder.status !== "failed" &&
-                  selectedOrder.status !== "cancelled" && (
-                    <button
-                      type="button"
-                      className="rider-issue-action"
-                      onClick={() => void reportDeliveryIssue()}
-                      disabled={busyAction}
-                    >
-                      <Icon name="warning" size={14} /> Report a delivery issue
-                    </button>
-                  )}
-                {actionError && (
-                  <div className="form-message form-error" role="alert">
-                    {actionError}
+                ) : (
+                  <div className="empty-state rider-empty">
+                    <span className="empty-icon">
+                      <Icon name="check" size={23} />
+                    </span>
+                    <h2>You’re clear for now</h2>
+                    <p>New delivery assignments will show up here.</p>
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="empty-state rider-empty">
-                <span className="empty-icon">
-                  <Icon name="check" size={23} />
-                </span>
-                <h2>You’re clear for now</h2>
-                <p>New delivery assignments will show up here.</p>
-              </div>
+              </section>
             )}
-          </section>
 
-          <aside className="rider-stops-column">
-            <div className="stops-card" id="deliveries">
-              <div className="section-head-block stops-heading">
-                <div>
-                  <h2>Active stops</h2>
+            {view === "deliveries" && (
+              <aside className="rider-stops-column">
+                <div className="stops-card" id="deliveries">
+                  <div className="section-head-block stops-heading">
+                    <div>
+                      <h2>Active stops</h2>
+                    </div>
+                    <span className="stops-count">{activeOrders.length}</span>
+                  </div>
+                  <div className="stop-list">
+                    {activeOrders.map((order, index) => (
+                      <button
+                        type="button"
+                        key={order.id}
+                        className={`stop-item ${selectedOrder?.id === order.id ? "is-selected" : ""}`}
+                        onClick={() => setSelectedId(order.id)}
+                      >
+                        <span
+                          className={`stop-index ${order.status === "in_transit" ? "stop-index-live" : ""}`}
+                        >
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="stop-copy">
+                          <strong>{order.tracking_code}</strong>
+                          <span>{order.delivery_address}</span>
+                          <small>{STATUS_LABELS[order.status]}</small>
+                        </span>
+                        <Icon name="arrow-right" size={16} />
+                      </button>
+                    ))}
+                    {!activeOrders.length && (
+                      <p className="empty-small-copy">
+                        Nothing assigned at the moment.
+                      </p>
+                    )}
+                  </div>
+                  <div className="stops-footer">
+                    <span className="route-mini-icon">
+                      <Icon name="compass" size={17} />
+                    </span>
+                    <span>
+                      Each stop includes its pickup and delivery addresses.
+                    </span>
+                  </div>
                 </div>
-                <span className="stops-count">{activeOrders.length}</span>
+                <form
+                  className="road-report-form"
+                  onSubmit={reportRoadKnowledge}
+                >
+                  <div className="section-head-block">
+                    <div>
+                      <span className="section-kicker">Local knowledge</span>
+                      <h2>Report road conditions</h2>
+                    </div>
+                    <Icon name="warning" size={18} />
+                  </div>
+                  <p>
+                    Submit while safely stopped. Operations verifies reports
+                    before they affect ETAs.
+                  </p>
+                  <div className="road-report-fields">
+                    <label className="field-label compact-label">
+                      CONDITION
+                      <select
+                        value={roadCategory}
+                        onChange={(event) =>
+                          setRoadCategory(
+                            event.target.value as RoadReport["category"],
+                          )
+                        }
+                      >
+                        <option value="congestion">Congestion</option>
+                        <option value="closure">Road closure</option>
+                        <option value="roadwork">Roadwork</option>
+                        <option value="flooding">Flooding</option>
+                        <option value="hazard">Road hazard</option>
+                      </select>
+                    </label>
+                    <label className="field-label compact-label">
+                      IMPACT
+                      <select
+                        value={roadSeverity}
+                        onChange={(event) =>
+                          setRoadSeverity(
+                            event.target.value as RoadReport["severity"],
+                          )
+                        }
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="blocked">Blocked</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className="field-label compact-label">
+                    WHAT DID YOU SEE?
+                    <textarea
+                      value={roadDescription}
+                      onChange={(event) =>
+                        setRoadDescription(event.target.value)
+                      }
+                      minLength={3}
+                      maxLength={240}
+                      required
+                      placeholder="Example: left lane closed after the market entrance"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="button button-outline rider-primary-action"
+                    disabled={roadBusy || roadDescription.trim().length < 3}
+                  >
+                    <Icon name="location" size={17} />
+                    {roadBusy
+                      ? "Sending report…"
+                      : "Submit with current location"}
+                  </button>
+                </form>
+                <div className="rider-safety-note">
+                  <Icon name="shield" size={17} />
+                  <div>
+                    <strong>Keep your focus on the road</strong>
+                    <span>Only update this task when it is safe to stop.</span>
+                  </div>
+                </div>
+              </aside>
+            )}
+          </div>
+        )}
+
+        {view === "cod" && (
+          <section className="rider-cod-page">
+            <div className="section-head-block">
+              <div>
+                <span className="section-kicker">Active collections</span>
+                <h2>COD deliveries</h2>
               </div>
-              <div className="stop-list">
-                {activeOrders.map((order, index) => (
+              <span className="stops-count">
+                {activeOrders.filter((order) => order.cod_amount > 0).length}
+              </span>
+            </div>
+            <div className="rider-cod-list">
+              {activeOrders
+                .filter((order) => order.cod_amount > 0)
+                .map((order) => (
                   <button
                     type="button"
                     key={order.id}
-                    className={`stop-item ${selectedOrder?.id === order.id ? "is-selected" : ""}`}
+                    className={`rider-cod-item ${selectedOrder?.id === order.id ? "is-selected" : ""}`}
                     onClick={() => setSelectedId(order.id)}
                   >
-                    <span
-                      className={`stop-index ${order.status === "in_transit" ? "stop-index-live" : ""}`}
-                    >
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="stop-copy">
+                    <span>
                       <strong>{order.tracking_code}</strong>
-                      <span>{order.delivery_address}</span>
-                      <small>{STATUS_LABELS[order.status]}</small>
+                      <small>{order.delivery_address}</small>
                     </span>
-                    <Icon name="arrow-right" size={16} />
+                    <span>
+                      <strong>{currency.format(order.cod_amount)}</strong>
+                      <small>{order.cod_status}</small>
+                    </span>
                   </button>
                 ))}
-                {!activeOrders.length && (
-                  <p className="empty-small-copy">
-                    Nothing assigned at the moment.
-                  </p>
+              {!activeOrders.some((order) => order.cod_amount > 0) && (
+                <div className="empty-state rider-empty">
+                  <span className="empty-icon">
+                    <Icon name="check" size={22} />
+                  </span>
+                  <h2>No COD collections</h2>
+                  <p>Your active cash collections will appear here.</p>
+                </div>
+              )}
+            </div>
+            {selectedOrder && selectedOrder.cod_amount > 0 && (
+              <div className="rider-cod-action-card">
+                <div>
+                  <small>Selected delivery</small>
+                  <strong>{selectedOrder.tracking_code}</strong>
+                  <span>{currency.format(selectedOrder.cod_amount)} due</span>
+                </div>
+                {selectedOrder.cod_status === "pending" ? (
+                  <button
+                    type="button"
+                    className="button button-primary"
+                    onClick={() => void collectPayment()}
+                    disabled={codBusy || !canCollectCod}
+                  >
+                    <Icon name="coin" size={17} />
+                    {codBusy
+                      ? "Saving…"
+                      : canCollectCod
+                        ? "Record cash collected"
+                        : "Available after pickup"}
+                  </button>
+                ) : (
+                  <span className="cod-paid">
+                    <Icon name="check" size={14} /> Collected
+                  </span>
                 )}
               </div>
-              <div className="stops-footer">
-                <span className="route-mini-icon">
-                  <Icon name="compass" size={17} />
-                </span>
-                <span>
-                  Each stop includes its pickup and delivery addresses.
-                </span>
-              </div>
-            </div>
-            <form className="road-report-form" onSubmit={reportRoadKnowledge}>
-              <div className="section-head-block">
-                <div>
-                  <span className="section-kicker">Local knowledge</span>
-                  <h2>Report road conditions</h2>
-                </div>
-                <Icon name="warning" size={18} />
-              </div>
-              <p>
-                Submit while safely stopped. Operations verifies reports before
-                they affect ETAs.
-              </p>
-              <div className="road-report-fields">
-                <label className="field-label compact-label">
-                  CONDITION
-                  <select
-                    value={roadCategory}
-                    onChange={(event) =>
-                      setRoadCategory(
-                        event.target.value as RoadReport["category"],
-                      )
-                    }
-                  >
-                    <option value="congestion">Congestion</option>
-                    <option value="closure">Road closure</option>
-                    <option value="roadwork">Roadwork</option>
-                    <option value="flooding">Flooding</option>
-                    <option value="hazard">Road hazard</option>
-                  </select>
-                </label>
-                <label className="field-label compact-label">
-                  IMPACT
-                  <select
-                    value={roadSeverity}
-                    onChange={(event) =>
-                      setRoadSeverity(
-                        event.target.value as RoadReport["severity"],
-                      )
-                    }
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="blocked">Blocked</option>
-                  </select>
-                </label>
-              </div>
-              <label className="field-label compact-label">
-                WHAT DID YOU SEE?
-                <textarea
-                  value={roadDescription}
-                  onChange={(event) => setRoadDescription(event.target.value)}
-                  minLength={3}
-                  maxLength={240}
-                  required
-                  placeholder="Example: left lane closed after the market entrance"
-                />
-              </label>
-              <button
-                type="submit"
-                className="button button-outline rider-primary-action"
-                disabled={roadBusy || roadDescription.trim().length < 3}
-              >
-                <Icon name="location" size={17} />
-                {roadBusy ? "Sending report…" : "Submit with current location"}
-              </button>
-            </form>
-            <div className="rider-safety-note">
-              <Icon name="shield" size={17} />
-              <div>
-                <strong>Keep your focus on the road</strong>
-                <span>Only update this task when it is safe to stop.</span>
-              </div>
-            </div>
-          </aside>
-        </div>
+            )}
+          </section>
+        )}
 
-        <footer className="workspace-footer" id="rider-account">
+        {view === "profile" && (
+          <section className="rider-profile-page">
+            <div className="rider-profile-card">
+              <span className="rider-profile-avatar">
+                {(workspace.profile?.full_name?.[0] ?? "R").toUpperCase()}
+              </span>
+              <div>
+                <span className="section-kicker">Rider account</span>
+                <h2>{workspace.profile?.full_name || "Oern Rider"}</h2>
+                <p>
+                  {workspace.isAuthenticated
+                    ? "Signed in and ready for assignments"
+                    : "Sign in to receive live assignments"}
+                </p>
+              </div>
+              <span className="status-badge status-success">
+                <Icon name="shield" size={13} /> Rider access
+              </span>
+            </div>
+            <div className="rider-profile-details">
+              <div>
+                <Icon name="truck" size={18} />
+                <span>
+                  <small>Assigned vehicle</small>
+                  <strong>
+                    {selectedVehicle?.registration_number ||
+                      "No vehicle assigned"}
+                  </strong>
+                </span>
+              </div>
+              <div>
+                <Icon name="track" size={18} />
+                <span>
+                  <small>Location sharing</small>
+                  <strong>
+                    {locationSharing
+                      ? "Sharing during delivery"
+                      : "Starts after pickup"}
+                  </strong>
+                </span>
+              </div>
+              <div>
+                <Icon name="package" size={18} />
+                <span>
+                  <small>Active stops</small>
+                  <strong>{activeOrders.length}</strong>
+                </span>
+              </div>
+            </div>
+            {!workspace.isAuthenticated && (
+              <button
+                className="button button-primary"
+                type="button"
+                onClick={() => setAuthOpen(true)}
+              >
+                Sign in as a rider <Icon name="arrow-right" size={16} />
+              </button>
+            )}
+          </section>
+        )}
+
+        <footer className="workspace-footer">
           <span>Oern Rider · Help center</span>
-          <a href="/manager">Operations sign-in</a>
+          <a href="/manager/home">Operations sign-in</a>
         </footer>
       </div>
-      <MobileNav label="Rider app" items={riderNavItems} />
+      <MobileNav label="Rider app" items={riderNavItems} activeId={view} />
       <AuthDialog
         open={authOpen}
         audience="team"
