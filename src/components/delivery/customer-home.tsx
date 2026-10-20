@@ -61,6 +61,7 @@ import {
   useState,
 } from "react";
 
+import { Icon, type IconName } from "@/components/delivery/icons";
 import {
   buildTodayItems,
   type ContextAction,
@@ -307,20 +308,29 @@ function heroCopy(order: DeliveryOrder, now: number) {
   };
 }
 
+const quickActionTones = {
+  orange: { bg: "#fff1e6", color: "primary.main" },
+  navy: { bg: "#eef1f6", color: "secondary.main" },
+  info: { bg: "#e6edfb", color: "info.main" },
+} as const;
+
 function QuickAction({
   label,
   badge,
-  illustration,
+  icon,
+  tone,
   ...rest
 }: {
   label: string;
   badge?: number;
-  illustration: string;
+  icon: IconName;
+  tone: keyof typeof quickActionTones;
 } & (
   | { component: typeof Link; href: string }
   | { component: "a"; href: string }
   | { component: "button"; onClick: () => void }
 )) {
+  const { bg, color } = quickActionTones[tone];
   return (
     <ButtonBase
       {...rest}
@@ -342,11 +352,18 @@ function QuickAction({
     >
       <Badge badgeContent={badge} color="error" max={9}>
         <Box
-          component="img"
-          src={illustration}
-          alt=""
-          sx={{ display: "block", width: 64, height: 64 }}
-        />
+          sx={{
+            display: "grid",
+            placeItems: "center",
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            bgcolor: bg,
+            color,
+          }}
+        >
+          <Icon name={icon} size={26} strokeWidth={1.9} />
+        </Box>
       </Badge>
       {label}
     </ButtonBase>
@@ -382,27 +399,31 @@ function QuickActions({
           href="#arriving-today"
           label="Today's deliveries"
           badge={arrivingCount}
-          illustration="/icons/arriving-today.svg"
+          icon="truck"
+          tone="orange"
         />
       ) : (
         <QuickAction
           component="button"
           onClick={onSignIn}
           label="Today's deliveries"
-          illustration="/icons/arriving-today.svg"
+          icon="truck"
+          tone="orange"
         />
       )}
       <QuickAction
         component={Link}
         href="/track"
         label="Track by ID"
-        illustration="/icons/track-parcel.svg"
+        icon="search"
+        tone="navy"
       />
       <QuickAction
         component="button"
         onClick={onOpenHelp}
         label="Report a problem"
-        illustration="/icons/get-help.svg"
+        icon="help"
+        tone="info"
       />
     </Box>
   );
