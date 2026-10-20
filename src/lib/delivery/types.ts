@@ -44,6 +44,7 @@ export type DeliveryOrder = {
   driver_phone: string | null;
   vehicle_id: string | null;
   vehicle_label: string | null;
+  route_id?: string | null;
   latest_location: DeliveryLocation | null;
 };
 
@@ -104,6 +105,33 @@ export type StatusEvent = {
   created_at: string;
 };
 
+export type DeliveryRoute = {
+  id: string;
+  created_by: string;
+  driver_id: string;
+  vehicle_id: string | null;
+  status: string;
+  planned_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RouteStop = {
+  id: string;
+  route_id: string;
+  order_id: string;
+  stop_type: "pickup" | "delivery";
+  sequence_number: number;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  status: string;
+  completed_at: string | null;
+  created_at: string;
+};
+
 export type WorkspaceData = {
   orders: DeliveryOrder[];
   customers: ProfileOption[];
@@ -111,6 +139,8 @@ export type WorkspaceData = {
   vehicles: VehicleOption[];
   statusEvents: StatusEvent[];
   roadReports: RoadReport[];
+  routes: DeliveryRoute[];
+  routeStops: RouteStop[];
 };
 
 export type WorkspaceProfile = {

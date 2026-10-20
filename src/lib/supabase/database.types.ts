@@ -931,6 +931,10 @@ export type Database = {
       };
     };
     Functions: {
+        ensure_delivery_route: {
+          Args: { target_order_id: string };
+          Returns: string;
+        };
       assign_delivery: {
         Args: {
           target_order_id: string;

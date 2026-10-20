@@ -106,6 +106,14 @@ export function ManagerApp({ view }: { view: ManagerView }) {
     filteredOrders.find((order) => order.id === selectedId) ??
     filteredOrders[0] ??
     null;
+  const selectedRoute = selectedOrder?.route_id
+    ? workspace.data.routes.find((route) => route.id === selectedOrder.route_id)
+    : null;
+  const selectedRouteStops = selectedRoute
+    ? workspace.data.routeStops
+        .filter((stop) => stop.route_id === selectedRoute.id)
+        .sort((left, right) => left.sequence_number - right.sequence_number)
+    : [];
   const recommendations = useMemo(
     () =>
       recommendAssignments(
@@ -993,6 +1001,23 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                           {currency.format(selectedOrder.cod_amount)}
                         </strong>
                         <small>{selectedOrder.cod_status}</small>
+                      </div>
+                    )}
+                    {selectedRoute && (
+                      <div className="dispatch-route-summary">
+                        <span>
+                          <strong>Persisted route</strong>
+                          <small>
+                            {selectedRoute.status} · {selectedRouteStops.length} stops
+                          </small>
+                        </span>
+                        <div>
+                          {selectedRouteStops.map((stop) => (
+                            <small key={stop.id}>
+                              {stop.sequence_number}. {stop.stop_type} · {stop.address}
+                            </small>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
