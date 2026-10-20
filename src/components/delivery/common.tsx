@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type ReactNode, useEffect, useState } from "react";
 
 import { Icon, type IconName } from "@/components/delivery/icons";
+import { Mascot } from "@/components/delivery/mascot";
 import type { DeliveryStatus, WorkspaceProfile } from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
 
@@ -117,7 +118,7 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 export function LoadingBlock({ title }: { title: string }) {
   return (
     <div className="loading-screen">
-      <span className="loading-orbit" />
+      <Mascot size={96} />
       <p>{title}</p>
     </div>
   );
