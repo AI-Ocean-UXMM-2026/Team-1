@@ -39,7 +39,7 @@ Managers handle multiple active orders and fleet availability. Drivers and rider
 - Manager dispatch includes order creation, optional map pins, atomic assignment, and rider availability controls. Rider workflows include acceptance, pickup, navigation, COD recording, completion, and delivery issue reporting.
 - Vehicle range, reserve, and current fuel or battery level produce an estimated route energy status from saved map pins. Traffic-aware routing and charging or fuel-stop planning remain planned capabilities.
 - Commerce and logistics providers can be registered and their shipments imported manually. Live provider APIs, webhooks, and automatic provider synchronization require provider-specific adapters.
-- ETA uses the order's saved estimate. Automated assignment, traffic-aware predictive ETA, driver-submitted road knowledge, and push/SMS notifications remain Device 1 or future capabilities.
+- ETA is recalculated from route progress, vehicle speed assumptions, and manager-verified rider road reports. Dispatch recommends suitable riders and vehicles using availability, workload, proximity, vehicle status, and parcel capacity. Automatic street routing and push/SMS notifications remain planned capabilities.
 
 ## Evidence on Hand
 

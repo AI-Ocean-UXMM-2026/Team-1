@@ -1,6 +1,7 @@
 import type {
   DeliveryOrder,
   DriverOption,
+  RoadReport,
   StatusEvent,
   VehicleOption,
   WorkspaceData,
@@ -31,6 +32,10 @@ export const DEMO_ORDERS: DeliveryOrder[] = [
     cod_amount: 68_000,
     cod_status: "pending",
     estimated_delivery_at: fromNow(18),
+    route_progress_percent: 58,
+    traffic_delay_minutes: 7,
+    eta_confidence: "high",
+    eta_updated_at: ago(1),
     created_at: ago(54),
     driver_id: "demo-driver-aung",
     driver_name: "Aung Kyaw",
@@ -63,6 +68,10 @@ export const DEMO_ORDERS: DeliveryOrder[] = [
     cod_amount: 0,
     cod_status: "not_required",
     estimated_delivery_at: fromNow(35),
+    route_progress_percent: 24,
+    traffic_delay_minutes: 0,
+    eta_confidence: "high",
+    eta_updated_at: ago(3),
     created_at: ago(38),
     driver_id: "demo-driver-nilar",
     driver_name: "Nilar Htet",
@@ -95,6 +104,10 @@ export const DEMO_ORDERS: DeliveryOrder[] = [
     cod_amount: 125_000,
     cod_status: "pending",
     estimated_delivery_at: fromNow(72),
+    route_progress_percent: null,
+    traffic_delay_minutes: 0,
+    eta_confidence: "low",
+    eta_updated_at: ago(4),
     created_at: ago(21),
     driver_id: "demo-driver-aung",
     driver_name: "Aung Kyaw",
@@ -122,6 +135,10 @@ export const DEMO_ORDERS: DeliveryOrder[] = [
     cod_amount: 32_000,
     cod_status: "collected",
     estimated_delivery_at: ago(64),
+    route_progress_percent: 100,
+    traffic_delay_minutes: 0,
+    eta_confidence: "high",
+    eta_updated_at: ago(64),
     created_at: ago(138),
     driver_id: "demo-driver-nilar",
     driver_name: "Nilar Htet",
@@ -185,6 +202,7 @@ export const DEMO_VEHICLES: VehicleOption[] = [
     reserve_percent: 15,
     odometer_km: 8430,
     service_due_at_km: 9000,
+    capacity_kg: 12,
   },
   {
     id: "demo-vehicle-2",
@@ -198,6 +216,7 @@ export const DEMO_VEHICLES: VehicleOption[] = [
     reserve_percent: 15,
     odometer_km: 18420,
     service_due_at_km: 19000,
+    capacity_kg: 18,
   },
   {
     id: "demo-vehicle-3",
@@ -211,6 +230,7 @@ export const DEMO_VEHICLES: VehicleOption[] = [
     reserve_percent: 15,
     odometer_km: 12120,
     service_due_at_km: 12000,
+    capacity_kg: 20,
   },
 ];
 
@@ -273,12 +293,44 @@ export const DEMO_STATUS_EVENTS: StatusEvent[] = [
   },
 ];
 
+export const DEMO_ROAD_REPORTS: RoadReport[] = [
+  {
+    id: "demo-road-report-1",
+    driver_id: "demo-driver-aung",
+    driver_name: "Aung Kyaw",
+    order_id: "demo-order-4812",
+    category: "congestion",
+    severity: "medium",
+    description: "Slow traffic near the Inya Road junction.",
+    latitude: 16.8114,
+    longitude: 96.1542,
+    status: "verified",
+    reported_at: ago(12),
+    expires_at: fromNow(180),
+  },
+  {
+    id: "demo-road-report-2",
+    driver_id: "demo-driver-nilar",
+    driver_name: "Nilar Htet",
+    order_id: "demo-order-4813",
+    category: "roadwork",
+    severity: "low",
+    description: "One lane closed beside the market entrance.",
+    latitude: 16.818,
+    longitude: 96.135,
+    status: "pending",
+    reported_at: ago(5),
+    expires_at: fromNow(240),
+  },
+];
+
 export const DEMO_WORKSPACE: WorkspaceData = {
   orders: DEMO_ORDERS,
   customers: DEMO_CUSTOMERS,
   drivers: DEMO_DRIVERS,
   vehicles: DEMO_VEHICLES,
   statusEvents: DEMO_STATUS_EVENTS,
+  roadReports: DEMO_ROAD_REPORTS,
 };
 
 export function cloneDemoWorkspace(currentTime = Date.now()): WorkspaceData {
@@ -292,6 +344,7 @@ export function cloneDemoWorkspace(currentTime = Date.now()): WorkspaceData {
     estimated_delivery_at: order.estimated_delivery_at
       ? shift(order.estimated_delivery_at)
       : null,
+    eta_updated_at: order.eta_updated_at ? shift(order.eta_updated_at) : null,
     latest_location: order.latest_location
       ? {
           ...order.latest_location,
@@ -302,6 +355,11 @@ export function cloneDemoWorkspace(currentTime = Date.now()): WorkspaceData {
   data.statusEvents = data.statusEvents.map((event) => ({
     ...event,
     created_at: shift(event.created_at),
+  }));
+  data.roadReports = data.roadReports.map((report) => ({
+    ...report,
+    reported_at: shift(report.reported_at),
+    expires_at: shift(report.expires_at),
   }));
   return data;
 }

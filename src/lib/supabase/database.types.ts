@@ -248,6 +248,8 @@ export type Database = {
           delivery_latitude: number | null;
           delivery_longitude: number | null;
           estimated_delivery_at: string | null;
+          eta_confidence: string | null;
+          eta_updated_at: string | null;
           id: string;
           parcel_description: string | null;
           parcel_weight_kg: number | null;
@@ -258,7 +260,9 @@ export type Database = {
           pickup_longitude: number | null;
           recipient_name: string | null;
           recipient_phone: string | null;
+          route_progress_percent: number | null;
           status: string;
+          traffic_delay_minutes: number;
           tracking_code: string;
           updated_at: string;
         };
@@ -273,6 +277,8 @@ export type Database = {
           delivery_latitude?: number | null;
           delivery_longitude?: number | null;
           estimated_delivery_at?: string | null;
+          eta_confidence?: string | null;
+          eta_updated_at?: string | null;
           id?: string;
           parcel_description?: string | null;
           parcel_weight_kg?: number | null;
@@ -283,7 +289,9 @@ export type Database = {
           pickup_longitude?: number | null;
           recipient_name?: string | null;
           recipient_phone?: string | null;
+          route_progress_percent?: number | null;
           status?: string;
+          traffic_delay_minutes?: number;
           tracking_code?: string;
           updated_at?: string;
         };
@@ -298,6 +306,8 @@ export type Database = {
           delivery_latitude?: number | null;
           delivery_longitude?: number | null;
           estimated_delivery_at?: string | null;
+          eta_confidence?: string | null;
+          eta_updated_at?: string | null;
           id?: string;
           parcel_description?: string | null;
           parcel_weight_kg?: number | null;
@@ -308,7 +318,9 @@ export type Database = {
           pickup_longitude?: number | null;
           recipient_name?: string | null;
           recipient_phone?: string | null;
+          route_progress_percent?: number | null;
           status?: string;
+          traffic_delay_minutes?: number;
           tracking_code?: string;
           updated_at?: string;
         };
@@ -487,6 +499,79 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      road_reports: {
+        Row: {
+          category: string;
+          description: string;
+          driver_id: string;
+          expires_at: string;
+          id: string;
+          latitude: number;
+          longitude: number;
+          order_id: string | null;
+          reported_at: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          severity: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          category: string;
+          description: string;
+          driver_id: string;
+          expires_at?: string;
+          id?: string;
+          latitude: number;
+          longitude: number;
+          order_id?: string | null;
+          reported_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          severity: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          category?: string;
+          description?: string;
+          driver_id?: string;
+          expires_at?: string;
+          id?: string;
+          latitude?: number;
+          longitude?: number;
+          order_id?: string | null;
+          reported_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          severity?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "road_reports_driver_id_fkey";
+            columns: ["driver_id"];
+            isOneToOne: false;
+            referencedRelation: "driver_profiles";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "road_reports_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "road_reports_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       route_stops: {
         Row: {
@@ -852,6 +937,10 @@ export type Database = {
           target_driver_id: string;
           target_vehicle_id?: string | null;
         };
+        Returns: string;
+      };
+      review_road_report: {
+        Args: { decision: string; target_report_id: string };
         Returns: string;
       };
     };
