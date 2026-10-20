@@ -3,7 +3,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { workspaceHome } from "@/lib/delivery/access";
-import { cloneDemoWorkspace } from "@/lib/delivery/demo-data";
 import { loadWorkspace } from "@/lib/delivery/load-workspace";
 import type { WorkspaceData, WorkspaceProfile } from "@/lib/delivery/types";
 import { subscribeWorkspaceRealtime } from "@/lib/delivery/workspace-realtime";
@@ -16,6 +15,8 @@ const emptyWorkspace = (): WorkspaceData => ({
   vehicles: [],
   statusEvents: [],
   roadReports: [],
+  routes: [],
+  routeStops: [],
 });
 
 export function useWorkspace(role: WorkspaceProfile["role"]) {
@@ -41,8 +42,8 @@ export function useWorkspace(role: WorkspaceProfile["role"]) {
       if (!session) {
         if (!current()) return;
         setProfile(null);
-        setData(cloneDemoWorkspace());
-        setIsDemo(true);
+        setData(emptyWorkspace());
+        setIsDemo(false);
         setIsAuthenticated(false);
         setError(null);
         setIsLoading(false);

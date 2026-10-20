@@ -79,6 +79,7 @@ import {
   currency,
   formatDateTime,
   formatTime,
+  nextCustomerAction,
   timeUntil,
 } from "@/lib/delivery/format";
 import type {
@@ -522,6 +523,7 @@ function ContextChips({
 function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
   const copy = heroCopy(order, now);
   const delay = describeDelay(order, now);
+  const primaryAction = nextCustomerAction(order.status, delay.isDelayed);
   return (
     <Card
       elevation={0}
@@ -647,7 +649,7 @@ function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
               fontWeight: 700,
             }}
           >
-            Track <ArrowForward fontSize="small" />
+            {primaryAction} <ArrowForward fontSize="small" />
           </Box>
         </Stack>
       </CardActionArea>
@@ -890,24 +892,22 @@ export function TrackingLookup({
   );
 }
 
-function SamplePreview() {
+function SignedOutPrompt({ onSignIn }: { onSignIn: () => void }) {
   return (
     <Paper variant="outlined" sx={{ mx: 2, mt: 2, borderRadius: "16px" }}>
       <ListItemButton
-        component={Link}
-        href="/track"
+        onClick={onSignIn}
         sx={{ gap: 1.5, minHeight: 64, borderRadius: "16px" }}
       >
         <Avatar sx={{ ...toneSx("info"), width: 40, height: 40 }}>
           <TrackChangesOutlined />
         </Avatar>
         <ListItemText
-          primary="See how tracking works"
-          secondary="Try a sample delivery"
+          primary="Sign in to see your deliveries"
+          secondary="Your live orders, ETA, COD, and tracking will appear here."
           slotProps={{ primary: { sx: { fontWeight: 700, fontSize: 14 } } }}
           sx={{ m: 0 }}
         />
-        <Chip size="small" label="Sample" sx={toneSx("warning")} />
         <ChevronRight color="disabled" />
       </ListItemButton>
     </Paper>
@@ -980,54 +980,68 @@ export function CustomerHome({
       )}
 
       {isAuthenticated ? (
-        rest.length > 0 && (
-          <Box
-            component="section"
-            id="arriving-today"
-            aria-labelledby="arriving-today-title"
-            sx={{ px: 2, mt: 3, scrollMarginTop: 72 }}
+        orders.length === 0 ? (
+          <Paper
+            variant="outlined"
+            sx={{ mx: 2, mt: 3, p: 2, borderRadius: "16px" }}
           >
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-              <Typography
-                id="arriving-today-title"
-                variant="h6"
-                component="h2"
-                sx={{ fontWeight: 750 }}
-              >
-                Arriving today
-              </Typography>
-              <Chip
-                size="small"
-                label={remaining > 0 ? `${remaining} to go` : "All done"}
-                sx={toneSx("info")}
-              />
-              <Button
-                component={Link}
-                href="/orders"
-                color="secondary"
-                endIcon={<ArrowForward />}
-                sx={{ ml: "auto", minHeight: 40, fontWeight: 700 }}
-              >
-                See all
-              </Button>
-            </Stack>
-            <List
-              disablePadding
-              sx={{
-                mt: 1.5,
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr)",
-                gap: 1,
-              }}
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 750 }}>
+              No deliveries yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Deliveries linked to this customer account will appear here.
+            </Typography>
+          </Paper>
+        ) : (
+          rest.length > 0 && (
+            <Box
+              component="section"
+              id="arriving-today"
+              aria-labelledby="arriving-today-title"
+              sx={{ px: 2, mt: 3, scrollMarginTop: 72 }}
             >
-              {rest.map((item) => (
-                <TodayRow key={item.order.id} item={item} />
-              ))}
-            </List>
-          </Box>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <Typography
+                  id="arriving-today-title"
+                  variant="h6"
+                  component="h2"
+                  sx={{ fontWeight: 750 }}
+                >
+                  Arriving today
+                </Typography>
+                <Chip
+                  size="small"
+                  label={remaining > 0 ? `${remaining} to go` : "All done"}
+                  sx={toneSx("info")}
+                />
+                <Button
+                  component={Link}
+                  href="/orders"
+                  color="secondary"
+                  endIcon={<ArrowForward />}
+                  sx={{ ml: "auto", minHeight: 40, fontWeight: 700 }}
+                >
+                  See all
+                </Button>
+              </Stack>
+              <List
+                disablePadding
+                sx={{
+                  mt: 1.5,
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr)",
+                  gap: 1,
+                }}
+              >
+                {rest.map((item) => (
+                  <TodayRow key={item.order.id} item={item} />
+                ))}
+              </List>
+            </Box>
+          )
         )
       ) : (
-        <SamplePreview />
+        <SignedOutPrompt onSignIn={onSignIn} />
       )}
     </>
   );

@@ -106,6 +106,14 @@ export function ManagerApp({ view }: { view: ManagerView }) {
     filteredOrders.find((order) => order.id === selectedId) ??
     filteredOrders[0] ??
     null;
+  const selectedRoute = selectedOrder?.route_id
+    ? workspace.data.routes.find((route) => route.id === selectedOrder.route_id)
+    : null;
+  const selectedRouteStops = selectedRoute
+    ? workspace.data.routeStops
+        .filter((stop) => stop.route_id === selectedRoute.id)
+        .sort((left, right) => left.sequence_number - right.sequence_number)
+    : [];
   const recommendations = useMemo(
     () =>
       recommendAssignments(
@@ -149,6 +157,15 @@ export function ManagerApp({ view }: { view: ManagerView }) {
   const freeRiders = workspace.data.drivers.filter(
     (driver) =>
       driver.availability === "available" && !assignedDrivers.has(driver.id),
+  ).length;
+  const exceptionCount = orders.filter(
+    (order) =>
+      order.status === "failed" ||
+      order.status === "cancelled" ||
+      order.traffic_delay_minutes > 0,
+  ).length;
+  const codDueCount = orders.filter(
+    (order) => order.cod_amount > 0 && order.cod_status === "pending",
   ).length;
   const assignableDrivers = workspace.data.drivers.filter(
     (driver) => driver.availability !== "off_duty",
@@ -624,6 +641,28 @@ export function ManagerApp({ view }: { view: ManagerView }) {
 
           {view === "home" && (
             <section
+              className="manager-exception-strip"
+              aria-label="Needs attention"
+            >
+              <Link href="/manager/order?filter=unassigned">
+                <strong>
+                  {orders.filter((order) => !order.driver_id).length}
+                </strong>
+                <span>Needs rider</span>
+              </Link>
+              <Link href="/manager/track">
+                <strong>{exceptionCount}</strong>
+                <span>Needs attention</span>
+              </Link>
+              <Link href="/manager/insights">
+                <strong>{codDueCount}</strong>
+                <span>COD to reconcile</span>
+              </Link>
+            </section>
+          )}
+
+          {view === "home" && (
+            <section
               className="manager-home-grid"
               aria-label="Operations shortcuts"
             >
@@ -964,6 +1003,23 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                         <small>{selectedOrder.cod_status}</small>
                       </div>
                     )}
+                    {selectedRoute && (
+                      <div className="dispatch-route-summary">
+                        <span>
+                          <strong>Persisted route</strong>
+                          <small>
+                            {selectedRoute.status} · {selectedRouteStops.length} stops
+                          </small>
+                        </span>
+                        <div>
+                          {selectedRouteStops.map((stop) => (
+                            <small key={stop.id}>
+                              {stop.sequence_number}. {stop.stop_type} · {stop.address}
+                            </small>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="manager-empty-map">
@@ -1247,15 +1303,27 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                 <option value="">Select a customer</option>
                 {workspace.data.customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
-                    {customer.full_name || customer.phone || "Customer"}
+                    {customer.full_name || "Customer"}
+                    {customer.phone ? ` · ${customer.phone}` : ""}
                   </option>
                 ))}
               </select>
             </label>
             {workspace.data.customers.length === 0 && (
-              <div className="form-hint">
-                Create a customer account first. Public sign-up adds a customer
-                profile automatically.
+              <div className="form-hint customer-empty-state">
+                <strong>No customer accounts found.</strong>
+                <span>
+                  Create or provision a customer account, then refresh this list
+                  before creating a delivery.
+                </span>
+                <button
+                  type="button"
+                  className="button button-outline button-small"
+                  onClick={() => void workspace.refresh()}
+                  disabled={workspace.isLoading}
+                >
+                  {workspace.isLoading ? "Refreshing…" : "Refresh customers"}
+                </button>
               </div>
             )}
             <label className="field-label">

@@ -1,13 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { cloneDemoWorkspace } from "@/lib/delivery/demo-data";
 import type {
   DeliveryLocation,
   DeliveryOrder,
+  DeliveryRoute,
   DeliveryStatus,
   DriverOption,
   ProfileOption,
   RoadReport,
+  RouteStop,
   StatusEvent,
   VehicleOption,
   WorkspaceData,
@@ -62,7 +63,16 @@ export async function loadWorkspace(
   if (profile.role !== requestedRole) {
     return {
       profile,
-      data: { ...cloneDemoWorkspace(), orders: [] },
+      data: {
+        orders: [],
+        customers: [],
+        drivers: [],
+        vehicles: [],
+        statusEvents: [],
+        roadReports: [],
+        routes: [],
+        routeStops: [],
+      },
       isDemo: false,
     };
   }
@@ -76,6 +86,8 @@ export async function loadWorkspace(
     locationsResult,
     eventsResult,
     roadReportsResult,
+    routesResult,
+    routeStopsResult,
   ] = await Promise.all([
     supabase
       .from("delivery_orders")
@@ -103,6 +115,11 @@ export async function loadWorkspace(
         "id, driver_id, order_id, category, severity, description, latitude, longitude, status, reported_at, expires_at",
       )
       .order("reported_at", { ascending: false }),
+    supabase.from("delivery_routes").select("*").order("planned_at", { ascending: true }),
+    supabase
+      .from("route_stops")
+      .select("*")
+      .order("sequence_number", { ascending: true }),
   ]);
 
   const firstError =
@@ -113,7 +130,9 @@ export async function loadWorkspace(
     vehiclesResult.error ??
     locationsResult.error ??
     eventsResult.error ??
-    roadReportsResult.error;
+    roadReportsResult.error ??
+    routesResult.error ??
+    routeStopsResult.error;
   if (firstError) throw firstError;
 
   const orders = (ordersResult.data ?? []) as DeliveryOrderRow[];
@@ -153,41 +172,51 @@ export async function loadWorkspace(
   }));
   if (orders.length === 0) {
     const vehicles = (vehiclesResult.data ?? []) as VehicleRow[];
-    const data = cloneDemoWorkspace();
-
-    if (requestedRole === "manager") {
-      data.customers = profiles
-        .filter((item) => item.role === "customer")
-        .map((item) => ({
-          id: item.id,
-          full_name: item.full_name,
-          phone: item.phone,
-        }));
-      data.drivers = registeredDrivers;
-      data.vehicles = vehicles.map((item) => ({
-        id: item.id,
-        registration_number: item.registration_number,
-        vehicle_type: item.vehicle_type,
-        status: item.status,
-        energy_source: item.energy_source as VehicleOption["energy_source"],
-        fuel_level_percent: item.fuel_level_percent,
-        battery_level_percent: item.battery_level_percent,
-        range_km_at_full: item.range_km_at_full,
-        reserve_percent: item.reserve_percent,
-        odometer_km: item.odometer_km,
-        service_due_at_km: item.service_due_at_km,
-        capacity_kg: item.capacity_kg,
-      }));
-      data.roadReports = roadReports;
-    }
-
-    return { profile, data, isDemo: true };
+    return {
+      profile,
+      isDemo: false,
+      data: {
+        orders: [],
+        customers: profiles
+          .filter((item) => item.role === "customer")
+          .map((item) => ({
+            id: item.id,
+            full_name: item.full_name,
+            phone: item.phone,
+          })),
+        drivers: requestedRole === "manager" ? registeredDrivers : [],
+        vehicles:
+          requestedRole === "manager"
+            ? vehicles.map((item) => ({
+                id: item.id,
+                registration_number: item.registration_number,
+                vehicle_type: item.vehicle_type,
+                status: item.status,
+                energy_source:
+                  item.energy_source as VehicleOption["energy_source"],
+                fuel_level_percent: item.fuel_level_percent,
+                battery_level_percent: item.battery_level_percent,
+                range_km_at_full: item.range_km_at_full,
+                reserve_percent: item.reserve_percent,
+                odometer_km: item.odometer_km,
+                service_due_at_km: item.service_due_at_km,
+                capacity_kg: item.capacity_kg,
+              }))
+            : [],
+        statusEvents: [],
+        roadReports: requestedRole === "manager" ? roadReports : [],
+        routes: (routesResult.data ?? []) as DeliveryRoute[],
+        routeStops: (routeStopsResult.data ?? []) as RouteStop[],
+      },
+    };
   }
 
   const assignments = (assignmentsResult.data ?? []) as AssignmentRow[];
   const vehicles = (vehiclesResult.data ?? []) as VehicleRow[];
   const locations = (locationsResult.data ?? []) as LocationRow[];
   const events = (eventsResult.data ?? []) as StatusEvent[];
+  const routes = (routesResult.data ?? []) as DeliveryRoute[];
+  const routeStops = (routeStopsResult.data ?? []) as RouteStop[];
 
   const vehicleById = new Map(vehicles.map((item) => [item.id, item]));
   const assignmentByOrder = new Map<string, AssignmentRow>();
@@ -252,6 +281,7 @@ export async function loadWorkspace(
       vehicle_label: vehicle
         ? `${vehicle.registration_number} · ${vehicleTypeLabels[vehicle.vehicle_type] ?? vehicle.vehicle_type}`
         : null,
+      route_id: assignment?.route_id ?? null,
       latest_location: locationByOrder.get(order.id) ?? null,
     };
   });
@@ -291,6 +321,8 @@ export async function loadWorkspace(
         status: event.status as DeliveryStatus,
       })),
       roadReports,
+      routes,
+      routeStops,
     },
   };
 }

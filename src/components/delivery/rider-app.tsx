@@ -103,16 +103,35 @@ export function RiderApp({ view }: { view: RiderView }) {
   const [roadDescription, setRoadDescription] = useState("");
   const [roadBusy, setRoadBusy] = useState(false);
 
-  const activeOrders = useMemo(
-    () =>
-      prioritiseOrders(
-        workspace.data.orders.filter(
+  const activeOrders = useMemo(() => {
+    const currentRouteIds = new Set(
+      workspace.data.routes
+        .filter((route) => route.driver_id === workspace.profile?.id)
+        .map((route) => route.id),
+    );
+    const stopOrder = new Map(
+      workspace.data.routeStops
+        .filter((stop) => currentRouteIds.has(stop.route_id))
+        .map((stop) => [stop.order_id, stop.sequence_number]),
+    );
+    return prioritiseOrders(
+      workspace.data.orders
+        .filter(
           (order) =>
             !["delivered", "failed", "cancelled"].includes(order.status),
+        )
+        .sort(
+          (left, right) =>
+            (stopOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+            (stopOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER),
         ),
-      ),
-    [workspace.data.orders],
-  );
+    );
+  }, [
+    workspace.data.orders,
+    workspace.data.routeStops,
+    workspace.data.routes,
+    workspace.profile?.id,
+  ]);
   const selectedOrder =
     activeOrders.find((order) => order.id === selectedId) ??
     activeOrders[0] ??
@@ -759,6 +778,39 @@ export function RiderApp({ view }: { view: RiderView }) {
                         </span>
                       )}
                     </div>
+                    <output className="rider-next-action">
+                      <span className="rider-next-action-dot" />
+                      <div>
+                        <small>Next best action</small>
+                        <strong>
+                          {action?.label ??
+                            (selectedOrder.status === "delivered"
+                              ? "Delivery complete"
+                              : "Review this stop")}
+                        </strong>
+                      </div>
+                    </output>
+                    <details className="rider-details">
+                      <summary>Parcel and route details</summary>
+                      <div className="rider-details-content">
+                        <span>
+                          <strong>Parcel</strong>
+                          {selectedOrder.parcel_description ??
+                            "Details not provided"}
+                        </span>
+                        <span>
+                          <strong>Customer</strong>
+                          {selectedOrder.recipient_name ?? "Recipient"}
+                          {selectedOrder.recipient_phone
+                            ? ` · ${selectedOrder.recipient_phone}`
+                            : ""}
+                        </span>
+                        <span>
+                          <strong>Tracking</strong>
+                          {selectedOrder.tracking_code}
+                        </span>
+                      </div>
+                    </details>
                     <div
                       className={`energy-readiness-card energy-${energyAssessment?.status ?? "unknown"}`}
                     >
