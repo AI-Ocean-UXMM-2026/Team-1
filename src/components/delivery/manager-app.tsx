@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import type { ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
@@ -15,59 +16,35 @@ import {
 } from "@/components/delivery/common";
 import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
-import { ModalPanel } from "@/components/delivery/modal-panel";
 import {
   assignDelivery,
-  createDelivery,
   reviewRoadReport,
   setDriverAvailability,
-  validateMapPin,
 } from "@/lib/delivery/actions";
+import {
+  attentionSummary,
+  hourlyBuckets,
+  isActiveOrder,
+  isMovingOrder,
+  needsRider,
+  recentOrders,
+} from "@/lib/delivery/dashboard";
 import { currency, formatTime, prioritiseOrders } from "@/lib/delivery/format";
 import { recommendAssignments } from "@/lib/delivery/intelligence";
-import type {
-  DeliveryOrder,
-  DriverOption,
-  WorkspaceData,
-} from "@/lib/delivery/types";
+import type { DriverOption, WorkspaceData } from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
 const managerNavItems = [
-  { id: "home", label: "Home", href: "/manager/home", icon: "delivery" },
+  { id: "home", label: "Overview", href: "/manager/home", icon: "delivery" },
   { id: "track", label: "Track", href: "/manager/track", icon: "track" },
   { id: "order", label: "Orders", href: "/manager/order", icon: "box" },
-  { id: "profile", label: "Profile", href: "/manager/profile", icon: "user" },
+  { id: "profile", label: "Team", href: "/manager/profile", icon: "user" },
 ] as const;
 
 export type ManagerView = (typeof managerNavItems)[number]["id"];
 
-type OrderForm = {
-  customerId: string;
-  pickup: string;
-  delivery: string;
-  recipient: string;
-  phone: string;
-  parcel: string;
-  cod: string;
-  pickupLatitude: string;
-  pickupLongitude: string;
-  deliveryLatitude: string;
-  deliveryLongitude: string;
-};
-const emptyForm: OrderForm = {
-  customerId: "",
-  pickup: "",
-  delivery: "",
-  recipient: "",
-  phone: "",
-  parcel: "",
-  cod: "0",
-  pickupLatitude: "",
-  pickupLongitude: "",
-  deliveryLatitude: "",
-  deliveryLongitude: "",
-};
+type OrderFilter = "all" | "unassigned" | "moving";
 
 function vehicleText(value: string) {
   return value
@@ -77,29 +54,31 @@ function vehicleText(value: string) {
 }
 
 export function ManagerApp({ view }: { view: ManagerView }) {
+  return (
+    <Suspense fallback={<LoadingBlock title="Opening dispatch operations…" />}>
+      <ManagerWorkspace view={view} />
+    </Suspense>
+  );
+}
+
+function ManagerWorkspace({ view }: { view: ManagerView }) {
+  const searchParams = useSearchParams();
   const workspace = useWorkspace("manager");
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(searchParams.get("id") ?? "");
   const [authOpen, setAuthOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "unassigned" | "moving">("all");
-  const [form, setForm] = useState<OrderForm>(emptyForm);
-  const [assignDriverId, setAssignDriverId] = useState("");
-  const [assignVehicleId, setAssignVehicleId] = useState("");
+  const [filter, setFilter] = useState<OrderFilter>(
+    searchParams.get("filter") === "unassigned" ? "unassigned" : "all",
+  );
 
   const orders = useMemo(
     () => prioritiseOrders(workspace.data.orders),
     [workspace.data.orders],
   );
   const filteredOrders = orders.filter((order) => {
-    if (filter === "unassigned")
-      return (
-        ["pending", "failed"].includes(order.status) ||
-        (!order.driver_id && ["assigned", "accepted"].includes(order.status))
-      );
-    if (filter === "moving")
-      return ["picked_up", "in_transit"].includes(order.status);
+    if (filter === "unassigned") return needsRider(order);
+    if (filter === "moving") return isMovingOrder(order);
     return true;
   });
   const selectedOrder =
@@ -124,33 +103,24 @@ export function ManagerApp({ view }: { view: ManagerView }) {
       ),
     [selectedOrder, workspace.data.drivers, workspace.data.vehicles, orders],
   );
-  const pendingRoadReports = workspace.data.roadReports.filter(
-    (report) => report.status === "pending",
+  const summary = useMemo(
+    () => attentionSummary(orders, workspace.data.roadReports),
+    [orders, workspace.data.roadReports],
   );
-  const activeCount = orders.filter((order) =>
-    ["assigned", "accepted", "picked_up", "in_transit"].includes(order.status),
+  const recentList = useMemo(() => recentOrders(orders), [orders]);
+  const hourly = useMemo(() => hourlyBuckets(orders), [orders]);
+  const movingOrders = orders.filter(isMovingOrder);
+  const movingCount = movingOrders.length;
+  const activeCount = orders.filter(isActiveOrder).length;
+  const deliveredCount = orders.filter(
+    (order) => order.status === "delivered",
   ).length;
-  const movingCount = orders.filter((order) =>
-    ["picked_up", "in_transit"].includes(order.status),
-  ).length;
-  const availableVehicles = workspace.data.vehicles.filter(
-    (vehicle) =>
-      vehicle.status === "available" &&
-      !orders.some(
-        (order) =>
-          order.vehicle_id === vehicle.id &&
-          ["assigned", "accepted", "picked_up", "in_transit"].includes(
-            order.status,
-          ),
-      ),
-  );
+  const atRiskCount =
+    orders.filter((order) => ["failed", "cancelled"].includes(order.status))
+      .length + summary.delayed;
   const assignedDrivers = new Set(
     orders
-      .filter((order) =>
-        ["assigned", "accepted", "picked_up", "in_transit"].includes(
-          order.status,
-        ),
-      )
+      .filter(isActiveOrder)
       .map((order) => order.driver_id)
       .filter(Boolean),
   );
@@ -158,42 +128,18 @@ export function ManagerApp({ view }: { view: ManagerView }) {
     (driver) =>
       driver.availability === "available" && !assignedDrivers.has(driver.id),
   ).length;
-  const exceptionCount = orders.filter(
-    (order) =>
-      order.status === "failed" ||
-      order.status === "cancelled" ||
-      order.traffic_delay_minutes > 0,
-  ).length;
-  const codDueCount = orders.filter(
-    (order) => order.cod_amount > 0 && order.cod_status === "pending",
-  ).length;
-  const assignableDrivers = workspace.data.drivers.filter(
-    (driver) => driver.availability !== "off_duty",
+  const availableVehicles = workspace.data.vehicles.filter(
+    (vehicle) =>
+      vehicle.status === "available" &&
+      !orders.some(
+        (order) => order.vehicle_id === vehicle.id && isActiveOrder(order),
+      ),
   );
-  const assignableVehicles = workspace.data.vehicles.filter((vehicle) => {
-    if (!["available", "in_use"].includes(vehicle.status)) return false;
-    const otherOrders = orders.filter(
-      (order) =>
-        order.id !== selectedOrder?.id &&
-        order.vehicle_id === vehicle.id &&
-        ["assigned", "accepted", "picked_up", "in_transit"].includes(
-          order.status,
-        ),
+  const canAssign =
+    !!selectedOrder &&
+    ["pending", "assigned", "accepted", "failed"].includes(
+      selectedOrder.status,
     );
-    if (otherOrders.some((order) => order.driver_id !== assignDriverId))
-      return false;
-    return (
-      vehicle.status === "available" ||
-      orders.some(
-        (order) =>
-          order.vehicle_id === vehicle.id &&
-          order.driver_id === assignDriverId &&
-          ["assigned", "accepted", "picked_up", "in_transit"].includes(
-            order.status,
-          ),
-      )
-    );
-  });
 
   useEffect(() => {
     if (selectedOrder && selectedOrder.id !== selectedId)
@@ -204,141 +150,23 @@ export function ManagerApp({ view }: { view: ManagerView }) {
     if (view === "track") setFilter("moving");
   }, [view]);
 
-  useEffect(() => {
-    if (!selectedOrder?.id) {
-      setAssignDriverId("");
-      setAssignVehicleId("");
-      return;
-    }
-    setAssignDriverId(
-      selectedOrder?.driver_id ?? recommendations[0]?.driverId ?? "",
-    );
-    setAssignVehicleId(
-      selectedOrder?.vehicle_id ?? recommendations[0]?.vehicleId ?? "",
-    );
-  }, [
-    selectedOrder?.driver_id,
-    selectedOrder?.vehicle_id,
-    selectedOrder?.id,
-    recommendations,
-  ]);
-
   if (workspace.isLoading)
     return <LoadingBlock title="Opening dispatch operations…" />;
 
-  function setField(field: keyof OrderForm, value: string) {
-    setForm((previous) => ({ ...previous, [field]: value }));
-  }
-
-  async function saveOrder(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const amount = Math.max(0, Number(form.cod) || 0);
-      const pickupLatitude = form.pickupLatitude.trim()
-        ? Number(form.pickupLatitude)
-        : null;
-      const pickupLongitude = form.pickupLongitude.trim()
-        ? Number(form.pickupLongitude)
-        : null;
-      const deliveryLatitude = form.deliveryLatitude.trim()
-        ? Number(form.deliveryLatitude)
-        : null;
-      const deliveryLongitude = form.deliveryLongitude.trim()
-        ? Number(form.deliveryLongitude)
-        : null;
-      validateMapPin("pickup", pickupLatitude, pickupLongitude);
-      validateMapPin("drop-off", deliveryLatitude, deliveryLongitude);
-      if (workspace.canUseLiveData && workspace.profile) {
-        const created = await createDelivery(createClient(), {
-          managerId: workspace.profile.id,
-          customerId: form.customerId,
-          pickupAddress: form.pickup,
-          deliveryAddress: form.delivery,
-          recipientName: form.recipient,
-          recipientPhone: form.phone,
-          parcelDescription: form.parcel,
-          codAmount: amount,
-          pickupLatitude,
-          pickupLongitude,
-          deliveryLatitude,
-          deliveryLongitude,
-        });
-        await workspace.refresh();
-        setSelectedId(created.id);
-      } else if (workspace.isDemo && !workspace.isAuthenticated) {
-        const timestamp = Date.now();
-        const customer = workspace.data.customers.find(
-          (item) => item.id === form.customerId,
-        );
-        const demoOrder: DeliveryOrder = {
-          id: `demo-order-${timestamp}`,
-          tracking_code: `OR-${String(timestamp).slice(-4)}`,
-          customer_id: form.customerId,
-          customer_name: customer?.full_name || "Preview customer",
-          status: "pending",
-          pickup_address: form.pickup,
-          delivery_address: form.delivery,
-          pickup_latitude: pickupLatitude,
-          pickup_longitude: pickupLongitude,
-          delivery_latitude: deliveryLatitude,
-          delivery_longitude: deliveryLongitude,
-          recipient_name: form.recipient || null,
-          recipient_phone: form.phone || null,
-          parcel_description: form.parcel || null,
-          parcel_weight_kg: null,
-          cod_amount: amount,
-          cod_status: amount > 0 ? "pending" : "not_required",
-          estimated_delivery_at: new Date(
-            Date.now() + 60 * 60_000,
-          ).toISOString(),
-          route_progress_percent: null,
-          traffic_delay_minutes: 0,
-          eta_confidence: "low",
-          eta_updated_at: null,
-          created_at: new Date().toISOString(),
-          driver_id: null,
-          driver_name: null,
-          driver_phone: null,
-          vehicle_id: null,
-          vehicle_label: null,
-          latest_location: null,
-        };
-        workspace.updateData((previous) => ({
-          ...previous,
-          orders: [demoOrder, ...previous.orders],
-        }));
-        setSelectedId(demoOrder.id);
-      } else {
-        throw new Error(
-          "Your manager workspace is unavailable. Refresh before creating a delivery.",
-        );
-      }
-      setForm(emptyForm);
-      setCreateOpen(false);
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not create this delivery.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function assignSelected() {
-    if (!selectedOrder || !canAssign || !assignDriverId) return;
+  async function assignRecommendation(
+    driverId: string,
+    vehicleId: string | null,
+  ) {
+    if (!selectedOrder || !canAssign) return;
     setSaving(true);
     setError(null);
     try {
       if (workspace.isDemo || selectedOrder.id.startsWith("demo-")) {
         const driver = workspace.data.drivers.find(
-          (item) => item.id === assignDriverId,
+          (item) => item.id === driverId,
         );
         const vehicle = workspace.data.vehicles.find(
-          (item) => item.id === assignVehicleId,
+          (item) => item.id === vehicleId,
         );
         workspace.updateData((previous: WorkspaceData) => ({
           ...previous,
@@ -347,15 +175,15 @@ export function ManagerApp({ view }: { view: ManagerView }) {
               ? {
                   ...order,
                   status:
-                    order.driver_id === assignDriverId &&
-                    order.vehicle_id === (assignVehicleId || null) &&
+                    order.driver_id === driverId &&
+                    order.vehicle_id === (vehicleId ?? null) &&
                     ["assigned", "accepted"].includes(order.status)
                       ? order.status
                       : "assigned",
-                  driver_id: assignDriverId,
+                  driver_id: driverId,
                   driver_name: driver?.full_name ?? "Rider assigned",
                   driver_phone: driver?.phone ?? null,
-                  vehicle_id: assignVehicleId || null,
+                  vehicle_id: vehicleId,
                   vehicle_label: vehicle
                     ? `${vehicle.registration_number} · ${vehicleText(vehicle.vehicle_type)}`
                     : null,
@@ -370,8 +198,8 @@ export function ManagerApp({ view }: { view: ManagerView }) {
           );
         await assignDelivery(createClient(), {
           orderId: selectedOrder.id,
-          driverId: assignDriverId,
-          vehicleId: assignVehicleId || null,
+          driverId,
+          vehicleId,
         });
         await workspace.refresh();
       }
@@ -455,36 +283,23 @@ export function ManagerApp({ view }: { view: ManagerView }) {
     }
   }
 
-  const canAssign =
-    selectedOrder &&
-    ["pending", "assigned", "accepted", "failed"].includes(
-      selectedOrder.status,
-    );
-
   const pageCopy = {
     home: {
-      eyebrow: "Operations overview",
-      title: "Good morning, dispatch team.",
-      description:
-        "See what needs attention across today's delivery operation.",
+      title: "Overview",
+      description: "Live status across deliveries, riders and vehicles.",
     },
     track: {
-      eyebrow: "Live operations",
-      title: "Track active deliveries.",
+      title: "Live tracking",
       description:
-        "Follow parcels after rider pickup and review road reports that affect ETAs.",
+        "Follow parcels after pickup and verify road reports for ETAs.",
     },
     order: {
-      eyebrow: "Order management",
-      title: "Plan and assign deliveries.",
-      description:
-        "Review the queue, choose a rider and vehicle, and keep COD visible.",
+      title: "Orders",
+      description: "Work through the queue and assign riders in one step.",
     },
     profile: {
-      eyebrow: "Workspace settings",
-      title: "Team and fleet profile.",
-      description:
-        "Manage rider availability and review the resources supporting dispatch.",
+      title: "Team & fleet",
+      description: "Rider availability and the vehicles supporting dispatch.",
     },
   }[view];
 
@@ -544,9 +359,7 @@ export function ManagerApp({ view }: { view: ManagerView }) {
             <div className="workspace-demo manager-demo">
               <DemoBadge>Demo operations</DemoBadge>
               <span>
-                {workspace.canUseLiveData
-                  ? "You're viewing sample deliveries. Create a delivery to start your dispatch board; sample edits stay in this preview."
-                  : "Sample orders, riders, and fleet are for preview. Preview changes stay on this device."}
+                Sample deliveries are for preview. Changes stay on this device.
               </span>
             </div>
           )}
@@ -566,147 +379,160 @@ export function ManagerApp({ view }: { view: ManagerView }) {
             </div>
           )}
 
-          <div className="manager-page-title">
-            <div>
-              <span className="section-kicker">{pageCopy.eyebrow}</span>
-              <h1>{pageCopy.title}</h1>
-              <p>{pageCopy.description}</p>
-            </div>
-            {(view === "home" || view === "order") && (
-              <button
-                type="button"
-                className="button button-primary"
-                onClick={() => setCreateOpen(true)}
-                disabled={!!workspace.error}
-              >
-                <Icon name="plus" size={17} />
-                New delivery
-              </button>
-            )}
-          </div>
+          <header className="dash-page-header">
+            <h1>{pageCopy.title}</h1>
+            <p>{pageCopy.description}</p>
+          </header>
 
           {view === "home" && (
-            <section className="manager-metrics" aria-label="Delivery metrics">
-              <article className="metric-card">
-                <div className="metric-head">
-                  <span className="metric-icon metric-orange">
-                    <Icon name="track" size={17} />
-                  </span>
-                  <span className="metric-caption">Live now</span>
-                </div>
-                <strong>{movingCount.toString().padStart(2, "0")}</strong>
-                <div className="metric-foot">
-                  <span className="availability-dot" />
-                  Parcels on the move
-                </div>
-              </article>
-              <article className="metric-card">
-                <div className="metric-head">
-                  <span className="metric-icon metric-blue">
-                    <Icon name="delivery" size={17} />
-                  </span>
-                  <span className="metric-caption">Active deliveries</span>
-                </div>
-                <strong>{activeCount.toString().padStart(2, "0")}</strong>
-                <div className="metric-foot">Orders being handled</div>
-              </article>
-              <article className="metric-card">
-                <div className="metric-head">
-                  <span className="metric-icon metric-green">
-                    <Icon name="users" size={17} />
-                  </span>
-                  <span className="metric-caption">Riders available</span>
-                </div>
-                <strong>{freeRiders.toString().padStart(2, "0")}</strong>
-                <div className="metric-foot">
-                  {workspace.data.drivers.length} registered riders
-                </div>
-              </article>
-              <article className="metric-card">
-                <div className="metric-head">
-                  <span className="metric-icon metric-violet">
-                    <Icon name="truck" size={17} />
-                  </span>
-                  <span className="metric-caption">Fleet ready</span>
-                </div>
-                <strong>
-                  {availableVehicles.length.toString().padStart(2, "0")}
-                </strong>
-                <div className="metric-foot">
-                  {workspace.data.vehicles.length} vehicles registered
-                </div>
-              </article>
-            </section>
-          )}
+            <div className="dash-overview">
+              <div className="dash-main">
+                <section className="dash-card" aria-label="Delivery metrics">
+                  <div className="dash-kpi-grid">
+                    <KpiCell
+                      label="Live now"
+                      value={movingCount}
+                      hint="Parcels on the move"
+                      tone="live"
+                    />
+                    <KpiCell
+                      label="Active"
+                      value={activeCount}
+                      hint="Assigned or in progress"
+                    />
+                    <KpiCell
+                      label="Delivered"
+                      value={deliveredCount}
+                      hint="Completed in this queue"
+                    />
+                    <KpiCell
+                      label="At risk"
+                      value={atRiskCount}
+                      hint="Delayed or failed"
+                      tone="warning"
+                    />
+                  </div>
+                  <div className="dash-trend">
+                    <span>Orders created · last 12 h</span>
+                    <Sparkline values={hourly} />
+                  </div>
+                </section>
 
-          {view === "home" && (
-            <section
-              className="manager-exception-strip"
-              aria-label="Needs attention"
-            >
-              <Link href="/manager/order?filter=unassigned">
-                <strong>
-                  {orders.filter((order) => !order.driver_id).length}
-                </strong>
-                <span>Needs rider</span>
-              </Link>
-              <Link href="/manager/track">
-                <strong>{exceptionCount}</strong>
-                <span>Needs attention</span>
-              </Link>
-              <Link href="/manager/insights">
-                <strong>{codDueCount}</strong>
-                <span>COD to reconcile</span>
-              </Link>
-            </section>
-          )}
+                <section className="dash-card" aria-label="Live map">
+                  <CardHeader title="Live map" meta={`${movingCount} live`} />
+                  <LocationMap
+                    order={null}
+                    orders={movingOrders}
+                    mode="manager"
+                    isDemo={workspace.isDemo}
+                  />
+                </section>
 
-          {view === "home" && (
-            <section
-              className="manager-home-grid"
-              aria-label="Operations shortcuts"
-            >
-              <Link className="manager-home-primary" href="/manager/track">
-                <span className="metric-icon metric-blue">
-                  <Icon name="track" size={19} />
-                </span>
-                <div>
-                  <span className="section-kicker">Live control</span>
-                  <h2>Follow {movingCount} parcels on the move</h2>
-                  <p>
-                    Open the live map, inspect rider positions, and review route
-                    conditions.
-                  </p>
-                </div>
-                <Icon name="arrow-right" size={19} />
-              </Link>
-              <div className="manager-home-secondary">
-                <Link href="/manager/order">
-                  <Icon name="box" size={18} />
-                  <span>
-                    <strong>Manage orders</strong>
-                    <small>{orders.length} deliveries in the queue</small>
-                  </span>
-                  <Icon name="arrow-right" size={16} />
-                </Link>
-                <Link href="/manager/profile">
-                  <Icon name="users" size={18} />
-                  <span>
-                    <strong>Team and fleet</strong>
-                    <small>{freeRiders} riders ready to assign</small>
-                  </span>
-                  <Icon name="arrow-right" size={16} />
-                </Link>
-                <Link href="/manager/insights">
-                  <Icon name="coin" size={18} />
-                  <span>
-                    <strong>Fleet insights</strong>
-                    <small>Maintenance and delivery costs</small>
-                  </span>
-                  <Icon name="arrow-right" size={16} />
-                </Link>
+                <section className="dash-card" aria-label="Recent deliveries">
+                  <CardHeader title="Recent deliveries">
+                    <Link className="dash-link" href="/manager/order">
+                      View queue
+                    </Link>
+                  </CardHeader>
+                  <div className="dash-table">
+                    <div className="dash-table-head">
+                      <span>Delivery</span>
+                      <span>Status</span>
+                      <span>Rider</span>
+                      <span>ETA</span>
+                      <span>COD</span>
+                    </div>
+                    {recentList.map((order) => (
+                      <Link
+                        key={order.id}
+                        className="dash-table-row"
+                        href={`/manager/order?id=${order.id}`}
+                      >
+                        <span className="dash-cell-main">
+                          <strong>{order.tracking_code}</strong>
+                          <small>{order.customer_name}</small>
+                        </span>
+                        <span>
+                          <StatusBadge status={order.status} />
+                        </span>
+                        <span>{order.driver_name || "Unassigned"}</span>
+                        <span>{formatTime(order.estimated_delivery_at)}</span>
+                        <span>
+                          {order.cod_amount > 0
+                            ? currency.format(order.cod_amount)
+                            : "—"}
+                        </span>
+                      </Link>
+                    ))}
+                    {!recentList.length && (
+                      <p className="dash-empty">No deliveries yet.</p>
+                    )}
+                  </div>
+                </section>
               </div>
-            </section>
+
+              <aside className="dash-rail">
+                <section className="dash-card" aria-label="Needs attention">
+                  <CardHeader title="Needs attention" />
+                  <ul className="dash-list">
+                    <li>
+                      <Link href="/manager/order?filter=unassigned">
+                        <span>Needs rider</span>
+                        <strong>{summary.needsRider}</strong>
+                        <Icon name="arrow-right" size={14} />
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/manager/track">
+                        <span>Delayed on route</span>
+                        <strong>{summary.delayed}</strong>
+                        <Icon name="arrow-right" size={14} />
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/manager/insights">
+                        <span>COD to settle</span>
+                        <strong>{summary.codPending}</strong>
+                        <Icon name="arrow-right" size={14} />
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/manager/track#road-knowledge">
+                        <span>Road reports</span>
+                        <strong>{summary.pendingReports}</strong>
+                        <Icon name="arrow-right" size={14} />
+                      </Link>
+                    </li>
+                  </ul>
+                </section>
+
+                <section className="dash-card" aria-label="Fleet status">
+                  <CardHeader title="Fleet" />
+                  <ul className="dash-list">
+                    <li>
+                      <Link href="/manager/profile">
+                        <span>Riders free</span>
+                        <strong>
+                          {freeRiders}
+                          <small> / {workspace.data.drivers.length}</small>
+                        </strong>
+                        <Icon name="arrow-right" size={14} />
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/manager/profile">
+                        <span>Vehicles ready</span>
+                        <strong>
+                          {availableVehicles.length}
+                          <small> / {workspace.data.vehicles.length}</small>
+                        </strong>
+                        <Icon name="arrow-right" size={14} />
+                      </Link>
+                    </li>
+                  </ul>
+                </section>
+              </aside>
+            </div>
           )}
 
           {view === "order" && (
@@ -714,7 +540,7 @@ export function ManagerApp({ view }: { view: ManagerView }) {
               <div className="manager-orders-panel" id="orders">
                 <div className="panel-heading-row">
                   <div>
-                    <h2>Delivery orders</h2>
+                    <h2>Delivery queue</h2>
                   </div>
                   <button
                     type="button"
@@ -768,7 +594,7 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                       onClick={() => setSelectedId(order.id)}
                     >
                       <span
-                        className={`order-row-marker ${["picked_up", "in_transit"].includes(order.status) ? "marker-live" : ""}`}
+                        className={`order-row-marker ${isMovingOrder(order) ? "marker-live" : ""}`}
                       >
                         <Icon name="box" size={16} />
                       </span>
@@ -793,13 +619,6 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                     </div>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="manager-view-all"
-                  onClick={() => setFilter("all")}
-                >
-                  View all delivery orders <Icon name="arrow-right" size={15} />
-                </button>
               </div>
 
               <div className="manager-map-panel" id="fleet-map">
@@ -814,9 +633,7 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                 </div>
                 <LocationMap
                   order={selectedOrder}
-                  orders={orders.filter((item) =>
-                    ["picked_up", "in_transit"].includes(item.status),
-                  )}
+                  orders={movingOrders}
                   mode="manager"
                   isDemo={workspace.isDemo}
                   tall
@@ -834,166 +651,92 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                       <StatusBadge status={selectedOrder.status} />
                     </div>
                     {canAssign && (
-                      <>
-                        <div className="assignment-recommendations">
-                          <div className="recommendation-heading">
-                            <span>
-                              <Icon name="compass" size={16} /> Smart match
-                            </span>
-                            <small>Workload · proximity · vehicle fit</small>
-                          </div>
-                          {recommendations.length ? (
-                            <div className="recommendation-list">
-                              {recommendations.map((recommendation, index) => {
-                                const driver = workspace.data.drivers.find(
-                                  (item) => item.id === recommendation.driverId,
-                                );
-                                const vehicle = workspace.data.vehicles.find(
-                                  (item) =>
-                                    item.id === recommendation.vehicleId,
-                                );
-                                const selected =
-                                  assignDriverId === recommendation.driverId &&
-                                  assignVehicleId ===
-                                    (recommendation.vehicleId ?? "");
-                                return (
+                      <div className="assignment-recommendations">
+                        <div className="recommendation-heading">
+                          <span>
+                            <Icon name="compass" size={16} /> Suggested riders
+                          </span>
+                          <small>Workload · proximity · vehicle fit</small>
+                        </div>
+                        {recommendations.length ? (
+                          <div className="recommendation-list">
+                            {recommendations.map((recommendation, index) => {
+                              const driver = workspace.data.drivers.find(
+                                (item) => item.id === recommendation.driverId,
+                              );
+                              const vehicle = workspace.data.vehicles.find(
+                                (item) => item.id === recommendation.vehicleId,
+                              );
+                              const isCurrent =
+                                selectedOrder.driver_id ===
+                                  recommendation.driverId &&
+                                (selectedOrder.vehicle_id ?? null) ===
+                                  (recommendation.vehicleId ?? null);
+                              return (
+                                <div
+                                  className={`recommendation-card ${isCurrent ? "is-selected" : ""}`}
+                                  key={`${recommendation.driverId}-${recommendation.vehicleId ?? "none"}`}
+                                >
+                                  <span className="recommendation-rank">
+                                    {index + 1}
+                                  </span>
+                                  <span className="recommendation-copy">
+                                    <strong>
+                                      {driver?.full_name || "Rider"}
+                                    </strong>
+                                    <small>
+                                      {vehicle
+                                        ? `${vehicle.registration_number} · ${vehicleText(vehicle.vehicle_type)}`
+                                        : "No vehicle"}
+                                    </small>
+                                    <em>
+                                      {recommendation.reasons
+                                        .slice(0, 3)
+                                        .join(" · ")}
+                                    </em>
+                                  </span>
+                                  <span className="recommendation-score">
+                                    {recommendation.score}
+                                    <small>fit</small>
+                                  </span>
                                   <button
                                     type="button"
-                                    className={`recommendation-card ${selected ? "is-selected" : ""}`}
-                                    key={`${recommendation.driverId}-${recommendation.vehicleId ?? "none"}`}
-                                    onClick={() => {
-                                      setAssignDriverId(
+                                    className="button button-dark button-small"
+                                    onClick={() =>
+                                      void assignRecommendation(
                                         recommendation.driverId,
-                                      );
-                                      setAssignVehicleId(
-                                        recommendation.vehicleId ?? "",
-                                      );
-                                    }}
+                                        recommendation.vehicleId ?? null,
+                                      )
+                                    }
+                                    disabled={
+                                      saving || !!workspace.error || isCurrent
+                                    }
                                   >
-                                    <span className="recommendation-rank">
-                                      {index + 1}
-                                    </span>
-                                    <span className="recommendation-copy">
-                                      <strong>
-                                        {driver?.full_name || "Rider"}
-                                      </strong>
-                                      <small>
-                                        {vehicle
-                                          ? `${vehicle.registration_number} · ${vehicleText(vehicle.vehicle_type)}`
-                                          : "No vehicle"}
-                                      </small>
-                                      <em>
-                                        {recommendation.reasons
-                                          .slice(0, 3)
-                                          .join(" · ")}
-                                      </em>
-                                    </span>
-                                    <span className="recommendation-score">
-                                      {recommendation.score}
-                                      <small>fit</small>
-                                    </span>
+                                    {isCurrent
+                                      ? "Assigned"
+                                      : selectedOrder.driver_id
+                                        ? "Reassign"
+                                        : "Assign"}
                                   </button>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <p className="form-hint">
-                              No compatible on-duty rider and vehicle pair is
-                              available.
-                            </p>
-                          )}
-                        </div>
-                        <div className="assignment-controls">
-                          <label className="field-label compact-label">
-                            ASSIGN RIDER
-                            <select
-                              value={assignDriverId}
-                              onChange={(event) => {
-                                setAssignDriverId(event.target.value);
-                                setAssignVehicleId("");
-                              }}
-                              disabled={
-                                !assignableDrivers.length ||
-                                saving ||
-                                !!workspace.error
-                              }
-                            >
-                              <option value="">
-                                {assignableDrivers.length
-                                  ? "Select a rider"
-                                  : "No riders on duty"}
-                              </option>
-                              {workspace.data.drivers.map((driver) => (
-                                <option
-                                  value={driver.id}
-                                  key={driver.id}
-                                  disabled={driver.availability === "off_duty"}
-                                >
-                                  {driver.full_name || driver.phone || "Rider"}{" "}
-                                  ·{" "}
-                                  {driver.availability === "off_duty"
-                                    ? "Off duty"
-                                    : assignedDrivers.has(driver.id)
-                                      ? "On delivery"
-                                      : "Available"}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="field-label compact-label">
-                            VEHICLE
-                            <select
-                              value={assignVehicleId}
-                              onChange={(event) =>
-                                setAssignVehicleId(event.target.value)
-                              }
-                              disabled={saving || !!workspace.error}
-                            >
-                              <option value="">No vehicle</option>
-                              {assignableVehicles.map((vehicle) => (
-                                <option value={vehicle.id} key={vehicle.id}>
-                                  {vehicle.registration_number} ·{" "}
-                                  {vehicleText(vehicle.vehicle_type)}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <button
-                            type="button"
-                            className="button button-dark assignment-save"
-                            onClick={() => void assignSelected()}
-                            disabled={
-                              saving ||
-                              !!workspace.error ||
-                              !assignableDrivers.some(
-                                (driver) => driver.id === assignDriverId,
-                              ) ||
-                              (!!assignVehicleId &&
-                                !assignableVehicles.some(
-                                  (vehicle) => vehicle.id === assignVehicleId,
-                                ))
-                            }
-                          >
-                            {saving
-                              ? "Saving…"
-                              : selectedOrder.driver_id
-                                ? "Update assignment"
-                                : "Assign delivery"}
-                            <Icon name="arrow-right" size={15} />
-                          </button>
-                        </div>
-                      </>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="form-hint">
+                            No compatible on-duty rider and vehicle pair is
+                            available.
+                          </p>
+                        )}
+                      </div>
                     )}
-                    {!canAssign &&
-                      ["picked_up", "in_transit"].includes(
-                        selectedOrder.status,
-                      ) && (
-                        <div className="form-hint">
-                          {selectedOrder.driver_name || "Assigned rider"} has
-                          the parcel. Assignment stays fixed while this delivery
-                          is active.
-                        </div>
-                      )}
+                    {!canAssign && isMovingOrder(selectedOrder) && (
+                      <div className="form-hint">
+                        {selectedOrder.driver_name || "Assigned rider"} has the
+                        parcel. Assignment stays fixed while this delivery is
+                        active.
+                      </div>
+                    )}
                     {selectedOrder.cod_amount > 0 && (
                       <div className="dispatch-cod">
                         <span>COD to collect</span>
@@ -1008,13 +751,15 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                         <span>
                           <strong>Persisted route</strong>
                           <small>
-                            {selectedRoute.status} · {selectedRouteStops.length} stops
+                            {selectedRoute.status} · {selectedRouteStops.length}{" "}
+                            stops
                           </small>
                         </span>
                         <div>
                           {selectedRouteStops.map((stop) => (
                             <small key={stop.id}>
-                              {stop.sequence_number}. {stop.stop_type} · {stop.address}
+                              {stop.sequence_number}. {stop.stop_type} ·{" "}
+                              {stop.address}
                             </small>
                           ))}
                         </div>
@@ -1023,7 +768,7 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                   </div>
                 ) : (
                   <div className="manager-empty-map">
-                    Create a delivery to start dispatching.
+                    No deliveries in this view yet.
                   </div>
                 )}
               </div>
@@ -1059,73 +804,40 @@ export function ManagerApp({ view }: { view: ManagerView }) {
           )}
 
           {view === "profile" && (
-            <section className="fleet-strip" id="drivers">
-              <div>
-                <h2>Riders and vehicles</h2>
-              </div>
-              <div className="fleet-item-list">
-                {workspace.data.drivers.map((driver, index) => {
-                  const riding = orders.some(
-                    (order) =>
-                      order.driver_id === driver.id &&
-                      [
-                        "assigned",
-                        "accepted",
-                        "picked_up",
-                        "in_transit",
-                      ].includes(order.status),
-                  );
+            <section className="dash-card" id="drivers">
+              <CardHeader title="Riders" />
+              <ul className="dash-list dash-roster">
+                {workspace.data.drivers.map((driver) => {
+                  const riding = assignedDrivers.has(driver.id);
+                  const offDuty = driver.availability === "off_duty";
                   return (
-                    <div className="fleet-item" key={driver.id}>
-                      <span
-                        className={`fleet-person-avatar fleet-avatar-${index % 3}`}
-                      >
-                        {(driver.full_name?.[0] ?? "R").toUpperCase()}
-                      </span>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        onClick={() => void toggleAvailability(driver)}
-                        disabled={saving || !!workspace.error}
-                        title={
-                          driver.availability === "off_duty"
-                            ? "Set rider on duty"
-                            : "Set rider off duty"
-                        }
-                        aria-label={`Set ${driver.full_name || "rider"} ${driver.availability === "off_duty" ? "on" : "off"} duty`}
-                        aria-pressed={driver.availability !== "off_duty"}
-                      >
-                        <Icon
-                          name={
-                            driver.availability === "off_duty"
-                              ? "plus"
-                              : "check"
-                          }
-                          size={16}
-                        />
-                      </button>
-                      <span>
+                    <li key={driver.id}>
+                      <span className="dash-roster-name">
                         <strong>{driver.full_name || "Rider"}</strong>
                         <small>
-                          <i
-                            className={riding ? "fleet-dot busy" : "fleet-dot"}
-                          />
-                          {driver.availability === "off_duty"
+                          <i className={`fleet-dot ${riding ? "busy" : ""}`} />
+                          {offDuty
                             ? "Off duty"
                             : riding
                               ? "On delivery"
                               : "Available"}
                         </small>
                       </span>
-                    </div>
+                      <button
+                        type="button"
+                        className="button button-outline button-small"
+                        onClick={() => void toggleAvailability(driver)}
+                        disabled={saving || !!workspace.error}
+                      >
+                        {offDuty ? "Set on duty" : "Set off duty"}
+                      </button>
+                    </li>
                   );
                 })}
                 {!workspace.data.drivers.length && (
-                  <span className="fleet-empty">
-                    No rider profiles available.
-                  </span>
+                  <li className="dash-empty">No rider profiles available.</li>
                 )}
-              </div>
+              </ul>
             </section>
           )}
 
@@ -1206,7 +918,7 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                   <h2>Road knowledge</h2>
                 </div>
                 <span className="manager-live-tag">
-                  {pendingRoadReports.length} pending
+                  {summary.pendingReports} pending
                 </span>
               </div>
               <p className="road-knowledge-intro">
@@ -1214,45 +926,51 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                 ETAs.
               </p>
               <div className="road-report-list">
-                {pendingRoadReports.map((report) => (
-                  <article className="road-report-card" key={report.id}>
-                    <div className="road-report-title">
-                      <span
-                        className={`road-severity road-severity-${report.severity}`}
-                      >
-                        {report.severity}
+                {workspace.data.roadReports
+                  .filter((report) => report.status === "pending")
+                  .map((report) => (
+                    <article className="road-report-card" key={report.id}>
+                      <div className="road-report-title">
+                        <span
+                          className={`road-severity road-severity-${report.severity}`}
+                        >
+                          {report.severity}
+                        </span>
+                        <strong>{report.category.replace("_", " ")}</strong>
+                        <small>{formatTime(report.reported_at)}</small>
+                      </div>
+                      <p>{report.description}</p>
+                      <span className="road-report-meta">
+                        {report.driver_name}
+                        {report.order_id
+                          ? ` · ${orders.find((order) => order.id === report.order_id)?.tracking_code ?? "Linked delivery"}`
+                          : ""}
                       </span>
-                      <strong>{report.category.replace("_", " ")}</strong>
-                      <small>{formatTime(report.reported_at)}</small>
-                    </div>
-                    <p>{report.description}</p>
-                    <span className="road-report-meta">
-                      {report.driver_name}
-                      {report.order_id
-                        ? ` · ${orders.find((order) => order.id === report.order_id)?.tracking_code ?? "Linked delivery"}`
-                        : ""}
-                    </span>
-                    <div className="road-report-actions">
-                      <button
-                        type="button"
-                        className="button button-outline button-small"
-                        onClick={() => void reviewReport(report.id, "rejected")}
-                        disabled={saving}
-                      >
-                        Reject
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-dark button-small"
-                        onClick={() => void reviewReport(report.id, "verified")}
-                        disabled={saving}
-                      >
-                        Verify for ETA
-                      </button>
-                    </div>
-                  </article>
-                ))}
-                {!pendingRoadReports.length && (
+                      <div className="road-report-actions">
+                        <button
+                          type="button"
+                          className="button button-outline button-small"
+                          onClick={() =>
+                            void reviewReport(report.id, "rejected")
+                          }
+                          disabled={saving}
+                        >
+                          Reject
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-dark button-small"
+                          onClick={() =>
+                            void reviewReport(report.id, "verified")
+                          }
+                          disabled={saving}
+                        >
+                          Verify for ETA
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                {!summary.pendingReports && (
                   <div className="road-report-empty">
                     <Icon name="check" size={18} /> No reports awaiting review.
                   </div>
@@ -1260,230 +978,83 @@ export function ManagerApp({ view }: { view: ManagerView }) {
               </div>
             </section>
           )}
-
-          <footer className="manager-footer">
-            <span>Oern Dispatch · Yangon operations</span>
-            <Link href="/manager/home">
-              Back to home <Icon name="arrow-right" size={13} />
-            </Link>
-          </footer>
         </div>
       </div>
-      {createOpen && (
-        <ModalPanel
-          className="form-dialog"
-          titleId="create-title"
-          onClose={() => setCreateOpen(false)}
-        >
-          <button
-            className="dialog-close"
-            type="button"
-            onClick={() => setCreateOpen(false)}
-            aria-label="Close new delivery form"
-          >
-            <Icon name="close" size={19} />
-          </button>
-          <span className="eyebrow">New delivery</span>
-          <h2 id="create-title">Create a delivery</h2>
-          <p>
-            Set the handoff and destination. Assign a rider from the dispatch
-            map.
-          </p>
-          <form
-            className="delivery-form"
-            onSubmit={(event) => void saveOrder(event)}
-          >
-            <label className="field-label">
-              Customer
-              <select
-                value={form.customerId}
-                onChange={(event) => setField("customerId", event.target.value)}
-                required
-              >
-                <option value="">Select a customer</option>
-                {workspace.data.customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.full_name || "Customer"}
-                    {customer.phone ? ` · ${customer.phone}` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {workspace.data.customers.length === 0 && (
-              <div className="form-hint customer-empty-state">
-                <strong>No customer accounts found.</strong>
-                <span>
-                  Create or provision a customer account, then refresh this list
-                  before creating a delivery.
-                </span>
-                <button
-                  type="button"
-                  className="button button-outline button-small"
-                  onClick={() => void workspace.refresh()}
-                  disabled={workspace.isLoading}
-                >
-                  {workspace.isLoading ? "Refreshing…" : "Refresh customers"}
-                </button>
-              </div>
-            )}
-            <label className="field-label">
-              Pickup address
-              <input
-                value={form.pickup}
-                onChange={(event) => setField("pickup", event.target.value)}
-                placeholder="Sender address, township"
-                required
-              />
-            </label>
-            <label className="field-label">
-              Delivery address
-              <input
-                value={form.delivery}
-                onChange={(event) => setField("delivery", event.target.value)}
-                placeholder="Recipient address, township"
-                required
-              />
-            </label>
-            <details>
-              <summary>Map pins (optional)</summary>
-              <p className="form-hint">
-                Add coordinates to show pickup and drop-off markers and help
-                rider navigation. Addresses are saved as entered.
-              </p>
-              <div className="form-two-col">
-                <label className="field-label">
-                  Pickup latitude
-                  <input
-                    type="number"
-                    min="-90"
-                    max="90"
-                    step="any"
-                    value={form.pickupLatitude}
-                    onChange={(event) =>
-                      setField("pickupLatitude", event.target.value)
-                    }
-                    placeholder="16.7797"
-                  />
-                </label>
-                <label className="field-label">
-                  Pickup longitude
-                  <input
-                    type="number"
-                    min="-180"
-                    max="180"
-                    step="any"
-                    value={form.pickupLongitude}
-                    onChange={(event) =>
-                      setField("pickupLongitude", event.target.value)
-                    }
-                    placeholder="96.1434"
-                  />
-                </label>
-              </div>
-              <div className="form-two-col">
-                <label className="field-label">
-                  Drop-off latitude
-                  <input
-                    type="number"
-                    min="-90"
-                    max="90"
-                    step="any"
-                    value={form.deliveryLatitude}
-                    onChange={(event) =>
-                      setField("deliveryLatitude", event.target.value)
-                    }
-                    placeholder="16.8178"
-                  />
-                </label>
-                <label className="field-label">
-                  Drop-off longitude
-                  <input
-                    type="number"
-                    min="-180"
-                    max="180"
-                    step="any"
-                    value={form.deliveryLongitude}
-                    onChange={(event) =>
-                      setField("deliveryLongitude", event.target.value)
-                    }
-                    placeholder="96.1566"
-                  />
-                </label>
-              </div>
-            </details>
-            <div className="form-two-col">
-              <label className="field-label">
-                Recipient name
-                <input
-                  value={form.recipient}
-                  onChange={(event) =>
-                    setField("recipient", event.target.value)
-                  }
-                  required
-                />
-              </label>
-              <label className="field-label">
-                Recipient phone
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(event) => setField("phone", event.target.value)}
-                />
-              </label>
-            </div>
-            <div className="form-two-col">
-              <label className="field-label">
-                Parcel description
-                <input
-                  value={form.parcel}
-                  onChange={(event) => setField("parcel", event.target.value)}
-                  placeholder="Documents, clothing…"
-                />
-              </label>
-              <label className="field-label">
-                COD · MMK
-                <input
-                  type="number"
-                  min="0"
-                  step="100"
-                  value={form.cod}
-                  onChange={(event) => setField("cod", event.target.value)}
-                />
-              </label>
-            </div>
-            {error && (
-              <div className="form-message form-error" role="alert">
-                {error}
-              </div>
-            )}
-            <div className="form-dialog-footer">
-              <span>
-                {workspace.canUseLiveData
-                  ? "Saved to your dispatch board."
-                  : "Demo only · saved in this preview."}{" "}
-                ETA is set to one hour from order creation.
-              </span>
-              <button
-                className="button button-primary"
-                type="submit"
-                disabled={
-                  saving ||
-                  !!workspace.error ||
-                  !workspace.data.customers.length
-                }
-              >
-                {saving ? "Creating…" : "Create delivery"}
-                <Icon name="arrow-right" size={16} />
-              </button>
-            </div>
-          </form>
-        </ModalPanel>
-      )}
       <AuthDialog
         open={authOpen}
         audience="team"
         onClose={() => setAuthOpen(false)}
       />
     </main>
+  );
+}
+
+function KpiCell({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  tone?: "live" | "warning";
+}) {
+  return (
+    <div className={`dash-kpi ${tone ? `is-${tone}` : ""}`}>
+      <span className="dash-kpi-label">{label}</span>
+      <strong className="dash-kpi-value">
+        {value.toString().padStart(2, "0")}
+      </strong>
+      <span className="dash-kpi-hint">{hint}</span>
+    </div>
+  );
+}
+
+function CardHeader({
+  title,
+  meta,
+  children,
+}: {
+  title: string;
+  meta?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <header className="dash-card-header">
+      <h2>{title}</h2>
+      <div>
+        {meta && <span className="dash-meta">{meta}</span>}
+        {children}
+      </div>
+    </header>
+  );
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  const max = Math.max(1, ...values);
+  const step = values.length > 1 ? 100 / (values.length - 1) : 100;
+  const points = values
+    .map((value, index) => {
+      const x = (index * step).toFixed(2);
+      const y = (23 - (value / max) * 21).toFixed(2);
+      return `${x},${y}`;
+    })
+    .join(" ");
+  return (
+    <svg
+      className="dash-sparkline"
+      viewBox="0 0 100 24"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
   );
 }

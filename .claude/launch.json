@@ -6,6 +6,12 @@
       "runtimeExecutable": "C:\\Users\\ASUS\\.bun\\bin\\bun.exe",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "oern-dev-mac",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
     }
   ]
 }
