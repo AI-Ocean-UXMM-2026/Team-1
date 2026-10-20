@@ -38,29 +38,32 @@ export function watchRiderLocations({
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
       lastSentAt = timestamp;
       sending = true;
-      const point: RiderLocationPoint = {
-        latitude,
-        longitude,
-        accuracy: Number.isFinite(accuracy) ? accuracy : null,
-        recordedAt: new Date(timestamp).toISOString(),
-      };
-      const results = await Promise.allSettled(
-        targets.map(async (orderId) => send(orderId, point)),
-      );
-      sending = false;
-      if (!active) return;
-      const sent = targets.filter(
-        (_, index) => results[index].status === "fulfilled",
-      );
-      if (sent.length) onSent(sent, point);
-      const failure = results.find((result) => result.status === "rejected");
-      if (failure?.status === "rejected") {
-        onError(
-          failure.reason instanceof Error
-            ? failure.reason.message
-            : "Could not update every parcel location. Keep this app open to retry.",
-          false,
+      try {
+        const point: RiderLocationPoint = {
+          latitude,
+          longitude,
+          accuracy: Number.isFinite(accuracy) ? accuracy : null,
+          recordedAt: new Date(timestamp).toISOString(),
+        };
+        const results = await Promise.allSettled(
+          targets.map(async (orderId) => send(orderId, point)),
         );
+        if (!active) return;
+        const sent = targets.filter(
+          (_, index) => results[index].status === "fulfilled",
+        );
+        if (sent.length) onSent(sent, point);
+        const failure = results.find((result) => result.status === "rejected");
+        if (failure?.status === "rejected") {
+          onError(
+            failure.reason instanceof Error
+              ? failure.reason.message
+              : "Could not update every parcel location. Keep this app open to retry.",
+            false,
+          );
+        }
+      } finally {
+        sending = false;
       }
     },
     (cause) => {

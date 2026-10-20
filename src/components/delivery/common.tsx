@@ -84,7 +84,7 @@ export function UserActions({
   return isAuthenticated ? (
     <div className="user-actions">
       <div className="user-avatar">
-        {(profile?.full_name?.[0] ?? label[0]).toUpperCase()}
+        {(profile?.full_name?.[0] ?? label?.[0] ?? "?").toUpperCase()}
       </div>
       <div className="user-meta">
         <span>{profile?.full_name || "Team member"}</span>

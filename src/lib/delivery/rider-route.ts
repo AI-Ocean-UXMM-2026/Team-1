@@ -101,12 +101,14 @@ export function legFor(order: DeliveryOrder): StopLeg {
 }
 
 function yangonDay(value: string | number) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Yangon",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function closedAt(order: DeliveryOrder, events: StatusEvent[]) {
@@ -181,7 +183,9 @@ export function summariseRoute(
   events: StatusEvent[],
 ): RouteSummary {
   const delivered = route.closedToday.filter((o) => o.status === "delivered");
-  const codOrders = delivered.filter((order) => order.cod_amount > 0);
+  const codOrders = [...route.active, ...route.closedToday].filter(
+    (order) => order.cod_amount > 0,
+  );
   const collected = codOrders.filter(
     (order) =>
       order.cod_status === "collected" || order.cod_status === "settled",

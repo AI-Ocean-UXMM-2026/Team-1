@@ -8,27 +8,34 @@ export const currency = new Intl.NumberFormat("en-US", {
 
 export function formatTime(value: string | null) {
   if (!value) return "Being arranged";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
     timeZone: "Asia/Yangon",
-  }).format(new Date(value));
+  }).format(d);
 }
 
-export function formatDateTime(value: string) {
+export function formatDateTime(value: string | null | undefined) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",
     timeZone: "Asia/Yangon",
-  }).format(new Date(value));
+  }).format(d);
 }
 
 export function timeUntil(value: string | null) {
   if (!value) return "Soon";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Soon";
   const minutes = Math.max(
     0,
-    Math.round((new Date(value).getTime() - Date.now()) / 60_000),
+    Math.round((d.getTime() - Date.now()) / 60_000),
   );
   if (minutes < 1) return "Arriving now";
   if (minutes < 60) return `${minutes} min`;
@@ -52,7 +59,9 @@ export function nextCustomerAction(status: DeliveryStatus, delayed = false) {
 
 export function relativeUpdatedAt(value: string | null, now = Date.now()) {
   if (!value) return "Not updated yet";
-  const minutes = Math.max(0, Math.round((now - Date.parse(value)) / 60_000));
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Not updated yet";
+  const minutes = Math.max(0, Math.round((now - d.getTime()) / 60_000));
   if (minutes < 1) return "Updated just now";
   if (minutes === 1) return "Updated 1 min ago";
   if (minutes < 60) return `Updated ${minutes} min ago`;

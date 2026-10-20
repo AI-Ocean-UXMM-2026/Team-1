@@ -6,7 +6,11 @@
 
 /* Wrappers that hold a label and its field. */
 :is(.field-label, .rf-field, .operations-field, .operations-form, .form-field)
-  :is(input, select, textarea):not([type="radio"], [type="checkbox"], [type="hidden"]) {
+  :is(input, select, textarea):not(
+    [type="radio"],
+    [type="checkbox"],
+    [type="hidden"]
+  ) {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -33,7 +37,11 @@
 }
 
 :is(.field-label, .rf-field, .operations-field, .operations-form, .form-field)
-  :is(input, select, textarea):not([type="radio"], [type="checkbox"], [type="hidden"]):focus-visible {
+  :is(input, select, textarea):not(
+    [type="radio"],
+    [type="checkbox"],
+    [type="hidden"]
+  ):focus-visible {
   outline: 3px solid var(--color-info);
   outline-offset: 0;
   border-color: var(--color-info);

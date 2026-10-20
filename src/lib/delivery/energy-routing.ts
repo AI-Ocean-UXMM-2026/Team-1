@@ -61,10 +61,13 @@ export function assessEnergyRoute(
       ? vehicle.battery_level_percent
       : vehicle.energy_source === "fuel"
         ? vehicle.fuel_level_percent
-        : Math.max(
-            vehicle.fuel_level_percent ?? 0,
-            vehicle.battery_level_percent ?? 0,
-          );
+        : vehicle.fuel_level_percent == null &&
+            vehicle.battery_level_percent == null
+          ? null
+          : Math.max(
+              vehicle.fuel_level_percent ?? 0,
+              vehicle.battery_level_percent ?? 0,
+            );
 
   const hasCoordinates =
     order.pickup_latitude != null &&

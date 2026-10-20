@@ -115,7 +115,10 @@ export async function loadWorkspace(
         "id, driver_id, order_id, category, severity, description, latitude, longitude, status, reported_at, expires_at",
       )
       .order("reported_at", { ascending: false }),
-    supabase.from("delivery_routes").select("*").order("planned_at", { ascending: true }),
+    supabase
+      .from("delivery_routes")
+      .select("*")
+      .order("planned_at", { ascending: true }),
     supabase
       .from("route_stops")
       .select("*")
@@ -213,7 +216,9 @@ export async function loadWorkspace(
 
   const assignments = (assignmentsResult.data ?? []) as AssignmentRow[];
   const vehicles = (vehiclesResult.data ?? []) as VehicleRow[];
-  const locations = (locationsResult.data ?? []) as LocationRow[];
+  const locations = (locationsResult.data ?? []).filter(
+    (loc) => loc.latitude !== null && loc.longitude !== null,
+  ) as LocationRow[];
   const events = (eventsResult.data ?? []) as StatusEvent[];
   const routes = (routesResult.data ?? []) as DeliveryRoute[];
   const routeStops = (routeStopsResult.data ?? []) as RouteStop[];
@@ -314,13 +319,13 @@ export async function loadWorkspace(
     data: {
       orders: mappedOrders,
       customers,
-      drivers: registeredDrivers,
-      vehicles: vehicleOptions,
+      drivers: requestedRole === "manager" ? registeredDrivers : [],
+      vehicles: requestedRole === "manager" ? vehicleOptions : [],
       statusEvents: events.map((event) => ({
         ...event,
         status: event.status as DeliveryStatus,
       })),
-      roadReports,
+      roadReports: requestedRole === "manager" ? roadReports : [],
       routes,
       routeStops,
     },

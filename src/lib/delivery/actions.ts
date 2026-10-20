@@ -56,7 +56,7 @@ export async function sendDriverLocation(
     longitude,
     accuracy_meters: accuracy,
   });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 export async function collectCod(
@@ -70,7 +70,7 @@ export async function collectCod(
     payment_method: "cash",
     status: "collected",
   });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 export async function createDelivery(

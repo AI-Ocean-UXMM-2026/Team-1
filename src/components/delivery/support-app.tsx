@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
@@ -58,6 +58,10 @@ export function SupportApp() {
   const [resolution, setResolution] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setResolution("");
+  }, [selectedId]);
   const normalizedQuery = query.trim().toLowerCase();
   const filteredCases = useMemo(
     () =>
