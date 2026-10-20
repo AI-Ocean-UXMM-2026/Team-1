@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Door-to-Door Delivery Platform
 
-## Getting Started
+A delivery operations platform connecting customers, managers, and drivers/riders in one workflow. Its defining capability is giving customers visibility into their parcel's journey: once a driver or rider receives the parcel, the customer can follow its live location and delivery status until it arrives.
 
-First, run the development server:
+## Interfaces
+
+- **Centralized management:** Managers create and manage orders, addresses, parcels, and cash-on-delivery (COD) amounts; manage drivers and vehicles; assign deliveries; and monitor active, completed, and failed deliveries.
+- **Driver/rider:** Drivers and riders view assigned tasks, accept and start deliveries, navigate to destinations, plan multi-stop routes, update delivery status, and record collected COD payments.
+- **Customer:** Customers view their order status and COD details, receive status and pre-arrival notifications, and track the driver's/rider's location and estimated time of arrival (ETA) while the parcel is in transit.
+
+## Customer tracking flow
+
+1. The order is created and assigned to a driver or rider.
+2. Location sharing for the customer-facing delivery view begins when the driver or rider receives the parcel.
+3. The customer can follow the driver's/rider's live location, delivery status, and ETA while the parcel is in transit.
+4. Tracking ends when the delivery is marked delivered or otherwise closed, with the final status available to the customer.
+
+Live location tracking is a product goal. The current application is a Next.js starter and does not yet implement GPS collection, location sharing, or delivery workflows.
+
+## Product capabilities
+
+- **Orders and fleet:** Manage delivery orders, addresses, parcels, COD, drivers, vehicles, availability, and delivery assignments.
+- **Delivery operations:** Monitor delivery progress, plan routes across multiple stops, and manage delivered or failed outcomes.
+- **Customer visibility:** Show delivery status, live location during transit, ETA, COD amount and payment status, and timely notifications.
+- **Intelligence and automation:** Progress toward assignment recommendations, route optimization, predictive ETA, exception alerts, and fuel- or battery-aware planning.
+
+## Development roadmap
+
+Priorities describe the intended delivery sequence; they do not indicate that the features are already implemented.
+
+### P0 · Core launch workflows
+
+Order and fleet management, manual delivery assignment with basic recommendations, driver task handling and navigation, multi-stop route planning, delivery status and COD recording, customer tracking after parcel pickup with ETA and notifications, and manager monitoring.
+
+### P1 · Intelligence and automation
+
+Automated assignment and route recommendations, validated driver-submitted local road knowledge, fuel and battery assistance, predictive ETA, delayed-delivery detection and alerts, operational analytics, and seller order and COD views.
+
+### P2 · Advanced optimization and integrations
+
+Learned route preferences, fuel and delivery cost analysis, vehicle maintenance history, COD reconciliation, customer support tools, e-commerce integrations, and multi-provider customer tracking.
+
+## Development
+
+This project uses Next.js 16, React 19, TypeScript, and Bun. Install dependencies and start the development server with:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app. Available checks and production commands are:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+bun run lint
+bun run build
+bun run start
+```
