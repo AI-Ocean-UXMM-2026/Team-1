@@ -1,5 +1,6 @@
 "use client";
 
+import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
@@ -18,11 +19,18 @@ import {
   collectCod,
   sendDriverLocation,
   setOrderStatus,
+  submitRoadReport,
+  updateVehicleEnergy,
 } from "@/lib/delivery/actions";
+import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
 import { currency, formatTime, prioritiseOrders } from "@/lib/delivery/format";
 import { hasCollectedParcel } from "@/lib/delivery/location-state";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
-import type { DeliveryStatus, WorkspaceData } from "@/lib/delivery/types";
+import type {
+  DeliveryStatus,
+  RoadReport,
+  WorkspaceData,
+} from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
@@ -85,6 +93,13 @@ export function RiderApp() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [lastLocationSent, setLastLocationSent] = useState<string | null>(null);
   const [codBusy, setCodBusy] = useState(false);
+  const [energyLevel, setEnergyLevel] = useState("");
+  const [roadCategory, setRoadCategory] =
+    useState<RoadReport["category"]>("congestion");
+  const [roadSeverity, setRoadSeverity] =
+    useState<RoadReport["severity"]>("medium");
+  const [roadDescription, setRoadDescription] = useState("");
+  const [roadBusy, setRoadBusy] = useState(false);
 
   const activeOrders = useMemo(
     () =>
@@ -137,6 +152,14 @@ export function RiderApp() {
       ? sharingScope === "demo"
       : workspace.canUseLiveData && sharingScope === currentDriverId);
   const action = selectedOrder ? nextAction(selectedOrder.status) : null;
+  const selectedVehicle = selectedOrder?.vehicle_id
+    ? (workspace.data.vehicles.find(
+        (vehicle) => vehicle.id === selectedOrder.vehicle_id,
+      ) ?? null)
+    : null;
+  const energyAssessment = selectedOrder
+    ? assessEnergyRoute(selectedOrder, selectedVehicle)
+    : null;
 
   useEffect(() => {
     if (selectedOrder && selectedId !== selectedOrder.id)
@@ -156,6 +179,50 @@ export function RiderApp() {
     if (workspace.isDemo) setSharingScope("demo");
     else if (workspace.canUseLiveData && currentDriverId)
       setSharingScope(currentDriverId);
+  }
+
+  async function saveEnergyLevel() {
+    if (!selectedVehicle || !energyLevel) return;
+    setBusyAction(true);
+    setActionError(null);
+    try {
+      if (workspace.isDemo) {
+        workspace.updateData((previous) => ({
+          ...previous,
+          vehicles: previous.vehicles.map((vehicle) =>
+            vehicle.id === selectedVehicle.id
+              ? {
+                  ...vehicle,
+                  fuel_level_percent:
+                    vehicle.energy_source === "electric"
+                      ? vehicle.fuel_level_percent
+                      : Number(energyLevel),
+                  battery_level_percent:
+                    vehicle.energy_source === "fuel"
+                      ? vehicle.battery_level_percent
+                      : Number(energyLevel),
+                }
+              : vehicle,
+          ),
+        }));
+      } else {
+        await updateVehicleEnergy(createClient(), {
+          vehicleId: selectedVehicle.id,
+          energySource: selectedVehicle.energy_source,
+          levelPercent: Number(energyLevel),
+        });
+        await workspace.refresh();
+      }
+      setEnergyLevel("");
+    } catch (cause) {
+      setActionError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not update vehicle energy.",
+      );
+    } finally {
+      setBusyAction(false);
+    }
   }
 
   const updateLocalStatus = useCallback(
@@ -305,6 +372,98 @@ export function RiderApp() {
       );
     } finally {
       setBusyAction(false);
+    }
+  }
+
+  async function reportRoadKnowledge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const reportingDriverId =
+      currentDriverId ?? (workspace.isDemo ? "demo-driver-aung" : null);
+    if (!reportingDriverId || roadBusy) return;
+    setRoadBusy(true);
+    setActionError(null);
+    try {
+      let point = selectedOrder?.latest_location
+        ? {
+            latitude: selectedOrder.latest_location.latitude,
+            longitude: selectedOrder.latest_location.longitude,
+          }
+        : null;
+      if (!point && workspace.isDemo) {
+        point = {
+          latitude: selectedOrder?.pickup_latitude ?? 16.8007,
+          longitude: selectedOrder?.pickup_longitude ?? 96.15,
+        };
+      }
+      if (!point) {
+        if (!navigator.geolocation)
+          throw new Error(
+            "GPS is required to attach a location to a road report.",
+          );
+        point = await new Promise<{ latitude: number; longitude: number }>(
+          (resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(
+              (position) =>
+                resolve({
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude,
+                }),
+              () =>
+                reject(
+                  new Error("Allow GPS access to submit this road report."),
+                ),
+              { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
+            ),
+        );
+      }
+
+      if (workspace.isDemo) {
+        const timestamp = new Date().toISOString();
+        workspace.updateData((previous) => ({
+          ...previous,
+          roadReports: [
+            {
+              id: `demo-road-${Date.now()}`,
+              driver_id: reportingDriverId,
+              driver_name: workspace.profile?.full_name ?? "Demo rider",
+              order_id: selectedOrder?.id ?? null,
+              category: roadCategory,
+              severity: roadSeverity,
+              description: roadDescription.trim(),
+              latitude: point.latitude,
+              longitude: point.longitude,
+              status: "pending",
+              reported_at: timestamp,
+              expires_at: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+            },
+            ...previous.roadReports,
+          ],
+        }));
+      } else if (workspace.canUseLiveData) {
+        await submitRoadReport(createClient(), {
+          driverId: reportingDriverId,
+          orderId: selectedOrder?.id ?? null,
+          category: roadCategory,
+          severity: roadSeverity,
+          description: roadDescription,
+          latitude: point.latitude,
+          longitude: point.longitude,
+        });
+        await workspace.refresh();
+      } else {
+        throw new Error(
+          "Refresh your rider workspace before submitting a report.",
+        );
+      }
+      setRoadDescription("");
+    } catch (cause) {
+      setActionError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not submit this road report.",
+      );
+    } finally {
+      setRoadBusy(false);
     }
   }
 
@@ -557,6 +716,63 @@ export function RiderApp() {
                     <Icon name="history" size={15} />
                     ETA {formatTime(selectedOrder.estimated_delivery_at)}
                   </span>
+                  {selectedOrder.route_progress_percent != null && (
+                    <span>
+                      <Icon name="navigation" size={15} />
+                      {Math.round(selectedOrder.route_progress_percent)}% of
+                      route complete
+                    </span>
+                  )}
+                  {selectedOrder.traffic_delay_minutes > 0 && (
+                    <span className="traffic-delay">
+                      <Icon name="warning" size={15} />+
+                      {selectedOrder.traffic_delay_minutes} min from verified
+                      road reports
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={`energy-readiness-card energy-${energyAssessment?.status ?? "unknown"}`}
+                >
+                  <span className="energy-readiness-icon">
+                    <Icon name="navigation" size={18} />
+                  </span>
+                  <div>
+                    <small>
+                      {selectedVehicle?.energy_source === "electric"
+                        ? "Battery-aware route"
+                        : "Fuel-aware route"}
+                    </small>
+                    <strong>
+                      {energyAssessment?.message ??
+                        "Assign a vehicle to check readiness."}
+                    </strong>
+                    <span>
+                      {energyAssessment?.distanceKm != null
+                        ? `${energyAssessment.distanceKm} km estimated · ${energyAssessment.availableRangeKm} km usable range`
+                        : "Route pins and vehicle range are required."}
+                    </span>
+                  </div>
+                  {selectedVehicle && (
+                    <div className="energy-level-control">
+                      <input
+                        aria-label="Current vehicle energy percent"
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder={`${energyAssessment?.energyLevelPercent ?? 0}%`}
+                        value={energyLevel}
+                        onChange={(event) => setEnergyLevel(event.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void saveEnergyLevel()}
+                        disabled={busyAction || !energyLevel}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <a
                   className="button button-outline rider-primary-action"
@@ -693,6 +909,73 @@ export function RiderApp() {
                 </span>
               </div>
             </div>
+            <form className="road-report-form" onSubmit={reportRoadKnowledge}>
+              <div className="section-head-block">
+                <div>
+                  <span className="section-kicker">Local knowledge</span>
+                  <h2>Report road conditions</h2>
+                </div>
+                <Icon name="warning" size={18} />
+              </div>
+              <p>
+                Submit while safely stopped. Operations verifies reports before
+                they affect ETAs.
+              </p>
+              <div className="road-report-fields">
+                <label className="field-label compact-label">
+                  CONDITION
+                  <select
+                    value={roadCategory}
+                    onChange={(event) =>
+                      setRoadCategory(
+                        event.target.value as RoadReport["category"],
+                      )
+                    }
+                  >
+                    <option value="congestion">Congestion</option>
+                    <option value="closure">Road closure</option>
+                    <option value="roadwork">Roadwork</option>
+                    <option value="flooding">Flooding</option>
+                    <option value="hazard">Road hazard</option>
+                  </select>
+                </label>
+                <label className="field-label compact-label">
+                  IMPACT
+                  <select
+                    value={roadSeverity}
+                    onChange={(event) =>
+                      setRoadSeverity(
+                        event.target.value as RoadReport["severity"],
+                      )
+                    }
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="blocked">Blocked</option>
+                  </select>
+                </label>
+              </div>
+              <label className="field-label compact-label">
+                WHAT DID YOU SEE?
+                <textarea
+                  value={roadDescription}
+                  onChange={(event) => setRoadDescription(event.target.value)}
+                  minLength={3}
+                  maxLength={240}
+                  required
+                  placeholder="Example: left lane closed after the market entrance"
+                />
+              </label>
+              <button
+                type="submit"
+                className="button button-outline rider-primary-action"
+                disabled={roadBusy || roadDescription.trim().length < 3}
+              >
+                <Icon name="location" size={17} />
+                {roadBusy ? "Sending report…" : "Submit with current location"}
+              </button>
+            </form>
             <div className="rider-safety-note">
               <Icon name="shield" size={17} />
               <div>

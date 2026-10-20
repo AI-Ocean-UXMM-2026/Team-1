@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-
+import type { RoadReport } from "@/lib/delivery/types";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type DeliveryActionClient = SupabaseClient<Database>;
@@ -152,4 +152,83 @@ export async function setDriverAvailability(
     throw new Error(
       "The rider availability was not saved. Refresh and try again.",
     );
+}
+
+export async function updateVehicleEnergy(
+  supabase: DeliveryActionClient,
+  input: {
+    vehicleId: string;
+    energySource: "fuel" | "electric" | "hybrid";
+    levelPercent: number;
+  },
+) {
+  if (
+    !Number.isFinite(input.levelPercent) ||
+    input.levelPercent < 0 ||
+    input.levelPercent > 100
+  ) {
+    throw new Error("Enter an energy level from 0 to 100 percent.");
+  }
+  const update =
+    input.energySource === "electric"
+      ? { battery_level_percent: input.levelPercent }
+      : input.energySource === "fuel"
+        ? { fuel_level_percent: input.levelPercent }
+        : {
+            fuel_level_percent: input.levelPercent,
+            battery_level_percent: input.levelPercent,
+          };
+  const { error } = await supabase
+    .from("vehicles")
+    .update(update)
+    .eq("id", input.vehicleId)
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+}
+
+export async function submitRoadReport(
+  supabase: DeliveryActionClient,
+  input: {
+    driverId: string;
+    orderId: string | null;
+    category: RoadReport["category"];
+    severity: RoadReport["severity"];
+    description: string;
+    latitude: number;
+    longitude: number;
+  },
+) {
+  const description = input.description.trim();
+  if (description.length < 3 || description.length > 240)
+    throw new Error("Describe the road condition in 3 to 240 characters.");
+  validateMapPin("road report", input.latitude, input.longitude);
+  const { data, error } = await supabase
+    .from("road_reports")
+    .insert({
+      driver_id: input.driverId,
+      order_id: input.orderId,
+      category: input.category,
+      severity: input.severity,
+      description,
+      latitude: input.latitude,
+      longitude: input.longitude,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return data.id;
+}
+
+export async function reviewRoadReport(
+  supabase: DeliveryActionClient,
+  reportId: string,
+  decision: "verified" | "rejected",
+) {
+  const { data, error } = await supabase.rpc("review_road_report", {
+    target_report_id: reportId,
+    decision,
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }

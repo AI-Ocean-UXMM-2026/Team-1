@@ -15,6 +15,7 @@ const emptyWorkspace = (): WorkspaceData => ({
   drivers: [],
   vehicles: [],
   statusEvents: [],
+  roadReports: [],
 });
 
 export function useWorkspace(role: WorkspaceProfile["role"]) {

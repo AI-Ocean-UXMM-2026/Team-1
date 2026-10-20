@@ -7,6 +7,7 @@ import type {
   DeliveryStatus,
   DriverOption,
   ProfileOption,
+  RoadReport,
   StatusEvent,
   VehicleOption,
   WorkspaceData,
@@ -19,6 +20,7 @@ type AssignmentRow = Tables<"delivery_assignments">;
 type ProfileRow = Tables<"profiles">;
 type LocationRow = Tables<"delivery_locations">;
 type VehicleRow = Tables<"vehicles">;
+type RoadReportRow = Tables<"road_reports">;
 
 export type LoadedWorkspace = {
   profile: WorkspaceProfile;
@@ -73,6 +75,7 @@ export async function loadWorkspace(
     vehiclesResult,
     locationsResult,
     eventsResult,
+    roadReportsResult,
   ] = await Promise.all([
     supabase
       .from("delivery_orders")
@@ -83,7 +86,9 @@ export async function loadWorkspace(
     supabase.from("driver_profiles").select("user_id, availability"),
     supabase
       .from("vehicles")
-      .select("id, registration_number, vehicle_type, status"),
+      .select(
+        "id, registration_number, vehicle_type, status, capacity_kg, energy_source, fuel_level_percent, battery_level_percent, range_km_at_full, reserve_percent, odometer_km, service_due_at_km",
+      ),
     supabase
       .from("latest_delivery_locations")
       .select("order_id, latitude, longitude, accuracy_meters, recorded_at")
@@ -92,6 +97,12 @@ export async function loadWorkspace(
       .from("delivery_status_events")
       .select("id, order_id, status, note, created_at")
       .order("created_at", { ascending: true }),
+    supabase
+      .from("road_reports")
+      .select(
+        "id, driver_id, order_id, category, severity, description, latitude, longitude, status, reported_at, expires_at",
+      )
+      .order("reported_at", { ascending: false }),
   ]);
 
   const firstError =
@@ -101,7 +112,8 @@ export async function loadWorkspace(
     driverProfilesResult.error ??
     vehiclesResult.error ??
     locationsResult.error ??
-    eventsResult.error;
+    eventsResult.error ??
+    roadReportsResult.error;
   if (firstError) throw firstError;
 
   const orders = (ordersResult.data ?? []) as DeliveryOrderRow[];
@@ -121,8 +133,25 @@ export async function loadWorkspace(
         item.id,
       ) as DriverOption["availability"],
     }));
+  const profiles = (profilesResult.data ?? []) as ProfileRow[];
+  const profileById = new Map(profiles.map((item) => [item.id, item]));
+  const roadReports: RoadReport[] = (
+    (roadReportsResult.data ?? []) as RoadReportRow[]
+  ).map((report) => ({
+    id: report.id,
+    driver_id: report.driver_id,
+    driver_name: profileById.get(report.driver_id)?.full_name ?? "Rider",
+    order_id: report.order_id,
+    category: report.category as RoadReport["category"],
+    severity: report.severity as RoadReport["severity"],
+    description: report.description,
+    latitude: report.latitude,
+    longitude: report.longitude,
+    status: report.status as RoadReport["status"],
+    reported_at: report.reported_at,
+    expires_at: report.expires_at,
+  }));
   if (orders.length === 0) {
-    const profiles = (profilesResult.data ?? []) as ProfileRow[];
     const vehicles = (vehiclesResult.data ?? []) as VehicleRow[];
     const data = cloneDemoWorkspace();
 
@@ -140,19 +169,26 @@ export async function loadWorkspace(
         registration_number: item.registration_number,
         vehicle_type: item.vehicle_type,
         status: item.status,
+        energy_source: item.energy_source as VehicleOption["energy_source"],
+        fuel_level_percent: item.fuel_level_percent,
+        battery_level_percent: item.battery_level_percent,
+        range_km_at_full: item.range_km_at_full,
+        reserve_percent: item.reserve_percent,
+        odometer_km: item.odometer_km,
+        service_due_at_km: item.service_due_at_km,
+        capacity_kg: item.capacity_kg,
       }));
+      data.roadReports = roadReports;
     }
 
     return { profile, data, isDemo: true };
   }
 
   const assignments = (assignmentsResult.data ?? []) as AssignmentRow[];
-  const profiles = (profilesResult.data ?? []) as ProfileRow[];
   const vehicles = (vehiclesResult.data ?? []) as VehicleRow[];
   const locations = (locationsResult.data ?? []) as LocationRow[];
   const events = (eventsResult.data ?? []) as StatusEvent[];
 
-  const profileById = new Map(profiles.map((item) => [item.id, item]));
   const vehicleById = new Map(vehicles.map((item) => [item.id, item]));
   const assignmentByOrder = new Map<string, AssignmentRow>();
 
@@ -204,6 +240,10 @@ export async function loadWorkspace(
       cod_amount: order.cod_amount,
       cod_status: order.cod_status as DeliveryOrder["cod_status"],
       estimated_delivery_at: order.estimated_delivery_at,
+      route_progress_percent: order.route_progress_percent,
+      traffic_delay_minutes: order.traffic_delay_minutes,
+      eta_confidence: order.eta_confidence as DeliveryOrder["eta_confidence"],
+      eta_updated_at: order.eta_updated_at,
       created_at: order.created_at,
       driver_id: driverId,
       driver_name: driver?.full_name ?? (driverId ? "Your rider" : null),
@@ -228,6 +268,14 @@ export async function loadWorkspace(
     registration_number: item.registration_number,
     vehicle_type: item.vehicle_type,
     status: item.status,
+    energy_source: item.energy_source as VehicleOption["energy_source"],
+    fuel_level_percent: item.fuel_level_percent,
+    battery_level_percent: item.battery_level_percent,
+    range_km_at_full: item.range_km_at_full,
+    reserve_percent: item.reserve_percent,
+    odometer_km: item.odometer_km,
+    service_due_at_km: item.service_due_at_km,
+    capacity_kg: item.capacity_kg,
   }));
 
   return {
@@ -242,6 +290,7 @@ export async function loadWorkspace(
         ...event,
         status: event.status as DeliveryStatus,
       })),
+      roadReports,
     },
   };
 }

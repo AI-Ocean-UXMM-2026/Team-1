@@ -13,6 +13,7 @@ import {
   signOut,
   UserActions,
 } from "@/components/delivery/common";
+import { CustomerProviderTracking } from "@/components/delivery/customer-provider-tracking";
 import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
 import {
@@ -224,19 +225,34 @@ export function CustomerApp() {
                       ? `Around ${formatDateTime(selectedOrder.estimated_delivery_at)} · Yangon time`
                       : "An arrival estimate is being arranged."}
               </p>
+              {selectedOrder.eta_updated_at &&
+                !["delivered", "failed", "cancelled"].includes(
+                  selectedOrder.status,
+                ) && (
+                  <div className="eta-intelligence-note">
+                    <span>
+                      {selectedOrder.eta_confidence ?? "low"} confidence
+                    </span>
+                    {selectedOrder.traffic_delay_minutes > 0
+                      ? `Verified road conditions add about ${selectedOrder.traffic_delay_minutes} min.`
+                      : "Updated from the rider’s route progress."}
+                  </div>
+                )}
               <div className="eta-meter">
                 <span
                   style={{
                     width:
                       selectedOrder.status === "delivered"
                         ? "100%"
-                        : selectedOrder.status === "in_transit"
-                          ? "72%"
-                          : selectedOrder.status === "picked_up"
-                            ? "56%"
-                            : selectedOrder.status === "accepted"
-                              ? "32%"
-                              : "18%",
+                        : selectedOrder.route_progress_percent != null
+                          ? `${selectedOrder.route_progress_percent}%`
+                          : selectedOrder.status === "in_transit"
+                            ? "72%"
+                            : selectedOrder.status === "picked_up"
+                              ? "56%"
+                              : selectedOrder.status === "accepted"
+                                ? "32%"
+                                : "18%",
                   }}
                 />
               </div>
@@ -413,6 +429,8 @@ export function CustomerApp() {
           ))}
         </div>
       </section>
+
+      <CustomerProviderTracking />
 
       <footer className="customer-footer shell-width" id="account">
         <Brand />

@@ -1,6 +1,6 @@
 # Door-to-Door Delivery Platform
 
-A delivery operations platform connecting customers, managers, and drivers/riders in one workflow. Its defining capability is giving customers visibility into their parcel's journey: once a driver or rider receives the parcel, the customer can follow its live location and delivery status until it arrives.
+A delivery operations platform connecting customers, managers, drivers/riders, sellers, and support teams in one workflow. Its defining capability is giving customers visibility into their parcel's journey: once a driver or rider receives the parcel, the customer can follow its live location and delivery status until it arrives.
 
 ## Interfaces
 
@@ -17,8 +17,11 @@ The three interfaces share Supabase Auth and delivery data, with separate URLs:
 | Customer | `/` | Sign in or create a customer account; follow own orders on a map with location updates, status history, ETA, and COD details. |
 | Driver/rider | `/rider` | Accept assigned tasks, confirm parcel pickup, share GPS for every collected parcel, open navigation, record COD, and complete or report a failed delivery. |
 | Centralized management | `/manager` | Create orders with optional map pins, assign registered riders and vehicles, manage rider availability, filter deliveries, and monitor active riders on a map. |
+| Fleet insights | `/manager/insights` | Review route energy readiness, update vehicle range and reserve settings, schedule maintenance, and analyze delivery costs. |
+| Seller | `/seller` | Submit delivery requests, register commerce channels, import external orders, and monitor a unified order queue. |
+| Customer support | `/support` | Search delivery history, investigate provider context, assign cases, and record resolutions. |
 
-The default interface is the customer app. Next.js Proxy redirects signed-in team accounts to the workspace matching their profile role; Supabase row-level security controls which records each account can read or change. Managers and riders use accounts provisioned through a trusted administrative process. A rider needs both a `driver` profile role and a `driver_profiles` record before assignment.
+The default interface is the customer app. Next.js Proxy redirects signed-in team accounts to the workspace matching their profile role; Supabase row-level security controls which records each account can read or change. Managers, riders, sellers, and support staff use accounts provisioned through a trusted administrative process. A rider needs both a `driver` profile role and a `driver_profiles` record before assignment.
 
 Signed-out visitors and accounts with no orders see clearly labeled sample deliveries. Changes to sample tasks and assignments remain in browser memory and disappear on reload. A signed-in manager can create the first real order using a real customer account; the creation form identifies whether it will save a real or sample delivery. Samples are never inserted into Supabase.
 
@@ -31,18 +34,22 @@ Signed-out visitors and accounts with no orders see clearly labeled sample deliv
 
 Rider pickup confirmation enables browser GPS sharing after location permission is granted. One GPS watch updates every collected parcel assigned to that rider, even when another task is selected. Customer and management maps subscribe to Supabase Realtime; reconnection and periodic refresh reconcile missed updates and new assignments. Tracking stops for an order when it is delivered, failed, or cancelled. Stale points are identified as last-known locations.
 
-GPS sharing requires the rider app to remain open. Browser tracking does not provide reliable background operation when the phone locks or the app closes. ETA currently uses the order's saved estimate; predictive ETA, automatic street routing, push/SMS notifications, and native background tracking remain future work. Map lines show parcel positions and destinations; navigation opens Google Maps.
+GPS sharing requires the rider app to remain open. Browser tracking does not provide reliable background operation when the phone locks or the app closes. ETA is recalculated from route progress, the assigned vehicle's expected speed, and verified rider road reports. It is an operational estimate rather than live traffic-provider routing. Automatic street routing, push/SMS notifications, and native background tracking remain future work. Map lines show parcel positions and destinations; navigation opens Google Maps.
 
 ## Product capabilities
 
 - **Orders and fleet:** Manage delivery orders, addresses, parcels, COD, drivers, vehicles, availability, and delivery assignments.
 - **Delivery operations:** Monitor delivery progress, plan routes across multiple stops, and manage delivered or failed outcomes.
 - **Customer visibility:** Show delivery status, live location during transit, ETA, COD amount and payment status, and timely notifications.
-- **Intelligence and automation:** Progress toward assignment recommendations, route optimization, predictive ETA, exception alerts, and fuel- or battery-aware planning.
+- **Energy-aware operations:** Estimate route distance from saved pins, compare it with vehicle range and reserve settings, and flag deliveries that need charging or refueling attention.
+- **Seller and support operations:** Accept seller delivery requests and external order imports, monitor provider shipments, and manage customer support cases.
+- **Fleet and cost analytics:** Record maintenance history, due service, fuel, charging, toll, labor, and other delivery costs.
+- **Integrations:** Register commerce or logistics providers and combine local and external shipments in customer, seller, and support views.
+- **Intelligence and automation:** Explainable rider and vehicle recommendations, route-progress ETA predictions, and manager-verified road knowledge, with automatic street routing and exception alerts still to come.
 
 ## Development roadmap
 
-Priorities describe the intended delivery sequence; they do not indicate that the features are already implemented.
+Priorities describe the delivery sequence. Device 2 operational workflows are present in the current application; the intelligence work assigned to Device 1 is integrated separately before the combined release.
 
 ### P0 · Core launch workflows
 
@@ -50,11 +57,18 @@ Order and fleet management, manual delivery assignment with basic recommendation
 
 ### P1 · Intelligence and automation
 
-Automated assignment and route recommendations, validated driver-submitted local road knowledge, fuel and battery assistance, predictive ETA, delayed-delivery detection and alerts, operational analytics, and seller order and COD views.
+Explainable assignment recommendations, validated driver-submitted local road knowledge, predictive ETA, fuel and battery route readiness, and seller order views are available in the current application. Automated assignment, automatic street routing, delayed-delivery alerts, and deeper operational analytics remain planned.
 
 ### P2 · Advanced optimization and integrations
 
-Learned route preferences, fuel and delivery cost analysis, vehicle maintenance history, COD reconciliation, customer support tools, e-commerce integrations, and multi-provider customer tracking.
+Learned route preferences, delivery cost analysis, vehicle maintenance history, COD reconciliation, customer support tools, e-commerce channel registration, external order imports, and multi-provider customer tracking.
+
+## Device 2 implementation notes
+
+- Fuel and battery readiness uses the rider's latest shared location, pickup and destination pins, and each vehicle's configured full range and reserve percentage. It provides an operational estimate and does not yet use traffic, elevation, charging availability, or turn-by-turn routing.
+- Commerce and logistics connections currently support provider registration and manual external-order imports. Live provider API credentials, webhooks, catalog sync, and automatic fulfillment updates require provider-specific adapters.
+- Seller and support roles must be assigned through the same trusted administrative process used for manager and driver accounts.
+- Vehicle maintenance and delivery costs are recorded in Supabase and summarized in the manager insights view. The analytics reflect entered records rather than accounting-system reconciliation.
 
 ## Development
 
@@ -74,7 +88,7 @@ bun run build
 bun run start
 ```
 
-The regression tests use Node's built-in test runner with TypeScript stripping (Node 22.18 or later). They cover multi-parcel GPS sharing, lifecycle cleanup, location freshness, and workspace Realtime updates. SQL workflow checks in `supabase/tests/delivery_workflows.sql` run inside a transaction and roll back their fixture records.
+The regression tests use Node's built-in test runner with TypeScript stripping (Node 22.18 or later). They cover assignment recommendations, multi-parcel GPS sharing, lifecycle cleanup, location freshness, and workspace Realtime updates. SQL workflow checks in `supabase/tests/delivery_workflows.sql` run inside a transaction and roll back their fixture records.
 
 ## Supabase
 
@@ -85,4 +99,4 @@ NEXT_PUBLIC_SUPABASE_URL=your_project_url
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 ```
 
-The core delivery schema is versioned in `supabase/migrations/`. It includes profile roles, orders, fleet, routes and stops, assignment, COD, status history, notifications, and delivery locations. Customer location access is limited to their own orders after pickup and while the delivery is active. Manager and driver roles must be assigned through a trusted administrative process; signups default to the customer role.
+The delivery schema is versioned in `supabase/migrations/`. It includes profile roles, orders, fleet, routes and stops, assignment, COD, status history, notifications, delivery locations, vehicle maintenance, delivery costs, support cases, commerce integrations, and external shipments. Customer location access is limited to their own orders after pickup and while the delivery is active. Team roles must be assigned through a trusted administrative process; signups default to the customer role.

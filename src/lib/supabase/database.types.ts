@@ -248,6 +248,8 @@ export type Database = {
           delivery_latitude: number | null;
           delivery_longitude: number | null;
           estimated_delivery_at: string | null;
+          eta_confidence: string | null;
+          eta_updated_at: string | null;
           id: string;
           parcel_description: string | null;
           parcel_weight_kg: number | null;
@@ -258,7 +260,9 @@ export type Database = {
           pickup_longitude: number | null;
           recipient_name: string | null;
           recipient_phone: string | null;
+          route_progress_percent: number | null;
           status: string;
+          traffic_delay_minutes: number;
           tracking_code: string;
           updated_at: string;
         };
@@ -273,6 +277,8 @@ export type Database = {
           delivery_latitude?: number | null;
           delivery_longitude?: number | null;
           estimated_delivery_at?: string | null;
+          eta_confidence?: string | null;
+          eta_updated_at?: string | null;
           id?: string;
           parcel_description?: string | null;
           parcel_weight_kg?: number | null;
@@ -283,7 +289,9 @@ export type Database = {
           pickup_longitude?: number | null;
           recipient_name?: string | null;
           recipient_phone?: string | null;
+          route_progress_percent?: number | null;
           status?: string;
+          traffic_delay_minutes?: number;
           tracking_code?: string;
           updated_at?: string;
         };
@@ -298,6 +306,8 @@ export type Database = {
           delivery_latitude?: number | null;
           delivery_longitude?: number | null;
           estimated_delivery_at?: string | null;
+          eta_confidence?: string | null;
+          eta_updated_at?: string | null;
           id?: string;
           parcel_description?: string | null;
           parcel_weight_kg?: number | null;
@@ -308,7 +318,9 @@ export type Database = {
           pickup_longitude?: number | null;
           recipient_name?: string | null;
           recipient_phone?: string | null;
+          route_progress_percent?: number | null;
           status?: string;
+          traffic_delay_minutes?: number;
           tracking_code?: string;
           updated_at?: string;
         };
@@ -488,6 +500,79 @@ export type Database = {
         };
         Relationships: [];
       };
+      road_reports: {
+        Row: {
+          category: string;
+          description: string;
+          driver_id: string;
+          expires_at: string;
+          id: string;
+          latitude: number;
+          longitude: number;
+          order_id: string | null;
+          reported_at: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          severity: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          category: string;
+          description: string;
+          driver_id: string;
+          expires_at?: string;
+          id?: string;
+          latitude: number;
+          longitude: number;
+          order_id?: string | null;
+          reported_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          severity: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          category?: string;
+          description?: string;
+          driver_id?: string;
+          expires_at?: string;
+          id?: string;
+          latitude?: number;
+          longitude?: number;
+          order_id?: string | null;
+          reported_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          severity?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "road_reports_driver_id_fkey";
+            columns: ["driver_id"];
+            isOneToOne: false;
+            referencedRelation: "driver_profiles";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "road_reports_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "road_reports_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       route_stops: {
         Row: {
           address: string;
@@ -545,16 +630,249 @@ export type Database = {
           },
         ];
       };
+      commerce_integrations: {
+        Row: {
+          created_at: string;
+          external_account_id: string | null;
+          id: string;
+          last_synced_at: string | null;
+          provider_name: string;
+          provider_type: string;
+          seller_id: string;
+          status: string;
+          store_name: string;
+          sync_mode: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          external_account_id?: string | null;
+          id?: string;
+          last_synced_at?: string | null;
+          provider_name: string;
+          provider_type?: string;
+          seller_id: string;
+          status?: string;
+          store_name: string;
+          sync_mode?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          external_account_id?: string | null;
+          id?: string;
+          last_synced_at?: string | null;
+          provider_name?: string;
+          provider_type?: string;
+          seller_id?: string;
+          status?: string;
+          store_name?: string;
+          sync_mode?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      delivery_cost_entries: {
+        Row: {
+          amount: number;
+          category: string;
+          created_at: string;
+          created_by: string;
+          id: string;
+          incurred_at: string;
+          notes: string | null;
+          order_id: string | null;
+          vehicle_id: string | null;
+        };
+        Insert: {
+          amount: number;
+          category: string;
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          incurred_at?: string;
+          notes?: string | null;
+          order_id?: string | null;
+          vehicle_id?: string | null;
+        };
+        Update: {
+          amount?: number;
+          category?: string;
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          incurred_at?: string;
+          notes?: string | null;
+          order_id?: string | null;
+          vehicle_id?: string | null;
+        };
+        Relationships: [];
+      };
+      external_shipments: {
+        Row: {
+          created_at: string;
+          customer_id: string | null;
+          destination_label: string | null;
+          estimated_delivery_at: string | null;
+          external_order_reference: string | null;
+          id: string;
+          integration_id: string | null;
+          latest_event_at: string | null;
+          local_order_id: string | null;
+          metadata: Json;
+          origin_label: string | null;
+          provider_name: string;
+          seller_id: string | null;
+          status: string;
+          tracking_code: string;
+          tracking_url: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          customer_id?: string | null;
+          destination_label?: string | null;
+          estimated_delivery_at?: string | null;
+          external_order_reference?: string | null;
+          id?: string;
+          integration_id?: string | null;
+          latest_event_at?: string | null;
+          local_order_id?: string | null;
+          metadata?: Json;
+          origin_label?: string | null;
+          provider_name: string;
+          seller_id?: string | null;
+          status?: string;
+          tracking_code: string;
+          tracking_url?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          customer_id?: string | null;
+          destination_label?: string | null;
+          estimated_delivery_at?: string | null;
+          external_order_reference?: string | null;
+          id?: string;
+          integration_id?: string | null;
+          latest_event_at?: string | null;
+          local_order_id?: string | null;
+          metadata?: Json;
+          origin_label?: string | null;
+          provider_name?: string;
+          seller_id?: string | null;
+          status?: string;
+          tracking_code?: string;
+          tracking_url?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      support_cases: {
+        Row: {
+          assigned_to: string | null;
+          created_at: string;
+          description: string;
+          id: string;
+          order_id: string | null;
+          priority: string;
+          requester_id: string;
+          resolution_notes: string | null;
+          resolved_at: string | null;
+          status: string;
+          subject: string;
+          updated_at: string;
+        };
+        Insert: {
+          assigned_to?: string | null;
+          created_at?: string;
+          description: string;
+          id?: string;
+          order_id?: string | null;
+          priority?: string;
+          requester_id: string;
+          resolution_notes?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          subject: string;
+          updated_at?: string;
+        };
+        Update: {
+          assigned_to?: string | null;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          order_id?: string | null;
+          priority?: string;
+          requester_id?: string;
+          resolution_notes?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          subject?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      vehicle_maintenance_records: {
+        Row: {
+          completed_at: string | null;
+          cost_amount: number;
+          created_at: string;
+          created_by: string;
+          id: string;
+          maintenance_type: string;
+          notes: string | null;
+          odometer_km: number | null;
+          scheduled_for: string | null;
+          status: string;
+          updated_at: string;
+          vehicle_id: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          cost_amount?: number;
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          maintenance_type: string;
+          notes?: string | null;
+          odometer_km?: number | null;
+          scheduled_for?: string | null;
+          status?: string;
+          updated_at?: string;
+          vehicle_id: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          cost_amount?: number;
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          maintenance_type?: string;
+          notes?: string | null;
+          odometer_km?: number | null;
+          scheduled_for?: string | null;
+          status?: string;
+          updated_at?: string;
+          vehicle_id?: string;
+        };
+        Relationships: [];
+      };
       vehicles: {
         Row: {
           battery_level_percent: number | null;
           capacity_kg: number | null;
           created_at: string;
+          energy_source: string;
           fuel_level_percent: number | null;
           id: string;
           make: string | null;
           model: string | null;
+          odometer_km: number;
+          range_km_at_full: number | null;
           registration_number: string;
+          reserve_percent: number;
+          service_due_at_km: number | null;
           status: string;
           updated_at: string;
           vehicle_type: string;
@@ -563,11 +881,16 @@ export type Database = {
           battery_level_percent?: number | null;
           capacity_kg?: number | null;
           created_at?: string;
+          energy_source?: string;
           fuel_level_percent?: number | null;
           id?: string;
           make?: string | null;
           model?: string | null;
+          odometer_km?: number;
+          range_km_at_full?: number | null;
           registration_number: string;
+          reserve_percent?: number;
+          service_due_at_km?: number | null;
           status?: string;
           updated_at?: string;
           vehicle_type: string;
@@ -576,11 +899,16 @@ export type Database = {
           battery_level_percent?: number | null;
           capacity_kg?: number | null;
           created_at?: string;
+          energy_source?: string;
           fuel_level_percent?: number | null;
           id?: string;
           make?: string | null;
           model?: string | null;
+          odometer_km?: number;
+          range_km_at_full?: number | null;
           registration_number?: string;
+          reserve_percent?: number;
+          service_due_at_km?: number | null;
           status?: string;
           updated_at?: string;
           vehicle_type?: string;
@@ -609,6 +937,10 @@ export type Database = {
           target_driver_id: string;
           target_vehicle_id?: string | null;
         };
+        Returns: string;
+      };
+      review_road_report: {
+        Args: { decision: string; target_report_id: string };
         Returns: string;
       };
     };
