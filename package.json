@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "format": "biome format --write"
   },
   "dependencies": {

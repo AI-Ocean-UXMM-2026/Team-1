@@ -8,6 +8,20 @@ A delivery operations platform connecting customers, managers, and drivers/rider
 - **Driver/rider:** Drivers and riders view assigned tasks, accept and start deliveries, navigate to destinations, plan multi-stop routes, update delivery status, and record collected COD payments.
 - **Customer:** Customers view their order status and COD details, receive status and pre-arrival notifications, and track the driver's/rider's location and estimated time of arrival (ETA) while the parcel is in transit.
 
+## Current application
+
+The three interfaces share Supabase Auth and delivery data, with separate URLs:
+
+| Interface | URL | Available workflow |
+| --- | --- | --- |
+| Customer | `/` | Sign in or create a customer account; follow own orders on a map with location updates, status history, ETA, and COD details. |
+| Driver/rider | `/rider` | Accept assigned tasks, confirm parcel pickup, share GPS for every collected parcel, open navigation, record COD, and complete or report a failed delivery. |
+| Centralized management | `/manager` | Create orders with optional map pins, assign registered riders and vehicles, manage rider availability, filter deliveries, and monitor active riders on a map. |
+
+The default interface is the customer app. Next.js Proxy redirects signed-in team accounts to the workspace matching their profile role; Supabase row-level security controls which records each account can read or change. Managers and riders use accounts provisioned through a trusted administrative process. A rider needs both a `driver` profile role and a `driver_profiles` record before assignment.
+
+Signed-out visitors and accounts with no orders see clearly labeled sample deliveries. Changes to sample tasks and assignments remain in browser memory and disappear on reload. A signed-in manager can create the first real order using a real customer account; the creation form identifies whether it will save a real or sample delivery. Samples are never inserted into Supabase.
+
 ## Customer tracking flow
 
 1. The order is created and assigned to a driver or rider.
@@ -15,7 +29,9 @@ A delivery operations platform connecting customers, managers, and drivers/rider
 3. The customer can follow the driver's/rider's live location, delivery status, and ETA while the parcel is in transit.
 4. Tracking ends when the delivery is marked delivered or otherwise closed, with the final status available to the customer.
 
-Live location tracking is a product goal. The current application is a Next.js starter and does not yet implement GPS collection, location sharing, or delivery workflows.
+Rider pickup confirmation enables browser GPS sharing after location permission is granted. One GPS watch updates every collected parcel assigned to that rider, even when another task is selected. Customer and management maps subscribe to Supabase Realtime; reconnection and periodic refresh reconcile missed updates and new assignments. Tracking stops for an order when it is delivered, failed, or cancelled. Stale points are identified as last-known locations.
+
+GPS sharing requires the rider app to remain open. Browser tracking does not provide reliable background operation when the phone locks or the app closes. ETA currently uses the order's saved estimate; predictive ETA, automatic street routing, push/SMS notifications, and native background tracking remain future work. Map lines show parcel positions and destinations; navigation opens Google Maps.
 
 ## Product capabilities
 
@@ -53,9 +69,12 @@ Open [http://localhost:3000](http://localhost:3000) to view the app. Available c
 
 ```bash
 bun run lint
+bun run test
 bun run build
 bun run start
 ```
+
+The regression tests use Node's built-in test runner with TypeScript stripping (Node 22.18 or later). They cover multi-parcel GPS sharing, lifecycle cleanup, location freshness, and workspace Realtime updates. SQL workflow checks in `supabase/tests/delivery_workflows.sql` run inside a transaction and roll back their fixture records.
 
 ## Supabase
 

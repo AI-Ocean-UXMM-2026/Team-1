@@ -589,10 +589,28 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      latest_delivery_locations: {
+        Row: {
+          id: number | null;
+          order_id: string | null;
+          driver_id: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          accuracy_meters: number | null;
+          recorded_at: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
-      [_ in never]: never;
+      assign_delivery: {
+        Args: {
+          target_order_id: string;
+          target_driver_id: string;
+          target_vehicle_id?: string | null;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;
