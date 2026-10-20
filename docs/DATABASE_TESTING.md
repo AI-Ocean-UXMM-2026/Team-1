@@ -17,7 +17,7 @@ Use either option:
 
 ## Step 1 · Schema health check (read-only)
 
-Confirms that all seven migrations were applied and nothing is missing. Run each query and compare it with the expected result.
+Confirms that all nine migrations were applied and nothing is missing. Run each query and compare it with the expected result.
 
 ### 1a. Migrations applied
 
@@ -25,9 +25,9 @@ Confirms that all seven migrations were applied and nothing is missing. Run each
 select version, name from supabase_migrations.schema_migrations order by version;
 ```
 
-Expected: 7 rows, `20261020042534` through `20261020065856`. If the table does not exist, the migrations were applied by hand. Rely on 1b–1f instead.
+Expected: 9 rows, `20261020042534` through `20261021000000`. If the table does not exist, the migrations were applied by hand. Rely on 1b–1f instead.
 
-### 1b. All 17 tables exist with row-level security on
+### 1b. All 18 tables exist with row-level security on
 
 ```sql
 select c.relname as table_name, c.relrowsecurity as rls_enabled,
@@ -37,13 +37,13 @@ where n.nspname = 'public' and c.relkind = 'r'
 order by 1;
 ```
 
-Expected: these 17 tables, every one with `rls_enabled = true` and at least one policy.
+Expected: these 18 tables, every one with `rls_enabled = true` and at least one policy.
 
 | Area | Tables |
 | --- | --- |
 | Accounts | `profiles`, `driver_profiles` |
 | Fleet | `vehicles`, `vehicle_maintenance_records` |
-| Orders | `delivery_orders`, `delivery_assignments`, `delivery_status_events`, `delivery_notifications` |
+| Orders | `delivery_orders`, `delivery_assignments`, `delivery_status_events`, `delivery_notifications`, `delivery_outcome_reports` |
 | Routing and tracking | `delivery_routes`, `route_stops`, `delivery_locations`, `road_reports` |
 | Payments and costs | `cod_payments`, `delivery_cost_entries` |
 | Sellers and support | `commerce_integrations`, `external_shipments`, `support_cases` |
@@ -58,14 +58,14 @@ where pubname = 'supabase_realtime' and schemaname = 'public'
 order by 1;
 ```
 
-Expected 7 tables: `delivery_assignments`, `delivery_locations`, `delivery_orders`, `delivery_status_events`, `external_shipments`, `road_reports`, `support_cases`. A missing table means its screen only updates after a reload.
+Expected 9 tables: `delivery_assignments`, `delivery_locations`, `delivery_orders`, `delivery_routes`, `delivery_status_events`, `external_shipments`, `road_reports`, `route_stops`, `support_cases`. A missing table means its screen only updates after a reload.
 
 ### 1d. Workflow functions and view
 
 ```sql
 select n.nspname || '.' || p.proname as function_name
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-where (n.nspname = 'public' and p.proname in ('assign_delivery', 'review_road_report'))
+where (n.nspname = 'public' and p.proname in ('assign_delivery', 'ensure_delivery_route', 'review_road_report'))
    or (n.nspname = 'private' and p.proname in (
      'is_manager', 'is_seller', 'is_support', 'owns_order', 'is_assigned_driver',
      'handle_new_auth_user', 'refresh_delivery_prediction'))
@@ -75,7 +75,7 @@ select count(*) as latest_location_view from information_schema.views
 where table_schema = 'public' and table_name = 'latest_delivery_locations';
 ```
 
-Expected: 9 functions and `latest_location_view = 1`.
+Expected: 10 functions and `latest_location_view = 1`.
 
 ### 1e. Triggers that enforce the workflow
 

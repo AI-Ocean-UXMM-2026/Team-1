@@ -341,6 +341,63 @@ export type Database = {
           },
         ];
       };
+      delivery_outcome_reports: {
+        Row: {
+          cod_collected: number | null;
+          cod_discrepancy_reason: string | null;
+          cod_expected: number;
+          driver_id: string;
+          failure_reason: string | null;
+          id: string;
+          note: string | null;
+          order_id: string;
+          outcome: string;
+          recipient_name: string | null;
+          reported_at: string;
+        };
+        Insert: {
+          cod_collected?: number | null;
+          cod_discrepancy_reason?: string | null;
+          cod_expected?: number;
+          driver_id: string;
+          failure_reason?: string | null;
+          id?: string;
+          note?: string | null;
+          order_id: string;
+          outcome: string;
+          recipient_name?: string | null;
+          reported_at?: string;
+        };
+        Update: {
+          cod_collected?: number | null;
+          cod_discrepancy_reason?: string | null;
+          cod_expected?: number;
+          driver_id?: string;
+          failure_reason?: string | null;
+          id?: string;
+          note?: string | null;
+          order_id?: string;
+          outcome?: string;
+          recipient_name?: string | null;
+          reported_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "delivery_outcome_reports_driver_id_fkey";
+            columns: ["driver_id"];
+            isOneToOne: false;
+            referencedRelation: "driver_profiles";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "delivery_outcome_reports_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       delivery_routes: {
         Row: {
           completed_at: string | null;
@@ -931,10 +988,10 @@ export type Database = {
       };
     };
     Functions: {
-        ensure_delivery_route: {
-          Args: { target_order_id: string };
-          Returns: string;
-        };
+      ensure_delivery_route: {
+        Args: { target_order_id: string };
+        Returns: string;
+      };
       assign_delivery: {
         Args: {
           target_order_id: string;

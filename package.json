@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "biome check",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "playground:classifier": "bun playground/backend.js"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
@@ -21,7 +22,8 @@
     "@supabase/supabase-js": "2.118.0",
     "next": "16.4.2",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "@typesafe-ai/sdk": "^0.7.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.2",

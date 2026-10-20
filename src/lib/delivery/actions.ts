@@ -236,3 +236,38 @@ export async function reviewRoadReport(
   if (error) throw new Error(error.message);
   return data;
 }
+
+export type FailureReason =
+  | "recipient_unavailable"
+  | "incorrect_address"
+  | "recipient_refused"
+  | "recipient_unreachable"
+  | "other";
+
+export async function recordDeliveryOutcome(
+  supabase: DeliveryActionClient,
+  input: {
+    orderId: string;
+    driverId: string;
+    outcome: "delivered" | "failed";
+    recipientName: string | null;
+    failureReason: FailureReason | null;
+    note: string | null;
+    codExpected: number;
+    codCollected: number | null;
+    codDiscrepancyReason: string | null;
+  },
+) {
+  const { error } = await supabase.from("delivery_outcome_reports").insert({
+    order_id: input.orderId,
+    driver_id: input.driverId,
+    outcome: input.outcome,
+    recipient_name: input.recipientName?.trim() || null,
+    failure_reason: input.failureReason,
+    note: input.note?.trim() || null,
+    cod_expected: input.codExpected,
+    cod_collected: input.codCollected,
+    cod_discrepancy_reason: input.codDiscrepancyReason?.trim() || null,
+  });
+  if (error) throw new Error(error.message);
+}
