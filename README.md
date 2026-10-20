@@ -70,6 +70,11 @@ Learned route preferences, delivery cost analysis, vehicle maintenance history, 
 - Seller and support roles must be assigned through the same trusted administrative process used for manager and driver accounts.
 - Vehicle maintenance and delivery costs are recorded in Supabase and summarized in the manager insights view. The analytics reflect entered records rather than accounting-system reconciliation.
 
+## Documentation
+
+- [Project and product flow](docs/PROJECT_FLOW.md) explains role workspaces, the delivery lifecycle, live tracking, intelligence, integrations, architecture, and the contribution flow.
+- [Testing guide](docs/TESTING.md) covers setup, automated checks, database assertions, test accounts, manual role-by-role verification, and Realtime troubleshooting.
+
 ## Development
 
 This project uses Next.js 16, React 19, TypeScript, and Bun. Install dependencies and start the development server with:
