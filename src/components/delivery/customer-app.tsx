@@ -13,6 +13,7 @@ import {
   signOut,
   UserActions,
 } from "@/components/delivery/common";
+import { CustomerProviderTracking } from "@/components/delivery/customer-provider-tracking";
 import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
 import {
@@ -413,6 +414,8 @@ export function CustomerApp() {
           ))}
         </div>
       </section>
+
+      <CustomerProviderTracking />
 
       <footer className="customer-footer shell-width" id="account">
         <Brand />

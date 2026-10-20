@@ -18,7 +18,9 @@ import {
   collectCod,
   sendDriverLocation,
   setOrderStatus,
+  updateVehicleEnergy,
 } from "@/lib/delivery/actions";
+import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
 import { currency, formatTime, prioritiseOrders } from "@/lib/delivery/format";
 import { hasCollectedParcel } from "@/lib/delivery/location-state";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
@@ -85,6 +87,7 @@ export function RiderApp() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [lastLocationSent, setLastLocationSent] = useState<string | null>(null);
   const [codBusy, setCodBusy] = useState(false);
+  const [energyLevel, setEnergyLevel] = useState("");
 
   const activeOrders = useMemo(
     () =>
@@ -137,6 +140,14 @@ export function RiderApp() {
       ? sharingScope === "demo"
       : workspace.canUseLiveData && sharingScope === currentDriverId);
   const action = selectedOrder ? nextAction(selectedOrder.status) : null;
+  const selectedVehicle = selectedOrder?.vehicle_id
+    ? (workspace.data.vehicles.find(
+        (vehicle) => vehicle.id === selectedOrder.vehicle_id,
+      ) ?? null)
+    : null;
+  const energyAssessment = selectedOrder
+    ? assessEnergyRoute(selectedOrder, selectedVehicle)
+    : null;
 
   useEffect(() => {
     if (selectedOrder && selectedId !== selectedOrder.id)
@@ -156,6 +167,50 @@ export function RiderApp() {
     if (workspace.isDemo) setSharingScope("demo");
     else if (workspace.canUseLiveData && currentDriverId)
       setSharingScope(currentDriverId);
+  }
+
+  async function saveEnergyLevel() {
+    if (!selectedVehicle || !energyLevel) return;
+    setBusyAction(true);
+    setActionError(null);
+    try {
+      if (workspace.isDemo) {
+        workspace.updateData((previous) => ({
+          ...previous,
+          vehicles: previous.vehicles.map((vehicle) =>
+            vehicle.id === selectedVehicle.id
+              ? {
+                  ...vehicle,
+                  fuel_level_percent:
+                    vehicle.energy_source === "electric"
+                      ? vehicle.fuel_level_percent
+                      : Number(energyLevel),
+                  battery_level_percent:
+                    vehicle.energy_source === "fuel"
+                      ? vehicle.battery_level_percent
+                      : Number(energyLevel),
+                }
+              : vehicle,
+          ),
+        }));
+      } else {
+        await updateVehicleEnergy(createClient(), {
+          vehicleId: selectedVehicle.id,
+          energySource: selectedVehicle.energy_source,
+          levelPercent: Number(energyLevel),
+        });
+        await workspace.refresh();
+      }
+      setEnergyLevel("");
+    } catch (cause) {
+      setActionError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not update vehicle energy.",
+      );
+    } finally {
+      setBusyAction(false);
+    }
   }
 
   const updateLocalStatus = useCallback(
@@ -557,6 +612,49 @@ export function RiderApp() {
                     <Icon name="history" size={15} />
                     ETA {formatTime(selectedOrder.estimated_delivery_at)}
                   </span>
+                </div>
+                <div
+                  className={`energy-readiness-card energy-${energyAssessment?.status ?? "unknown"}`}
+                >
+                  <span className="energy-readiness-icon">
+                    <Icon name="navigation" size={18} />
+                  </span>
+                  <div>
+                    <small>
+                      {selectedVehicle?.energy_source === "electric"
+                        ? "Battery-aware route"
+                        : "Fuel-aware route"}
+                    </small>
+                    <strong>
+                      {energyAssessment?.message ??
+                        "Assign a vehicle to check readiness."}
+                    </strong>
+                    <span>
+                      {energyAssessment?.distanceKm != null
+                        ? `${energyAssessment.distanceKm} km estimated · ${energyAssessment.availableRangeKm} km usable range`
+                        : "Route pins and vehicle range are required."}
+                    </span>
+                  </div>
+                  {selectedVehicle && (
+                    <div className="energy-level-control">
+                      <input
+                        aria-label="Current vehicle energy percent"
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder={`${energyAssessment?.energyLevelPercent ?? 0}%`}
+                        value={energyLevel}
+                        onChange={(event) => setEnergyLevel(event.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void saveEnergyLevel()}
+                        disabled={busyAction || !energyLevel}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <a
                   className="button button-outline rider-primary-action"

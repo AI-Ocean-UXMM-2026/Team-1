@@ -153,3 +153,36 @@ export async function setDriverAvailability(
       "The rider availability was not saved. Refresh and try again.",
     );
 }
+
+export async function updateVehicleEnergy(
+  supabase: DeliveryActionClient,
+  input: {
+    vehicleId: string;
+    energySource: "fuel" | "electric" | "hybrid";
+    levelPercent: number;
+  },
+) {
+  if (
+    !Number.isFinite(input.levelPercent) ||
+    input.levelPercent < 0 ||
+    input.levelPercent > 100
+  ) {
+    throw new Error("Enter an energy level from 0 to 100 percent.");
+  }
+  const update =
+    input.energySource === "electric"
+      ? { battery_level_percent: input.levelPercent }
+      : input.energySource === "fuel"
+        ? { fuel_level_percent: input.levelPercent }
+        : {
+            fuel_level_percent: input.levelPercent,
+            battery_level_percent: input.levelPercent,
+          };
+  const { error } = await supabase
+    .from("vehicles")
+    .update(update)
+    .eq("id", input.vehicleId)
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+}

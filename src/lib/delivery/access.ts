@@ -1,5 +1,9 @@
 export function workspaceHome(role: string) {
-  return role === "manager" ? "/manager" : role === "driver" ? "/rider" : "/";
+  if (role === "manager") return "/manager";
+  if (role === "driver") return "/rider";
+  if (role === "seller") return "/seller";
+  if (role === "support") return "/support";
+  return "/";
 }
 
 export function workspaceRedirect(pathname: string, role: string | null) {
@@ -10,7 +14,11 @@ export function workspaceRedirect(pathname: string, role: string | null) {
       ? "manager"
       : pathname === "/rider" || pathname.startsWith("/rider/")
         ? "driver"
-        : null;
+        : pathname === "/seller" || pathname.startsWith("/seller/")
+          ? "seller"
+          : pathname === "/support" || pathname.startsWith("/support/")
+            ? "support"
+            : null;
   if (requestedRole && requestedRole !== role) return home;
   if (pathname === "/" && home !== "/") return home;
   return null;

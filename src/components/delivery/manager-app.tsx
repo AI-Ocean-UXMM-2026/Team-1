@@ -413,6 +413,10 @@ export function ManagerApp() {
             <Icon name="truck" size={17} />
             Fleet<span>{workspace.data.vehicles.length}</span>
           </a>
+          <a href="/manager/insights">
+            <Icon name="coin" size={17} />
+            Fleet insights
+          </a>
         </nav>
         <div className="manager-sidebar-bottom">
           <span className="sidebar-avatar">OP</span>

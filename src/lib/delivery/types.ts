@@ -58,6 +58,13 @@ export type VehicleOption = {
   registration_number: string;
   vehicle_type: string;
   status: string;
+  energy_source: "fuel" | "electric" | "hybrid";
+  fuel_level_percent: number | null;
+  battery_level_percent: number | null;
+  range_km_at_full: number | null;
+  reserve_percent: number;
+  odometer_km: number;
+  service_due_at_km: number | null;
 };
 
 export type StatusEvent = {
@@ -80,7 +87,7 @@ export type WorkspaceProfile = {
   id: string;
   full_name: string | null;
   phone: string | null;
-  role: "customer" | "manager" | "driver";
+  role: "customer" | "manager" | "driver" | "seller" | "support";
 };
 
 export const ACTIVE_STATUSES: DeliveryStatus[] = [

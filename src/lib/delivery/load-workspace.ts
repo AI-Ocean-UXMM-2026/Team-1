@@ -83,7 +83,9 @@ export async function loadWorkspace(
     supabase.from("driver_profiles").select("user_id, availability"),
     supabase
       .from("vehicles")
-      .select("id, registration_number, vehicle_type, status"),
+      .select(
+        "id, registration_number, vehicle_type, status, energy_source, fuel_level_percent, battery_level_percent, range_km_at_full, reserve_percent, odometer_km, service_due_at_km",
+      ),
     supabase
       .from("latest_delivery_locations")
       .select("order_id, latitude, longitude, accuracy_meters, recorded_at")
@@ -140,6 +142,13 @@ export async function loadWorkspace(
         registration_number: item.registration_number,
         vehicle_type: item.vehicle_type,
         status: item.status,
+        energy_source: item.energy_source as VehicleOption["energy_source"],
+        fuel_level_percent: item.fuel_level_percent,
+        battery_level_percent: item.battery_level_percent,
+        range_km_at_full: item.range_km_at_full,
+        reserve_percent: item.reserve_percent,
+        odometer_km: item.odometer_km,
+        service_due_at_km: item.service_due_at_km,
       }));
     }
 
@@ -228,6 +237,13 @@ export async function loadWorkspace(
     registration_number: item.registration_number,
     vehicle_type: item.vehicle_type,
     status: item.status,
+    energy_source: item.energy_source as VehicleOption["energy_source"],
+    fuel_level_percent: item.fuel_level_percent,
+    battery_level_percent: item.battery_level_percent,
+    range_km_at_full: item.range_km_at_full,
+    reserve_percent: item.reserve_percent,
+    odometer_km: item.odometer_km,
+    service_due_at_km: item.service_due_at_km,
   }));
 
   return {

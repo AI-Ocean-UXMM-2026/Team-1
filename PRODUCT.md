@@ -11,6 +11,8 @@ web
 - **Managers** coordinate delivery orders, drivers, vehicles, and active operations from a centralized workspace.
 - **Drivers and riders** use the app on the move to manage assigned parcels, update delivery progress, and share location after pickup.
 - **Customers** sign in to follow their own parcel's status, live location, ETA, and cash-on-delivery details.
+- **Sellers** submit delivery requests, import provider orders, and monitor local and external fulfillment in one queue.
+- **Customer support staff** search delivery history, investigate local or provider shipments, and manage delivery issue cases.
 
 ## Product Purpose
 
@@ -32,9 +34,12 @@ Managers handle multiple active orders and fleet availability. Drivers and rider
 - Manager and driver roles are provisioned through a trusted administrative process; public signups default to customer.
 - Sample records used to preview empty interfaces must be labeled as demo data and must not be written to Supabase.
 - Customer, rider, and management interfaces are available at `/`, `/rider`, and `/manager`, with role redirects and data access enforced by Supabase row-level security.
+- Seller and support workspaces are available at `/seller` and `/support`; fleet maintenance, costs, and energy readiness are available at `/manager/insights`.
 - Rider GPS sharing updates all collected assigned parcels while the app stays open; customer and manager maps receive Realtime location and status updates. Browser permission is required and background tracking is not guaranteed.
 - Manager dispatch includes order creation, optional map pins, atomic assignment, and rider availability controls. Rider workflows include acceptance, pickup, navigation, COD recording, completion, and delivery issue reporting.
-- ETA uses the order's saved estimate. Automated route optimization, predictive ETA, and push/SMS notifications remain planned capabilities.
+- Vehicle range, reserve, and current fuel or battery level produce an estimated route energy status from saved map pins. Traffic-aware routing and charging or fuel-stop planning remain planned capabilities.
+- Commerce and logistics providers can be registered and their shipments imported manually. Live provider APIs, webhooks, and automatic provider synchronization require provider-specific adapters.
+- ETA uses the order's saved estimate. Automated assignment, traffic-aware predictive ETA, driver-submitted road knowledge, and push/SMS notifications remain Device 1 or future capabilities.
 
 ## Evidence on Hand
 
