@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./globals-late.css";
 
 export const metadata: Metadata = {
   title: "Oern — Delivery, in full view",
