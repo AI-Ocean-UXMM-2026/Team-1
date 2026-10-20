@@ -27,7 +27,6 @@ import {
   HomeSkeleton,
   NotificationsSheet,
   ParcelSwitcher,
-  PickupRequestSheet,
   ScanSheet,
   TrackingLookup,
   TrackLookupNotice,
@@ -154,7 +153,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   const [now, setNow] = useState(0);
   const router = useRouter();
   const [sheet, setSheet] = useState<
-    "notifications" | "help" | "scan" | "cod" | "pickup" | null
+    "notifications" | "help" | "scan" | "cod" | null
   >(null);
   const [readUpTo, setReadUpTo] = useState<number | null>(null);
   const [unreadIds, setUnreadIds] = useState<ReadonlySet<string>>(new Set());
@@ -378,7 +377,6 @@ export function CustomerApp({ view }: { view: CustomerView }) {
           isAuthenticated={workspace.isAuthenticated}
           now={now}
           onSignIn={() => setAuthOpen(true)}
-          onOpenPickup={() => setSheet("pickup")}
           onOpenCod={() => setSheet("cod")}
           onOpenHelp={() => setSheet("help")}
         />
@@ -803,10 +801,6 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       <CodSheet
         open={sheet === "cod"}
         orders={codDue(realOrders)}
-        onClose={() => setSheet(null)}
-      />
-      <PickupRequestSheet
-        open={sheet === "pickup"}
         onClose={() => setSheet(null)}
       />
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
