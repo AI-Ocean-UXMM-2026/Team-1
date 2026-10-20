@@ -1,5 +1,5 @@
-import { ManagerApp } from "@/components/delivery/manager-app";
+import { redirect } from "next/navigation";
 
 export default function ManagerPage() {
-  return <ManagerApp />;
+  redirect("/manager/home");
 }
