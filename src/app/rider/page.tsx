@@ -1,5 +1,5 @@
-import { RiderApp } from "@/components/delivery/rider-app";
+import { redirect } from "next/navigation";
 
 export default function RiderPage() {
-  return <RiderApp />;
+  redirect("/rider/route");
 }

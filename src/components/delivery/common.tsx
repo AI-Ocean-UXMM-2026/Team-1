@@ -133,16 +133,18 @@ export type MobileNavItem = {
 export function MobileNav({
   label,
   items,
+  activeId,
 }: {
   label: string;
   items: readonly MobileNavItem[];
+  activeId?: string;
 }) {
-  const [activeId, setActiveId] = useState(items[0]?.id ?? "");
+  const [hashActiveId, setHashActiveId] = useState(items[0]?.id ?? "");
 
   useEffect(() => {
     const syncHash = () => {
       const next = window.location.hash.slice(1);
-      if (items.some((item) => item.id === next)) setActiveId(next);
+      if (items.some((item) => item.id === next)) setHashActiveId(next);
     };
     syncHash();
     window.addEventListener("hashchange", syncHash);
@@ -152,19 +154,33 @@ export function MobileNav({
   return (
     <nav className="mobile-bottom-nav" aria-label={label}>
       {items.map((item) => {
-        const active = item.id === activeId;
-        return (
+        const active = item.id === (activeId ?? hashActiveId);
+        const content = (
+          <>
+            <span className="mobile-nav-icon">
+              <Icon name={item.icon} size={21} strokeWidth={2} />
+            </span>
+            <span>{item.label}</span>
+          </>
+        );
+        return item.href.startsWith("/") ? (
+          <Link
+            key={item.id}
+            className={active ? "is-active" : undefined}
+            href={item.href}
+            aria-current={active ? "page" : undefined}
+          >
+            {content}
+          </Link>
+        ) : (
           <a
             key={item.id}
             className={active ? "is-active" : undefined}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            onClick={() => setActiveId(item.id)}
+            onClick={() => setHashActiveId(item.id)}
           >
-            <span className="mobile-nav-icon">
-              <Icon name={item.icon} size={21} strokeWidth={2} />
-            </span>
-            <span>{item.label}</span>
+            {content}
           </a>
         );
       })}
