@@ -19,10 +19,12 @@ import { ModalPanel } from "@/components/delivery/modal-panel";
 import {
   assignDelivery,
   createDelivery,
+  reviewRoadReport,
   setDriverAvailability,
   validateMapPin,
 } from "@/lib/delivery/actions";
 import { currency, formatTime, prioritiseOrders } from "@/lib/delivery/format";
+import { recommendAssignments } from "@/lib/delivery/intelligence";
 import type {
   DeliveryOrder,
   DriverOption,
@@ -102,6 +104,19 @@ export function ManagerApp() {
     filteredOrders.find((order) => order.id === selectedId) ??
     filteredOrders[0] ??
     null;
+  const recommendations = useMemo(
+    () =>
+      recommendAssignments(
+        selectedOrder,
+        workspace.data.drivers,
+        workspace.data.vehicles,
+        orders,
+      ),
+    [selectedOrder, workspace.data.drivers, workspace.data.vehicles, orders],
+  );
+  const pendingRoadReports = workspace.data.roadReports.filter(
+    (report) => report.status === "pending",
+  );
   const activeCount = orders.filter((order) =>
     ["assigned", "accepted", "picked_up", "in_transit"].includes(order.status),
   ).length;
@@ -173,25 +188,16 @@ export function ManagerApp() {
       return;
     }
     setAssignDriverId(
-      selectedOrder?.driver_id ??
-        workspace.data.drivers.find(
-          (driver) => driver.availability !== "off_duty",
-        )?.id ??
-        "",
+      selectedOrder?.driver_id ?? recommendations[0]?.driverId ?? "",
     );
     setAssignVehicleId(
-      selectedOrder?.vehicle_id ??
-        workspace.data.vehicles.find(
-          (vehicle) => vehicle.status === "available",
-        )?.id ??
-        "",
+      selectedOrder?.vehicle_id ?? recommendations[0]?.vehicleId ?? "",
     );
   }, [
     selectedOrder?.driver_id,
     selectedOrder?.vehicle_id,
     selectedOrder?.id,
-    workspace.data.drivers,
-    workspace.data.vehicles,
+    recommendations,
   ]);
 
   if (workspace.isLoading)
@@ -264,6 +270,10 @@ export function ManagerApp() {
           estimated_delivery_at: new Date(
             Date.now() + 60 * 60_000,
           ).toISOString(),
+          route_progress_percent: null,
+          traffic_delay_minutes: 0,
+          eta_confidence: "low",
+          eta_updated_at: null,
           created_at: new Date().toISOString(),
           driver_id: null,
           driver_name: null,
@@ -383,6 +393,39 @@ export function ManagerApp() {
         cause instanceof Error
           ? cause.message
           : "Could not update this rider's availability.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reviewReport(
+    reportId: string,
+    decision: "verified" | "rejected",
+  ) {
+    setSaving(true);
+    setError(null);
+    try {
+      if (workspace.isDemo || reportId.startsWith("demo-")) {
+        workspace.updateData((previous) => ({
+          ...previous,
+          roadReports: previous.roadReports.map((report) =>
+            report.id === reportId ? { ...report, status: decision } : report,
+          ),
+        }));
+      } else if (workspace.canUseLiveData) {
+        await reviewRoadReport(createClient(), reportId, decision);
+        await workspace.refresh();
+      } else {
+        throw new Error(
+          "Refresh the manager workspace before reviewing reports.",
+        );
+      }
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not review this road report.",
       );
     } finally {
       setSaving(false);
@@ -660,84 +703,151 @@ export function ManagerApp() {
                     <StatusBadge status={selectedOrder.status} />
                   </div>
                   {canAssign && (
-                    <div className="assignment-controls">
-                      <label className="field-label compact-label">
-                        ASSIGN RIDER
-                        <select
-                          value={assignDriverId}
-                          onChange={(event) => {
-                            setAssignDriverId(event.target.value);
-                            setAssignVehicleId("");
-                          }}
+                    <>
+                      <div className="assignment-recommendations">
+                        <div className="recommendation-heading">
+                          <span>
+                            <Icon name="compass" size={16} /> Smart match
+                          </span>
+                          <small>Workload · proximity · vehicle fit</small>
+                        </div>
+                        {recommendations.length ? (
+                          <div className="recommendation-list">
+                            {recommendations.map((recommendation, index) => {
+                              const driver = workspace.data.drivers.find(
+                                (item) => item.id === recommendation.driverId,
+                              );
+                              const vehicle = workspace.data.vehicles.find(
+                                (item) => item.id === recommendation.vehicleId,
+                              );
+                              const selected =
+                                assignDriverId === recommendation.driverId &&
+                                assignVehicleId ===
+                                  (recommendation.vehicleId ?? "");
+                              return (
+                                <button
+                                  type="button"
+                                  className={`recommendation-card ${selected ? "is-selected" : ""}`}
+                                  key={`${recommendation.driverId}-${recommendation.vehicleId ?? "none"}`}
+                                  onClick={() => {
+                                    setAssignDriverId(recommendation.driverId);
+                                    setAssignVehicleId(
+                                      recommendation.vehicleId ?? "",
+                                    );
+                                  }}
+                                >
+                                  <span className="recommendation-rank">
+                                    {index + 1}
+                                  </span>
+                                  <span className="recommendation-copy">
+                                    <strong>
+                                      {driver?.full_name || "Rider"}
+                                    </strong>
+                                    <small>
+                                      {vehicle
+                                        ? `${vehicle.registration_number} · ${vehicleText(vehicle.vehicle_type)}`
+                                        : "No vehicle"}
+                                    </small>
+                                    <em>
+                                      {recommendation.reasons
+                                        .slice(0, 3)
+                                        .join(" · ")}
+                                    </em>
+                                  </span>
+                                  <span className="recommendation-score">
+                                    {recommendation.score}
+                                    <small>fit</small>
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="form-hint">
+                            No compatible on-duty rider and vehicle pair is
+                            available.
+                          </p>
+                        )}
+                      </div>
+                      <div className="assignment-controls">
+                        <label className="field-label compact-label">
+                          ASSIGN RIDER
+                          <select
+                            value={assignDriverId}
+                            onChange={(event) => {
+                              setAssignDriverId(event.target.value);
+                              setAssignVehicleId("");
+                            }}
+                            disabled={
+                              !assignableDrivers.length ||
+                              saving ||
+                              !!workspace.error
+                            }
+                          >
+                            <option value="">
+                              {assignableDrivers.length
+                                ? "Select a rider"
+                                : "No riders on duty"}
+                            </option>
+                            {workspace.data.drivers.map((driver) => (
+                              <option
+                                value={driver.id}
+                                key={driver.id}
+                                disabled={driver.availability === "off_duty"}
+                              >
+                                {driver.full_name || driver.phone || "Rider"} ·{" "}
+                                {driver.availability === "off_duty"
+                                  ? "Off duty"
+                                  : assignedDrivers.has(driver.id)
+                                    ? "On delivery"
+                                    : "Available"}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field-label compact-label">
+                          VEHICLE
+                          <select
+                            value={assignVehicleId}
+                            onChange={(event) =>
+                              setAssignVehicleId(event.target.value)
+                            }
+                            disabled={saving || !!workspace.error}
+                          >
+                            <option value="">No vehicle</option>
+                            {assignableVehicles.map((vehicle) => (
+                              <option value={vehicle.id} key={vehicle.id}>
+                                {vehicle.registration_number} ·{" "}
+                                {vehicleText(vehicle.vehicle_type)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          className="button button-dark assignment-save"
+                          onClick={() => void assignSelected()}
                           disabled={
-                            !assignableDrivers.length ||
                             saving ||
-                            !!workspace.error
+                            !!workspace.error ||
+                            !assignableDrivers.some(
+                              (driver) => driver.id === assignDriverId,
+                            ) ||
+                            (!!assignVehicleId &&
+                              !assignableVehicles.some(
+                                (vehicle) => vehicle.id === assignVehicleId,
+                              ))
                           }
                         >
-                          <option value="">
-                            {assignableDrivers.length
-                              ? "Select a rider"
-                              : "No riders on duty"}
-                          </option>
-                          {workspace.data.drivers.map((driver) => (
-                            <option
-                              value={driver.id}
-                              key={driver.id}
-                              disabled={driver.availability === "off_duty"}
-                            >
-                              {driver.full_name || driver.phone || "Rider"} ·{" "}
-                              {driver.availability === "off_duty"
-                                ? "Off duty"
-                                : assignedDrivers.has(driver.id)
-                                  ? "On delivery"
-                                  : "Available"}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="field-label compact-label">
-                        VEHICLE
-                        <select
-                          value={assignVehicleId}
-                          onChange={(event) =>
-                            setAssignVehicleId(event.target.value)
-                          }
-                          disabled={saving || !!workspace.error}
-                        >
-                          <option value="">No vehicle</option>
-                          {assignableVehicles.map((vehicle) => (
-                            <option value={vehicle.id} key={vehicle.id}>
-                              {vehicle.registration_number} ·{" "}
-                              {vehicleText(vehicle.vehicle_type)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <button
-                        type="button"
-                        className="button button-dark assignment-save"
-                        onClick={() => void assignSelected()}
-                        disabled={
-                          saving ||
-                          !!workspace.error ||
-                          !assignableDrivers.some(
-                            (driver) => driver.id === assignDriverId,
-                          ) ||
-                          (!!assignVehicleId &&
-                            !assignableVehicles.some(
-                              (vehicle) => vehicle.id === assignVehicleId,
-                            ))
-                        }
-                      >
-                        {saving
-                          ? "Saving…"
-                          : selectedOrder.driver_id
-                            ? "Update assignment"
-                            : "Assign delivery"}
-                        <Icon name="arrow-right" size={15} />
-                      </button>
-                    </div>
+                          {saving
+                            ? "Saving…"
+                            : selectedOrder.driver_id
+                              ? "Update assignment"
+                              : "Assign delivery"}
+                          <Icon name="arrow-right" size={15} />
+                        </button>
+                      </div>
+                    </>
                   )}
                   {!canAssign &&
                     ["picked_up", "in_transit"].includes(
@@ -830,6 +940,66 @@ export function ManagerApp() {
                 <span className="fleet-empty">
                   No rider profiles available.
                 </span>
+              )}
+            </div>
+          </section>
+
+          <section className="road-knowledge-panel" id="road-knowledge">
+            <div className="road-knowledge-heading">
+              <div>
+                <span className="section-kicker">Rider intelligence</span>
+                <h2>Road knowledge</h2>
+              </div>
+              <span className="manager-live-tag">
+                {pendingRoadReports.length} pending
+              </span>
+            </div>
+            <p className="road-knowledge-intro">
+              Verify fresh rider reports before they influence predictive ETAs.
+            </p>
+            <div className="road-report-list">
+              {pendingRoadReports.map((report) => (
+                <article className="road-report-card" key={report.id}>
+                  <div className="road-report-title">
+                    <span
+                      className={`road-severity road-severity-${report.severity}`}
+                    >
+                      {report.severity}
+                    </span>
+                    <strong>{report.category.replace("_", " ")}</strong>
+                    <small>{formatTime(report.reported_at)}</small>
+                  </div>
+                  <p>{report.description}</p>
+                  <span className="road-report-meta">
+                    {report.driver_name}
+                    {report.order_id
+                      ? ` · ${orders.find((order) => order.id === report.order_id)?.tracking_code ?? "Linked delivery"}`
+                      : ""}
+                  </span>
+                  <div className="road-report-actions">
+                    <button
+                      type="button"
+                      className="button button-outline button-small"
+                      onClick={() => void reviewReport(report.id, "rejected")}
+                      disabled={saving}
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-dark button-small"
+                      onClick={() => void reviewReport(report.id, "verified")}
+                      disabled={saving}
+                    >
+                      Verify for ETA
+                    </button>
+                  </div>
+                </article>
+              ))}
+              {!pendingRoadReports.length && (
+                <div className="road-report-empty">
+                  <Icon name="check" size={18} /> No reports awaiting review.
+                </div>
               )}
             </div>
           </section>

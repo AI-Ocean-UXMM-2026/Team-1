@@ -34,7 +34,7 @@ Managers handle multiple active orders and fleet availability. Drivers and rider
 - Customer, rider, and management interfaces are available at `/`, `/rider`, and `/manager`, with role redirects and data access enforced by Supabase row-level security.
 - Rider GPS sharing updates all collected assigned parcels while the app stays open; customer and manager maps receive Realtime location and status updates. Browser permission is required and background tracking is not guaranteed.
 - Manager dispatch includes order creation, optional map pins, atomic assignment, and rider availability controls. Rider workflows include acceptance, pickup, navigation, COD recording, completion, and delivery issue reporting.
-- ETA uses the order's saved estimate. Automated route optimization, predictive ETA, and push/SMS notifications remain planned capabilities.
+- ETA is recalculated from route progress, vehicle speed assumptions, and manager-verified rider road reports. Dispatch recommends suitable riders and vehicles using availability, workload, proximity, vehicle status, and parcel capacity. Automatic street routing and push/SMS notifications remain planned capabilities.
 
 ## Evidence on Hand
 

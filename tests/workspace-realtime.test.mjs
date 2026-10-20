@@ -15,6 +15,7 @@ const initialData = () => ({
   customers: [],
   drivers: [],
   vehicles: [],
+  roadReports: [],
 });
 
 function harness(role, data = initialData()) {
@@ -105,6 +106,15 @@ test("empty rider workspace refreshes for a new assignment and reconnect", () =>
   });
   app.connection("SUBSCRIBED");
   assert.equal(app.refreshed(), 2);
+});
+
+test("road knowledge changes refresh manager and rider workspaces", () => {
+  const manager = harness("manager");
+  const rider = harness("driver");
+  manager.emit("road_reports", "INSERT", { id: "report" });
+  rider.emit("road_reports", "UPDATE", { id: "report", status: "verified" });
+  assert.equal(manager.refreshed(), 1);
+  assert.equal(rider.refreshed(), 1);
 });
 
 test("manager receives independent parcel positions and ignores older GPS arrivals", () => {

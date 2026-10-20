@@ -11,7 +11,14 @@ import type { Database } from "@/lib/supabase/database.types";
 type LocationRow = DeliveryLocation & { order_id: string };
 type OrderUpdate = Pick<
   DeliveryOrder,
-  "id" | "status" | "cod_status" | "estimated_delivery_at"
+  | "id"
+  | "status"
+  | "cod_status"
+  | "estimated_delivery_at"
+  | "route_progress_percent"
+  | "traffic_delay_minutes"
+  | "eta_confidence"
+  | "eta_updated_at"
 >;
 
 export function mergeLocation(
@@ -45,6 +52,10 @@ export function mergeOrderUpdate(
             status: row.status,
             cod_status: row.cod_status,
             estimated_delivery_at: row.estimated_delivery_at,
+            route_progress_percent: row.route_progress_percent,
+            traffic_delay_minutes: row.traffic_delay_minutes,
+            eta_confidence: row.eta_confidence,
+            eta_updated_at: row.eta_updated_at,
           }
         : order,
     ),
@@ -90,6 +101,13 @@ export function subscribeWorkspaceRealtime(
         updateData((previous) =>
           mergeLocation(previous, payload.new as LocationRow),
         );
+      },
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "road_reports" },
+      () => {
+        if (active && role !== "customer") refresh();
       },
     )
     .on(

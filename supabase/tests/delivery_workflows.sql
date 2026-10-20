@@ -8,7 +8,7 @@ create temporary table workflow_fixture_ids (
 ) on commit drop;
 insert into workflow_fixture_ids (name)
 values ('manager'), ('driver'), ('off_duty_driver'), ('customer'), ('other_customer'),
-  ('vehicle'), ('other_vehicle'), ('order'), ('other_order');
+  ('vehicle'), ('other_vehicle'), ('order'), ('other_order'), ('road_report');
 grant select on workflow_fixture_ids to authenticated;
 
 create temporary table workflow_checks (name text primary key) on commit drop;
@@ -181,6 +181,24 @@ select pg_temp.assert_check('driver can publish GPS after pickup', (
   select count(*) = 2 from public.latest_delivery_locations
   where order_id in (pg_temp.fixture_id('order'), pg_temp.fixture_id('other_order'))
 ));
+select pg_temp.assert_check('location updates produce a route-aware ETA', (
+  select estimated_delivery_at is not null
+    and route_progress_percent is not null
+    and eta_confidence = 'high'
+    and eta_updated_at is not null
+  from public.delivery_orders where id = pg_temp.fixture_id('order')
+));
+insert into public.road_reports (
+  id, driver_id, order_id, category, severity, description, latitude, longitude
+)
+values (
+  pg_temp.fixture_id('road_report'), pg_temp.fixture_id('driver'), pg_temp.fixture_id('order'),
+  'congestion', 'high', 'Heavy traffic near the destination', 16.8170, 96.1560
+);
+select pg_temp.assert_check('driver can submit pending road knowledge for an assigned order', (
+  select status = 'pending' and reviewed_by is null
+  from public.road_reports where id = pg_temp.fixture_id('road_report')
+));
 
 select pg_temp.as_user('customer');
 select pg_temp.assert_check('own customer sees live raw location rows', (
@@ -195,6 +213,9 @@ select pg_temp.assert_check('customer cannot see another customer order', (
 ));
 select pg_temp.assert_check('invoker view cannot expose another customer location', (
   select count(*) = 0 from public.latest_delivery_locations where order_id = pg_temp.fixture_id('other_order')
+));
+select pg_temp.assert_check('customer cannot read rider road reports', (
+  select count(*) = 0 from public.road_reports where id = pg_temp.fixture_id('road_report')
 ));
 select pg_temp.as_user('other_customer');
 select pg_temp.assert_check('other customer sees no first-customer raw GPS', (
@@ -236,6 +257,13 @@ select pg_temp.assert_check('post-pickup reassignment preserves parcel and assig
 select pg_temp.assert_check('manager latest-location view includes both customer deliveries', (
   select count(*) = 2 from public.latest_delivery_locations
   where order_id in (pg_temp.fixture_id('order'), pg_temp.fixture_id('other_order'))
+));
+select pg_temp.assert_check('manager can verify submitted road knowledge',
+  public.review_road_report(pg_temp.fixture_id('road_report'), 'verified') = pg_temp.fixture_id('road_report')
+);
+select pg_temp.assert_check('verified road knowledge affects the delivery prediction', (
+  select traffic_delay_minutes = 14 and eta_updated_at is not null
+  from public.delivery_orders where id = pg_temp.fixture_id('order')
 ));
 
 select pg_temp.as_user('driver');

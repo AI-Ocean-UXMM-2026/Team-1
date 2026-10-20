@@ -34,6 +34,10 @@ export type DeliveryOrder = {
   cod_amount: number;
   cod_status: "not_required" | "pending" | "collected" | "settled";
   estimated_delivery_at: string | null;
+  route_progress_percent: number | null;
+  traffic_delay_minutes: number;
+  eta_confidence: "low" | "medium" | "high" | null;
+  eta_updated_at: string | null;
   created_at: string;
   driver_id: string | null;
   driver_name: string | null;
@@ -58,6 +62,31 @@ export type VehicleOption = {
   registration_number: string;
   vehicle_type: string;
   status: string;
+  capacity_kg: number | null;
+};
+
+export type RoadReport = {
+  id: string;
+  driver_id: string;
+  driver_name: string;
+  order_id: string | null;
+  category: "congestion" | "closure" | "roadwork" | "flooding" | "hazard";
+  severity: "low" | "medium" | "high" | "blocked";
+  description: string;
+  latitude: number;
+  longitude: number;
+  status: "pending" | "verified" | "rejected";
+  reported_at: string;
+  expires_at: string;
+};
+
+export type AssignmentRecommendation = {
+  driverId: string;
+  vehicleId: string | null;
+  score: number;
+  distanceToPickupKm: number | null;
+  activeDeliveries: number;
+  reasons: string[];
 };
 
 export type StatusEvent = {
@@ -74,6 +103,7 @@ export type WorkspaceData = {
   drivers: DriverOption[];
   vehicles: VehicleOption[];
   statusEvents: StatusEvent[];
+  roadReports: RoadReport[];
 };
 
 export type WorkspaceProfile = {

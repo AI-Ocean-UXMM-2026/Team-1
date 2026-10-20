@@ -31,14 +31,14 @@ Signed-out visitors and accounts with no orders see clearly labeled sample deliv
 
 Rider pickup confirmation enables browser GPS sharing after location permission is granted. One GPS watch updates every collected parcel assigned to that rider, even when another task is selected. Customer and management maps subscribe to Supabase Realtime; reconnection and periodic refresh reconcile missed updates and new assignments. Tracking stops for an order when it is delivered, failed, or cancelled. Stale points are identified as last-known locations.
 
-GPS sharing requires the rider app to remain open. Browser tracking does not provide reliable background operation when the phone locks or the app closes. ETA currently uses the order's saved estimate; predictive ETA, automatic street routing, push/SMS notifications, and native background tracking remain future work. Map lines show parcel positions and destinations; navigation opens Google Maps.
+GPS sharing requires the rider app to remain open. Browser tracking does not provide reliable background operation when the phone locks or the app closes. ETA is recalculated from route progress, the assigned vehicle's expected speed, and verified rider road reports. It is an operational estimate rather than live traffic-provider routing. Automatic street routing, push/SMS notifications, and native background tracking remain future work. Map lines show parcel positions and destinations; navigation opens Google Maps.
 
 ## Product capabilities
 
 - **Orders and fleet:** Manage delivery orders, addresses, parcels, COD, drivers, vehicles, availability, and delivery assignments.
 - **Delivery operations:** Monitor delivery progress, plan routes across multiple stops, and manage delivered or failed outcomes.
 - **Customer visibility:** Show delivery status, live location during transit, ETA, COD amount and payment status, and timely notifications.
-- **Intelligence and automation:** Progress toward assignment recommendations, route optimization, predictive ETA, exception alerts, and fuel- or battery-aware planning.
+- **Intelligence and automation:** Explainable rider and vehicle recommendations, route-progress ETA predictions, and manager-verified road knowledge, with route optimization, exception alerts, and fuel- or battery-aware planning still to come.
 
 ## Development roadmap
 
@@ -50,7 +50,7 @@ Order and fleet management, manual delivery assignment with basic recommendation
 
 ### P1 · Intelligence and automation
 
-Automated assignment and route recommendations, validated driver-submitted local road knowledge, fuel and battery assistance, predictive ETA, delayed-delivery detection and alerts, operational analytics, and seller order and COD views.
+Automated assignment and route recommendations, fuel and battery assistance, delayed-delivery detection and alerts, operational analytics, and seller order and COD views. Explainable assignment recommendations, validated driver-submitted local road knowledge, and predictive ETA are available in the current application.
 
 ### P2 · Advanced optimization and integrations
 
@@ -74,7 +74,7 @@ bun run build
 bun run start
 ```
 
-The regression tests use Node's built-in test runner with TypeScript stripping (Node 22.18 or later). They cover multi-parcel GPS sharing, lifecycle cleanup, location freshness, and workspace Realtime updates. SQL workflow checks in `supabase/tests/delivery_workflows.sql` run inside a transaction and roll back their fixture records.
+The regression tests use Node's built-in test runner with TypeScript stripping (Node 22.18 or later). They cover assignment recommendations, multi-parcel GPS sharing, lifecycle cleanup, location freshness, and workspace Realtime updates. SQL workflow checks in `supabase/tests/delivery_workflows.sql` run inside a transaction and roll back their fixture records.
 
 ## Supabase
 

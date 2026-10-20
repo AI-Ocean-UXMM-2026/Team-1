@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-
+import type { RoadReport } from "@/lib/delivery/types";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type DeliveryActionClient = SupabaseClient<Database>;
@@ -152,4 +152,50 @@ export async function setDriverAvailability(
     throw new Error(
       "The rider availability was not saved. Refresh and try again.",
     );
+}
+
+export async function submitRoadReport(
+  supabase: DeliveryActionClient,
+  input: {
+    driverId: string;
+    orderId: string | null;
+    category: RoadReport["category"];
+    severity: RoadReport["severity"];
+    description: string;
+    latitude: number;
+    longitude: number;
+  },
+) {
+  const description = input.description.trim();
+  if (description.length < 3 || description.length > 240)
+    throw new Error("Describe the road condition in 3 to 240 characters.");
+  validateMapPin("road report", input.latitude, input.longitude);
+  const { data, error } = await supabase
+    .from("road_reports")
+    .insert({
+      driver_id: input.driverId,
+      order_id: input.orderId,
+      category: input.category,
+      severity: input.severity,
+      description,
+      latitude: input.latitude,
+      longitude: input.longitude,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return data.id;
+}
+
+export async function reviewRoadReport(
+  supabase: DeliveryActionClient,
+  reportId: string,
+  decision: "verified" | "rejected",
+) {
+  const { data, error } = await supabase.rpc("review_road_report", {
+    target_report_id: reportId,
+    decision,
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }
