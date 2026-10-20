@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <radialGradient id="pickupShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1A2B48" stop-opacity="0.22" />
+      <stop offset="70%" stop-color="#1A2B48" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#1A2B48" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="pickupPinFront" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF7A1A" />
+      <stop offset="100%" stop-color="#C2410C" />
+    </linearGradient>
+    <linearGradient id="pickupBoxTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE0B2" />
+      <stop offset="100%" stop-color="#FFBC7D" />
+    </linearGradient>
+    <linearGradient id="pickupBoxLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2C4268" />
+      <stop offset="100%" stop-color="#172B4D" />
+    </linearGradient>
+    <linearGradient id="pickupBoxRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3C5578" />
+      <stop offset="100%" stop-color="#223A5E" />
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="60" cy="100" rx="34" ry="9" fill="url(#pickupShadow)" />
+
+  <!-- 3D box, sitting below the pin -->
+  <g transform="translate(0, 10)">
+    <path d="M60 46 L90 60 L60 74 L30 60 Z" fill="url(#pickupBoxTop)" />
+    <path d="M30 60 L60 74 L60 96 L30 82 Z" fill="url(#pickupBoxLeft)" />
+    <path d="M60 74 L90 60 L90 82 L60 96 Z" fill="url(#pickupBoxRight)" />
+    <path d="M30 60 L60 74 L90 60" fill="none" stroke="#FFF3E0" stroke-width="1.5" stroke-linecap="round" opacity="0.6" />
+  </g>
+
+  <!-- Location pin, lifting the parcel -->
+  <g filter="none">
+    <path
+      d="M60 14 C47 14 37 24 37 37 C37 54 60 76 60 76 C60 76 83 54 83 37 C83 24 73 14 60 14 Z"
+      fill="url(#pickupPinFront)"
+      stroke="#9A3412"
+      stroke-width="1.5"
+    />
+    <circle cx="60" cy="37" r="12" fill="#FFF7ED" />
+    <path
+      d="M60 30 L60 44 M54 38 L60 44 L66 38"
+      fill="none"
+      stroke="#C2410C"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>

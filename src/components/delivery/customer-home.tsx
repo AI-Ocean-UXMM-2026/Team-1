@@ -357,11 +357,13 @@ function QuickActions({
   isAuthenticated,
   arrivingCount,
   onSignIn,
+  onOpenPickup,
   onOpenHelp,
 }: {
   isAuthenticated: boolean;
   arrivingCount: number;
   onSignIn: () => void;
+  onOpenPickup: () => void;
   onOpenHelp: () => void;
 }) {
   return (
@@ -372,7 +374,7 @@ function QuickActions({
         px: 2,
         mt: 1.5,
         display: "grid",
-        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
         gap: 1,
       }}
     >
@@ -397,6 +399,12 @@ function QuickActions({
         href="/track"
         label="Track by ID"
         illustration="/icons/track-parcel.svg"
+      />
+      <QuickAction
+        component="button"
+        onClick={onOpenPickup}
+        label="Request pickup"
+        illustration="/icons/pickup.svg"
       />
       <QuickAction
         component="button"
@@ -919,7 +927,7 @@ export function CustomerHome({
   isAuthenticated,
   now,
   onSignIn,
-  onOpenScan,
+  onOpenPickup,
   onOpenCod,
   onOpenHelp,
 }: {
@@ -929,7 +937,7 @@ export function CustomerHome({
   isAuthenticated: boolean;
   now: number;
   onSignIn: () => void;
-  onOpenScan: () => void;
+  onOpenPickup: () => void;
   onOpenCod: () => void;
   onOpenHelp: () => void;
 }) {
@@ -947,14 +955,13 @@ export function CustomerHome({
         Home
       </Box>
 
-      <TrackingLookup onOpenScan={onOpenScan} />
-
       {isAuthenticated && next && <NextParcelCard order={next} now={now} />}
 
       <QuickActions
         isAuthenticated={isAuthenticated}
         arrivingCount={remaining}
         onSignIn={onSignIn}
+        onOpenPickup={onOpenPickup}
         onOpenHelp={onOpenHelp}
       />
 
@@ -1734,6 +1741,177 @@ export function CodSheet({
             ))}
           </List>
         </>
+      )}
+    </Sheet>
+  );
+}
+
+const pickupWindows = ["Morning", "Afternoon", "Evening"] as const;
+type PickupWindow = (typeof pickupWindows)[number];
+
+/**
+ * UI-only for now: there's no Supabase table or workflow yet for a
+ * customer-initiated pickup request, so submitting just confirms receipt
+ * locally. Wire this to a real mutation once that backend exists.
+ */
+export function PickupRequestSheet({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+  const [notes, setNotes] = useState("");
+  const [window, setWindow] = useState<PickupWindow>("Morning");
+  const [submitted, setSubmitted] = useState(false);
+
+  function close() {
+    onClose();
+    // Clear after the close transition so the form doesn't visibly reset
+    // while the sheet is still sliding away.
+    setTimeout(() => {
+      setAddress("");
+      setPhone("");
+      setNotes("");
+      setWindow("Morning");
+      setSubmitted(false);
+    }, 200);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!address.trim()) return;
+    setSubmitted(true);
+  }
+
+  return (
+    <Sheet
+      open={open}
+      onClose={close}
+      titleId="pickup-title"
+      title="Request a pickup"
+      dock={
+        submitted ? (
+          <Button
+            fullWidth
+            variant="contained"
+            size="large"
+            onClick={close}
+            sx={{ minHeight: 52 }}
+          >
+            Done
+          </Button>
+        ) : (
+          <Button
+            fullWidth
+            type="submit"
+            form="pickup-request-form"
+            variant="contained"
+            size="large"
+            disabled={!address.trim()}
+            sx={{ minHeight: 52 }}
+          >
+            Request pickup
+          </Button>
+        )
+      }
+    >
+      {submitted ? (
+        <Stack spacing={1} sx={{ alignItems: "flex-start", py: 1, pb: 2 }}>
+          <CheckCircleOutlined sx={{ fontSize: 32, color: "success.main" }} />
+          <Typography sx={{ fontWeight: 750 }}>Request received</Typography>
+          <Typography sx={{ color: "text.secondary" }}>
+            Our team will confirm a pickup window for {address} and reach you at{" "}
+            {phone || "the number on your account"}.
+          </Typography>
+        </Stack>
+      ) : (
+        <Box
+          component="form"
+          id="pickup-request-form"
+          onSubmit={handleSubmit}
+          sx={{
+            display: "grid",
+            gap: 1.75,
+            pb: "calc(20px + env(safe-area-inset-bottom))",
+          }}
+        >
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              Pickup address
+            </Typography>
+            <OutlinedInput
+              fullWidth
+              required
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+              placeholder="House, street, township"
+              inputProps={{ "aria-label": "Pickup address" }}
+            />
+          </Box>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              Contact phone (optional)
+            </Typography>
+            <OutlinedInput
+              fullWidth
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="09xxxxxxxxx"
+              inputProps={{ "aria-label": "Contact phone" }}
+            />
+          </Box>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              Preferred time
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              value={window}
+              onChange={(_, value: PickupWindow | null) => {
+                if (value) setWindow(value);
+              }}
+              aria-label="Preferred pickup time"
+              sx={{ p: 0.5, borderRadius: "999px", bgcolor: "grey.100" }}
+            >
+              {pickupWindows.map((value) => (
+                <ToggleButton
+                  key={value}
+                  value={value}
+                  sx={{
+                    minHeight: 44,
+                    border: 0,
+                    borderRadius: "999px !important",
+                    "&.Mui-selected": {
+                      bgcolor: "background.paper",
+                      boxShadow: 1,
+                    },
+                  }}
+                >
+                  {value}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </Box>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              What are we picking up? (optional)
+            </Typography>
+            <OutlinedInput
+              fullWidth
+              multiline
+              minRows={3}
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Parcel size, fragile items, landmark…"
+              inputProps={{ "aria-label": "Pickup notes" }}
+            />
+          </Box>
+        </Box>
       )}
     </Sheet>
   );
