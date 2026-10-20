@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { workspaceHome } from "@/lib/delivery/access";
 import {
-  demoOperationsData,
   emptyOperationsData,
   loadOperationsData,
 } from "@/lib/delivery/operations-data";
@@ -38,9 +37,9 @@ export function useOperationsWorkspace(role: OperationsProfile["role"]) {
       if (!activeSession) {
         if (!current()) return;
         setProfile(null);
-        setData(demoOperationsData());
+        setData(emptyOperationsData());
         setIsAuthenticated(false);
-        setIsDemo(true);
+        setIsDemo(false);
         setError(null);
         setIsLoading(false);
         return;

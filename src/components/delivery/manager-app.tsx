@@ -1278,15 +1278,27 @@ export function ManagerApp({ view }: { view: ManagerView }) {
                 <option value="">Select a customer</option>
                 {workspace.data.customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
-                    {customer.full_name || customer.phone || "Customer"}
+                    {customer.full_name || "Customer"}
+                    {customer.phone ? ` · ${customer.phone}` : ""}
                   </option>
                 ))}
               </select>
             </label>
             {workspace.data.customers.length === 0 && (
-              <div className="form-hint">
-                Create a customer account first. Public sign-up adds a customer
-                profile automatically.
+              <div className="form-hint customer-empty-state">
+                <strong>No customer accounts found.</strong>
+                <span>
+                  Create or provision a customer account, then refresh this list
+                  before creating a delivery.
+                </span>
+                <button
+                  type="button"
+                  className="button button-outline button-small"
+                  onClick={() => void workspace.refresh()}
+                  disabled={workspace.isLoading}
+                >
+                  {workspace.isLoading ? "Refreshing…" : "Refresh customers"}
+                </button>
               </div>
             )}
             <label className="field-label">

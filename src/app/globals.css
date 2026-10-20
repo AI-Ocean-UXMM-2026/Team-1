@@ -2887,6 +2887,21 @@ a {
   font-size: 8px;
   line-height: 1.45;
 }
+.customer-empty-state {
+  display: grid;
+  gap: 7px;
+  margin-top: -4px;
+}
+.customer-empty-state strong {
+  color: var(--forest-deep);
+}
+.customer-empty-state span {
+  line-height: 1.45;
+}
+.customer-empty-state .button {
+  justify-self: start;
+  margin-top: 2px;
+}
 .form-dialog-footer {
   display: flex;
   align-items: center;

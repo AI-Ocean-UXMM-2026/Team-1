@@ -219,18 +219,9 @@ export async function loadOperationsData(
     assignments: assignments.data ?? [],
     profiles: (profiles.data ?? []) as OperationsProfile[],
   };
-  const hasRoleData =
-    data.integrations.length +
-      data.externalShipments.length +
-      data.supportCases.length +
-      data.maintenanceRecords.length +
-      data.costEntries.length +
-      data.orders.length +
-      data.vehicles.length >
-    0;
   return {
     profile,
-    data: hasRoleData ? data : demoOperationsData(),
-    isDemo: !hasRoleData,
+    data,
+    isDemo: false,
   };
 }
