@@ -1,5 +1,6 @@
-import { RiderApp } from "@/components/delivery/rider-app";
+import { redirect } from "next/navigation";
 
-export default function RiderDeliveriesPage() {
-  return <RiderApp view="deliveries" />;
+// The rider workflow is a single task-driven screen; older tab URLs land on it.
+export default function RiderLegacyPage() {
+  redirect("/rider/route");
 }

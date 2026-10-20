@@ -7,6 +7,7 @@ import { loadWorkspace } from "@/lib/delivery/load-workspace";
 import type { WorkspaceData, WorkspaceProfile } from "@/lib/delivery/types";
 import { subscribeWorkspaceRealtime } from "@/lib/delivery/workspace-realtime";
 import { createClient } from "@/lib/supabase/client";
+import { cloneDemoWorkspace } from "@/lib/delivery/demo-data"; // TEMP-PREVIEW
 
 const emptyWorkspace = (): WorkspaceData => ({
   orders: [],
@@ -126,6 +127,24 @@ export function useWorkspace(role: WorkspaceProfile["role"]) {
       subscription.unsubscribe();
     };
   }, [loadSession]);
+
+  // TEMP-PREVIEW: local sample route for ?preview=ready|active. Do not commit.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("preview")) return;
+    if (isDemo && data.orders.some((o) => o.id === "p3")) return;
+    const demo = cloneDemoWorkspace();
+    const base = demo.orders.filter((o) => o.driver_id === "demo-driver-aung");
+    const extra = [
+      { ...base[0], id: "p3", tracking_code: "OR-4820", recipient_name: "Aung Aung", delivery_address: "123 Pyay Road, Kamayut Township, Yangon", delivery_latitude: 16.8236, delivery_longitude: 96.1311, pickup_latitude: 16.7797, pickup_longitude: 96.1588, cod_amount: 25000, latest_location: null, created_at: "2026-10-21T01:03:00Z" },
+      { ...base[0], id: "p4", tracking_code: "OR-4821", recipient_name: "Ei Mon", delivery_address: "No. 45, Kabar Aye Pagoda Road, Bahan Township, Yangon", delivery_latitude: 16.8131, delivery_longitude: 96.1589, cod_amount: 0, cod_status: "not_required" as const, latest_location: null, created_at: "2026-10-21T01:04:00Z" },
+    ];
+    const mode = new URLSearchParams(window.location.search).get("preview");
+    const orders = [...base, ...extra].map((o, i) => ({ ...o, status: (mode === "active" ? (i === 0 ? "in_transit" : "accepted") : "assigned") as typeof o.status, created_at: o.id.startsWith("p") ? o.created_at : `2026-10-21T01:0${i}:00Z` }));
+    setData({ ...demo, orders, statusEvents: [] });
+    setIsDemo(true);
+    setIsAuthenticated(true);
+    setIsLoading(false);
+  });
 
   const refresh = useCallback(
     async (background = false) => {
