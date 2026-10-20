@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./globals-late.css";
+import { MuiProvider } from "@/components/delivery/mui-provider";
 
 export const metadata: Metadata = {
   title: "Oern — Delivery, in full view",
@@ -8,10 +9,18 @@ export const metadata: Metadata = {
     "Follow your parcel from rider pickup to arrival with live location, delivery updates, and clear handoffs.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <MuiProvider>{children}</MuiProvider>
+      </body>
     </html>
   );
 }

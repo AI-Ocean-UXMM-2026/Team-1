@@ -1,22 +1,47 @@
 "use client";
 
+import HomeOutlined from "@mui/icons-material/HomeOutlined";
+import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
+import PersonOutlined from "@mui/icons-material/PersonOutlined";
+import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
+import BottomNavigation from "@mui/material/BottomNavigation";
+import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
   Brand,
-  DemoBadge,
   Eyebrow,
   LoadingBlock,
-  MobileNav,
   StatusBadge,
   signOut,
-  UserActions,
 } from "@/components/delivery/common";
+import {
+  CodSheet,
+  CustomerHome,
+  CustomerTopBar,
+  DemoChip,
+  HelpSheet,
+  HomeSkeleton,
+  NotificationsSheet,
+  ParcelSwitcher,
+  ScanSheet,
+  TrackingLookup,
+  TrackLookupNotice,
+} from "@/components/delivery/customer-home";
 import { CustomerProviderTracking } from "@/components/delivery/customer-provider-tracking";
 import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
+import {
+  buildNotifications,
+  codDue,
+  matchOrders,
+  normaliseCode,
+  pickNextParcel,
+  rememberTrackingCode,
+} from "@/lib/delivery/customer-home";
 import {
   currency,
   formatDateTime,
@@ -41,11 +66,80 @@ function etaCopy(order: DeliveryOrder) {
 }
 
 const customerNavItems = [
-  { id: "home", label: "Home", href: "/home", icon: "delivery" },
+  { id: "home", label: "Home", href: "/home", icon: "home" },
   { id: "track", label: "Track", href: "/track", icon: "track" },
-  { id: "orders", label: "Orders", href: "/orders", icon: "package" },
+  { id: "orders", label: "Orders", href: "/orders", icon: "list" },
   { id: "profile", label: "Profile", href: "/profile", icon: "user" },
 ] as const;
+
+type OrderFilter = "all" | "active" | "delivered" | "issues";
+const ORDER_FILTERS: { id: OrderFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "active", label: "Active" },
+  { id: "delivered", label: "Delivered" },
+  { id: "issues", label: "Issues" },
+];
+const ACTIVE_ORDER_STATUSES = [
+  "pending",
+  "assigned",
+  "accepted",
+  "picked_up",
+  "in_transit",
+];
+function matchesOrderFilter(order: DeliveryOrder, filter: OrderFilter) {
+  if (filter === "all") return true;
+  if (filter === "active") return ACTIVE_ORDER_STATUSES.includes(order.status);
+  if (filter === "delivered") return order.status === "delivered";
+  return order.status === "failed" || order.status === "cancelled";
+}
+
+const customerNavIcons = {
+  home: HomeOutlined,
+  track: LocalShippingOutlined,
+  orders: ReceiptLongOutlined,
+  profile: PersonOutlined,
+} as const;
+
+/** Material 2 bottom navigation: 56dp bar, elevation 8, labels always shown. */
+function CustomerBottomNav({ activeId }: { activeId: string }) {
+  return (
+    <BottomNavigation
+      showLabels
+      value={activeId}
+      aria-label="Customer app"
+      sx={{
+        position: "fixed",
+        left: 0,
+        right: 0,
+        marginInline: "auto",
+        maxWidth: 430,
+        bottom: 0,
+        zIndex: (theme) => theme.zIndex.appBar,
+        height: "calc(56px + env(safe-area-inset-bottom))",
+        pb: "env(safe-area-inset-bottom)",
+        boxShadow: (theme) => theme.shadows[8],
+        "& .MuiBottomNavigationAction-root": { minWidth: 0, maxWidth: "none" },
+      }}
+    >
+      {customerNavItems
+        .filter((item) => item.id !== "track")
+        .map((item) => {
+          const NavIcon = customerNavIcons[item.id];
+          return (
+            <BottomNavigationAction
+              key={item.id}
+              component={Link}
+              href={item.href}
+              value={item.id}
+              label={item.label}
+              icon={<NavIcon />}
+              aria-current={activeId === item.id ? "page" : undefined}
+            />
+          );
+        })}
+    </BottomNavigation>
+  );
+}
 
 export type CustomerView = (typeof customerNavItems)[number]["id"];
 
@@ -55,20 +149,124 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   const [authOpen, setAuthOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [now, setNow] = useState(0);
+  const router = useRouter();
+  const [sheet, setSheet] = useState<
+    "notifications" | "help" | "scan" | "cod" | null
+  >(null);
+  const [readUpTo, setReadUpTo] = useState<number | null>(null);
+  const [unreadIds, setUnreadIds] = useState<ReadonlySet<string>>(new Set());
+  const [demoDismissed, setDemoDismissed] = useState(false);
+  const [lookupMiss, setLookupMiss] = useState<string | null>(null);
+  const urlHandled = useRef(false);
+  const [orderFilter, setOrderFilter] = useState<OrderFilter>("all");
   const orders = useMemo(
     () => prioritiseOrders(workspace.data.orders),
     [workspace.data.orders],
   );
+  // Sample records are for previews only; they never count as account data.
+  const realOrders = useMemo(
+    () => (workspace.isDemo ? [] : orders),
+    [orders, workspace.isDemo],
+  );
   const selectedOrder =
     orders.find((order) => order.id === selectedId) ?? orders[0] ?? null;
+  const visibleOrders = orders.filter((order) =>
+    matchesOrderFilter(order, orderFilter),
+  );
+  const profileId = workspace.profile?.id ?? "guest";
+  const readKey = `oern.notifications.readAt.${profileId}`;
+  const notifications = useMemo(
+    () => buildNotifications(realOrders, workspace.data.statusEvents, now),
+    [realOrders, workspace.data.statusEvents, now],
+  );
+  const unreadCount =
+    readUpTo === null || !workspace.isAuthenticated
+      ? 0
+      : notifications.filter((item) => Date.parse(item.at) > readUpTo).length;
 
   useEffect(() => {
-    const requestedOrder = new URLSearchParams(window.location.search).get(
-      "order",
-    );
+    try {
+      const stored = window.localStorage.getItem(readKey);
+      setReadUpTo(stored ? Number(stored) || 0 : 0);
+    } catch {
+      setReadUpTo(0);
+    }
+  }, [readKey]);
+
+  useEffect(() => {
+    try {
+      setDemoDismissed(
+        window.sessionStorage.getItem("oern.demo-notice.dismissed") === "1",
+      );
+    } catch {
+      // Storage can be blocked; the notice simply stays visible.
+    }
+  }, []);
+
+  // Runs once, when the data first arrives, to apply ?order= and ?code=.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: one-shot URL handling
+  useEffect(() => {
+    if (urlHandled.current || workspace.isLoading) return;
+    urlHandled.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const requestedOrder = params.get("order");
     if (requestedOrder && orders.some((order) => order.id === requestedOrder))
       setSelectedId(requestedOrder);
-  }, [orders]);
+    const code = params.get("code");
+    if (code) lookupCode(code);
+  }, [orders, workspace.isLoading]);
+
+  function lookupCode(value: string) {
+    const code = value.trim();
+    if (!normaliseCode(code)) return;
+    const hits = matchOrders(realOrders, code);
+    const hit =
+      hits.find(
+        (order) => normaliseCode(order.tracking_code) === normaliseCode(code),
+      ) ?? (hits.length === 1 ? hits[0] : null);
+    if (hit) {
+      setSelectedId(hit.id);
+      setLookupMiss(null);
+      rememberTrackingCode(hit.tracking_code);
+    } else {
+      setLookupMiss(code);
+    }
+  }
+
+  function openNotifications() {
+    setUnreadIds(
+      new Set(
+        notifications
+          .filter((item) => Date.parse(item.at) > (readUpTo ?? 0))
+          .map((item) => item.id),
+      ),
+    );
+    setSheet("notifications");
+    const stamp = Date.now();
+    setReadUpTo(stamp);
+    try {
+      window.localStorage.setItem(readKey, String(stamp));
+    } catch {
+      // Unread state just won't persist.
+    }
+  }
+
+  function dismissDemo() {
+    setDemoDismissed(true);
+    try {
+      window.sessionStorage.setItem("oern.demo-notice.dismissed", "1");
+    } catch {
+      // Nothing to persist.
+    }
+  }
+
+  const handleScanned = useCallback(
+    (code: string) => {
+      setSheet(null);
+      router.push(`/track?code=${encodeURIComponent(code)}`);
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (!selectedOrder) return;
@@ -91,7 +289,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
     : null;
   const locationHeading = workspace.isDemo
-    ? "Sample parcel location"
+    ? "Simulated tracking"
     : locationState === "live"
       ? "Your rider’s latest location"
       : locationState === "closed"
@@ -102,7 +300,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
             ? "Waiting for the rider’s first location"
             : "Live location starts at pickup";
   const locationDescription = workspace.isDemo
-    ? "This map illustrates tracking after pickup. Sign in to follow your own delivery."
+    ? "A sample route for illustration only. Times shown are estimates, not a real delivery. Sign in to follow your own parcel."
     : locationState === "live"
       ? "Location points update automatically while the rider keeps their app open."
       : locationState === "closed"
@@ -113,71 +311,36 @@ export function CustomerApp({ view }: { view: CustomerView }) {
             ? "Your parcel is collected. The map will update when your rider shares a GPS point."
             : "Your rider’s location becomes available after they receive the parcel.";
 
-  if (workspace.isLoading)
-    return <LoadingBlock title="Opening your delivery view…" />;
+  if (workspace.isLoading || now === 0) {
+    if (view !== "home")
+      return <LoadingBlock title="Opening your delivery view…" />;
+    return (
+      <main className="customer-app">
+        <CustomerTopBar
+          profile={workspace.profile}
+          isAuthenticated={workspace.isAuthenticated}
+          unreadCount={0}
+          onSignIn={() => setAuthOpen(true)}
+          onOpenNotifications={() => undefined}
+        />
+        <HomeSkeleton />
+        <CustomerBottomNav activeId={view} />
+      </main>
+    );
+  }
 
   return (
     <main className="customer-app">
-      <header className="customer-header shell-width">
-        <Brand href="/home" />
-        <nav className="customer-nav" aria-label="Main navigation">
-          <Link
-            className={view === "home" ? "nav-current" : undefined}
-            href="/home"
-          >
-            Home
-          </Link>
-          <Link
-            className={view === "orders" ? "nav-current" : undefined}
-            href="/orders"
-          >
-            Delivery history
-          </Link>
-        </nav>
-        <UserActions
-          profile={workspace.profile}
-          isAuthenticated={workspace.isAuthenticated}
-          onSignIn={() => setAuthOpen(true)}
-          onSignOut={() => void signOut()}
-          label="Customer"
-        />
-      </header>
+      <CustomerTopBar
+        profile={workspace.profile}
+        isAuthenticated={workspace.isAuthenticated}
+        unreadCount={unreadCount}
+        onSignIn={() => setAuthOpen(true)}
+        onOpenNotifications={openNotifications}
+      />
 
-      {(view === "home" || view === "track") && (
-        <section className="customer-intro shell-width">
-          <div>
-            <h1>
-              {view === "track"
-                ? "Track your parcel live."
-                : selectedOrder?.status === "in_transit"
-                  ? "Your parcel is on the move."
-                  : "Every handoff, in view."}
-            </h1>
-            <p>
-              See your rider’s location from the moment your parcel is collected
-              to the moment it arrives.
-            </p>
-          </div>
-          <div className="customer-intro-aside">
-            <span className="availability-dot" /> Live parcel visibility
-          </div>
-        </section>
-      )}
-
-      {workspace.isDemo && (
-        <div className="demo-notice shell-width">
-          <DemoBadge>Preview mode</DemoBadge>
-          <span>
-            {workspace.isAuthenticated
-              ? "These are sample deliveries. No orders are linked to this account yet."
-              : "These Yangon deliveries are sample records. Sign in to follow orders linked to your account."}
-          </span>
-          {!workspace.isAuthenticated && (
-            <button type="button" onClick={() => setAuthOpen(true)}>
-              Sign in <Icon name="arrow-right" size={14} />
-            </button>
-          )}
-        </div>
+      {workspace.isDemo && view !== "home" && !demoDismissed && (
+        <DemoChip onDismiss={dismissDemo} />
       )}
 
       {workspace.error && (
@@ -189,7 +352,45 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         </div>
       )}
 
+      {view === "home" && (
+        <CustomerHome
+          orders={realOrders}
+          statusEvents={workspace.data.statusEvents}
+          isAuthenticated={workspace.isAuthenticated}
+          now={now}
+          onSignIn={() => setAuthOpen(true)}
+          onOpenScan={() => setSheet("scan")}
+          onOpenCod={() => setSheet("cod")}
+          onOpenHelp={() => setSheet("help")}
+        />
+      )}
+
+      {view === "track" && (
+        <>
+          <h1 className="sr-only">Track</h1>
+          <TrackingLookup
+            onLookup={lookupCode}
+            onOpenScan={() => setSheet("scan")}
+          />
+          {lookupMiss && (
+            <TrackLookupNotice
+              code={lookupMiss}
+              isAuthenticated={workspace.isAuthenticated}
+              onSignIn={() => setAuthOpen(true)}
+            />
+          )}
+          {!lookupMiss && (
+            <ParcelSwitcher
+              orders={realOrders}
+              selectedId={selectedOrder?.id ?? ""}
+              onSelect={(order) => setSelectedId(order.id)}
+            />
+          )}
+        </>
+      )}
+
       {view === "track" &&
+        !lookupMiss &&
         (selectedOrder ? (
           <section
             className="tracking-layout shell-width"
@@ -229,7 +430,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
                   <span className="eta-label">
                     {selectedOrder.status === "delivered"
                       ? "Delivery complete"
-                      : "Estimated arrival"}
+                      : workspace.isDemo
+                        ? "Estimated arrival · sample"
+                        : "Estimated arrival"}
                   </span>
                   <span className="eta-icon">
                     <Icon name="navigation" size={17} />
@@ -414,35 +617,38 @@ export function CustomerApp({ view }: { view: CustomerView }) {
           </div>
         ))}
 
-      {(view === "home" || view === "orders") && (
+      {view === "orders" && (
         <section className="delivery-list shell-width" id="history">
           <div className="section-head-block">
             <div>
-              <h2>
-                {view === "home"
-                  ? "Recent deliveries"
-                  : showAll
-                    ? "All deliveries"
-                    : "Your deliveries"}
-              </h2>
+              <h2>{showAll ? "All deliveries" : "Your deliveries"}</h2>
             </div>
-            {view === "home" ? (
-              <Link className="text-button" href="/orders">
-                See all <Icon name="arrow-right" size={15} />
-              </Link>
-            ) : (
-              <button
-                className="text-button"
-                type="button"
-                onClick={() => setShowAll(!showAll)}
-              >
-                {showAll ? "Show recent" : "See all"}
-                <Icon name="arrow-right" size={15} />
-              </button>
-            )}
+            <button
+              className="text-button"
+              type="button"
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? "Show recent" : "See all"}
+              <Icon name="arrow-right" size={15} />
+            </button>
           </div>
+          <nav className="orders-filter" aria-label="Filter deliveries">
+            {ORDER_FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={orderFilter === item.id}
+                onClick={() => setOrderFilter(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+          {visibleOrders.length === 0 && (
+            <p className="orders-empty">No deliveries in this group.</p>
+          )}
           <div className="delivery-order-grid">
-            {(view === "home" || !showAll ? orders.slice(0, 3) : orders).map(
+            {(showAll ? visibleOrders : visibleOrders.slice(0, 3)).map(
               (order) => (
                 <Link
                   key={order.id}
@@ -476,15 +682,15 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         <section className="customer-profile-page shell-width">
           <div className="customer-profile-card">
             <span className="customer-profile-avatar">
-              {(workspace.profile?.full_name?.[0] ?? "C").toUpperCase()}
+              <PersonOutlined />
             </span>
             <div>
-              <Eyebrow>Customer account</Eyebrow>
-              <h1>{workspace.profile?.full_name || "Your delivery profile"}</h1>
+              <Eyebrow>Account</Eyebrow>
+              <h1>{workspace.profile?.full_name || "Guest"}</h1>
               <p>
                 {workspace.isAuthenticated
-                  ? "Orders linked to this account appear automatically."
-                  : "Sign in to see deliveries linked to your account."}
+                  ? (workspace.profile?.phone ?? "No phone number on file")
+                  : "Sign in to manage your account."}
               </p>
             </div>
           </div>
@@ -498,42 +704,72 @@ export function CustomerApp({ view }: { view: CustomerView }) {
             </button>
           )}
           <div className="customer-profile-links">
-            <Link href="/orders">
-              <Icon name="package" size={18} />
+            <button type="button" onClick={() => setSheet("notifications")}>
+              <Icon name="bell" size={18} />
               <span>
-                <strong>Delivery history</strong>
-                <small>Review current and past orders</small>
+                <strong>Notifications</strong>
+                <small>Delivery updates and alerts</small>
               </span>
               <Icon name="arrow-right" size={16} />
-            </Link>
-            <Link href="/track">
-              <Icon name="track" size={18} />
+            </button>
+            <button type="button" onClick={() => setSheet("help")}>
+              <Icon name="help" size={18} />
               <span>
-                <strong>Live tracking</strong>
-                <small>Follow a parcel after pickup</small>
+                <strong>Help and support</strong>
+                <small>Report a problem with a parcel</small>
               </span>
               <Icon name="arrow-right" size={16} />
-            </Link>
+            </button>
           </div>
+          {workspace.isAuthenticated && (
+            <button
+              className="button button-outline"
+              type="button"
+              onClick={() => void signOut()}
+            >
+              Sign out
+            </button>
+          )}
         </section>
       )}
 
-      <footer className="customer-footer shell-width">
-        <Brand href="/home" />
-        <span>Every parcel deserves a clear path home.</span>
-        <div className="workspace-links">
-          <a href="/rider/route">
-            Rider workspace <Icon name="arrow-right" size={13} />
-          </a>
-          <a href="/manager">
-            Operations <Icon name="arrow-right" size={13} />
-          </a>
-        </div>
-      </footer>
-      <MobileNav
-        label="Customer app"
-        items={customerNavItems}
-        activeId={view}
+      {view !== "home" && (
+        <footer className="customer-footer shell-width">
+          <Brand href="/home" />
+          <span>Every parcel deserves a clear path home.</span>
+          <div className="workspace-links">
+            <a href="/rider/route">
+              Rider workspace <Icon name="arrow-right" size={13} />
+            </a>
+            <a href="/manager">
+              Operations <Icon name="arrow-right" size={13} />
+            </a>
+          </div>
+        </footer>
+      )}
+      <CustomerBottomNav activeId={view} />
+      <NotificationsSheet
+        open={sheet === "notifications"}
+        notifications={notifications}
+        unreadIds={unreadIds}
+        isAuthenticated={workspace.isAuthenticated}
+        onSignIn={() => setAuthOpen(true)}
+        onClose={() => setSheet(null)}
+      />
+      <HelpSheet
+        open={sheet === "help"}
+        order={pickNextParcel(realOrders)}
+        onClose={() => setSheet(null)}
+      />
+      <ScanSheet
+        open={sheet === "scan"}
+        onClose={() => setSheet(null)}
+        onDetected={handleScanned}
+      />
+      <CodSheet
+        open={sheet === "cod"}
+        orders={codDue(realOrders)}
+        onClose={() => setSheet(null)}
       />
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
     </main>

@@ -6024,3 +6024,206 @@ summary:focus-visible {
     color: var(--color-text-primary);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Customer bottom navigation: floating bar with a pale active pill
+   (pattern from Mobbin references: Waymo, Truecaller)
+   ------------------------------------------------------------------------ */
+.customer-app .mobile-bottom-nav {
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  width: min(calc(100% - 32px), 398px);
+  min-height: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.96);
+  box-shadow:
+    0 8px 24px rgb(23 43 77 / 0.14),
+    0 0 0 1px rgb(23 43 77 / 0.06);
+  backdrop-filter: blur(12px);
+  transform: translateX(-50%);
+}
+.customer-app .mobile-bottom-nav a {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease-out,
+    color 0.15s ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.customer-app .mobile-bottom-nav a:active {
+  transform: scale(0.97);
+}
+.customer-app .mobile-bottom-nav a.is-active {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+.customer-app .mobile-bottom-nav a:focus-visible {
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
+}
+.customer-app .mobile-bottom-nav .mobile-nav-icon {
+  height: 22px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .customer-app .mobile-bottom-nav a {
+    transition: none;
+  }
+  .customer-app .mobile-bottom-nav a:active {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Customer app: compact navigation, orders filter, account settings
+   ------------------------------------------------------------------------ */
+.customer-app {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+.customer-app .mobile-bottom-nav {
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  min-height: 0;
+  padding: 4px;
+  gap: 2px;
+}
+.customer-app .mobile-bottom-nav a {
+  flex-direction: row;
+  min-height: 44px;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+.customer-app .mobile-bottom-nav .mobile-nav-icon {
+  height: 20px;
+}
+.orders-filter {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.orders-filter button {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary-subtle);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.orders-filter button[aria-pressed="true"] {
+  border-color: var(--color-brand-navy);
+  background: var(--color-brand-navy);
+  color: var(--color-text-inverse);
+}
+.orders-empty {
+  margin: 8px 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+}
+.customer-profile-links button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.customer-profile-links button > span {
+  display: grid;
+  flex: 1;
+}
+.customer-profile-links button small {
+  color: var(--color-text-secondary-subtle);
+}
+
+/* ---------------------------------------------------------------------------
+   Customer home: compact task-first header and flat four-tab bottom bar
+   ------------------------------------------------------------------------ */
+.customer-app {
+  padding-bottom: calc(64px + max(env(safe-area-inset-bottom), 12px) + 16px);
+}
+.customer-app .brand-lockup {
+  font-size: 18px;
+}
+.customer-app .brand-symbol {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+.customer-app .mobile-bottom-nav {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  transform: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 0 8px max(env(safe-area-inset-bottom), 12px);
+  border: 0;
+  border-top: 1px solid rgb(23 43 77 / 0.08);
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.customer-app .mobile-bottom-nav a {
+  position: relative;
+  flex-direction: column;
+  min-height: 56px;
+  gap: 2px;
+  padding: 8px 4px 6px;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 12px;
+  line-height: 14px;
+}
+.customer-app .mobile-bottom-nav a.is-active {
+  background: transparent;
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+.customer-app .mobile-bottom-nav a.is-active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 30%;
+  right: 30%;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--color-text-primary);
+}
+.customer-app .mobile-bottom-nav .mobile-nav-icon {
+  height: 22px;
+}

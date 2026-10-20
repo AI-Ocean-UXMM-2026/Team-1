@@ -245,7 +245,7 @@ export function LocationMap({
       )
     : null;
   const locationText = isDemo
-    ? "Sample location"
+    ? "Simulated location"
     : locationTime === null
       ? order && hasCollectedParcel(order.status)
         ? "Waiting for GPS"
@@ -273,7 +273,7 @@ export function LocationMap({
         >
           <span className="live-dot" />
           {isDemo
-            ? "Demo location"
+            ? "Simulated tracking"
             : mode === "manager" && liveRiderCount
               ? `${liveRiderCount} ${liveRiderCount === 1 ? "rider" : "riders"} live`
               : mode !== "manager" &&

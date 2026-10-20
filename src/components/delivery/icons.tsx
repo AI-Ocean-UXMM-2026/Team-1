@@ -4,6 +4,7 @@ export type IconName =
   | "arrow-down"
   | "arrow-left"
   | "arrow-right"
+  | "bell"
   | "box"
   | "check"
   | "chevron-down"
@@ -14,16 +15,20 @@ export type IconName =
   | "external"
   | "filter"
   | "help"
+  | "home"
   | "history"
   | "location"
   | "menu"
   | "more"
   | "navigation"
+  | "list"
   | "package"
+  | "phone"
   | "plus"
   | "search"
   | "settings"
   | "shield"
+  | "share"
   | "spark"
   | "track"
   | "truck"
@@ -35,6 +40,12 @@ const pathByName: Record<IconName, ReactNode> = {
   "arrow-down": <path d="M12 5v14m-7-7 7 7 7-7" />,
   "arrow-left": <path d="m15 18-6-6 6-6M9 12h12" />,
   "arrow-right": <path d="M5 12h14m-7-7 7 7-7 7" />,
+  bell: (
+    <>
+      <path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9Z" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </>
+  ),
   box: (
     <>
       <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
@@ -78,6 +89,10 @@ const pathByName: Record<IconName, ReactNode> = {
       <path d="M3 3v5h5m4-1v5l3 2" />
     </>
   ),
+  home: (
+    <path d="M4 11 12 4l8 7v8.5a1.5 1.5 0 0 1-1.5 1.5H15v-6h-6v6H5.5A1.5 1.5 0 0 1 4 19.5V11Z" />
+  ),
+  list: <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />,
   location: (
     <>
       <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
@@ -104,6 +119,9 @@ const pathByName: Record<IconName, ReactNode> = {
       <path d="m4.5 7.5 7.5 4 7.5-4M12 12v9" />
     </>
   ),
+  phone: (
+    <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />
+  ),
   plus: <path d="M12 5v14M5 12h14" />,
   search: (
     <>
@@ -115,6 +133,14 @@ const pathByName: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.8 1.8-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.5v-.1a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.8-1.8.06-.06A1.7 1.7 0 0 0 8.16 15a1.7 1.7 0 0 0-1.56-1.03H6v-2.5h.6A1.7 1.7 0 0 0 8.16 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.8-1.8.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 12.53 5.1V5h2.5v.1a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.8 1.8-.06.06A1.7 1.7 0 0 0 19.4 10c.25.62.86 1.03 1.53 1.03h.1v2.5h-.1A1.7 1.7 0 0 0 19.4 15Z" />
+    </>
+  ),
+  share: (
+    <>
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="19" r="2.5" />
+      <path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6" />
     </>
   ),
   shield: (
