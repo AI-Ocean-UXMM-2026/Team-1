@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "oern-dev",
+      "runtimeExecutable": "C:\\Users\\ASUS\\.bun\\bin\\bun.exe",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    }
+  ]
+}

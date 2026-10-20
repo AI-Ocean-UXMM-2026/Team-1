@@ -103,16 +103,35 @@ export function RiderApp({ view }: { view: RiderView }) {
   const [roadDescription, setRoadDescription] = useState("");
   const [roadBusy, setRoadBusy] = useState(false);
 
-  const activeOrders = useMemo(
-    () =>
-      prioritiseOrders(
-        workspace.data.orders.filter(
+  const activeOrders = useMemo(() => {
+    const currentRouteIds = new Set(
+      workspace.data.routes
+        .filter((route) => route.driver_id === workspace.profile?.id)
+        .map((route) => route.id),
+    );
+    const stopOrder = new Map(
+      workspace.data.routeStops
+        .filter((stop) => currentRouteIds.has(stop.route_id))
+        .map((stop) => [stop.order_id, stop.sequence_number]),
+    );
+    return prioritiseOrders(
+      workspace.data.orders
+        .filter(
           (order) =>
             !["delivered", "failed", "cancelled"].includes(order.status),
+        )
+        .sort(
+          (left, right) =>
+            (stopOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+            (stopOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER),
         ),
-      ),
-    [workspace.data.orders],
-  );
+    );
+  }, [
+    workspace.data.orders,
+    workspace.data.routeStops,
+    workspace.data.routes,
+    workspace.profile?.id,
+  ]);
   const selectedOrder =
     activeOrders.find((order) => order.id === selectedId) ??
     activeOrders[0] ??
