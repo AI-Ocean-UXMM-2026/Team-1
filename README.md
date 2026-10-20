@@ -77,7 +77,7 @@ Learned route preferences, delivery cost analysis, vehicle maintenance history, 
 
 ## Development
 
-This project uses Next.js 16, React 19, TypeScript, and Bun. Install dependencies and start the development server with:
+This project uses Next.js 16, React 19, TypeScript, and Bun. Install dependencies and start the development server with: 
 
 ```bash
 bun install
