@@ -258,14 +258,70 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
   const deferred = new Set(input.deferred);
   const finished = (items: DeliveryOrder[]) =>
     items.every((order) => isClosed(order.status));
-  // Finished stops first, then open ones; deferred stops go to the back.
-  groups.sort((a, b) => {
-    const rank = (items: DeliveryOrder[]) =>
-      finished(items) ? 0 : deferred.has(stopKey(items)) ? 2 : 1;
-    return rank(a) - rank(b);
-  });
 
-  const stops: DeliveryStop[] = groups.map((items, index) => {
+  function groupPoint(items: DeliveryOrder[]): GeoPoint | null {
+    for (const order of items) {
+      const pt = deliveryPoint(order);
+      if (pt) return pt;
+    }
+    return null;
+  }
+
+  function detourDelta(
+    prev: DeliveryOrder[],
+    cand: DeliveryOrder[],
+    next: DeliveryOrder[] | null,
+  ): number {
+    const pPrev = groupPoint(prev);
+    const pCand = groupPoint(cand);
+    if (!pPrev || !pCand) return Number.POSITIVE_INFINITY;
+    if (!next) {
+      return distanceKm(pPrev, pCand);
+    }
+    const pNext = groupPoint(next);
+    if (!pNext) return Number.POSITIVE_INFINITY;
+    return (
+      distanceKm(pPrev, pCand) +
+      distanceKm(pCand, pNext) -
+      distanceKm(pPrev, pNext)
+    );
+  }
+
+  // Finished stops first; deferred stops are intelligently re-inserted
+  // at the minimum marginal detour position among upcoming stops.
+  const finishedGroups = groups.filter((g) => finished(g));
+  const openGroups = groups.filter(
+    (g) => !finished(g) && !deferred.has(stopKey(g)),
+  );
+  const deferredGroups = groups.filter(
+    (g) => !finished(g) && deferred.has(stopKey(g)),
+  );
+
+  for (const defGroup of deferredGroups) {
+    if (openGroups.length <= 1) {
+      openGroups.push(defGroup);
+      continue;
+    }
+
+    let bestIndex = openGroups.length;
+    let minDetour = Number.POSITIVE_INFINITY;
+
+    for (let k = 1; k <= openGroups.length; k++) {
+      const prev = openGroups[k - 1];
+      const next = k < openGroups.length ? openGroups[k] : null;
+      const delta = detourDelta(prev, defGroup, next);
+      if (delta < minDetour) {
+        minDetour = delta;
+        bestIndex = k;
+      }
+    }
+
+    openGroups.splice(bestIndex, 0, defGroup);
+  }
+
+  const sortedGroups = [...finishedGroups, ...openGroups];
+
+  const stops: DeliveryStop[] = sortedGroups.map((items, index) => {
     const first = items[0];
     const open = items.filter((order) => hasParcelOnBoard(order.status));
     const notLoaded = items.filter(
@@ -282,7 +338,8 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
       open,
       notLoaded,
       recipient: first.recipient_name || first.customer_name || "Recipient",
-      phone: items.find((order) => order.recipient_phone)?.recipient_phone ?? null,
+      phone:
+        items.find((order) => order.recipient_phone)?.recipient_phone ?? null,
       address: first.delivery_address,
       point: deliveryPoint(first),
       codDue: items.reduce((sum, order) => sum + codDue(order), 0),

@@ -27,6 +27,8 @@ export function SwipeConfirm({
   const drag = useRef<{ id: number; from: number; moved: boolean } | null>(
     null,
   );
+  const currentX = useRef(0);
+  const completing = useRef(false);
   const timers = useRef<number[]>([]);
   const [x, setX] = useState(0);
   const [phase, setPhase] = useState<"idle" | "drag" | "done" | "nudge">(
@@ -42,16 +44,24 @@ export function SwipeConfirm({
     timers.current.push(window.setTimeout(fn, ms));
   };
   const travel = () => Math.max(0, (track.current?.clientWidth ?? 0) - 56);
+  const moveTo = (next: number) => {
+    currentX.current = next;
+    setX(next);
+  };
+  const reset = () => {
+    drag.current = null;
+    completing.current = false;
+    moveTo(0);
+    setPhase("idle");
+  };
   const confirm = () => {
-    if (phase === "done") return;
-    setX(travel());
+    if (completing.current || phase === "done") return;
+    completing.current = true;
+    moveTo(travel());
     setPhase("done");
     later(onConfirm, 260);
     // The sheet normally changes; if it does not (far-away check), reset.
-    later(() => {
-      setX(0);
-      setPhase("idle");
-    }, 900);
+    later(reset, 900);
   };
   return (
     <div
@@ -91,7 +101,7 @@ export function SwipeConfirm({
           event.currentTarget.setPointerCapture(event.pointerId);
           drag.current = {
             id: event.pointerId,
-            from: event.clientX - x,
+            from: event.clientX - currentX.current,
             moved: false,
           };
           setPhase("drag");
@@ -104,14 +114,14 @@ export function SwipeConfirm({
             Math.max(0, event.clientX - state.from),
           );
           if (next > 4) state.moved = true;
-          setX(next);
+          moveTo(next);
         }}
         onPointerUp={(event) => {
           const state = drag.current;
           if (!state || state.id !== event.pointerId) return;
-          if (x >= travel() * 0.82 && travel() > 0) confirm();
+          if (currentX.current >= travel() * 0.82 && travel() > 0) confirm();
           else {
-            setX(0);
+            moveTo(0);
             setPhase("idle");
           }
           // Let the click that follows a drag see that it was a drag.
@@ -120,9 +130,7 @@ export function SwipeConfirm({
           }, 0);
         }}
         onPointerCancel={() => {
-          drag.current = null;
-          setX(0);
-          setPhase("idle");
+          reset();
         }}
       >
         {phase === "done" ? (

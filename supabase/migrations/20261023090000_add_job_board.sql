@@ -192,8 +192,8 @@ security definer
 set search_path = ''
 as $$
 declare
-  batch_id uuid;
-  job_id uuid;
+  v_batch_id uuid;
+  v_job_id uuid;
   job_no integer := 0;
   jobs_made integer := 0;
   orders_batched integer := 0;
@@ -212,7 +212,7 @@ begin
 
   insert into public.job_batches (trigger, created_by)
   values (p_trigger, p_actor)
-  returning id into batch_id;
+  returning id into v_batch_id;
 
   for row_record in
     select
@@ -237,7 +237,7 @@ begin
     where queue.job_id is null and delivery_order.status = 'pending'
     order by 2, delivery_order.delivery_latitude, delivery_order.delivery_longitude, queue.queued_at
   loop
-    if job_id is null
+    if v_job_id is null
       or row_record.cluster_key is distinct from current_key
       or current_count >= p_max_orders
       or (current_count > 0 and current_kg + row_record.weight_kg > p_max_kg) then
@@ -247,16 +247,16 @@ begin
       current_kg := 0;
       insert into public.delivery_jobs (batch_id, label, area_label, order_count)
       values (
-        batch_id,
+        v_batch_id,
         'Job ' || job_no,
         coalesce(row_record.area_name, case when row_record.cluster_key = 'unlocated' then 'Location to confirm' end),
         1
       )
-      returning id into job_id;
+      returning id into v_job_id;
       jobs_made := jobs_made + 1;
     end if;
 
-    update public.delivery_queue set job_id = build_job_batch.job_id
+    update public.delivery_queue set job_id = v_job_id
     where order_id = row_record.order_id;
 
     update public.delivery_jobs as job
@@ -275,7 +275,7 @@ begin
           join public.delivery_orders as delivery_order on delivery_order.id = queue.order_id
           where queue.job_id = job.id
         )
-    where job.id = build_job_batch.job_id;
+    where job.id = v_job_id;
 
     current_count := current_count + 1;
     current_kg := current_kg + row_record.weight_kg;
@@ -285,13 +285,13 @@ begin
   -- Label jobs with the batch time so drivers can tell batches apart.
   update public.delivery_jobs
   set label = to_char(created_at at time zone 'Asia/Yangon', 'DD Mon HH24:MI') || ' · ' || label
-  where delivery_jobs.batch_id = build_job_batch.batch_id;
+  where delivery_jobs.batch_id = v_batch_id;
 
   update public.job_batches
   set job_count = jobs_made, order_count = orders_batched
-  where id = batch_id;
+  where id = v_batch_id;
 
-  return batch_id;
+  return v_batch_id;
 end;
 $$;
 

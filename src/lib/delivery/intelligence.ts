@@ -1,10 +1,11 @@
+import { countTrafficSignalsBetween } from "./energy-routing.ts";
 import type {
   AssignmentRecommendation,
   DeliveryLocation,
   DeliveryOrder,
   DriverOption,
   VehicleOption,
-} from "@/lib/delivery/types";
+} from "./types.ts";
 
 const ACTIVE_STATUSES = new Set([
   "assigned",
@@ -92,6 +93,13 @@ export function recommendAssignments(
         pickup && driverLocation
           ? haversineKilometers(driverLocation, pickup)
           : null;
+
+      // Traffic signal bottlenecks and corridor alignment between driver and pickup
+      const signalCount =
+        pickup && driverLocation
+          ? countTrafficSignalsBetween(driverLocation, pickup).count
+          : 0;
+
       const availableVehicles = vehicles.filter((vehicle) => {
         if (vehicle.status === "available") return true;
         return vehicle.status === "in_use" && activeVehicleIds.has(vehicle.id);
@@ -111,9 +119,42 @@ export function recommendAssignments(
 
       const chosenVehicle = rankedVehicles[0] ?? null;
       const availabilityScore = driver.availability === "available" ? 28 : 12;
+
+      // Corridor-adjusted distance with signal bottleneck penalty
+      const roadDistanceKm = distance != null ? distance * 1.22 : null;
+      const signalPenalty = Math.min(5, signalCount * 1.2);
       const proximityScore =
-        distance == null ? 8 : Math.max(0, 30 - distance * 4);
+        roadDistanceKm == null
+          ? 8
+          : Math.max(0, 30 - roadDistanceKm * 3.3 - signalPenalty);
+
       const workloadScore = Math.max(0, 24 - activeOrders.length * 10);
+
+      // On-the-way detour bonus for busy riders when pickup aligns with active drops
+      let detourBonus = 0;
+      let onTheWay = false;
+      if (driverLocation && pickup && activeOrders.length > 0) {
+        const nextOrder = activeOrders[0];
+        if (
+          nextOrder.delivery_latitude != null &&
+          nextOrder.delivery_longitude != null
+        ) {
+          const dest = {
+            latitude: nextOrder.delivery_latitude,
+            longitude: nextOrder.delivery_longitude,
+          };
+          const direct = haversineKilometers(driverLocation, dest);
+          const viaPickup =
+            haversineKilometers(driverLocation, pickup) +
+            haversineKilometers(pickup, dest);
+          const detourKm = viaPickup - direct;
+          if (detourKm < 1.5) {
+            detourBonus = 4;
+            onTheWay = true;
+          }
+        }
+      }
+
       const score = Math.round(
         Math.max(
           0,
@@ -122,10 +163,12 @@ export function recommendAssignments(
             availabilityScore +
               proximityScore +
               workloadScore +
+              detourBonus +
               (chosenVehicle?.score ?? 4),
           ),
         ),
       );
+
       const reasons = [
         driver.availability === "available"
           ? "Available now"
@@ -140,6 +183,16 @@ export function recommendAssignments(
           ? `${chosenVehicle.vehicle.registration_number} fits ${parcelWeight || "unknown"} kg parcel`
           : "No vehicle required",
       ];
+
+      if (onTheWay) {
+        reasons.push("On-the-way for current delivery route");
+      }
+      if (signalCount > 0) {
+        reasons.push(
+          `${signalCount} traffic ${signalCount === 1 ? "signal" : "signals"} on corridor`,
+        );
+      }
+
       return [
         {
           driverId: driver.id,

@@ -106,7 +106,11 @@ function MapPointPicker({
   );
 }
 
-export function PickupRequestPage() {
+export function PickupRequestPage({
+  step: _step,
+}: {
+  step?: "route" | "details" | string;
+} = {}) {
   const router = useRouter();
   const goBack = useBackNavigation("/home");
 

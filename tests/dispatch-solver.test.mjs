@@ -4,6 +4,7 @@ import {
   construct,
   totalScore,
 } from "../src/lib/delivery/dispatch/construct.ts";
+import { satisfiesPrecedence } from "../src/lib/delivery/dispatch/improve.ts";
 import {
   buildStraightLineMatrix,
   nodePoints,
@@ -185,4 +186,136 @@ test("the iteration cap stops the search and is recorded", () => {
   const plan = solve(inst, matrixFor(inst), { nowMs: clock });
   assert.equal(plan.stopReason, "iterations");
   assert.ok(plan.iterations <= 5);
+});
+
+test("satisfiesPrecedence enforces door order precedence and rejects depot pickups", () => {
+  const inst = tiny();
+  // Valid door: P then D
+  assert.equal(
+    satisfiesPrecedence(
+      [
+        { r: 0, kind: "P" },
+        { r: 0, kind: "D" },
+      ],
+      inst,
+    ),
+    true,
+  );
+  // Invalid door: D before P
+  assert.equal(
+    satisfiesPrecedence(
+      [
+        { r: 0, kind: "D" },
+        { r: 0, kind: "P" },
+      ],
+      inst,
+    ),
+    false,
+  );
+
+  const depotInst = tiny({ origin: "depot", pickup: null });
+  // Depot orders cannot have a P stop
+  assert.equal(satisfiesPrecedence([{ r: 0, kind: "P" }], depotInst), false);
+  assert.equal(satisfiesPrecedence([{ r: 0, kind: "D" }], depotInst), true);
+});
+
+test("2-opt uncrossing in local search optimizes crossed route sequences", () => {
+  // Create an instance with 4 depot orders arranged as corners of a square
+  const inst = generateSynthetic({ seed: 42, orders: 0, trucks: 1 });
+  inst.trucks[0].capKg = 1000;
+  inst.requests = [
+    {
+      id: "R1",
+      origin: "depot",
+      pickup: null,
+      delivery: { lat: 16.8, lng: 96.1 },
+      weightKg: 1,
+      volumeM3: 0.01,
+      windowStart: 0,
+      windowEnd: 24 * 60,
+      deadline: null,
+      deadlineHard: false,
+      pickupService: 0,
+      deliveryService: 5,
+      pickupTownship: null,
+      deliveryTownship: null,
+    },
+    {
+      id: "R2",
+      origin: "depot",
+      pickup: null,
+      delivery: { lat: 16.85, lng: 96.15 },
+      weightKg: 1,
+      volumeM3: 0.01,
+      windowStart: 0,
+      windowEnd: 24 * 60,
+      deadline: null,
+      deadlineHard: false,
+      pickupService: 0,
+      deliveryService: 5,
+      pickupTownship: null,
+      deliveryTownship: null,
+    },
+    {
+      id: "R3",
+      origin: "depot",
+      pickup: null,
+      delivery: { lat: 16.8, lng: 96.15 },
+      weightKg: 1,
+      volumeM3: 0.01,
+      windowStart: 0,
+      windowEnd: 24 * 60,
+      deadline: null,
+      deadlineHard: false,
+      pickupService: 0,
+      deliveryService: 5,
+      pickupTownship: null,
+      deliveryTownship: null,
+    },
+    {
+      id: "R4",
+      origin: "depot",
+      pickup: null,
+      delivery: { lat: 16.85, lng: 96.1 },
+      weightKg: 1,
+      volumeM3: 0.01,
+      windowStart: 0,
+      windowEnd: 24 * 60,
+      deadline: null,
+      deadlineHard: false,
+      pickupService: 0,
+      deliveryService: 5,
+      pickupTownship: null,
+      deliveryTownship: null,
+    },
+  ];
+
+  const matrix = matrixFor(inst);
+  // Deliberately crossed sequence (bowtie / self-intersecting)
+  const crossedSeq = [
+    { r: 0, kind: "D" },
+    { r: 1, kind: "D" },
+    { r: 2, kind: "D" },
+    { r: 3, kind: "D" },
+  ];
+  const crossedEval = evaluateRoute(inst, matrix, inst.trucks[0], crossedSeq);
+
+  // Uncrossed sequence
+  const uncrossedSeq = [
+    { r: 0, kind: "D" },
+    { r: 2, kind: "D" },
+    { r: 1, kind: "D" },
+    { r: 3, kind: "D" },
+  ];
+  const uncrossedEval = evaluateRoute(
+    inst,
+    matrix,
+    inst.trucks[0],
+    uncrossedSeq,
+  );
+  assert.ok(uncrossedEval.score < crossedEval.score);
+
+  // Solving reaches the optimal uncrossed plan
+  const plan = solve(inst, matrix, { nowMs: clock });
+  assert.ok(plan.objective.total <= uncrossedEval.score + 1e-4);
 });

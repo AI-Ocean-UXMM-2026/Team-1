@@ -62,7 +62,10 @@ const sameRecipient = (id, status, extra = {}) =>
 
 test("no assigned parcels is an empty route", () => {
   assert.equal(route([]).state, "NONE");
-  assert.equal(route([parcel("x", "assigned", { driver_id: "other" })]).state, "NONE");
+  assert.equal(
+    route([parcel("x", "assigned", { driver_id: "other" })]).state,
+    "NONE",
+  );
 });
 
 test("20 parcels across 12 stops: parcels and stops are counted separately", () => {
@@ -90,7 +93,10 @@ test("several parcels for one recipient form one stop and stay individual", () =
   const result = route([
     sameRecipient("a", "in_transit"),
     sameRecipient("b", "in_transit"),
-    sameRecipient("c", "in_transit", { cod_amount: 15000, cod_status: "pending" }),
+    sameRecipient("c", "in_transit", {
+      cod_amount: 15000,
+      cod_status: "pending",
+    }),
     parcel("d", "in_transit"),
   ]);
   assert.equal(result.stops.length, 2);
@@ -105,17 +111,37 @@ test("route state follows acknowledgement, loading, start, pause and close", () 
   assert.equal(route([parcel("a", "picked_up")]).state, "READY");
   assert.equal(route([parcel("a", "in_transit")]).state, "IN_PROGRESS");
   const paused = route([parcel("a", "in_transit")], {
-    session: { status: "paused", started_at: "", paused_at: "", closed_at: null, cod_declared: null },
+    session: {
+      status: "paused",
+      started_at: "",
+      paused_at: "",
+      closed_at: null,
+      cod_declared: null,
+    },
   });
   assert.equal(paused.state, "PAUSED");
   assert.ok(paused.current, "a paused route still knows its current stop");
   const done = [parcel("a", "delivered")];
-  const events = [{ id: 1, order_id: "a", status: "delivered", note: null, created_at: "2026-10-21T05:00:00Z" }];
+  const events = [
+    {
+      id: 1,
+      order_id: "a",
+      status: "delivered",
+      note: null,
+      created_at: "2026-10-21T05:00:00Z",
+    },
+  ];
   assert.equal(route(done, { events }).state, "COMPLETED");
   assert.equal(
     route(done, {
       events,
-      session: { status: "closed", started_at: "", paused_at: null, closed_at: "", cod_declared: 0 },
+      session: {
+        status: "closed",
+        started_at: "",
+        paused_at: null,
+        closed_at: "",
+        cod_declared: 0,
+      },
     }).state,
     "CLOSED",
   );
@@ -135,8 +161,18 @@ test("only one stage is active at the current stop", () => {
 });
 
 test("completing a stop advances to the next unfinished stop", () => {
-  const events = [{ id: 1, order_id: "a", status: "delivered", note: null, created_at: "2026-10-21T05:00:00Z" }];
-  const result = route([parcel("a", "delivered"), parcel("b", "in_transit")], { events });
+  const events = [
+    {
+      id: 1,
+      order_id: "a",
+      status: "delivered",
+      note: null,
+      created_at: "2026-10-21T05:00:00Z",
+    },
+  ];
+  const result = route([parcel("a", "delivered"), parcel("b", "in_transit")], {
+    events,
+  });
   assert.equal(result.stops[0].state, "COMPLETED");
   assert.equal(result.current.parcels[0].id, "b");
   assert.equal(result.current.number, 2);
@@ -149,6 +185,39 @@ test("trying a stop later moves it behind the others without writing a failure",
   assert.notEqual(result.current.key, first);
   assert.equal(result.stops.at(-1).key, first);
   assert.equal(result.stops.at(-1).parcels[0].status, "in_transit");
+});
+
+test("intelligent deferred stop re-insertion places stop at minimum detour instead of end of shift", () => {
+  const a = {
+    ...parcel("a", "in_transit"),
+    delivery_latitude: 16.8,
+    delivery_longitude: 96.15,
+  };
+  const b = {
+    ...parcel("b", "in_transit"),
+    delivery_latitude: 16.81,
+    delivery_longitude: 96.15,
+  };
+  const c = {
+    ...parcel("c", "in_transit"),
+    delivery_latitude: 16.8005,
+    delivery_longitude: 96.15,
+  };
+  const d = {
+    ...parcel("d", "in_transit"),
+    delivery_latitude: 16.95,
+    delivery_longitude: 96.15,
+  };
+
+  const normal = route([a, b, c, d]);
+  const aKey = normal.current.key;
+
+  const result = route([a, b, c, d], { deferred: [aKey] });
+  assert.equal(result.current.parcels[0].id, "b");
+  // A should not be pushed to the very end of the day after D
+  assert.notEqual(result.stops.at(-1).key, aKey);
+  assert.equal(result.stops.at(-1).parcels[0].id, "d");
+  assert.equal(result.stops[1].key, aKey);
 });
 
 test("a dispatcher-added stop is reported as a revision, current stop unchanged", () => {
@@ -183,20 +252,46 @@ test("a dispatcher reorder is reported without touching parcel state", () => {
 
 test("handover cannot complete without parcel check, recipient and COD", () => {
   const stop = route([
-    sameRecipient("a", "in_transit", { cod_amount: 20000, cod_status: "pending" }),
+    sameRecipient("a", "in_transit", {
+      cod_amount: 20000,
+      cod_status: "pending",
+    }),
     sameRecipient("b", "in_transit"),
   ]).current;
   const unmet = (draft) =>
-    handoverRequirements(stop, draft).filter((item) => !item.met).map((item) => item.key);
+    handoverRequirements(stop, draft)
+      .filter((item) => !item.met)
+      .map((item) => item.key);
   assert.deepEqual(unmet(EMPTY_HANDOVER), ["parcels", "recipient", "cod"]);
-  assert.deepEqual(unmet({ ...EMPTY_HANDOVER, verified: ["a"], receivedBy: "Daw Hla", codMode: "full" }), ["parcels"]);
   assert.deepEqual(
-    unmet({ ...EMPTY_HANDOVER, verified: ["a", "b"], receivedBy: "Daw Hla", codMode: "different", codAmount: "15000" }),
+    unmet({
+      ...EMPTY_HANDOVER,
+      verified: ["a"],
+      receivedBy: "Daw Hla",
+      codMode: "full",
+    }),
+    ["parcels"],
+  );
+  assert.deepEqual(
+    unmet({
+      ...EMPTY_HANDOVER,
+      verified: ["a", "b"],
+      receivedBy: "Daw Hla",
+      codMode: "different",
+      codAmount: "15000",
+    }),
     ["cod"],
     "a different amount needs a reason",
   );
   assert.deepEqual(
-    unmet({ ...EMPTY_HANDOVER, verified: ["a", "b"], receivedBy: "Daw Hla", codMode: "different", codAmount: "15000", codReason: "Paid rest by KPay" }),
+    unmet({
+      ...EMPTY_HANDOVER,
+      verified: ["a", "b"],
+      receivedBy: "Daw Hla",
+      codMode: "different",
+      codAmount: "15000",
+      codReason: "Paid rest by KPay",
+    }),
     [],
   );
 });
@@ -207,13 +302,39 @@ test("cash received at a stop is split across its COD parcels in order", () => {
     parcel("b", "in_transit"),
     parcel("c", "in_transit", { cod_amount: 5000, cod_status: "pending" }),
   ];
-  assert.deepEqual([...allocateCod(parcels, 15000)], [["a", 10000], ["c", 5000]]);
-  assert.deepEqual([...allocateCod(parcels, 12000)], [["a", 10000], ["c", 2000]]);
-  assert.deepEqual([...allocateCod(parcels, 8000)], [["a", 8000], ["c", 0]]);
+  assert.deepEqual(
+    [...allocateCod(parcels, 15000)],
+    [
+      ["a", 10000],
+      ["c", 5000],
+    ],
+  );
+  assert.deepEqual(
+    [...allocateCod(parcels, 12000)],
+    [
+      ["a", 10000],
+      ["c", 2000],
+    ],
+  );
+  assert.deepEqual(
+    [...allocateCod(parcels, 8000)],
+    [
+      ["a", 8000],
+      ["c", 0],
+    ],
+  );
 });
 
 test("failed parcels are returns, and parcel states map from order status", () => {
-  const events = [{ id: 1, order_id: "a", status: "failed", note: null, created_at: "2026-10-21T05:00:00Z" }];
+  const events = [
+    {
+      id: 1,
+      order_id: "a",
+      status: "failed",
+      note: null,
+      created_at: "2026-10-21T05:00:00Z",
+    },
+  ];
   const result = route([parcel("a", "failed")], { events });
   assert.equal(result.returns.length, 1);
   assert.equal(result.stops[0].state, "FAILED");

@@ -3,7 +3,7 @@ import { totalScore } from "./construct.ts";
 import { bestInsertion, removeRequest } from "./insert.ts";
 import { createRng } from "./rng.ts";
 import { evaluateRoute } from "./route-eval.ts";
-import type { Instance, Matrix } from "./types.ts";
+import type { Instance, Matrix, Stop } from "./types.ts";
 
 export type ImproveResult = {
   iterations: number;
@@ -12,11 +12,33 @@ export type ImproveResult = {
 
 const GAIN = 1e-6;
 
+/** Fast check that door orders have pickup before delivery and depot orders have no pickup. */
+export function satisfiesPrecedence(
+  candidate: readonly Stop[],
+  inst: Instance,
+): boolean {
+  const seenP = new Set<number>();
+  for (const stop of candidate) {
+    if (stop.kind === "P") {
+      if (inst.requests[stop.r].origin === "depot" || seenP.has(stop.r)) {
+        return false;
+      }
+      seenP.add(stop.r);
+    } else {
+      if (inst.requests[stop.r].origin === "door" && !seenP.has(stop.r)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 /**
  * Deterministic local search: relocate each request to its best position on
- * any truck, retry unassigned requests, and swap pairs across trucks. It never
- * accepts a worse or infeasible plan. Visiting order comes from the seeded RNG
- * and the budget is an iteration count; the deadline is only a safety valve.
+ * any truck, retry unassigned requests, intra-route 2-opt uncrossing, and
+ * swap pairs across trucks. It never accepts a worse or infeasible plan.
+ * Visiting order comes from the seeded RNG and the budget is an iteration count;
+ * the deadline is only a safety valve.
  */
 export function improve(
   inst: Instance,
@@ -118,6 +140,49 @@ export function improve(
         state.routes[bestK] = bestSeq.seq;
         state.evals[bestK] = bestSeq.eval;
         improved = true;
+      }
+    }
+
+    // Intra-route 2-opt uncrossing on each truck to eliminate loop crossings.
+    for (let k = 0; k < inst.trucks.length; k++) {
+      let seq = state.routes[k];
+      if (seq.length < 3) continue;
+
+      let routeImproved = false;
+      for (let i = 0; i < seq.length - 1; i++) {
+        for (let j = i + 1; j < seq.length; j++) {
+          const stop = budgetLeft();
+          if (stop) return { iterations, stopReason: stop };
+          iterations++;
+
+          const reversed = seq.slice(i, j + 1).reverse();
+          const candidate = [
+            ...seq.slice(0, i),
+            ...reversed,
+            ...seq.slice(j + 1),
+          ];
+
+          if (!satisfiesPrecedence(candidate, inst)) continue;
+
+          const candEval = evaluateRoute(
+            inst,
+            matrix,
+            inst.trucks[k],
+            candidate,
+          );
+          if (
+            candEval.feasible &&
+            state.evals[k].score - candEval.score > GAIN
+          ) {
+            state.routes[k] = candidate;
+            state.evals[k] = candEval;
+            seq = candidate;
+            improved = true;
+            routeImproved = true;
+            break;
+          }
+        }
+        if (routeImproved) break;
       }
     }
 
