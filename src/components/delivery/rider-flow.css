@@ -1,6 +1,23 @@
-/* Oern rider workflow — map-first, no tab bar. Tokens come from globals.css (Color System v1.2). */
+/* Oern rider workflow — map-first, no tab bar. Keep its Color System v1.2 light tokens stable across OS themes. */
 
 .rf-app {
+  color-scheme: light;
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-control: #64748b;
+  --color-text-primary: #172b4d;
+  --color-text-secondary: #64748b;
+  --color-text-secondary-subtle: #475569;
+  --color-text-inverse: #ffffff;
+  --color-brand-orange-action: #c2410c;
+  --color-brand-orange-action-hover: #9a3412;
+  --color-map-route: #2563eb;
+  --color-map-route-casing: #ffffff;
+  --color-map-driver: #172b4d;
+  --color-map-driver-casing: #ffffff;
+  --color-map-destination: #c2410c;
   --rf-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --rf-shadow-float:
     0 6px 18px -6px rgb(23 43 77 / 0.28), 0 2px 4px rgb(23 43 77 / 0.08);
@@ -619,8 +636,15 @@
 }
 
 @keyframes route-destination-pulse {
-  0% { opacity: 0.45; transform: scale(0.8); }
-  70%, 100% { opacity: 0; transform: scale(2.5); }
+  0% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.5);
+  }
 }
 
 .rf-gate p {
@@ -2179,17 +2203,18 @@
 /* ---------- navigation: Grab-style instruction, tools, focus card ---------- */
 
 .rf-nav .rf-nav-instruction {
-  border-color: transparent;
-  background: var(--color-brand-navy);
-  color: var(--color-text-inverse);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
 }
 
 .rf-nav .rf-nav-instruction > div > span {
-  color: #cbd5e1;
+  color: var(--color-text-secondary-subtle);
 }
 
 .rf-nav .rf-turn {
-  background: rgb(255 255 255 / 0.12);
+  background: var(--color-surface-subtle);
+  color: var(--color-brand-navy);
 }
 
 /* Part of the header's flow, so a two-line instruction never covers them. */

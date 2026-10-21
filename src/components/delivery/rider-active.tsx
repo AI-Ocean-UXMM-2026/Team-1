@@ -141,7 +141,12 @@ export function ActiveDelivery({
   const done = route.stops.filter(
     (item) => item.state === "COMPLETED" || item.state === "FAILED",
   ).length;
-  const sheetState = handover ? "is-handover" : expanded ? "is-open" : "";
+  const sheetState = [
+    handover ? "is-handover" : expanded ? "is-open" : "",
+    arrived ? "is-arrived" : "is-navigating",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <main className="rf-app rf-nav dv-active">
@@ -157,7 +162,9 @@ export function ActiveDelivery({
           aria-valuenow={done}
         >
           <span
-            style={{ width: `${(done / Math.max(1, route.stops.length)) * 100}%` }}
+            style={{
+              width: `${(done / Math.max(1, route.stops.length)) * 100}%`,
+            }}
           />
         </div>
         {!handover && (
@@ -266,9 +273,7 @@ export function ActiveDelivery({
             <div className="dv-stop-head">
               <div className="dv-stop-count">
                 <StopMark stop={stop} />
-                <small>
-                  of {route.stops.length}
-                </small>
+                <small>of {route.stops.length}</small>
               </div>
               <div className="dv-stop-title">
                 <small className={arrived ? "is-arrived" : ""}>
@@ -303,38 +308,37 @@ export function ActiveDelivery({
               <CodTag amount={stop.codDue} />
             </div>
 
-            <fieldset className="rg-actions dv-quick">
-              <legend className="rf-sr-only">Contact the recipient</legend>
-              {stop.phone ? (
-                <>
-                  <a href={phoneHref(stop.phone, "tel")}>
-                    <Icon name="phone" size={20} />
-                    <span>Call</span>
-                  </a>
-                  <a href={phoneHref(stop.phone, "sms")}>
-                    <Icon name="message" size={20} />
-                    <span>Message</span>
-                  </a>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() =>
-                    void navigator.clipboard?.writeText(stop.address)
-                  }
-                >
-                  <Icon name="copy" size={20} />
-                  <span>Copy address</span>
-                </button>
-              )}
-              <button type="button" onClick={() => onExpand(!expanded)}>
-                <Icon name="list" size={20} />
-                <span>{expanded ? "Less" : "Details"}</span>
-              </button>
-            </fieldset>
-
             {expanded && (
               <div className="rf-sheet-body dv-details">
+                <fieldset className="rg-actions dv-quick">
+                  <legend className="rf-sr-only">Recipient actions</legend>
+                  {stop.phone ? (
+                    <>
+                      <a href={phoneHref(stop.phone, "tel")}>
+                        <Icon name="phone" size={20} />
+                        <span>Call</span>
+                      </a>
+                      <a href={phoneHref(stop.phone, "sms")}>
+                        <Icon name="message" size={20} />
+                        <span>Message</span>
+                      </a>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void navigator.clipboard?.writeText(stop.address)
+                      }
+                    >
+                      <Icon name="copy" size={20} />
+                      <span>Copy address</span>
+                    </button>
+                  )}
+                  <button type="button" onClick={() => onExpand(false)}>
+                    <Icon name="chevron-down" size={20} />
+                    <span>Show less</span>
+                  </button>
+                </fieldset>
                 {!stop.phone && (
                   <p className="rf-muted">
                     No phone number on this order. Use “Can’t deliver” if you
@@ -437,25 +441,14 @@ export function ActiveDelivery({
             {error}
             <div className="dv-sheet-actions">
               {arrived ? (
-                <>
-                  <button
-                    type="button"
-                    className="rf-btn rf-btn-primary"
-                    onClick={onStartHandover}
-                  >
-                    Start handover
-                    <Icon name="arrow-right" size={18} />
-                  </button>
-                  {!expanded && (
-                    <button
-                      type="button"
-                      className="rf-btn rf-btn-quiet"
-                      onClick={onCannotDeliver}
-                    >
-                      Can’t deliver
-                    </button>
-                  )}
-                </>
+                <button
+                  type="button"
+                  className="rf-btn rf-btn-primary"
+                  onClick={onStartHandover}
+                >
+                  Start handover
+                  <Icon name="arrow-right" size={18} />
+                </button>
               ) : (
                 <button
                   type="button"

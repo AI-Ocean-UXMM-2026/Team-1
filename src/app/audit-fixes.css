@@ -247,43 +247,6 @@
   min-width: 0;
 }
 
-/* H-13: the rider workflow follows the OS dark setting (night shifts). */
-@media (prefers-color-scheme: dark) {
-  .rf-app {
-    --color-background: #0f172a;
-    --color-surface: #1e293b;
-    --color-surface-subtle: #273449;
-    --color-border: #334155;
-    --color-border-control: #8294ad;
-    --color-text-primary: #f8fafc;
-    --color-text-secondary: #cbd5e1;
-    --color-text-secondary-subtle: #cbd5e1;
-    --color-text-inverse: #0f172a;
-    --color-brand-orange-action: #f97316;
-    --color-brand-orange-action-hover: #fb923c;
-    --color-success: #4ade80;
-    --color-success-text: #86efac;
-    --color-success-surface: #14532d;
-    --color-warning: #fbbf24;
-    --color-warning-text: #fcd34d;
-    --color-warning-surface: #451a03;
-    --color-error: #f87171;
-    --color-error-text: #fca5a5;
-    --color-error-surface: #450a0a;
-    --color-info: #60a5fa;
-    --color-info-text: #93c5fd;
-    --color-info-surface: #172554;
-    --rf-border-info: #1e40af;
-    --rf-border-warning: #92400e;
-    --rf-border-error: #991b1b;
-    --rf-border-success: #166534;
-    --rf-error-strong: #fca5a5;
-    --rf-shadow-float: 0 6px 18px -6px rgb(0 0 0 / 0.6);
-    --rf-shadow-sheet: 0 -10px 30px -12px rgb(0 0 0 / 0.6);
-    color-scheme: dark;
-  }
-}
-
 /* M-01: every customer control is at least 48px tall. */
 .customer-app .MuiButton-root,
 .customer-app .MuiChip-clickable,
@@ -295,4 +258,40 @@
   min-width: var(--target-min, 48px);
   padding-inline: 8px;
   font-size: 14px;
+}
+.auth-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f8fafc;
+}
+.auth-page-card {
+  animation: none;
+}
+.auth-page-card h1 {
+  margin: 7px 0;
+  font-size: 25px;
+  font-weight: 650;
+  letter-spacing: -0.055em;
+  line-height: 1.15;
+}
+.auth-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  color: #617066;
+  font-size: 10px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.auth-page-back:hover {
+  color: var(--forest);
+}
+@media (max-width: 600px) {
+  .auth-page {
+    align-items: start;
+    padding: 18px 12px;
+  }
 }
