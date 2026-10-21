@@ -43,6 +43,10 @@ const EMPTY: DispatchSetup = {
   pendingOrders: null,
 };
 
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
 /** Everything the setup step needs, read as the signed-in manager (RLS applies). */
 export function useDispatchSetup(enabled: boolean) {
   const [setup, setSetup] = useState<DispatchSetup>(EMPTY);
@@ -91,17 +95,20 @@ export function useDispatchSetup(enabled: boolean) {
           .eq("status", "pending"),
       ]);
       const failure = depots.error ?? trucks.error ?? drivers.error;
-      if (failure) throw new Error(failure.message);
+      if (failure) {
+        if (alive.current) {
+          setSetup({ ...EMPTY, status: "error", error: failure.message });
+        }
+        return;
+      }
 
-      const one = <T>(value: T | T[] | null | undefined) =>
-        Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
       if (!alive.current) return;
       setSetup({
         status: "ready",
         error: null,
         depots: (depots.data ?? []) as SetupDepot[],
         trucks: (trucks.data ?? []).map((row) => {
-          const profileRow = one(
+          const profileRow = firstRelation(
             row.vehicle_dispatch_profiles as
               | { depot_id: string | null; default_driver_id: string | null }
               | { depot_id: string | null; default_driver_id: string | null }[]
@@ -119,7 +126,7 @@ export function useDispatchSetup(enabled: boolean) {
         drivers: (drivers.data ?? []).map((row) => ({
           id: row.user_id,
           name:
-            one(
+            firstRelation(
               row.profiles as
                 | { full_name: string | null }
                 | { full_name: string | null }[]

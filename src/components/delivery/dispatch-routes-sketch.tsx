@@ -113,11 +113,11 @@ export function RoutesSketch({
         Schematic, not a map: straight lines in visit order, not to road scale.
         Filled circles are pickups; small circles are deliveries.
       </figcaption>
-      <div
+      <fieldset
         className="dispatch-legend"
-        role="group"
-        aria-label="Choose a truck to highlight"
+        style={{ border: 0, margin: 0, minInlineSize: 0, padding: 0 }}
       >
+        <legend className="sr-only">Choose a truck to highlight</legend>
         {cards.map((card, index) => (
           <button
             key={card.vehicleId}
@@ -139,7 +139,7 @@ export function RoutesSketch({
             {card.letter} · {card.label}
           </button>
         ))}
-      </div>
+      </fieldset>
     </figure>
   );
 }
