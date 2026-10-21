@@ -237,3 +237,12 @@
   word-break: normal;
   overflow-wrap: anywhere;
 }
+.cod-ledger .dash-kpi-value {
+  font-size: 20px;
+  line-height: 26px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.cod-ledger .dash-kpi {
+  min-width: 0;
+}
