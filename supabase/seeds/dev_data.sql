@@ -210,7 +210,6 @@ update public.delivery_orders set status = 'accepted' where tracking_code in ('D
 update public.delivery_orders set status = 'picked_up' where tracking_code in ('DYN-SEED-004', 'DYN-SEED-005');
 update public.delivery_orders set status = 'in_transit', route_progress_percent = 62, eta_confidence = 'high', eta_updated_at = now(), traffic_delay_minutes = 4 where tracking_code = 'DYN-SEED-004';
 update public.delivery_orders set status = 'in_transit', route_progress_percent = 46, eta_confidence = 'medium', eta_updated_at = now(), traffic_delay_minutes = 0 where tracking_code = 'DYN-SEED-005';
-update public.delivery_orders set status = 'delivered', route_progress_percent = 100, eta_confidence = 'high', eta_updated_at = now(), delivered_at = now() - interval '1 hour' where tracking_code = 'DYN-SEED-005';
 
 insert into public.delivery_locations (order_id, driver_id, latitude, longitude, accuracy_meters, recorded_at)
 values
@@ -223,6 +222,11 @@ values (
   45000, 'cash', 'collected',
   (select driver_two_id from oern_seed_accounts), now() - interval '1 hour', null
 );
+
+update public.delivery_orders
+set status = 'delivered', route_progress_percent = 100, eta_confidence = 'high',
+  eta_updated_at = now(), delivered_at = now() - interval '1 hour'
+where tracking_code = 'DYN-SEED-005';
 
 insert into public.road_reports (driver_id, order_id, category, severity, description, latitude, longitude, status, reported_at, expires_at, reviewed_by, reviewed_at)
 values (
