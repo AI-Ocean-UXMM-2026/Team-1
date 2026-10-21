@@ -27,6 +27,16 @@ export const DEFAULT_PARAMS: DispatchParams = {
   maxIterations: 4000,
   deadlineMs: 6000,
   seed: 1,
+  truckTimeFactor: 1.25,
+  trafficMultiplier: 1.15,
+  maxMatrixElements: 20000,
+  maxMatrixRequests: 55,
+  dispatchLeadMin: 20,
+  sizeKg: { small: 2, medium: 8, large: 20 },
+  sizeM3: { small: 0.015, medium: 0.06, large: 0.15 },
+  serviceExtraMin: { small: 0, medium: 1, large: 3, cod: 2 },
+  defaultDeadlineSlackMin: 240,
+  defaultCostPerKm: 1000,
 };
 
 export function withParams(over: Partial<DispatchParams> = {}): DispatchParams {
