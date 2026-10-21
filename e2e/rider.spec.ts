@@ -1,4 +1,9 @@
-import { failSupabase, makeOrder, signInAs } from "./support/supabase-mock";
+import {
+  failSupabase,
+  makeOrder,
+  makeRoute,
+  signInAs,
+} from "./support/supabase-mock";
 import { expect, test } from "./support/test";
 
 const assignment = {
@@ -35,6 +40,8 @@ test("handover steps move forward and back (C-06)", async ({
 }) => {
   await openRider(page, context, "in_transit");
   await page.getByRole("button", { name: /i.ve arrived/i }).click();
+  // The test position is a few km from the stop, so arrival asks first.
+  await page.getByRole("button", { name: /yes, i.m here/i }).click();
   await page.getByRole("button", { name: "Start handover" }).click();
   const next = page.getByRole("button", { name: "Continue to recipient" });
   await expect(next).toBeDisabled();
@@ -82,7 +89,7 @@ test("a problem can be reported before arriving, without faking arrival (H-09)",
   await page
     .getByRole("button", { name: "Show stop details and full route" })
     .click();
-  await page.getByRole("button", { name: /can.t deliver this stop/i }).click();
+  await page.getByRole("button", { name: /problem with this stop/i }).click();
   await expect(
     page.getByRole("button", { name: /recipient not there/i }),
   ).toBeVisible();
@@ -102,8 +109,10 @@ test("shift tools show their own errors (H-11)", async ({ page, context }) => {
     delivery_assignments: [assignment],
   });
   await page.goto("/rider/route");
-  await page.getByRole("button", { name: "Shift tools" }).first().click();
-  await page.getByRole("button", { name: /^Road conditions/ }).click();
+  // The map's own button opens road conditions without going through the menu.
+  await page
+    .getByRole("button", { name: "Road conditions", exact: true })
+    .click();
   await page.getByRole("button", { name: "Report a road condition" }).click();
   const menu = page.getByRole("dialog");
   await menu.getByLabel("What did you see?").fill("Left lane closed");
@@ -111,4 +120,41 @@ test("shift tools show their own errors (H-11)", async ({ page, context }) => {
   await expect(
     menu.getByRole("button", { name: "Send with my location" }),
   ).toBeDisabled();
+});
+
+test("arriving far from the stop asks before telling the customer", async ({
+  page,
+  context,
+}) => {
+  await openRider(page, context, "in_transit");
+  await page.getByRole("button", { name: /i.ve arrived/i }).click();
+  await expect(page.getByText(/km away\. arrived anyway\?/i)).toBeVisible();
+  await page.getByRole("button", { name: "Not yet" }).click();
+  await expect(
+    page.getByRole("button", { name: "Start handover" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /i.ve arrived/i })).toBeVisible();
+});
+
+test("the timeline shows COD amounts and flags promises out of route order", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 16.79, longitude: 96.145 });
+  await signInAs(context, "driver", makeRoute());
+  await page.goto("/rider/route");
+  const sheet = page.getByRole("region", { name: "Stop 1 of 4" });
+  await expect(sheet).toBeVisible();
+  await page
+    .getByRole("button", { name: "Show stop details and full route" })
+    .click();
+  const rows = sheet.locator(".dv-stop-row.is-dense");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText("Thuriya Ye Naing");
+  await expect(rows.nth(0).locator(".is-warn")).toHaveCount(0);
+  // Stop 3 was promised before stop 2, which comes first on the route.
+  await expect(rows.nth(1)).toContainText("COD 125K");
+  await expect(rows.nth(1).locator(".dv-stop-state.is-warn")).toBeVisible();
+  await expect(sheet.getByText(/\+1 more stop after these/)).toBeVisible();
 });

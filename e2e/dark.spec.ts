@@ -43,6 +43,7 @@ test("rider screens use the dark theme at night (H-13)", async ({
   const surface = await surfaceOf(stop);
   expect(isDark(surface), `stop sheet ${surface} is not dark`).toBe(true);
   await page.getByRole("button", { name: /i.ve arrived/i }).click();
+  await page.getByRole("button", { name: /yes, i.m here/i }).click();
   await page.getByRole("button", { name: "Start handover" }).click();
   const handover = page.getByRole("group", { name: "Verify the parcel" });
   await expect(handover).toBeVisible();

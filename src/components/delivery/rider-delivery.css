@@ -208,6 +208,86 @@
   padding: 10px 8px;
 }
 
+/* Dense rows form a timeline: a rail joins the numbered marks, and COD and
+   time sit in a right column so they line up from row to row. */
+.dv-stop-row.is-dense {
+  position: relative;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+}
+
+.dv-stop-row.is-dense:not(:last-child)::after {
+  position: absolute;
+  top: calc(50% + 14px);
+  left: 13px;
+  height: calc(100% - 28px);
+  width: 2px;
+  background: var(--color-border-control);
+  content: "";
+  opacity: 0.5;
+}
+
+.dv-stop-row.is-dense .dv-stop-mark {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy {
+  gap: 0;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy strong,
+.dv-stop-row.is-dense .dv-stop-address {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy strong {
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.dv-stop-row.is-dense .dv-stop-address {
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.dv-dense-end {
+  display: grid;
+  flex: none;
+  justify-items: end;
+  gap: 2px;
+  min-width: 72px;
+  margin-left: auto;
+}
+
+.dv-dense-end .dv-stop-state {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Out-of-order promise: a pill, so it still reads on the dark surface. */
+.dv-dense-end .dv-stop-state.is-warn {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.dv-dense-cod {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .dv-stop-mark {
   display: inline-grid;
   flex: none;
@@ -550,6 +630,8 @@
 
 /* ---------- active delivery: sheet ---------- */
 
+/* Collapsed, the sheet is one header row and the action bar (Grab Driver,
+   DoorDash Dasher); details only appear when the rider pulls it up. */
 .dv-sheet {
   position: absolute;
   left: 50%;
@@ -557,7 +639,8 @@
   z-index: 15;
   width: 100%;
   max-width: 430px;
-  max-height: 46dvh;
+  max-height: 40dvh;
+  padding-top: 4px;
   padding-bottom: 0;
   border: 0;
   background: var(--color-surface);
@@ -567,8 +650,7 @@
 
 .dv-sheet.is-open {
   display: flex;
-  height: 76dvh;
-  max-height: 76dvh;
+  max-height: 62dvh;
   flex-direction: column;
   overflow: hidden;
 }
@@ -578,8 +660,13 @@
   padding-top: 12px;
 }
 
-.dv-sheet.is-arrived:not(.is-open, .is-handover) {
-  max-height: 50dvh;
+.dv-sheet .rf-handle-btn {
+  height: 20px;
+  margin: 0;
+}
+
+.dv-sheet .rf-handle-btn .rf-handle {
+  margin: 6px auto 0;
 }
 
 .dv-sheet-head {
@@ -596,163 +683,239 @@
   font-weight: 600;
 }
 
+/* Dragging the handle must not select the header text. */
+.dv-stop-head,
+.dv-sheet .rf-handle-btn {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .dv-stop-head {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
-.dv-stop-count {
-  display: grid;
-  flex: none;
-  justify-items: center;
-  gap: 2px;
-}
-
-.dv-stop-count .dv-stop-mark {
-  width: 44px;
-  height: 44px;
-  font-size: 18px;
-}
-
-.dv-stop-count small {
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
+.dv-stop-head .dv-stop-mark {
+  width: 36px;
+  height: 36px;
+  margin-top: 6px;
+  font-size: 16px;
 }
 
 .dv-stop-title {
   display: grid;
   flex: 1;
-  gap: 2px;
   min-width: 0;
 }
 
 .dv-stop-title > small {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--rf-info-bg-strong);
-  border: 1px solid var(--rf-border-info);
   color: var(--rf-info-fg);
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  margin-bottom: 2px;
 }
 
 .dv-stop-title > small.is-arrived {
-  background: var(--rf-success-bg);
-  border-color: var(--rf-border-success);
   color: var(--rf-success-fg);
 }
 
+.dv-stop-title h2,
+.dv-stop-title p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dv-stop-title h2 {
-  font-size: 20px;
-  line-height: 26px;
+  font-size: 18px;
+  line-height: 24px;
 }
 
 .dv-stop-title p {
   color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+  line-height: 20px;
 }
 
-.dv-sheet > .dv-meta {
-  margin: 10px 0 0 56px;
+.dv-stop-title .dv-meta {
+  gap: 4px 12px;
+  margin-top: 6px;
 }
 
-.dv-sheet > .dv-meta .rf-cod {
-  flex-basis: 100%;
-  width: fit-content;
-  min-height: 32px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 13px;
+.dv-stop-title .dv-meta .rf-cod,
+.dv-stop-title .dv-meta .dv-tag {
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
 }
 
-.dv-quick {
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  margin-top: 0;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.dv-quick > a[href^="tel"] {
-  color: var(--rf-success-fg);
-  background: var(--rf-success-bg);
-}
-
-.dv-quick > a[href^="tel"]:hover,
-.dv-quick > a[href^="tel"]:active {
-  background: var(--rf-success-bg);
-}
-
-.dv-quick > a[href^="sms"] {
-  color: var(--rf-info-fg);
-  background: var(--rf-info-bg);
-}
-
-.dv-quick > a[href^="sms"]:hover,
-.dv-quick > a[href^="sms"]:active {
-  background: var(--rf-info-bg-strong);
+.dv-directions {
+  display: grid;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  margin-top: 4px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-info);
+  color: #ffffff;
 }
 
 .dv-details {
   display: grid;
-  flex: 1;
-  gap: 16px;
+  flex: 0 1 auto;
+  align-content: start;
+  gap: 14px;
   min-height: 0;
+  margin-top: 10px;
+  padding-top: 12px;
   overflow-y: auto;
-  padding-top: 16px;
   overscroll-behavior: contain;
 }
 
-.dv-details > .dv-quick {
-  margin-inline: -16px;
+.dv-details > * {
+  min-width: 0;
+}
+
+.dv-details .rf-detail {
+  justify-items: stretch;
+}
+
+.dv-facts {
+  display: grid;
+  gap: 8px;
+}
+
+.dv-facts h3,
+.dv-details .rf-detail h3 {
+  margin: 0 0 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .dv-parcel-list {
   display: grid;
-  gap: 6px;
-  margin: 4px 0 0;
+  gap: 8px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .dv-parcel-list li {
   display: flex;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.dv-parcel-list li > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+}
+
+.dv-parcel-list li > span {
+  display: grid;
+  min-width: 0;
+  color: var(--color-text-secondary);
+}
+
+.dv-parcel-list strong {
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-parcel-list small {
+  overflow: hidden;
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-more {
+  margin: 2px 0 0 38px;
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+}
+
+.dv-secondary {
+  display: flex;
   flex-wrap: wrap;
+  gap: 4px 20px;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border);
 }
 
-.dv-parcel-list span {
-  color: var(--color-text-secondary-subtle);
-}
-
-.dv-done summary {
+.dv-secondary button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 44px;
-  padding: 12px 0;
-  color: var(--color-text-secondary-subtle);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
 
-.dv-secondary {
-  display: grid;
-  gap: 8px;
+.dv-secondary button > svg {
+  color: var(--color-text-secondary);
 }
 
 .dv-sheet-actions {
-  display: grid;
+  display: flex;
   flex: none;
+  align-items: center;
   gap: 8px;
-  margin: 12px -16px 0;
-  padding: 12px 16px calc(var(--rf-safe-bottom) + 12px);
+  margin: 10px -16px 0;
+  padding: 8px 16px calc(var(--rf-safe-bottom) + 8px);
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
+}
+
+.dv-round {
+  display: grid;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 999px;
+}
+
+/* Icon colours are the dark semantic text tones so they hold up in sunlight. */
+.dv-round-call {
+  background: var(--rf-success-bg);
+  color: var(--color-success-text);
+}
+
+.dv-round-msg {
+  background: var(--rf-info-bg);
+  color: var(--color-info-text);
+}
+
+.dv-confirm {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 8px;
+}
+
+.dv-confirm > span {
+  flex: 1 1 100%;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 /* ---------- handover ---------- */
@@ -1028,286 +1191,9 @@
   font: inherit;
 }
 
-/* ---------- active delivery: compact sheet ---------- */
 
-.dv-sheet {
-  max-height: 40dvh;
-  padding-top: 4px;
-}
-
-.dv-sheet.is-arrived:not(.is-open, .is-handover) {
-  max-height: 40dvh;
-}
-
-.dv-sheet .rf-handle-btn {
-  height: 20px;
-  margin: 0;
-}
-
-.dv-sheet .rf-handle-btn .rf-handle {
-  margin: 6px auto 0;
-}
-
-.dv-stop-head {
-  align-items: center;
-  gap: 10px;
-}
-
-.dv-stop-head .dv-stop-mark {
-  width: 36px;
-  height: 36px;
-  font-size: 16px;
-}
-
-.dv-stop-title {
-  gap: 0;
-}
-
-.dv-stop-title > small {
-  padding: 0;
-  border: 0;
-  background: none;
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0;
-}
-
-.dv-stop-title h2 {
-  overflow: hidden;
-  font-size: 18px;
-  line-height: 24px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dv-stop-title p {
-  overflow: hidden;
-  font-size: 14px;
-  line-height: 20px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dv-directions {
+.dv-float-col {
   display: grid;
   flex: none;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--color-info);
-  color: #ffffff;
-}
-
-.dv-sheet > .dv-meta {
-  gap: 4px 12px;
-  margin: 6px 0 0 46px;
-}
-
-.dv-sheet > .dv-meta .rf-cod,
-.dv-sheet > .dv-meta .dv-tag {
-  flex-basis: auto;
-  min-height: 24px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-}
-
-.dv-sheet-actions {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  margin: 8px -16px 0;
-  padding: 8px 16px calc(var(--rf-safe-bottom) + 8px);
-}
-
-.dv-round {
-  display: grid;
-  flex: none;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border-radius: 999px;
-}
-
-.dv-round-call {
-  background: var(--rf-success-bg);
-  color: var(--rf-success-fg);
-}
-
-.dv-round-msg {
-  background: var(--rf-info-bg);
-  color: var(--rf-info-fg);
-}
-
-.dv-details {
-  gap: 12px;
-  padding-top: 12px;
-  margin-top: 8px;
-}
-
-.dv-facts {
-  display: grid;
-  gap: 10px;
-}
-
-.dv-facts h3,
-.dv-details .rf-detail h3 {
-  margin: 0 0 2px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.dv-parcel-list {
-  gap: 2px;
-  margin: 0;
-}
-
-.dv-stop-row.is-dense {
-  align-items: center;
-  gap: 10px;
-  padding: 6px 4px;
-}
-
-.dv-stop-row.is-dense .dv-stop-mark {
-  width: 28px;
-  height: 28px;
-  font-size: 13px;
-}
-
-.dv-stop-row.is-dense .dv-stop-copy {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.dv-stop-row.is-dense .dv-stop-copy strong {
-  flex: none;
-  max-width: 45%;
-  overflow: hidden;
-  font-size: 14px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dv-stop-row.is-dense .dv-stop-address {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dv-dense-cod {
-  flex: none;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--rf-warning-bg, #fef3c7);
-  color: var(--rf-warning-fg, #92400e);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.dv-secondary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-}
-
-.dv-secondary button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.dv-secondary button:first-child {
-  color: var(--color-error-text);
-}
-
-/* ---------- compact sheet, round 2 (Grab / DoorDash pattern) ---------- */
-
-.dv-sheet.is-open {
-  height: auto;
-  max-height: 62dvh;
-}
-
-.dv-details {
-  flex: 0 1 auto;
-  align-content: start;
-  gap: 14px;
-  margin-top: 8px;
-  padding-top: 10px;
-}
-
-.dv-details > * {
-  min-width: 0;
-}
-
-.dv-sheet > .dv-meta {
-  margin-left: 46px;
-}
-
-/* Upcoming stops as a timeline: a rail joins the numbered marks. */
-.dv-stop-list.is-compact {
-  position: relative;
-}
-
-.dv-stop-row.is-dense {
-  position: relative;
-  border-top: 0;
-  border-left: 0;
-  background: none;
-  padding: 7px 0;
-}
-
-.dv-stop-row.is-dense:not(:last-child)::after {
-  position: absolute;
-  top: calc(50% + 14px);
-  bottom: calc(-50% + 14px);
-  left: 13px;
-  width: 2px;
-  background: var(--color-border);
-  content: "";
-}
-
-.dv-stop-row.is-dense .dv-stop-copy {
-  display: grid;
-  gap: 0;
-}
-
-.dv-stop-row.is-dense .dv-stop-copy strong {
-  max-width: none;
-  line-height: 18px;
-}
-
-.dv-stop-row.is-dense .dv-stop-address {
-  line-height: 16px;
-}
-
-.dv-stop-row.is-dense .dv-stop-state {
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.dv-done summary {
-  min-height: 32px;
-  padding: 4px 0;
-  font-size: 14px;
-}
-
-.dv-secondary {
-  padding-top: 8px;
-  border-top: 1px solid var(--color-border);
 }

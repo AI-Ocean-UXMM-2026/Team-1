@@ -19,14 +19,18 @@ import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { StopMark, StopRow } from "@/components/delivery/rider-overview";
 import { CodTag } from "@/components/delivery/rider-tools";
 import type { DeliveryStop, DriverRoute } from "@/lib/delivery/driver-route";
 import { formatTime } from "@/lib/delivery/format";
-import { resolveTurnSymbol, type TurnSymbol } from "@/lib/delivery/rider-route";
+import {
+  formatDistance,
+  resolveTurnSymbol,
+  type TurnSymbol,
+} from "@/lib/delivery/rider-route";
 
 export type GpsState =
   | "off"
@@ -154,6 +158,27 @@ function SheetHandle({
   );
 }
 
+/** Beyond this, "I've arrived" asks first: a mis-tap would tell the customer the rider is there. */
+const FAR_FROM_STOP_KM = 0.3;
+
+/**
+ * Times for the next stops in the timeline. They are the seller's promised
+ * times, not road ETAs, so one that is earlier than the stop before it is
+ * flagged rather than shown as if the rider would get there first.
+ */
+function timelineTimes(
+  previous: string | null,
+  stops: DeliveryStop[],
+): ({ label: string; warn: boolean } | null)[] {
+  let floor = previous;
+  return stops.map((item) => {
+    if (!item.etaAt) return null;
+    const warn = floor != null && Date.parse(item.etaAt) < Date.parse(floor);
+    if (!warn) floor = item.etaAt;
+    return { label: `by ${formatTime(item.etaAt)}`, warn };
+  });
+}
+
 function phoneHref(phone: string, scheme: "tel" | "sms") {
   return `${scheme}:${phone.replace(/\s+/g, "")}`;
 }
@@ -187,6 +212,9 @@ export function ActiveDelivery({
   onCautions,
   onLocationHelp,
   cautionBanner,
+  liveEtaAt,
+  distanceKm,
+  onSheetHeight,
 }: {
   route: DriverRoute;
   stop: DeliveryStop;
@@ -212,6 +240,12 @@ export function ActiveDelivery({
   onCautions: () => void;
   onLocationHelp: () => void;
   cautionBanner: ReactNode;
+  /** Arrival time from the live road route, when there is one. */
+  liveEtaAt: string | null;
+  /** Straight-line distance from the rider to this stop, when GPS is live. */
+  distanceKm: number | null;
+  /** Reports the sheet's rendered height so the map can keep the route clear of it. */
+  onSheetHeight: (px: number) => void;
 }) {
   const stage = stop.state;
   const arrived = stage === "ARRIVED" || stage === "HANDOVER_IN_PROGRESS";
@@ -224,6 +258,28 @@ export function ActiveDelivery({
   ]
     .filter(Boolean)
     .join(" ");
+  const [confirmFar, setConfirmFar] = useState(false);
+  const sheetRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const node = sheetRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) =>
+      onSheetHeight(Math.round(entry.borderBoxSize[0]?.blockSize ?? 0)),
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [onSheetHeight]);
+  const far = distanceKm != null && distanceKm > FAR_FROM_STOP_KM;
+  const headEta = liveEtaAt
+    ? `ETA ${formatTime(liveEtaAt)}`
+    : stop.etaAt
+      ? `Due by ${formatTime(stop.etaAt)}`
+      : null;
+  const nextStops = route.upcoming.slice(0, 2);
+  const upcomingTimes = timelineTimes(
+    liveEtaAt ?? stop.etaAt,
+    nextStops,
+  );
 
   return (
     <main className="rf-app rf-nav dv-active">
@@ -302,26 +358,46 @@ export function ActiveDelivery({
               />
             ) : null}
           </div>
-          <IconButton
-            className="dv-float-btn"
-            onClick={onMenu}
-            aria-label="Shift tools"
-            sx={{
-              width: 48,
-              height: 48,
-              bgcolor: "background.paper",
-              color: "text.primary",
-              boxShadow: 2,
-              "&:hover": { bgcolor: "grey.100" },
-            }}
-          >
-            <Icon name="menu" size={20} />
-          </IconButton>
+          <div className="dv-float-col">
+            <IconButton
+              className="dv-float-btn"
+              onClick={onMenu}
+              aria-label="Shift tools"
+              sx={{
+                width: 48,
+                height: 48,
+                bgcolor: "background.paper",
+                color: "text.primary",
+                boxShadow: 2,
+                "&:hover": { bgcolor: "grey.100" },
+              }}
+            >
+              <Icon name="menu" size={20} />
+            </IconButton>
+            {!handover && (
+              <IconButton
+                className="dv-float-btn"
+                onClick={onCautions}
+                aria-label="Road conditions"
+                sx={{
+                  width: 48,
+                  height: 48,
+                  bgcolor: "background.paper",
+                  color: "text.primary",
+                  boxShadow: 2,
+                  "&:hover": { bgcolor: "grey.100" },
+                }}
+              >
+                <Icon name="warning" size={20} />
+              </IconButton>
+            )}
+          </div>
         </div>
         {!handover && revision}
       </header>
 
       <section
+        ref={sheetRef}
         className={`rf-sheet dv-sheet ${sheetState}`}
         aria-label={`Stop ${stop.number} of ${route.stops.length}`}
       >
@@ -354,12 +430,17 @@ export function ActiveDelivery({
                 <small className={arrived ? "is-arrived" : ""}>
                   {arrived ? "At the stop" : "Next stop"} · {stop.number} of{" "}
                   {route.stops.length}
-                  {stop.etaAt && !arrived
-                    ? ` · ETA ${formatTime(stop.etaAt)}`
-                    : ""}
+                  {headEta && !arrived ? ` · ${headEta}` : ""}
                 </small>
                 <h2>{stop.recipient}</h2>
                 <p>{stop.address}</p>
+                <div className="dv-meta">
+                  <span>
+                    <Icon name="box" size={14} /> {stop.open.length}{" "}
+                    {stop.open.length === 1 ? "parcel" : "parcels"}
+                  </span>
+                  <CodTag amount={stop.codDue} />
+                </div>
               </div>
               {directionsHref && !arrived && (
                 <a
@@ -373,32 +454,28 @@ export function ActiveDelivery({
                 </a>
               )}
             </div>
-            <div className="dv-meta">
-              <span>
-                <Icon name="box" size={14} /> {stop.open.length}{" "}
-                {stop.open.length === 1 ? "parcel" : "parcels"}
-              </span>
-              <CodTag amount={stop.codDue} />
-            </div>
 
             {expanded && (
               <div className="rf-sheet-body dv-details">
                 <div className="dv-facts">
                   <div>
-                    <h3>
-                      {stop.open.length > 1
-                        ? `${stop.open.length} parcels`
-                        : "Parcel"}
-                    </h3>
+                    {stop.open.length > 1 && (
+                      <h3>{stop.open.length} parcels</h3>
+                    )}
                     <ul className="dv-parcel-list">
                       {stop.open.map((order) => (
                         <li key={order.id}>
-                          <strong>{order.tracking_code}</strong>
+                          <Icon name="box" size={16} />
                           <span>
-                            {order.parcel_description ?? "No description"}
-                            {order.parcel_weight_kg
-                              ? ` · ${order.parcel_weight_kg} kg`
-                              : ""}
+                            <span>
+                              <strong>{order.tracking_code}</strong>
+                              {order.parcel_weight_kg
+                                ? ` · ${order.parcel_weight_kg} kg`
+                                : ""}
+                            </span>
+                            {order.parcel_description && (
+                              <small>{order.parcel_description}</small>
+                            )}
                           </span>
                         </li>
                       ))}
@@ -412,54 +489,37 @@ export function ActiveDelivery({
                     )}
                   </div>
                   {!stop.phone && (
-                    <div>
-                      <h3>Contact</h3>
-                      <p className="rf-muted">No phone number on this order.</p>
-                    </div>
+                    <p className="rf-muted">No phone number on this order.</p>
                   )}
                 </div>
-                {route.upcoming.length > 0 && (
+                {nextStops.length > 0 && (
                   <div className="rf-detail">
-                    <h3>Then · {route.upcoming.length} more</h3>
+                    <h3>Then</h3>
                     <ol className="dv-stop-list is-compact">
-                      {route.upcoming.map((item) => (
+                      {nextStops.map((item, index) => (
                         <StopRow
                           key={item.key}
                           stop={item}
                           showState={false}
                           dense
+                          time={upcomingTimes[index]}
                         />
                       ))}
                     </ol>
+                    {route.upcoming.length > nextStops.length && (
+                      <p className="dv-more">
+                        +{route.upcoming.length - nextStops.length} more{" "}
+                        {route.upcoming.length - nextStops.length === 1
+                          ? "stop"
+                          : "stops"}{" "}
+                        after these
+                      </p>
+                    )}
                   </div>
-                )}
-                {route.stops.some(
-                  (item) =>
-                    item.state === "COMPLETED" || item.state === "FAILED",
-                ) && (
-                  <details className="dv-done">
-                    <summary>
-                      {done} {done === 1 ? "stop" : "stops"} finished
-                    </summary>
-                    <ol className="dv-stop-list is-compact">
-                      {route.stops
-                        .filter(
-                          (item) =>
-                            item.state === "COMPLETED" ||
-                            item.state === "FAILED",
-                        )
-                        .map((item) => (
-                          <StopRow key={item.key} stop={item} dense />
-                        ))}
-                    </ol>
-                  </details>
                 )}
                 <div className="dv-secondary">
                   <button type="button" onClick={onCannotDeliver}>
-                    Can’t deliver this stop
-                  </button>
-                  <button type="button" onClick={onCautions}>
-                    <Icon name="warning" size={16} /> Road conditions
+                    <Icon name="warning" size={16} /> Problem with this stop
                   </button>
                   {!stop.phone && (
                     <button
@@ -482,7 +542,7 @@ export function ActiveDelivery({
 
             {error}
             <div className="dv-sheet-actions">
-              {stop.phone && (
+              {stop.phone && !(confirmFar && far && !arrived) && (
                 <>
                   <a
                     className="dv-round dv-round-call"
@@ -512,13 +572,38 @@ export function ActiveDelivery({
                 >
                   Start handover
                 </Button>
+              ) : confirmFar && far ? (
+                <div className="dv-confirm" role="alert">
+                  <span>
+                    You’re {formatDistance(distanceKm)} away. Arrived anyway?
+                  </span>
+                  <Button
+                    variant="text"
+                    color="inherit"
+                    onClick={() => setConfirmFar(false)}
+                    sx={{ minHeight: 48, borderRadius: 999 }}
+                  >
+                    Not yet
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => {
+                      setConfirmFar(false);
+                      onArrived();
+                    }}
+                    sx={{ minHeight: 48, borderRadius: 999 }}
+                  >
+                    Yes, I’m here
+                  </Button>
+                </div>
               ) : (
                 <Button
                   fullWidth
                   variant="contained"
                   color="primary"
                   size="large"
-                  onClick={onArrived}
+                  onClick={() => (far ? setConfirmFar(true) : onArrived())}
                   sx={{ minHeight: 48, borderRadius: 999, flex: 1 }}
                 >
                   I’ve arrived

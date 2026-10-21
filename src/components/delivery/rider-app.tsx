@@ -206,6 +206,7 @@ export function RiderApp() {
   const [now, setNow] = useState(0);
   const [deviceOnline, setDeviceOnline] = useState(true);
   const [viewHeight, setViewHeight] = useState(844);
+  const [sheetPx, setSheetPx] = useState(0);
   useEffect(() => {
     setNow(Date.now());
     const measure = () => setViewHeight(window.innerHeight);
@@ -1182,11 +1183,17 @@ export function RiderApp() {
     if (instruction.arrow != null)
       instruction.arrow = (legBearing ?? 0) - (heading ?? 0);
     const nextCaution = legCautions[0] ?? null;
-    const sheetHeight = handoverKey
-      ? Math.round(viewHeight * 0.88)
-      : expanded
-        ? Math.round(viewHeight * 0.72)
-        : 330;
+    const sheetHeight =
+      sheetPx ||
+      (handoverKey
+        ? Math.round(viewHeight * 0.88)
+        : expanded
+          ? Math.round(viewHeight * 0.62)
+          : 330);
+    const liveEtaAt =
+      riderPoint && legRoute && now
+        ? new Date(now + legRoute.durationMin * 60_000).toISOString()
+        : null;
 
     return (
       <>
@@ -1270,6 +1277,9 @@ export function RiderApp() {
           onMenu={() => openPanel("menu")}
           onCautions={() => openPanel("cautions")}
           onLocationHelp={() => openPanel("location")}
+          liveEtaAt={liveEtaAt}
+          distanceKm={atTarget ? 0 : legDistance}
+          onSheetHeight={setSheetPx}
           cautionBanner={
             nextCaution ? (
               <button

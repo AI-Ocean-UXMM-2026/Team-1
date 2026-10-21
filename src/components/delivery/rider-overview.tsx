@@ -47,15 +47,23 @@ export function StopMark({ stop }: { stop: DeliveryStop }) {
 }
 
 /** One stop in a route list: number, recipient, place, parcels, COD, state. */
+const compactMoney = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 export function StopRow({
   stop,
   showState = true,
   dense = false,
+  time,
 }: {
   stop: DeliveryStop;
   showState?: boolean;
-  /** One line: number, name and area on the left, ETA on the right. */
+  /** One line: number, name and area on the left; COD and time pinned right. */
   dense?: boolean;
+  /** Dense rows only: the time to show, and whether it is out of route order. */
+  time?: { label: string; warn: boolean } | null;
 }) {
   const finished = stop.state === "COMPLETED" || stop.state === "FAILED";
   const parcelCount = stop.parcels.length;
@@ -67,14 +75,28 @@ export function StopRow({
           <strong>{stop.recipient}</strong>
           <span className="dv-stop-address">{stop.address}</span>
         </span>
-        {!finished && stop.codDue > 0 && (
-          <span className="dv-dense-cod" title="Collect on delivery">
-            COD
-          </span>
-        )}
-        {!finished && stop.etaAt && (
-          <small className="dv-stop-state">{formatTime(stop.etaAt)}</small>
-        )}
+        <span className="dv-dense-end">
+          {!finished && stop.codDue > 0 && (
+            <span
+              className="dv-dense-cod"
+              title={`Collect COD · ${compactMoney.format(stop.codDue)} MMK`}
+            >
+              COD {compactMoney.format(stop.codDue)}
+            </span>
+          )}
+          {!finished && time && (
+            <small
+              className={`dv-stop-state${time.warn ? " is-warn" : ""}`}
+              title={
+                time.warn
+                  ? "Promised earlier than the stop before it"
+                  : undefined
+              }
+            >
+              {time.label}
+            </small>
+          )}
+        </span>
       </li>
     );
   }
