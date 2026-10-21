@@ -157,6 +157,45 @@ function SheetHandle({
   );
 }
 
+/**
+ * Posted limit with the rider's live speed beside it, as in Google Maps and
+ * Waze. The limit only shows when the road has one; the speed turns red while
+ * the rider is over it. Nothing renders until there is something to show.
+ */
+function SpeedSign({
+  currentKmh,
+  limitKmh,
+}: {
+  currentKmh: number | null;
+  limitKmh: number | null;
+}) {
+  if (currentKmh == null && limitKmh == null) return null;
+  const over = currentKmh != null && limitKmh != null && currentKmh > limitKmh;
+  return (
+    <div
+      className="dv-speed"
+      role="group"
+      aria-label={
+        limitKmh != null
+          ? `Speed limit ${limitKmh} kilometres per hour`
+          : "Speed"
+      }
+    >
+      {limitKmh != null && (
+        <span className="dv-limit" aria-hidden="true">
+          {limitKmh}
+        </span>
+      )}
+      {currentKmh != null && (
+        <span className={`dv-now${over ? " is-over" : ""}`}>
+          <strong>{currentKmh}</strong>
+          <small>km/h</small>
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** Beyond this, "I've arrived" asks first: a mis-tap would tell the customer the rider is there. */
 const FAR_FROM_STOP_KM = 0.3;
 
@@ -212,6 +251,7 @@ export function ActiveDelivery({
   onLocationHelp,
   cautionBanner,
   liveEtaAt,
+  speed,
   distanceKm,
   onSheetHeight,
 }: {
@@ -241,6 +281,8 @@ export function ActiveDelivery({
   cautionBanner: ReactNode;
   /** Arrival time from the live road route, when there is one. */
   liveEtaAt: string | null;
+  /** Live speed and the posted limit (km/h); null when there is no GPS fix. */
+  speed: { currentKmh: number | null; limitKmh: number | null } | null;
   /** Straight-line distance from the rider to this stop, when GPS is live. */
   distanceKm: number | null;
   /** Reports the sheet's rendered height so the map can keep the route clear of it. */
@@ -259,9 +301,11 @@ export function ActiveDelivery({
   useEffect(() => {
     const node = sheetRef.current;
     if (!node) return;
-    const observer = new ResizeObserver(([entry]) =>
-      onSheetHeight(Math.round(entry.borderBoxSize[0]?.blockSize ?? 0)),
-    );
+    const observer = new ResizeObserver(([entry]) => {
+      const height = Math.round(entry.borderBoxSize[0]?.blockSize ?? 0);
+      node.parentElement?.style.setProperty("--dv-sheet-h", `${height}px`);
+      onSheetHeight(height);
+    });
     observer.observe(node);
     return () => observer.disconnect();
   }, [onSheetHeight]);
@@ -272,10 +316,7 @@ export function ActiveDelivery({
       ? `Due by ${formatTime(stop.etaAt)}`
       : null;
   const nextStops = route.upcoming.slice(0, 2);
-  const upcomingTimes = timelineTimes(
-    liveEtaAt ?? stop.etaAt,
-    nextStops,
-  );
+  const upcomingTimes = timelineTimes(liveEtaAt ?? stop.etaAt, nextStops);
 
   return (
     <main className="rf-app rf-nav dv-active">
@@ -376,6 +417,8 @@ export function ActiveDelivery({
         {!handover && revision}
       </header>
 
+      {speed && !handover && <SpeedSign {...speed} />}
+
       <section
         ref={sheetRef}
         className={`rf-sheet dv-sheet ${sheetState}`}
@@ -427,8 +470,13 @@ export function ActiveDelivery({
             </div>
             <div className="dv-stop-head">
               <div className="dv-stop-title">
-                <h2>{stop.recipient}</h2>
-                <p>{stop.address}</p>
+                <h2>{stop.address}</h2>
+                <p>
+                  <Icon name="user" size={14} /> {stop.recipient}
+                  <span aria-hidden="true"> · </span>
+                  {stop.open.length}{" "}
+                  {stop.open.length === 1 ? "parcel" : "parcels"}
+                </p>
               </div>
               {directionsHref && !arrived && (
                 <a
@@ -447,7 +495,9 @@ export function ActiveDelivery({
                 <Icon name={stop.codDue > 0 ? "coin" : "check"} size={16} />
                 {stop.codDue > 0 ? "Collect cash" : "No payment to collect"}
               </span>
-              {stop.codDue > 0 && <strong>{currency.format(stop.codDue)}</strong>}
+              {stop.codDue > 0 && (
+                <strong>{currency.format(stop.codDue)}</strong>
+              )}
             </div>
             <div className="dv-strip" role="group" aria-label="Stop actions">
               {stop.phone ? (
@@ -518,9 +568,7 @@ export function ActiveDelivery({
                   {stop.notLoaded.length > 0 && (
                     <div>
                       <dt>Not on truck</dt>
-                      <dd>
-                        {stop.notLoaded.length} more for this recipient
-                      </dd>
+                      <dd>{stop.notLoaded.length} more for this recipient</dd>
                     </div>
                   )}
                 </dl>

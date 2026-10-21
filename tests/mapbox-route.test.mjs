@@ -5,6 +5,7 @@ import {
   formatDriveMinutes,
   needsRouteRequest,
   parseRoadRoute,
+  speedLimitAt,
   ROUTE_MAX_AGE_MS,
   ROUTE_MOVE_KM,
 } from "../src/lib/delivery/mapbox.ts";
@@ -119,4 +120,59 @@ test("formatDriveMinutes keeps short and long durations readable", () => {
   assert.equal(formatDriveMinutes(12.4), "12 min");
   assert.equal(formatDriveMinutes(60), "1 h");
   assert.equal(formatDriveMinutes(75), "1 h 15 min");
+});
+
+test("parseRoadRoute reads posted speed limits and speedLimitAt finds the nearest", () => {
+  const route = parseRoadRoute({
+    routes: [
+      {
+        distance: 900,
+        duration: 120,
+        geometry: {
+          coordinates: [
+            [96.15, 16.8],
+            [96.151, 16.8],
+            [96.152, 16.8],
+          ],
+        },
+        legs: [
+          {
+            annotation: {
+              maxspeed: [
+                { speed: 40, unit: "km/h" },
+                { speed: 30, unit: "mph" },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(route.speedLimitsKmh, [40, 48]);
+  assert.equal(speedLimitAt(route, { latitude: 16.8, longitude: 96.1501 }), 40);
+  assert.equal(speedLimitAt(route, { latitude: 16.8, longitude: 96.1509 }), 48);
+});
+
+test("speedLimitAt is null when Mapbox has no limit for the road", () => {
+  const route = parseRoadRoute({
+    routes: [
+      {
+        distance: 100,
+        duration: 10,
+        geometry: {
+          coordinates: [
+            [96.15, 16.8],
+            [96.151, 16.8],
+          ],
+        },
+        legs: [{ annotation: { maxspeed: [{ unknown: true }] } }],
+      },
+    ],
+  });
+  assert.deepEqual(route.speedLimitsKmh, [null]);
+  assert.equal(speedLimitAt(route, yangon), null);
+  assert.equal(
+    speedLimitAt({ coordinates: [], speedLimitsKmh: [] }, yangon),
+    null,
+  );
 });

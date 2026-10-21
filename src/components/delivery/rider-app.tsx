@@ -67,7 +67,7 @@ import {
   snapshotRoute,
 } from "@/lib/delivery/driver-route";
 import { currency } from "@/lib/delivery/format";
-import { formatDriveMinutes } from "@/lib/delivery/mapbox";
+import { formatDriveMinutes, speedLimitAt } from "@/lib/delivery/mapbox";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
 import {
   isPreviewScenario,
@@ -108,6 +108,8 @@ import { createClient } from "@/lib/supabase/client";
 
 type DevicePosition = GeoPoint & {
   heading: number | null;
+  /** Ground speed in km/h from the device, when it reports one. */
+  speedKmh: number | null;
   accuracy: number | null;
   at: number;
 };
@@ -332,6 +334,10 @@ export function RiderApp() {
           heading:
             fix.coords.heading != null && Number.isFinite(fix.coords.heading)
               ? fix.coords.heading
+              : null,
+          speedKmh:
+            fix.coords.speed != null && Number.isFinite(fix.coords.speed)
+              ? Math.max(0, Math.round(fix.coords.speed * 3.6))
               : null,
           accuracy: fix.coords.accuracy ?? null,
           at: fix.timestamp || Date.now(),
@@ -1278,6 +1284,16 @@ export function RiderApp() {
           onCautions={() => openPanel("cautions")}
           onLocationHelp={() => openPanel("location")}
           liveEtaAt={liveEtaAt}
+          speed={
+            riderPoint && !arrivedHere
+              ? {
+                  currentKmh: position?.speedKmh ?? null,
+                  limitKmh: legRoute
+                    ? speedLimitAt(legRoute, riderPoint)
+                    : null,
+                }
+              : null
+          }
           distanceKm={atTarget ? 0 : legDistance}
           onSheetHeight={setSheetPx}
           cautionBanner={

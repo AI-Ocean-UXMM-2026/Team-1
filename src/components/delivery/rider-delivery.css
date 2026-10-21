@@ -317,14 +317,15 @@
 
 .dv-stop-row.is-dense .dv-stop-copy strong,
 .dv-stop-row.is-dense .dv-stop-address {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .dv-stop-row.is-dense .dv-stop-copy strong {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
 }
 
 .dv-stop-row.is-dense .dv-stop-address {
@@ -342,14 +343,19 @@
 }
 
 .dv-dense-end small {
-  font-size: 13px;
-  line-height: 18px;
+  font-size: 14px;
+  line-height: 20px;
   font-variant-numeric: tabular-nums;
 }
 
 .dv-dense-end .dv-stop-state {
   color: var(--color-text-primary);
   font-weight: 600;
+}
+
+.dv-dense-end .dv-dense-cod {
+  font-size: 12px;
+  line-height: 16px;
 }
 
 /* A promise earlier than the stop before it: colour only, no box. */
@@ -731,9 +737,9 @@
 
 .dv-stage-line small {
   color: var(--color-text-secondary);
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
 }
 
 .dv-stage-line small.is-arrived {
@@ -742,8 +748,9 @@
 
 .dv-stage-line strong {
   color: var(--color-text-primary);
-  font-size: 14px;
-  line-height: 18px;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -760,23 +767,27 @@
   min-width: 0;
 }
 
-.dv-stop-title h2,
-.dv-stop-title p {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .dv-stop-title h2 {
-  font-size: 22px;
-  line-height: 28px;
+  font-size: 20px;
+  line-height: 26px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .dv-stop-title p {
-  color: var(--color-text-secondary-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  margin-top: 2px;
+  color: var(--color-text-secondary);
   font-size: 14px;
   line-height: 20px;
+  font-weight: 400;
+}
+
+.dv-stop-title p > svg {
+  flex: none;
 }
 
 .dv-directions {
@@ -802,6 +813,7 @@
   background: var(--color-surface-subtle, var(--rf-info-bg));
   color: var(--color-text-secondary);
   font-size: 14px;
+  line-height: 20px;
   font-weight: 600;
 }
 
@@ -817,8 +829,9 @@
 }
 
 .dv-pay.is-due strong {
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -844,8 +857,9 @@
   background: none;
   color: var(--color-text-primary);
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
 }
@@ -893,6 +907,7 @@
   flex: none;
   color: var(--color-text-secondary);
   font-size: 14px;
+  line-height: 20px;
 }
 
 .dv-rows dd {
@@ -902,28 +917,34 @@
   justify-items: end;
   text-align: right;
   font-size: 14px;
+  line-height: 20px;
 }
 
 .dv-rows dd strong {
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .dv-rows dd small {
-  color: var(--color-text-secondary-subtle);
-  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
 }
 
 .dv-next h3 {
   margin: 0 0 4px;
   font-size: 16px;
   line-height: 22px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .dv-more {
   margin: 4px 0 0;
-  color: var(--color-text-secondary-subtle);
-  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
 }
 
 .dv-text-btn {
@@ -934,9 +955,18 @@
   color: var(--color-text-secondary);
   font: inherit;
   font-size: 14px;
+  line-height: 20px;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
+}
+
+.dv-sheet-actions .MuiButton-root {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .dv-sheet-actions {
@@ -1243,4 +1273,68 @@
   display: grid;
   flex: none;
   gap: 8px;
+}
+
+/* ---------- speed limit ---------- */
+
+/* Sits on the map just above the sheet, wherever the sheet currently ends. */
+.dv-speed {
+  position: absolute;
+  bottom: calc(var(--dv-sheet-h, 300px) + 12px);
+  left: max(12px, calc(50% - 215px + 12px));
+  z-index: 12;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.dv-limit {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 5px solid #dc2626;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: var(--rf-shadow-float);
+  color: #111827;
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-now {
+  display: grid;
+  min-width: 52px;
+  padding: 4px 8px;
+  justify-items: center;
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: var(--rf-shadow-float);
+  color: var(--color-text-primary);
+}
+
+.dv-now strong {
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-now small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 14px;
+  font-weight: 500;
+}
+
+.dv-now.is-over {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.dv-now.is-over small {
+  color: #ffffff;
 }

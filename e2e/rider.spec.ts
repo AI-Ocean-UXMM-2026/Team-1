@@ -133,7 +133,9 @@ test("arriving far from the stop asks before telling the customer", async ({
   await expect(
     page.getByRole("button", { name: "Start handover" }),
   ).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /i.ve arrived/i })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /i.ve arrived/i }),
+  ).toBeVisible();
 });
 
 test("the timeline shows COD amounts and flags promises out of route order", async ({
@@ -157,4 +159,68 @@ test("the timeline shows COD amounts and flags promises out of route order", asy
   await expect(rows.nth(1)).toContainText("125K cash");
   await expect(rows.nth(1).locator(".dv-stop-state.is-warn")).toBeVisible();
   await expect(sheet.getByText(/\+1 more stop after these/)).toBeVisible();
+});
+
+test("the map shows the posted speed limit and flags speeding", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["geolocation"]);
+  await page.addInitScript(() => {
+    const fix = {
+      coords: {
+        latitude: 16.79,
+        longitude: 96.145,
+        heading: 20,
+        speed: 14,
+        accuracy: 8,
+      },
+      timestamp: Date.now(),
+    };
+    navigator.geolocation.watchPosition = (ok) => {
+      setTimeout(() => ok(fix as never), 50);
+      return 1;
+    };
+  });
+  await page.route("**/directions/v5/**", (route) =>
+    route.fulfill({
+      json: {
+        routes: [
+          {
+            distance: 4200,
+            duration: 780,
+            geometry: {
+              coordinates: [
+                [96.145, 16.79],
+                [96.1451, 16.7905],
+                [96.146, 16.8],
+              ],
+            },
+            legs: [
+              {
+                annotation: {
+                  maxspeed: [
+                    { speed: 40, unit: "km/h" },
+                    { speed: 40, unit: "km/h" },
+                  ],
+                },
+                steps: [],
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+  await signInAs(context, "driver", {
+    delivery_orders: [makeOrder({ status: "in_transit" })],
+    delivery_assignments: [assignment],
+  });
+  await page.goto("/rider/route");
+  const sign = page.getByRole("group", {
+    name: "Speed limit 40 kilometres per hour",
+  });
+  await expect(sign).toBeVisible();
+  // 14 m/s is 50 km/h, over the limit of 40.
+  await expect(sign.locator(".dv-now.is-over")).toContainText("50");
 });
