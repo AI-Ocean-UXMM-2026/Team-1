@@ -121,6 +121,43 @@ export async function createDelivery(
   return data;
 }
 
+export async function createCustomerPickupOrder(
+  supabase: DeliveryActionClient,
+  input: {
+    pickupAddress: string;
+    pickupLatitude?: number | null;
+    pickupLongitude?: number | null;
+    pickupContactPhone?: string;
+    deliveryAddress: string;
+    deliveryLatitude?: number | null;
+    deliveryLongitude?: number | null;
+    recipientName: string;
+    recipientPhone: string;
+    parcelDescription: string;
+    codAmount: number;
+  },
+) {
+  validateMapPin("pickup", input.pickupLatitude, input.pickupLongitude);
+  validateMapPin("drop-off", input.deliveryLatitude, input.deliveryLongitude);
+  const { data, error } = await supabase
+    .rpc("create_customer_pickup_order", {
+      p_pickup_address: input.pickupAddress,
+      p_pickup_latitude: input.pickupLatitude ?? null,
+      p_pickup_longitude: input.pickupLongitude ?? null,
+      p_pickup_contact_phone: input.pickupContactPhone?.trim() || null,
+      p_delivery_address: input.deliveryAddress,
+      p_delivery_latitude: input.deliveryLatitude ?? null,
+      p_delivery_longitude: input.deliveryLongitude ?? null,
+      p_recipient_name: input.recipientName,
+      p_recipient_phone: input.recipientPhone,
+      p_parcel_description: input.parcelDescription,
+      p_cod_amount: input.codAmount,
+    })
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function assignDelivery(
   supabase: DeliveryActionClient,
   input: {

@@ -1676,6 +1676,34 @@ function SignInGate() {
   return (
     <main className="rf-app rf-gate">
       <Brand href="/rider" />
+      <div className="rf-route-art" aria-hidden="true">
+        <svg viewBox="0 0 360 180" role="presentation">
+          <path
+            className="rf-route-road"
+            d="M22 144C78 48 126 156 178 91S268 34 338 54"
+          />
+          <path
+            className="rf-route-line"
+            d="M22 144C78 48 126 156 178 91S268 34 338 54"
+          />
+          <circle className="rf-route-pulse" cx="338" cy="54" r="12" />
+          <circle
+            className="rf-route-pulse rf-route-pulse-delay"
+            cx="338"
+            cy="54"
+            r="12"
+          />
+          <circle className="rf-route-pickup" cx="22" cy="144" r="10" />
+          <circle className="rf-route-destination" cx="338" cy="54" r="10" />
+          <circle className="rf-route-rider" cx="178" cy="91" r="7">
+            <animateMotion
+              dur="5s"
+              repeatCount="indefinite"
+              path="M-156 53 C-100 -43 -52 65 0 0 S90 -57 160 -37"
+            />
+          </circle>
+        </svg>
+      </div>
       <h1>Sign in to see today’s route</h1>
       <p>Driver accounts are set up by your operations team.</p>
       <button

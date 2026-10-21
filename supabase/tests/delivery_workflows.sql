@@ -8,7 +8,7 @@ create temporary table workflow_fixture_ids (
 ) on commit drop;
 insert into workflow_fixture_ids (name)
 values ('manager'), ('driver'), ('off_duty_driver'), ('customer'), ('other_customer'),
-  ('vehicle'), ('other_vehicle'), ('order'), ('other_order'), ('road_report');
+  ('vehicle'), ('other_vehicle'), ('order'), ('other_order'), ('pickup_order'), ('road_report');
 grant select on workflow_fixture_ids to authenticated;
 
 create temporary table workflow_checks (name text primary key) on commit drop;
@@ -99,6 +99,36 @@ values (
 select pg_temp.assert_check('manager can create delivery orders', (
   select count(*) = 2 from public.delivery_orders
   where id in (pg_temp.fixture_id('order'), pg_temp.fixture_id('other_order')) and status = 'pending'
+));
+select pg_temp.as_user('customer');
+select pg_temp.assert_check('customer pickup RPC creates an owned pending order', (
+  select result.id is not null and result.tracking_code is not null
+  from public.create_customer_pickup_order(
+    'Customer pickup address', 16.7800, 96.1440, '+959111111111',
+    'Customer destination', 16.8200, 96.1570, 'Pickup recipient',
+    '+959222222222', 'Customer parcel', 15000
+  ) as result
+));
+select pg_temp.assert_check('customer pickup order is owned and pending', (
+  select customer_id = pg_temp.fixture_id('customer')
+    and created_by = pg_temp.fixture_id('customer')
+    and status = 'pending'
+    and cod_status = 'pending'
+  from public.delivery_orders
+  where id = (
+    select id from public.delivery_orders
+    where customer_id = pg_temp.fixture_id('customer')
+      and created_by = pg_temp.fixture_id('customer')
+    order by created_at desc limit 1
+  )
+));
+select pg_temp.as_user('manager');
+select pg_temp.assert_check('manager can see customer pickup orders', (
+  select count(*) = 1
+  from public.delivery_orders
+  where customer_id = pg_temp.fixture_id('customer')
+    and created_by = pg_temp.fixture_id('customer')
+    and status = 'pending'
 ));
 select pg_temp.assert_check('manager atomic assignment returns an assignment',
   public.assign_delivery(pg_temp.fixture_id('order'), pg_temp.fixture_id('driver'), pg_temp.fixture_id('vehicle')) is not null
