@@ -5,7 +5,7 @@ import Link from "next/link";
 import { type ReactNode, useEffect, useEffectEvent, useState } from "react";
 
 import { Icon, type IconName } from "@/components/delivery/icons";
-import { Mascot } from "@/components/delivery/mascot";
+import { Loader } from "@/components/delivery/loader";
 import type { DeliveryStatus, WorkspaceProfile } from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
 
@@ -205,8 +205,7 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 export function LoadingBlock({ title }: { title: string }) {
   return (
     <div className="loading-screen">
-      <Mascot size={96} />
-      <p>{title}</p>
+      <Loader label={title} />
     </div>
   );
 }

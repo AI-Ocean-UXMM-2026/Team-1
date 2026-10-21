@@ -281,7 +281,8 @@
   line-height: 1.15;
 }
 .auth-page-back {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
   align-items: center;
   gap: 6px;
   min-height: var(--target-min, 48px);
@@ -293,6 +294,10 @@
 }
 .auth-page-back:hover {
   color: var(--forest);
+}
+.auth-page-card > .eyebrow {
+  display: block;
+  margin-bottom: 18px;
 }
 @media (max-width: 600px) {
   .auth-page {
