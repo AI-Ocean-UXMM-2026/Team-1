@@ -105,7 +105,7 @@ export function WelcomeScreen() {
           variant="outlined"
           color="secondary"
           size="large"
-          onClick={() => router.push("/home?signin=1")}
+          onClick={() => router.push("/signin")}
           sx={{ minHeight: 56, borderWidth: 1.5 }}
         >
           I already have an account
