@@ -519,6 +519,320 @@ select pg_temp.assert_check('manager can read hazard layers', (select count(*) =
 select pg_temp.as_user('customer');
 select pg_temp.assert_check('customer cannot read hazard layers', (select count(*) = 0 from public.geo_hazard_layers));
 
+-- ---------------------------------------------------------------------------
+-- Dispatch plans: save, commit, discard (multi-truck planning, M2)
+-- ---------------------------------------------------------------------------
+reset role;
+create temporary table plan_ids (name text primary key, id uuid) on commit drop;
+grant select, insert on plan_ids to authenticated;
+
+create function pg_temp.new_order(p_label text)
+returns uuid language plpgsql security invoker
+as $$
+declare new_id uuid := gen_random_uuid();
+begin
+  insert into public.delivery_orders (
+    id, customer_id, created_by, pickup_address, delivery_address,
+    pickup_latitude, pickup_longitude, delivery_latitude, delivery_longitude, recipient_name
+  )
+  values (
+    new_id, pg_temp.fixture_id('customer'), pg_temp.fixture_id('manager'),
+    'Plan pickup ' || p_label, 'Plan drop ' || p_label, 16.91, 96.15, 16.92, 96.16, 'Recipient ' || p_label
+  );
+  return new_id;
+end;
+$$;
+
+create function pg_temp.plan_id(p_name text)
+returns uuid language sql stable security invoker
+as $$ select id from pg_temp.plan_ids where name = p_name $$;
+
+create function pg_temp.today()
+returns date language sql stable security invoker
+as $$ select (now() at time zone 'Asia/Yangon')::date $$;
+
+create function pg_temp.run_by_key(p_key text)
+returns uuid language sql stable security invoker
+as $$ select id from public.dispatch_runs where client_key = p_key::uuid $$;
+
+-- Two assigned orders on one truck (a door order: pickup then delivery, and a
+-- depot order: delivery only) plus one order left unassigned with a reason.
+create function pg_temp.sample_plan(
+  p_date date, p_driver uuid, p_peak numeric default 20, p_depot uuid default null
+)
+returns jsonb language sql stable security invoker
+as $$
+  select jsonb_build_object(
+    'depot_id', coalesce(p_depot, (select id from public.depots where code = 'MGD')),
+    'service_date', p_date, 'engine_version', 'workflow-test', 'seed', 1, 'iterations', 10,
+    'stop_reason', 'converged', 'data_quality', 'straight_line', 'score_total', 123.4,
+    'routes', jsonb_build_array(jsonb_build_object(
+      'vehicle_id', pg_temp.fixture_id('vehicle'), 'driver_id', p_driver, 'display_order', 0,
+      'planned_depart_at', now(), 'planned_return_at', now() + interval '3 hours',
+      'peak_kg', p_peak, 'distance_km', 12.5, 'score_total', 100,
+      'stops', jsonb_build_array(
+        jsonb_build_object('order_id', pg_temp.plan_id('door'), 'stop_type', 'pickup', 'seq', 1,
+          'address', 'Plan pickup door', 'latitude', 16.91, 'longitude', 96.15,
+          'planned_arrival_at', now() + interval '30 minutes',
+          'window_start_at', now(), 'window_end_at', now() + interval '4 hours'),
+        jsonb_build_object('order_id', pg_temp.plan_id('door'), 'stop_type', 'delivery', 'seq', 2,
+          'address', 'Plan drop door', 'latitude', 16.92, 'longitude', 96.16,
+          'planned_arrival_at', now() + interval '60 minutes'),
+        jsonb_build_object('order_id', pg_temp.plan_id('depot'), 'stop_type', 'delivery', 'seq', 3,
+          'address', 'Plan drop depot', 'latitude', 16.93, 'longitude', 96.17,
+          'planned_arrival_at', now() + interval '90 minutes')
+      )
+    )),
+    'orders', jsonb_build_array(
+      jsonb_build_object('order_id', pg_temp.plan_id('door'), 'disposition', 'assigned',
+        'vehicle_id', pg_temp.fixture_id('vehicle'), 'origin_kind', 'door',
+        'order_updated_at', (select updated_at from public.delivery_orders where id = pg_temp.plan_id('door')),
+        'logistics_updated_at', (select updated_at from public.delivery_order_logistics where order_id = pg_temp.plan_id('door'))),
+      jsonb_build_object('order_id', pg_temp.plan_id('depot'), 'disposition', 'assigned',
+        'vehicle_id', pg_temp.fixture_id('vehicle'), 'origin_kind', 'depot',
+        'order_updated_at', (select updated_at from public.delivery_orders where id = pg_temp.plan_id('depot')),
+        'logistics_updated_at', (select updated_at from public.delivery_order_logistics where order_id = pg_temp.plan_id('depot'))),
+      jsonb_build_object('order_id', pg_temp.plan_id('big'), 'disposition', 'unassigned',
+        'unassigned_reason', 'exceeds_capacity_single', 'origin_kind', 'door',
+        'unassigned_detail', jsonb_build_object('weight_kg', 5000),
+        'order_updated_at', (select updated_at from public.delivery_orders where id = pg_temp.plan_id('big')),
+        'logistics_updated_at', (select updated_at from public.delivery_order_logistics where order_id = pg_temp.plan_id('big')))
+    ),
+    'matrix', jsonb_build_object('nodes', '[]'::jsonb, 'duration_s', '[0,60,60,0]'::jsonb,
+      'distance_m', '[0,500,500,0]'::jsonb, 'provider', 'test', 'profile', 'driving', 'elements_billed', 4)
+  )
+$$;
+
+-- Trusted setup: a capacity for the fixture truck, an available driver, an unverified second depot.
+update public.vehicles set capacity_kg = 100, status = 'available' where id = pg_temp.fixture_id('vehicle');
+update public.driver_profiles set availability = 'available' where user_id = pg_temp.fixture_id('driver');
+insert into public.depots (code, name) values ('T2', 'Unverified test depot');
+set local role authenticated;
+select pg_temp.as_user('manager');
+
+insert into plan_ids (name, id) values
+  ('door', pg_temp.new_order('door')), ('depot', pg_temp.new_order('depot')),
+  ('big', pg_temp.new_order('big')), ('stale', pg_temp.new_order('stale'));
+
+-- ---- save_dispatch_run
+create temporary table plan_results (name text primary key, result jsonb);
+grant select, insert on plan_results to authenticated;
+insert into plan_results (name, result)
+select 'save1', public.save_dispatch_run(pg_temp.sample_plan(pg_temp.today(), pg_temp.fixture_id('driver')), '00000000-0000-4000-8000-000000000001');
+select pg_temp.assert_check('save stores a draft at revision 1', (
+  select (result ->> 'saved')::boolean and result ->> 'status' = 'draft' and (result ->> 'revision')::int = 1
+  from plan_results where name = 'save1'
+));
+select pg_temp.assert_check('save stores routes, stops, orders and the matrix', (
+  select (select count(*) from public.dispatch_run_routes where run_id = r.id) = 1
+    and (select count(*) from public.dispatch_run_stops where run_id = r.id) = 3
+    and (select count(*) from public.dispatch_run_orders where run_id = r.id) = 3
+    and (select count(*) from public.dispatch_run_matrices where run_id = r.id) = 1
+    and (select unassigned_reason from public.dispatch_run_orders where run_id = r.id and order_id = pg_temp.plan_id('big')) = 'exceeds_capacity_single'
+  from public.dispatch_runs r where r.id = pg_temp.run_by_key('00000000-0000-4000-8000-000000000001')
+));
+select pg_temp.assert_check('saving the same client key again is idempotent', (
+  select (result ->> 'duplicate')::boolean and (result ->> 'saved')::boolean
+  from (select public.save_dispatch_run(pg_temp.sample_plan(pg_temp.today(), pg_temp.fixture_id('driver')), '00000000-0000-4000-8000-000000000001') as result) as again
+));
+select pg_temp.assert_check('a second draft for the same depot and day is refused', (
+  select not (result ->> 'saved')::boolean and result ->> 'reason' = 'draft_exists'
+  from (select public.save_dispatch_run(pg_temp.sample_plan(pg_temp.today(), pg_temp.fixture_id('driver')), '00000000-0000-4000-8000-000000000002') as result) as second
+));
+select pg_temp.assert_check('an unverified depot cannot be planned against', (
+  select not (result ->> 'saved')::boolean and result ->> 'reason' = 'depot_unverified'
+  from (select public.save_dispatch_run(
+    pg_temp.sample_plan(pg_temp.today(), pg_temp.fixture_id('driver'), 20, (select id from public.depots where code = 'T2')),
+    '00000000-0000-4000-8000-000000000003') as result) as unverified
+));
+select pg_temp.expect_error('a door order without a pickup stop is rejected', format(
+  'select public.save_dispatch_run(%L::jsonb, %L, true)',
+  jsonb_set(pg_temp.sample_plan(pg_temp.today(), pg_temp.fixture_id('driver')), '{routes,0,stops}',
+    (pg_temp.sample_plan(pg_temp.today(), pg_temp.fixture_id('driver')) -> 'routes' -> 0 -> 'stops') - 0)::text,
+  '00000000-0000-4000-8000-000000000004'
+), 'Invalid dispatch plan');
+select pg_temp.expect_error('a planned load above the truck capacity is rejected', format(
+  'select public.save_dispatch_run(%L::jsonb, %L, true)',
+  pg_temp.sample_plan(pg_temp.today(), pg_temp.fixture_id('driver'), 500)::text,
+  '00000000-0000-4000-8000-000000000005'
+), 'planned load exceeds');
+select pg_temp.assert_check('failed saves leave the original draft in place', (
+  select count(*) = 1 from public.dispatch_runs where status = 'draft' and client_key = '00000000-0000-4000-8000-000000000001'
+));
+select pg_temp.assert_check('save wrote an audit row', (
+  select count(*) = 1 from public.dispatch_run_edits
+  where run_id = pg_temp.run_by_key('00000000-0000-4000-8000-000000000001') and edit_type = 'create'
+));
+select pg_temp.expect_error('plan audit rows cannot be edited',
+  format('update public.dispatch_run_edits set reason = %L', 'tampered'), 'permission denied');
+select pg_temp.expect_error('plan rows cannot be written directly',
+  format('update public.dispatch_runs set status = %L', 'committed'), 'permission denied');
+
+select pg_temp.as_user('customer');
+select pg_temp.expect_error('customers cannot save plans', format(
+  'select public.save_dispatch_run(%L::jsonb, %L)', '{}', '00000000-0000-4000-8000-000000000006'), 'Only managers');
+select pg_temp.assert_check('customers see no plans', (select count(*) = 0 from public.dispatch_runs));
+select pg_temp.as_user('driver');
+select pg_temp.assert_check('drivers see no plans', (select count(*) = 0 from public.dispatch_run_stops));
+select pg_temp.expect_error('drivers cannot commit plans', format(
+  'select public.commit_dispatch_run(%L, 1, %L)',
+  pg_temp.run_by_key('00000000-0000-4000-8000-000000000001'), '00000000-0000-4000-8000-0000000000a1'), 'Only managers');
+
+-- ---- commit refusals leave everything untouched
+select pg_temp.as_user('manager');
+select pg_temp.assert_check('commit refuses a stale revision', (
+  select not (result ->> 'committed')::boolean and result ->> 'reason' = 'revision_conflict'
+  from (select public.commit_dispatch_run(
+    pg_temp.run_by_key('00000000-0000-4000-8000-000000000001'), 99,
+    '00000000-0000-4000-8000-0000000000a2') as result) as refused
+));
+insert into plan_results (name, result)
+select 'nodriver', public.save_dispatch_run(pg_temp.sample_plan(pg_temp.today(), null), '00000000-0000-4000-8000-000000000007', true);
+select pg_temp.assert_check('commit refuses a truck with no driver', (
+  select not (result ->> 'committed')::boolean and result ->> 'reason' = 'routes_blocked'
+    and result -> 'routes' -> 0 ->> 'problem' = 'missing_driver'
+  from (select public.commit_dispatch_run(
+    pg_temp.run_by_key('00000000-0000-4000-8000-000000000007'), 1,
+    '00000000-0000-4000-8000-0000000000a3') as result) as refused
+));
+insert into plan_results (name, result)
+select 'future', public.save_dispatch_run(pg_temp.sample_plan(pg_temp.today() + 1, pg_temp.fixture_id('driver')), '00000000-0000-4000-8000-000000000008', true);
+select pg_temp.assert_check('commit refuses a plan for another day', (
+  select not (result ->> 'committed')::boolean and result ->> 'reason' = 'future_date'
+  from (select public.commit_dispatch_run(
+    pg_temp.run_by_key('00000000-0000-4000-8000-000000000008'), 1,
+    '00000000-0000-4000-8000-0000000000a4') as result) as refused
+));
+insert into plan_results (name, result)
+select 'stale', public.save_dispatch_run(pg_temp.sample_plan(pg_temp.today(), pg_temp.fixture_id('driver')), '00000000-0000-4000-8000-000000000009', true);
+update public.delivery_orders set status = 'cancelled' where id = pg_temp.plan_id('depot');
+select pg_temp.assert_check('commit aborts when an order changed and names it', (
+  select not (result ->> 'committed')::boolean and result ->> 'reason' = 'stale'
+    and result -> 'stale_orders' -> 0 ->> 'order_id' = pg_temp.plan_id('depot')::text
+    and result -> 'stale_orders' -> 0 ->> 'change' = 'status_changed'
+  from (select public.commit_dispatch_run(
+    pg_temp.run_by_key('00000000-0000-4000-8000-000000000009'), 1,
+    '00000000-0000-4000-8000-0000000000a5') as result) as refused
+));
+select pg_temp.assert_check('an aborted commit writes nothing', (
+  select count(*) = 0 from public.delivery_routes where dispatch_run_id is not null
+) and (
+  select count(*) = 0 from public.delivery_assignments where order_id = pg_temp.plan_id('door') and ended_at is null
+) and (
+  select status = 'pending' from public.delivery_orders where id = pg_temp.plan_id('door')
+));
+
+-- ---- commit with skip: the changed order drops out and the stops are renumbered
+select pg_temp.assert_check('commit can skip changed orders and renumber the rest', (
+  select (result ->> 'committed')::boolean and (result ->> 'partial')::boolean and (result ->> 'orders')::int = 1
+  from (select public.commit_dispatch_run(
+    pg_temp.run_by_key('00000000-0000-4000-8000-000000000009'), 1,
+    '00000000-0000-4000-8000-0000000000a6', 'skip') as result) as skipped
+));
+select pg_temp.assert_check('skipped commit left gap-free sequences and the right stops', (
+  select array_agg(sequence_number order by sequence_number) = array[1, 2]
+    and array_agg(stop_type order by sequence_number) = array['pickup', 'delivery']
+  from public.route_stops where route_id = (
+    select id from public.delivery_routes where dispatch_run_id = pg_temp.run_by_key('00000000-0000-4000-8000-000000000009'))
+));
+select pg_temp.assert_check('skipped order is recorded as unassigned stale_order', (
+  select disposition = 'unassigned' and unassigned_reason = 'stale_order'
+  from public.dispatch_run_orders
+  where run_id = pg_temp.run_by_key('00000000-0000-4000-8000-000000000009')
+    and order_id = pg_temp.plan_id('depot')
+));
+select pg_temp.assert_check('commit made the door order assigned with a route-linked assignment', (
+  select o.status = 'assigned' and a.route_id = r.id and r.status = 'planned' and r.service_date = pg_temp.today()
+    and r.planned_return_at is not null and r.depot_id = (select id from public.depots where code = 'MGD')
+  from public.delivery_orders o
+  join public.delivery_assignments a on a.order_id = o.id and a.ended_at is null
+  join public.delivery_routes r on r.id = a.route_id
+  where o.id = pg_temp.plan_id('door')
+));
+select pg_temp.assert_check('commit purged the raw matrix and recorded the audit trail', (
+  select (select count(*) from public.dispatch_run_matrices where run_id = r.id) = 0
+    and (select count(*) from public.dispatch_run_edits where run_id = r.id and edit_type = 'commit') = 1
+    and r.status = 'committed' and r.committed_by = pg_temp.fixture_id('manager')
+  from public.dispatch_runs r where r.id = pg_temp.run_by_key('00000000-0000-4000-8000-000000000009')
+));
+select pg_temp.assert_check('committing again with the same key returns the stored result', (
+  select (result ->> 'committed')::boolean and (result ->> 'duplicate')::boolean
+    and jsonb_array_length(result -> 'routes') = 1
+  from (select public.commit_dispatch_run(
+    pg_temp.run_by_key('00000000-0000-4000-8000-000000000009'), 2,
+    '00000000-0000-4000-8000-0000000000a6') as result) as again
+));
+select pg_temp.assert_check('committing with a different key reports already_committed', (
+  select not (result ->> 'committed')::boolean and result ->> 'reason' = 'already_committed'
+  from (select public.commit_dispatch_run(
+    pg_temp.run_by_key('00000000-0000-4000-8000-000000000009'), 2,
+    '00000000-0000-4000-8000-0000000000b0') as result) as other
+));
+select pg_temp.assert_check('a committed plan cannot be discarded', (
+  select not (result ->> 'discarded')::boolean and result ->> 'reason' = 'not_draft'
+  from (select public.discard_dispatch_run(
+    pg_temp.run_by_key('00000000-0000-4000-8000-000000000009'), 'too late') as result) as refused
+));
+
+-- ---- driver view of the committed route and the stop guard
+select pg_temp.as_user('driver');
+select pg_temp.assert_check('the assigned driver reads the committed stops', (
+  select count(*) = 2 from public.route_stops where dispatch_run_stop_id is not null
+));
+select pg_temp.expect_error('drivers cannot move a planned arrival', format(
+  'update public.route_stops set planned_arrival_at = now() + interval %L where id = %L', '5 hours',
+  (select id from public.route_stops where dispatch_run_stop_id is not null and sequence_number = 1)
+), 'Drivers can only update route stop status');
+select pg_temp.expect_error('drivers cannot rewrite the sequence of a planned stop', format(
+  'update public.route_stops set sequence_number = 9 where id = %L',
+  (select id from public.route_stops where dispatch_run_stop_id is not null and sequence_number = 1)
+), 'Drivers can only update route stop status');
+update public.route_stops set arrived_at = '2000-01-01T00:00:00Z'
+where id = (select id from public.route_stops where dispatch_run_stop_id is not null and sequence_number = 1);
+select pg_temp.assert_check('a client-supplied arrived_at is ignored', (
+  select arrived_at is null from public.route_stops
+  where dispatch_run_stop_id is not null and sequence_number = 1
+));
+update public.route_stops set status = 'arrived', arrived_at = '2000-01-01T00:00:00Z'
+where id = (select id from public.route_stops where dispatch_run_stop_id is not null and sequence_number = 1);
+select pg_temp.assert_check('arrived_at is stamped by the database on arrival', (
+  select status = 'arrived' and arrived_at > now() - interval '1 minute'
+  from public.route_stops where dispatch_run_stop_id is not null and sequence_number = 1
+));
+
+-- ---- single-order reassignment after commit skips the plan's pending stops
+select pg_temp.as_user('manager');
+update public.delivery_assignments set ended_at = now()
+where order_id = pg_temp.plan_id('door') and ended_at is null;
+select pg_temp.assert_check('ending a plan assignment skips that order''s pending stops', (
+  select count(*) filter (where status = 'skipped') = 1 and count(*) filter (where status = 'arrived') = 1
+  from public.route_stops where dispatch_run_stop_id is not null
+));
+
+-- ---- discard
+insert into plan_results (name, result)
+select 'discard', public.save_dispatch_run(pg_temp.sample_plan(pg_temp.today() + 2, pg_temp.fixture_id('driver')), '00000000-0000-4000-8000-00000000000a');
+select pg_temp.expect_error('discard needs a reason', format(
+  'select public.discard_dispatch_run(%L, %L)',
+  pg_temp.run_by_key('00000000-0000-4000-8000-00000000000a'), ''), 'reason is required');
+insert into plan_results (name, result)
+select 'discarded', public.discard_dispatch_run(
+  pg_temp.run_by_key('00000000-0000-4000-8000-00000000000a'), 'not needed');
+select pg_temp.assert_check('a draft can be discarded and its matrix is purged', (
+  select (result ->> 'discarded')::boolean from plan_results where name = 'discarded'
+) and (
+  select status = 'discarded' and discard_reason = 'not needed'
+  from public.dispatch_runs where id = pg_temp.run_by_key('00000000-0000-4000-8000-00000000000a')
+) and (
+  select count(*) = 0 from public.dispatch_run_matrices
+  where run_id = pg_temp.run_by_key('00000000-0000-4000-8000-00000000000a')
+));
+reset role;
+select pg_temp.expect_error('synthetic plans can never be stored',
+  'update public.dispatch_runs set synthetic = true', 'dispatch_runs_synthetic_check');
+set local role authenticated;
+select pg_temp.as_user('customer');
+
 select count(*) as checks_passed, array_agg(name order by name) as verified_checks
 from workflow_checks;
 rollback;
