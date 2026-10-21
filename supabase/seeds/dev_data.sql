@@ -18,10 +18,25 @@ select
   (select id from public.profiles where role = 'manager' order by created_at, id limit 1),
   (select id from public.profiles where role = 'customer' order by created_at, id limit 1),
   (select id from public.profiles where role = 'customer' order by created_at, id offset 1 limit 1),
-  (select id from public.profiles where role = 'driver' order by created_at, id limit 1),
+  (select p.id
+   from public.profiles p
+   join public.driver_profiles dp on dp.user_id = p.id
+   where p.role = 'driver'
+   order by p.created_at, p.id
+   limit 1),
   coalesce(
-    (select id from public.profiles where role = 'driver' order by created_at, id offset 1 limit 1),
-    (select id from public.profiles where role = 'driver' order by created_at, id limit 1)
+    (select p.id
+     from public.profiles p
+     join public.driver_profiles dp on dp.user_id = p.id
+     where p.role = 'driver'
+     order by p.created_at, p.id
+     offset 1 limit 1),
+    (select p.id
+     from public.profiles p
+     join public.driver_profiles dp on dp.user_id = p.id
+     where p.role = 'driver'
+     order by p.created_at, p.id
+     limit 1)
   );
 
 do $$
