@@ -79,6 +79,7 @@ test("attentionSummary counts each operational exception once", () => {
     needsRider: 1,
     delayed: 1,
     codPending: 1,
+    codToSettle: 0,
     pendingReports: 1,
   });
 });

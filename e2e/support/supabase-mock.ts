@@ -134,19 +134,33 @@ export async function signInAs(
       return route.fulfill({ status: 200, headers, json: user });
     const table = url.pathname.match(/^\/rest\/v1\/([^/]+)/)?.[1];
     if (!table) return route.fulfill({ status: 404, headers, json: {} });
-    if (request.method() !== "GET" && request.method() !== "HEAD") {
+    const matches = (row: Row) =>
+      [...url.searchParams].every(([key, value]) => {
+        if (!value.startsWith("eq.")) return true;
+        return String(row[key]) === value.slice(3);
+      });
+    const method = request.method();
+    if (method !== "GET" && method !== "HEAD") {
       let body: unknown = null;
       try {
         body = request.postDataJSON();
       } catch {
         body = request.postData();
       }
-      mutations.push({ method: request.method(), table, body });
-      return route.fulfill({ status: 201, headers, json: [] });
+      mutations.push({ method, table, body });
+      if (method === "PATCH" && body && typeof body === "object") {
+        const updated = (all[table] ?? []).filter(matches);
+        for (const row of updated) Object.assign(row, body);
+        return route.fulfill({ status: 200, headers, json: updated });
+      }
+      if (method === "POST") {
+        const created = Array.isArray(body) ? body : [body];
+        all[table] = [...(all[table] ?? []), ...(created as Row[])];
+        return route.fulfill({ status: 201, headers, json: created });
+      }
+      return route.fulfill({ status: 204, headers });
     }
-    let rows = all[table] ?? [];
-    const eq = url.searchParams.get("id");
-    if (eq?.startsWith("eq.")) rows = rows.filter((r) => r.id === eq.slice(3));
+    const rows = (all[table] ?? []).filter(matches);
     const single = (request.headers().accept ?? "").includes(
       "vnd.pgrst.object",
     );

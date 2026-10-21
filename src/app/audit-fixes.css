@@ -146,3 +146,86 @@
 .rf-app .rf-step-dots li {
   font-size: 12px;
 }
+
+/* O-02: cash on delivery reconciliation. */
+.cod-ledger {
+  display: grid;
+  gap: 16px;
+}
+.cod-ledger-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cod-ledger-row {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--color-border);
+}
+.cod-ledger-main {
+  display: grid;
+  gap: 2px;
+}
+.cod-ledger-main span,
+.cod-ledger-reason {
+  margin: 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.cod-ledger-state {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary-subtle);
+}
+.cod-ledger-state.is-warning {
+  background: var(--color-warning-surface, #fef3c7);
+  color: var(--color-warning-text, #92400e);
+}
+.cod-ledger-state.is-error {
+  background: var(--color-error-surface);
+  color: var(--color-error-text);
+}
+.cod-ledger-state.is-success {
+  background: var(--color-success-surface, #dcfce7);
+  color: var(--color-success-text, #166534);
+}
+.cod-ledger-amounts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.cod-ledger-amounts dt {
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+}
+.cod-ledger-amounts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.cod-ledger-amounts .is-off dd {
+  color: var(--color-error-text);
+}
+.cod-ledger-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cod-ledger-confirm span {
+  flex: 1 1 100%;
+  font-size: 14px;
+}

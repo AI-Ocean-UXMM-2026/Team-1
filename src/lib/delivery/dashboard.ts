@@ -46,6 +46,10 @@ export function attentionSummary(
     codPending: orders.filter(
       (order) => order.cod_amount > 0 && order.cod_status === "pending",
     ).length,
+    // Cash the rider holds that the office has not yet received.
+    codToSettle: orders.filter(
+      (order) => order.cod_amount > 0 && order.cod_status === "collected",
+    ).length,
     pendingReports: roadReports.filter((report) => report.status === "pending")
       .length,
   };

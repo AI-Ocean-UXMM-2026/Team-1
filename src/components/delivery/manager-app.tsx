@@ -17,6 +17,7 @@ import {
 } from "@/components/delivery/common";
 import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
+import { CodLedgerView } from "@/components/delivery/manager-cod";
 import {
   assignDelivery,
   reviewRoadReport,
@@ -40,18 +41,11 @@ const managerNavItems = [
   { id: "home", label: "Overview", href: "/manager/home", icon: "delivery" },
   { id: "track", label: "Track", href: "/manager/track", icon: "track" },
   { id: "order", label: "Orders", href: "/manager/order", icon: "box" },
+  { id: "cod", label: "COD", href: "/manager/cod", icon: "coin" },
   { id: "profile", label: "Team", href: "/manager/profile", icon: "user" },
 ] as const;
 
-const managerMobileNav = [
-  ...managerNavItems,
-  {
-    id: "insights",
-    label: "Fleet",
-    href: "/manager/insights",
-    icon: "truck",
-  },
-] as const;
+const managerMobileNav = managerNavItems;
 
 export type ManagerView = (typeof managerNavItems)[number]["id"];
 
@@ -370,7 +364,7 @@ export function ManagerDashboard({
   const attentionTotal =
     summary.needsRider +
     summary.delayed +
-    summary.codPending +
+    summary.codToSettle +
     summary.pendingReports;
 
   const pageCopy = {
@@ -382,6 +376,11 @@ export function ManagerDashboard({
       title: "Live tracking",
       description:
         "Follow parcels after pickup and verify road reports for ETAs.",
+    },
+    cod: {
+      title: "Cash on delivery",
+      description:
+        "Check what riders collected against what was due, then settle it.",
     },
     order: {
       title: "Orders",
@@ -635,11 +634,7 @@ export function ManagerDashboard({
                           "/manager/order?filter=unassigned",
                         ],
                         ["Delayed on route", summary.delayed, "/manager/track"],
-                        [
-                          "COD to settle",
-                          summary.codPending,
-                          "/manager/insights",
-                        ],
+                        ["COD to settle", summary.codToSettle, "/manager/cod"],
                         [
                           "Road reports",
                           summary.pendingReports,
@@ -700,6 +695,13 @@ export function ManagerDashboard({
                 </section>
               </aside>
             </div>
+          )}
+
+          {!signedOut && view === "cod" && (
+            <CodLedgerView
+              orders={orders}
+              live={workspace.canUseLiveData && !workspace.isDemo}
+            />
           )}
 
           {!signedOut && view === "order" && (

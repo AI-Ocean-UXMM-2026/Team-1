@@ -5,6 +5,7 @@ const publicRoutes = ["/welcome", "/home", "/track", "/orders", "/profile"];
 const teamRoutes = [
   ["manager", "/manager/home"],
   ["manager", "/manager/order"],
+  ["manager", "/manager/cod"],
   ["manager", "/manager/track"],
   ["manager", "/manager/profile"],
   ["manager", "/manager/insights"],
