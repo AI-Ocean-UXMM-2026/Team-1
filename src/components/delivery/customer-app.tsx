@@ -49,8 +49,8 @@ import {
 import { prioritiseOrders } from "@/lib/delivery/format";
 import {
   hasCollectedParcel,
-  parcelLocationState,
   isRecentLocation,
+  parcelLocationState,
 } from "@/lib/delivery/location-state";
 import {
   fromTrackingPayload,
@@ -80,7 +80,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   const [lookupMiss, setLookupMiss] = useState<string | null>(null);
   const [publicHit, setPublicHit] = useState<PublicTracking | null>(null);
   const urlHandled = useRef(false);
-  const [orderFilter, setOrderFilter] = useState<OrderFilter>("all");
+  const [orderFilter, setOrderFilter] = useState<OrderFilter>("active");
   const orders = useMemo(
     () => prioritiseOrders(workspace.data.orders),
     [workspace.data.orders],

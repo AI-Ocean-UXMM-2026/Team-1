@@ -295,6 +295,10 @@
 .auth-page-back:hover {
   color: var(--forest);
 }
+.auth-page-card > .eyebrow {
+  display: block;
+  margin-bottom: 18px;
+}
 @media (max-width: 600px) {
   .auth-page {
     align-items: center;

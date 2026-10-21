@@ -23,6 +23,9 @@ set search_path = ''
 as $$
 declare
   actor_id uuid := (select auth.uid());
+  new_order_id uuid;
+  new_tracking_code text;
+  new_created_at timestamptz;
 begin
   if actor_id is null then
     raise exception 'Sign in as a customer before requesting a pickup'
@@ -47,8 +50,8 @@ begin
       using errcode = '22023';
   end if;
 
-  return query
-  insert into public.delivery_orders (
+  with inserted_order as (
+    insert into public.delivery_orders (
     customer_id,
     created_by,
     pickup_address,
@@ -66,13 +69,13 @@ begin
     cod_status,
     estimated_delivery_at
   )
-  values (
+    values (
     actor_id,
     actor_id,
     trim(p_pickup_address),
     p_pickup_latitude,
     p_pickup_longitude,
-    (select full_name from public.profiles where id = actor_id),
+    (select full_name from public.profiles where profiles.id = actor_id),
     nullif(trim(p_pickup_contact_phone), ''),
     trim(p_delivery_address),
     p_delivery_latitude,
@@ -84,7 +87,16 @@ begin
     case when greatest(coalesce(p_cod_amount, 0), 0) > 0 then 'pending' else 'not_required' end,
     now() + interval '2 hours'
   )
-  returning delivery_orders.id, delivery_orders.tracking_code, delivery_orders.created_at;
+    returning delivery_orders.id, delivery_orders.tracking_code, delivery_orders.created_at
+  )
+  select inserted_order.id, inserted_order.tracking_code, inserted_order.created_at
+    into new_order_id, new_tracking_code, new_created_at
+  from inserted_order;
+
+  id := new_order_id;
+  tracking_code := new_tracking_code;
+  created_at := new_created_at;
+  return next;
 end;
 $$;
 

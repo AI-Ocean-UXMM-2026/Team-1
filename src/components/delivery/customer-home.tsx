@@ -844,8 +844,18 @@ export function CustomerHome({
   onOpenCod: () => void;
   onOpenHelp: () => void;
 }) {
-  const next = pickNextParcel(orders);
-  const today = buildTodayItems(orders, statusEvents, now);
+  const activeOrders = orders.filter((order) =>
+    ["pending", "assigned", "accepted", "picked_up", "in_transit"].includes(
+      order.status,
+    ),
+  );
+  const historyOrders = orders
+    .filter((order) =>
+      ["delivered", "failed", "cancelled"].includes(order.status),
+    )
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const next = pickNextParcel(activeOrders);
+  const today = buildTodayItems(activeOrders, statusEvents, now);
   const rest = today.filter((item) => item.order.id !== next?.id);
   const codOrders = codDue(orders);
   const codCount = codOrders.length;
@@ -854,14 +864,7 @@ export function CustomerHome({
   const showCodChip =
     codCount > 1 || (codCount === 1 && codOrders[0]?.id !== next?.id);
 
-  const activeCount = orders.filter((order) =>
-    ["pending", "assigned", "accepted", "picked_up", "in_transit"].includes(
-      order.status,
-    ),
-  ).length;
-  const latest = [...orders].sort((x, y) =>
-    y.created_at.localeCompare(x.created_at),
-  )[0];
+  const activeCount = activeOrders.length;
 
   // A parcel on the way leads the page; booking another waits underneath.
   const hasLive = isAuthenticated && next != null;
@@ -928,37 +931,6 @@ export function CustomerHome({
               </List>
             )}
           </>
-        ) : latest ? (
-          <Box sx={{ px: 2, mt: 1 }}>
-            <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-              No deliveries on the way. Your latest delivery:
-            </Typography>
-            <ListItemButton
-              component={Link}
-              href={`/track?order=${encodeURIComponent(latest.id)}`}
-              sx={{
-                gap: 1.5,
-                minHeight: 64,
-                px: 1.5,
-                borderRadius: "16px",
-                bgcolor: "grey.100",
-              }}
-            >
-              <ListItemText
-                sx={{ m: 0, minWidth: 0 }}
-                primary={latest.delivery_address}
-                secondary={`${latest.tracking_code} · ${formatDateTime(latest.created_at)}`}
-                slotProps={{
-                  primary: {
-                    noWrap: true,
-                    sx: { fontWeight: 700, fontSize: 14 },
-                  },
-                  secondary: { noWrap: true, sx: { fontSize: 12 } },
-                }}
-              />
-              <StatusChip status={latest.status} />
-            </ListItemButton>
-          </Box>
         ) : (
           <Box sx={{ px: 2, mt: 1 }}>
             <ListItemButton
@@ -991,6 +963,68 @@ export function CustomerHome({
           </Box>
         )}
       </Box>
+
+      {isAuthenticated && historyOrders.length > 0 && (
+        <Box
+          component="section"
+          aria-labelledby="delivery-history-title"
+          sx={{ mt: 2 }}
+        >
+          <Stack
+            direction="row"
+            sx={{ alignItems: "center", px: 2, minHeight: 40 }}
+          >
+            <Typography
+              id="delivery-history-title"
+              variant="h6"
+              component="h2"
+              sx={{ fontWeight: 750 }}
+            >
+              History
+            </Typography>
+            <Button
+              component={Link}
+              href="/orders"
+              color="secondary"
+              endIcon={<ArrowForward />}
+              sx={{ ml: "auto", minHeight: 40, fontWeight: 700 }}
+            >
+              See all
+            </Button>
+          </Stack>
+          <List disablePadding sx={{ px: 2, display: "grid", gap: 1 }}>
+            {historyOrders.slice(0, 3).map((order) => (
+              <ListItem key={order.id} disablePadding>
+                <ListItemButton
+                  component={Link}
+                  href={`/track?order=${encodeURIComponent(order.id)}`}
+                  sx={{
+                    gap: 1.5,
+                    minHeight: 64,
+                    px: 1.5,
+                    borderRadius: "16px",
+                    bgcolor: "grey.100",
+                  }}
+                >
+                  <ListItemText
+                    sx={{ m: 0, minWidth: 0 }}
+                    primary={order.delivery_address}
+                    secondary={`${order.tracking_code} · ${formatDateTime(order.created_at)}`}
+                    slotProps={{
+                      primary: {
+                        noWrap: true,
+                        sx: { fontWeight: 700, fontSize: 14 },
+                      },
+                      secondary: { noWrap: true, sx: { fontSize: 12 } },
+                    }}
+                  />
+                  <StatusChip status={order.status} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      )}
 
       {isAuthenticated && showCodChip && (
         <Box sx={{ px: 2, mt: 2 }}>
