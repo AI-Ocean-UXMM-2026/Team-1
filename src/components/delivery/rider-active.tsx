@@ -158,6 +158,172 @@ function SheetHandle({
 }
 
 /**
+ * One line of text that slides back and forth when it is wider than its box,
+ * so a long address stays whole without taking extra rows. With reduced
+ * motion it wraps instead (see rider-delivery.css).
+ */
+function MarqueeText({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLSpanElement>(null);
+  const text = useRef<HTMLSpanElement>(null);
+  const [shift, setShift] = useState(0);
+  useEffect(() => {
+    const outer = box.current;
+    const inner = text.current;
+    if (!outer || !inner) return;
+    const measure = () =>
+      setShift(Math.max(0, inner.scrollWidth - outer.clientWidth));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(outer);
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <span ref={box} className="dv-marquee">
+      <span
+        ref={text}
+        className={shift > 0 ? "is-moving" : undefined}
+        style={
+          shift > 0
+            ? ({
+                "--shift": `-${shift}px`,
+                "--dur": `${Math.max(6, shift / 24 + 4)}s`,
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
+        {children}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Swipe-to-confirm, as in Grab: a knob that must be dragged most of the way
+ * across, so a stray tap cannot tell the customer the rider is there. A tap
+ * only nudges the knob; Enter or Space on the focused knob confirms for
+ * keyboard and switch users.
+ */
+function SwipeConfirm({
+  label,
+  hint,
+  onConfirm,
+}: {
+  label: string;
+  hint: string;
+  onConfirm: () => void;
+}) {
+  const track = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ id: number; from: number; moved: boolean } | null>(
+    null,
+  );
+  const timers = useRef<number[]>([]);
+  const [x, setX] = useState(0);
+  const [phase, setPhase] = useState<"idle" | "drag" | "done" | "nudge">(
+    "idle",
+  );
+  useEffect(
+    () => () => {
+      for (const id of timers.current) window.clearTimeout(id);
+    },
+    [],
+  );
+  const later = (fn: () => void, ms: number) => {
+    timers.current.push(window.setTimeout(fn, ms));
+  };
+  const travel = () => Math.max(0, (track.current?.clientWidth ?? 0) - 56);
+  const confirm = () => {
+    if (phase === "done") return;
+    setX(travel());
+    setPhase("done");
+    later(onConfirm, 260);
+    // The sheet normally changes; if it does not (far-away check), reset.
+    later(() => {
+      setX(0);
+      setPhase("idle");
+    }, 900);
+  };
+  return (
+    <div
+      ref={track}
+      className="dv-swipe"
+      data-phase={phase}
+      style={
+        {
+          "--x": `${x}px`,
+          "--p": travel() > 0 ? x / travel() : 0,
+        } as React.CSSProperties
+      }
+    >
+      <span className="dv-swipe-label" aria-hidden="true">
+        {hint}
+      </span>
+      <button
+        type="button"
+        className="dv-swipe-knob"
+        aria-label={label}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            confirm();
+          }
+        }}
+        onClick={() => {
+          // A tap is not a confirmation: show how to do it.
+          if (drag.current?.moved || phase !== "idle") return;
+          setPhase("nudge");
+          later(() => setPhase("idle"), 700);
+        }}
+        onPointerDown={(event) => {
+          if (phase === "done") return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          drag.current = {
+            id: event.pointerId,
+            from: event.clientX - x,
+            moved: false,
+          };
+          setPhase("drag");
+        }}
+        onPointerMove={(event) => {
+          const state = drag.current;
+          if (!state || state.id !== event.pointerId) return;
+          const next = Math.min(
+            travel(),
+            Math.max(0, event.clientX - state.from),
+          );
+          if (next > 4) state.moved = true;
+          setX(next);
+        }}
+        onPointerUp={(event) => {
+          const state = drag.current;
+          if (!state || state.id !== event.pointerId) return;
+          if (x >= travel() * 0.82 && travel() > 0) confirm();
+          else {
+            setX(0);
+            setPhase("idle");
+          }
+          // Let the click that follows a drag see that it was a drag.
+          later(() => {
+            drag.current = null;
+          }, 0);
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+          setX(0);
+          setPhase("idle");
+        }}
+      >
+        {phase === "done" ? (
+          <Icon name="check" size={22} strokeWidth={2.6} />
+        ) : (
+          <Icon name="arrow-right" size={22} strokeWidth={2.4} />
+        )}
+      </button>
+    </div>
+  );
+}
+
+/**
  * Posted limit with the rider's live speed beside it, as in Google Maps and
  * Waze. The limit only shows when the road has one; the speed turns red while
  * the rider is over it. Nothing renders until there is something to show.
@@ -448,18 +614,6 @@ export function ActiveDelivery({
           <>
             <SheetHandle open={expanded} onToggle={onExpand} />
             <div className="dv-stage">
-              <div
-                className="dv-route-steps"
-                role="img"
-                aria-label={`Stop ${stop.number} of ${route.stops.length}`}
-              >
-                {route.stops.map((item) => (
-                  <span
-                    key={item.key}
-                    className={`is-${item.state.toLowerCase()}${item === stop ? " is-here" : ""}`}
-                  />
-                ))}
-              </div>
               <div className="dv-stage-line">
                 <small className={arrived ? "is-arrived" : ""}>
                   {arrived ? "At the stop" : "Next stop"} · {stop.number} of{" "}
@@ -470,12 +624,15 @@ export function ActiveDelivery({
             </div>
             <div className="dv-stop-head">
               <div className="dv-stop-title">
-                <h2>{stop.address}</h2>
+                <h2>
+                  <MarqueeText>{stop.address}</MarqueeText>
+                </h2>
                 <p>
-                  <Icon name="user" size={14} /> {stop.recipient}
-                  <span aria-hidden="true"> · </span>
-                  {stop.open.length}{" "}
-                  {stop.open.length === 1 ? "parcel" : "parcels"}
+                  <Icon name="user" size={14} />
+                  <MarqueeText>
+                    {stop.recipient} · {stop.open.length}{" "}
+                    {stop.open.length === 1 ? "parcel" : "parcels"}
+                  </MarqueeText>
                 </p>
               </div>
               {directionsHref && !arrived && (
@@ -488,15 +645,6 @@ export function ActiveDelivery({
                 >
                   <Icon name="navigation" size={20} />
                 </a>
-              )}
-            </div>
-            <div className={`dv-pay${stop.codDue > 0 ? " is-due" : ""}`}>
-              <span>
-                <Icon name={stop.codDue > 0 ? "coin" : "check"} size={16} />
-                {stop.codDue > 0 ? "Collect cash" : "No payment to collect"}
-              </span>
-              {stop.codDue > 0 && (
-                <strong>{currency.format(stop.codDue)}</strong>
               )}
             </div>
             <div className="dv-strip" role="group" aria-label="Stop actions">
@@ -611,6 +759,14 @@ export function ActiveDelivery({
 
             {error}
             <div className="dv-sheet-actions">
+              {stop.codDue > 0 && !(confirmFar && far && !arrived) && (
+                <div className="dv-cash">
+                  <span>
+                    <Icon name="coin" size={16} /> Collect cash
+                  </span>
+                  <strong>{currency.format(stop.codDue)}</strong>
+                </div>
+              )}
               {arrived ? (
                 <Button
                   fullWidth
@@ -619,7 +775,7 @@ export function ActiveDelivery({
                   size="large"
                   onClick={onStartHandover}
                   endIcon={<Icon name="arrow-right" size={18} />}
-                  sx={{ minHeight: 48, borderRadius: 999, flex: 1 }}
+                  sx={{ minHeight: 56, borderRadius: 999 }}
                 >
                   Start handover
                 </Button>
@@ -649,16 +805,11 @@ export function ActiveDelivery({
                   </Button>
                 </div>
               ) : (
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  onClick={() => (far ? setConfirmFar(true) : onArrived())}
-                  sx={{ minHeight: 48, borderRadius: 999, flex: 1 }}
-                >
-                  I’ve arrived
-                </Button>
+                <SwipeConfirm
+                  label="I’ve arrived"
+                  hint="Swipe to confirm arrival"
+                  onConfirm={() => (far ? setConfirmFar(true) : onArrived())}
+                />
               )}
             </div>
           </>

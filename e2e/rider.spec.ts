@@ -4,6 +4,7 @@ import {
   makeRoute,
   signInAs,
 } from "./support/supabase-mock";
+import { swipeToConfirm } from "./support/swipe";
 import { expect, test } from "./support/test";
 
 const assignment = {
@@ -39,7 +40,7 @@ test("handover steps move forward and back (C-06)", async ({
   context,
 }) => {
   await openRider(page, context, "in_transit");
-  await page.getByRole("button", { name: /i.ve arrived/i }).click();
+  await swipeToConfirm(page, /i.ve arrived/i);
   // The test position is a few km from the stop, so arrival asks first.
   await page.getByRole("button", { name: /yes, i.m here/i }).click();
   await page.getByRole("button", { name: "Start handover" }).click();
@@ -127,7 +128,7 @@ test("arriving far from the stop asks before telling the customer", async ({
   context,
 }) => {
   await openRider(page, context, "in_transit");
-  await page.getByRole("button", { name: /i.ve arrived/i }).click();
+  await swipeToConfirm(page, /i.ve arrived/i);
   await expect(page.getByText(/km away\. arrived anyway\?/i)).toBeVisible();
   await page.getByRole("button", { name: "Not yet" }).click();
   await expect(
@@ -223,4 +224,32 @@ test("the map shows the posted speed limit and flags speeding", async ({
   await expect(sign).toBeVisible();
   // 14 m/s is 50 km/h, over the limit of 40.
   await expect(sign.locator(".dv-now.is-over")).toContainText("50");
+});
+
+test("tapping or half-swiping arrive does not confirm it", async ({
+  page,
+  context,
+}) => {
+  await openRider(page, context, "in_transit");
+  const knob = page.getByRole("button", { name: /i.ve arrived/i });
+  await knob.click();
+  await swipeToConfirm(page, /i.ve arrived/i, 0.4);
+  await expect(page.getByText(/arrived anyway/i)).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Start handover" }),
+  ).toHaveCount(0);
+  await expect(knob).toBeVisible();
+});
+
+test("cash due sits above the swipe, not in the stop header", async ({
+  page,
+  context,
+}) => {
+  await openRider(page, context, "in_transit");
+  const actions = page.locator(".dv-sheet-actions");
+  await expect(actions.getByText("Collect cash")).toBeVisible();
+  await expect(actions.getByText(/68,000/)).toBeVisible();
+  await expect(page.locator(".dv-stop-head").getByText(/68,000/)).toHaveCount(
+    0,
+  );
 });

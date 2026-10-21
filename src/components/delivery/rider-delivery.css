@@ -694,38 +694,11 @@
   user-select: none;
 }
 
-/* Stage: a segmented stepper (one segment per stop) and a stop/ETA line. */
+/* Stage: the stop count and ETA. */
 .dv-stage {
   display: grid;
   gap: 8px;
   margin-top: 8px;
-}
-
-.dv-route-steps {
-  display: flex;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.dv-route-steps span {
-  flex: 1;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--color-border);
-}
-
-.dv-route-steps span.is-completed {
-  background: var(--color-text-primary);
-}
-
-.dv-route-steps span.is-failed {
-  background: var(--color-error-text);
-}
-
-.dv-route-steps span.is-here {
-  background: var(--color-info);
 }
 
 .dv-stage-line {
@@ -767,6 +740,10 @@
   min-width: 0;
 }
 
+.dv-stop-title {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .dv-stop-title h2 {
   font-size: 20px;
   line-height: 26px;
@@ -799,40 +776,6 @@
   border-radius: 999px;
   background: var(--color-info);
   color: #ffffff;
-}
-
-/* Payment: the number a rider must not forget, on its own full-width row. */
-.dv-pay {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--color-surface-subtle, var(--rf-info-bg));
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-}
-
-.dv-pay > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dv-pay.is-due {
-  background: var(--color-warning-surface);
-  color: var(--color-warning-text);
-}
-
-.dv-pay.is-due strong {
-  font-size: 24px;
-  line-height: 30px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Call / Message / Problem: equal columns with hairlines, as in Grab Driver. */
@@ -1337,4 +1280,237 @@
 
 .dv-now.is-over small {
   color: #ffffff;
+}
+
+/* ---------- marquee text ---------- */
+
+.dv-marquee {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.dv-stop-title p .dv-marquee {
+  flex: 1;
+}
+
+.dv-marquee > span {
+  display: inline-block;
+}
+
+.dv-marquee > .is-moving {
+  animation: dv-marquee var(--dur, 8s) ease-in-out infinite alternate;
+}
+
+@keyframes dv-marquee {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+  85%,
+  100% {
+    transform: translateX(var(--shift));
+  }
+}
+
+/* Reduced motion: no sliding text, the full address wraps instead. */
+@media (prefers-reduced-motion: reduce) {
+  .dv-marquee {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .dv-marquee > .is-moving {
+    animation: none;
+  }
+}
+
+/* ---------- cash + swipe to confirm ---------- */
+
+.dv-sheet-actions {
+  flex-wrap: wrap;
+}
+
+.dv-cash {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.dv-cash > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dv-cash strong {
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-swipe {
+  position: relative;
+  flex: 1 1 100%;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-brand-orange-action);
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* The trail behind the knob darkens as it travels. */
+.dv-swipe::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--x, 0px) + 56px);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.16);
+  content: "";
+}
+
+.dv-swipe[data-phase="idle"]::before,
+.dv-swipe[data-phase="nudge"]::before,
+.dv-swipe[data-phase="done"]::before {
+  transition: width 220ms var(--rf-ease);
+}
+
+.dv-swipe-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-left: 40px;
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  opacity: calc(1 - var(--p, 0) * 1.6);
+  /* Shimmer: the highlight runs through the text itself, as in Grab. */
+  background: linear-gradient(
+      100deg,
+      rgba(255, 255, 255, 0.72) 0%,
+      rgba(255, 255, 255, 0.72) 40%,
+      #ffffff 50%,
+      rgba(255, 255, 255, 0.72) 60%,
+      rgba(255, 255, 255, 0.72) 100%
+    )
+    100% 0 / 300% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: dv-shimmer 2.4s linear infinite;
+}
+
+.dv-swipe[data-phase="drag"] .dv-swipe-label,
+.dv-swipe[data-phase="done"] .dv-swipe-label {
+  animation: none;
+  background: none;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.dv-swipe-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  color: var(--color-brand-orange-action);
+  cursor: grab;
+  touch-action: none;
+  transform: translateX(var(--x, 0px));
+}
+
+.dv-swipe[data-phase="idle"] .dv-swipe-knob,
+.dv-swipe[data-phase="nudge"] .dv-swipe-knob,
+.dv-swipe[data-phase="done"] .dv-swipe-knob {
+  transition: transform 220ms var(--rf-ease);
+}
+
+.dv-swipe[data-phase="nudge"] .dv-swipe-knob {
+  animation: dv-nudge 600ms var(--rf-ease);
+}
+
+.dv-swipe[data-phase="done"] .dv-swipe-knob {
+  animation: dv-pop 320ms var(--rf-ease);
+}
+
+.dv-swipe-knob:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+@keyframes dv-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+
+@keyframes dv-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(44px);
+  }
+}
+
+@keyframes dv-pop {
+  0% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.14;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-swipe-label {
+    background: none;
+    -webkit-text-fill-color: #ffffff;
+  }
+
+  .dv-swipe-label,
+  .dv-swipe[data-phase="nudge"] .dv-swipe-knob,
+  .dv-swipe[data-phase="done"] .dv-swipe-knob {
+    animation: none;
+  }
+
+  .dv-swipe::before,
+  .dv-swipe-knob {
+    transition: none !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .dv-swipe-knob {
+    color: #0f172a;
+  }
 }
