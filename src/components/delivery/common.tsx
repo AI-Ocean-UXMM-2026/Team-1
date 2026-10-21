@@ -19,15 +19,11 @@ const iconByStatus: Record<DeliveryStatus, IconName> = {
   cancelled: "close",
 };
 
+/** Plain product name; Oern has no logo mark yet, so none is drawn. */
 export function Brand({ href = "/" }: { href?: string }) {
   return (
     <Link href={href} className="brand-lockup" aria-label="Oern home">
-      <span className="brand-symbol">
-        <Icon name="delivery" size={19} strokeWidth={2} />
-      </span>
-      <span>
-        oern<span className="brand-period">.</span>
-      </span>
+      Oern
     </Link>
   );
 }

@@ -1,41 +1,38 @@
 "use client";
 
-import HomeOutlined from "@mui/icons-material/HomeOutlined";
-import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
-import PersonOutlined from "@mui/icons-material/PersonOutlined";
-import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
-import BottomNavigation from "@mui/material/BottomNavigation";
-import BottomNavigationAction from "@mui/material/BottomNavigationAction";
-import Link from "next/link";
+import Button from "@mui/material/Button";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
-import {
-  Brand,
-  Eyebrow,
-  LoadingBlock,
-  StatusBadge,
-  signOut,
-} from "@/components/delivery/common";
+import { signOut } from "@/components/delivery/common";
 import {
   CodSheet,
+  CustomerHeader,
   CustomerHome,
-  CustomerTopBar,
   DemoChip,
   HelpSheet,
   HomeSkeleton,
-  NotificationsSheet,
+  NotificationsPage,
   ParcelSwitcher,
   ScanSheet,
   TrackingLookup,
   TrackLookupNotice,
 } from "@/components/delivery/customer-home";
+import {
+  CustomerBottomNav,
+  EmptyState,
+  type OrderFilter,
+  OrdersPage,
+  ProfilePage,
+  TrackDetail,
+} from "@/components/delivery/customer-pages";
 import { CustomerProviderTracking } from "@/components/delivery/customer-provider-tracking";
 import { Icon } from "@/components/delivery/icons";
-import { LocationMap } from "@/components/delivery/location-map";
+import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import {
   buildNotifications,
+  type CustomerNotification,
   codDue,
   homeSummary,
   matchOrders,
@@ -43,123 +40,38 @@ import {
   pickNextParcel,
   rememberTrackingCode,
 } from "@/lib/delivery/customer-home";
-import {
-  currency,
-  formatDateTime,
-  formatTime,
-  nextCustomerAction,
-  prioritiseOrders,
-  relativeUpdatedAt,
-  timeUntil,
-} from "@/lib/delivery/format";
+import { prioritiseOrders } from "@/lib/delivery/format";
 import {
   hasCollectedParcel,
   parcelLocationState,
 } from "@/lib/delivery/location-state";
-import type { DeliveryOrder } from "@/lib/delivery/types";
-import { STATUS_LABELS, STATUS_STEPS } from "@/lib/delivery/types";
+import {
+  fromTrackingPayload,
+  type PublicTracking,
+} from "@/lib/delivery/public-tracking";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
+import { createClient } from "@/lib/supabase/client";
 
-function etaCopy(order: DeliveryOrder) {
-  if (order.status === "delivered") return "Arrived safely";
-  if (order.status === "failed") return "We’re resolving an issue";
-  if (order.status === "cancelled") return "Delivery cancelled";
-  if (!hasCollectedParcel(order.status)) return "After parcel pickup";
-  return timeUntil(order.estimated_delivery_at);
-}
+export type CustomerView =
+  | "home"
+  | "track"
+  | "orders"
+  | "profile"
+  | "notifications";
 
-const customerNavItems = [
-  { id: "home", label: "Home", href: "/home", icon: "home" },
-  { id: "track", label: "Track", href: "/track", icon: "track" },
-  { id: "orders", label: "Orders", href: "/orders", icon: "list" },
-  { id: "profile", label: "Profile", href: "/profile", icon: "user" },
-] as const;
-
-type OrderFilter = "all" | "active" | "delivered" | "issues";
-const ORDER_FILTERS: { id: OrderFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "active", label: "Active" },
-  { id: "delivered", label: "Delivered" },
-  { id: "issues", label: "Issues" },
-];
-const ACTIVE_ORDER_STATUSES = [
-  "pending",
-  "assigned",
-  "accepted",
-  "picked_up",
-  "in_transit",
-];
-function matchesOrderFilter(order: DeliveryOrder, filter: OrderFilter) {
-  if (filter === "all") return true;
-  if (filter === "active") return ACTIVE_ORDER_STATUSES.includes(order.status);
-  if (filter === "delivered") return order.status === "delivered";
-  return order.status === "failed" || order.status === "cancelled";
-}
-
-const customerNavIcons = {
-  home: HomeOutlined,
-  track: LocalShippingOutlined,
-  orders: ReceiptLongOutlined,
-  profile: PersonOutlined,
-} as const;
-
-/** Material 2 bottom navigation: 56dp bar, elevation 8, labels always shown. */
-function CustomerBottomNav({ activeId }: { activeId: string }) {
-  return (
-    <BottomNavigation
-      showLabels
-      value={activeId}
-      aria-label="Customer app"
-      sx={{
-        position: "fixed",
-        left: 0,
-        right: 0,
-        marginInline: "auto",
-        maxWidth: 430,
-        bottom: 0,
-        zIndex: (theme) => theme.zIndex.appBar,
-        height: "calc(56px + env(safe-area-inset-bottom))",
-        pb: "env(safe-area-inset-bottom)",
-        boxShadow: (theme) => theme.shadows[8],
-        "& .MuiBottomNavigationAction-root": { minWidth: 0, maxWidth: "none" },
-      }}
-    >
-      {customerNavItems
-        .filter((item) => item.id !== "track")
-        .map((item) => {
-          const NavIcon = customerNavIcons[item.id];
-          return (
-            <BottomNavigationAction
-              key={item.id}
-              component={Link}
-              href={item.href}
-              value={item.id}
-              label={item.label}
-              icon={<NavIcon />}
-              aria-current={activeId === item.id ? "page" : undefined}
-            />
-          );
-        })}
-    </BottomNavigation>
-  );
-}
-
-export type CustomerView = (typeof customerNavItems)[number]["id"];
+type ReadState = { upTo: number; ids: string[] };
 
 export function CustomerApp({ view }: { view: CustomerView }) {
   const workspace = useWorkspace("customer");
   const [selectedId, setSelectedId] = useState("");
   const [authOpen, setAuthOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
   const [now, setNow] = useState(0);
   const router = useRouter();
-  const [sheet, setSheet] = useState<
-    "notifications" | "help" | "scan" | "cod" | null
-  >(null);
-  const [readUpTo, setReadUpTo] = useState<number | null>(null);
-  const [unreadIds, setUnreadIds] = useState<ReadonlySet<string>>(new Set());
+  const [sheet, setSheet] = useState<"help" | "scan" | "cod" | null>(null);
+  const [readState, setReadState] = useState<ReadState | null>(null);
   const [demoDismissed, setDemoDismissed] = useState(false);
   const [lookupMiss, setLookupMiss] = useState<string | null>(null);
+  const [publicHit, setPublicHit] = useState<PublicTracking | null>(null);
   const urlHandled = useRef(false);
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("all");
   const orders = useMemo(
@@ -171,30 +83,74 @@ export function CustomerApp({ view }: { view: CustomerView }) {
     () => (workspace.isDemo ? [] : orders),
     [orders, workspace.isDemo],
   );
+  // Track shows a parcel only once one is chosen (link, lookup or chip);
+  // falling back to "some order" put an unrelated parcel under the search box.
   const selectedOrder =
-    orders.find((order) => order.id === selectedId) ?? orders[0] ?? null;
-  const visibleOrders = orders.filter((order) =>
-    matchesOrderFilter(order, orderFilter),
-  );
+    publicHit && publicHit.order.id === selectedId
+      ? publicHit.order
+      : (orders.find((order) => order.id === selectedId) ?? null);
+  // Opened from a parcel link (Home, Orders, notifications): a detail page,
+  // not a search page.
+  const [linkedOrder, setLinkedOrder] = useState(false);
+  const trackEvents = publicHit
+    ? [...workspace.data.statusEvents, ...publicHit.events]
+    : workspace.data.statusEvents;
   const profileId = workspace.profile?.id ?? "guest";
-  const readKey = `oern.notifications.readAt.${profileId}`;
+  const readKey = `oern.notifications.read.${profileId}`;
   const notifications = useMemo(
     () => buildNotifications(realOrders, workspace.data.statusEvents, now),
     [realOrders, workspace.data.statusEvents, now],
   );
-  const unreadCount =
-    readUpTo === null || !workspace.isAuthenticated
-      ? 0
-      : notifications.filter((item) => Date.parse(item.at) > readUpTo).length;
+  const isUnread = useCallback(
+    (item: CustomerNotification) =>
+      readState !== null &&
+      Date.parse(item.at) > readState.upTo &&
+      !readState.ids.includes(item.id),
+    [readState],
+  );
+  const unreadCount = workspace.isAuthenticated
+    ? notifications.filter(isUnread).length
+    : 0;
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(readKey);
-      setReadUpTo(stored ? Number(stored) || 0 : 0);
+      const stored: unknown = JSON.parse(
+        window.localStorage.getItem(readKey) ?? "null",
+      );
+      const value = stored as Partial<ReadState> | null;
+      setReadState({
+        upTo: typeof value?.upTo === "number" ? value.upTo : 0,
+        ids: Array.isArray(value?.ids)
+          ? value.ids.filter((id): id is string => typeof id === "string")
+          : [],
+      });
     } catch {
-      setReadUpTo(0);
+      setReadState({ upTo: 0, ids: [] });
     }
   }, [readKey]);
+
+  function saveReadState(next: ReadState) {
+    setReadState(next);
+    try {
+      window.localStorage.setItem(readKey, JSON.stringify(next));
+    } catch {
+      // Read state just won't persist.
+    }
+  }
+
+  function markRead(id: string) {
+    const current = readState ?? { upTo: 0, ids: [] };
+    if (current.ids.includes(id)) return;
+    // Only ids newer than the "all read" mark need remembering.
+    saveReadState({
+      upTo: current.upTo,
+      ids: [...current.ids, id].slice(-100),
+    });
+  }
+
+  function markAllRead() {
+    saveReadState({ upTo: Date.now(), ids: [] });
+  }
 
   // The welcome screen's "I already have an account" button links here with
   // ?signin=1 so the dialog opens right away; drop the flag from the URL
@@ -229,13 +185,19 @@ export function CustomerApp({ view }: { view: CustomerView }) {
     urlHandled.current = true;
     const params = new URLSearchParams(window.location.search);
     const requestedOrder = params.get("order");
-    if (requestedOrder && orders.some((order) => order.id === requestedOrder))
+    if (requestedOrder && orders.some((order) => order.id === requestedOrder)) {
       setSelectedId(requestedOrder);
+      setLinkedOrder(true);
+    }
     const code = params.get("code");
-    if (code) lookupCode(code);
+    if (code) void lookupCode(code);
   }, [orders, workspace.isLoading]);
 
-  function lookupCode(value: string) {
+  /**
+   * Your own parcels match locally; any other code is looked up by its exact
+   * value, so tracking works without an account.
+   */
+  async function lookupCode(value: string) {
     const code = value.trim();
     if (!normaliseCode(code)) return;
     const hits = matchOrders(realOrders, code);
@@ -244,30 +206,28 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         (order) => normaliseCode(order.tracking_code) === normaliseCode(code),
       ) ?? (hits.length === 1 ? hits[0] : null);
     if (hit) {
+      setPublicHit(null);
       setSelectedId(hit.id);
       setLookupMiss(null);
       rememberTrackingCode(hit.tracking_code);
-    } else {
-      setLookupMiss(code);
+      return;
     }
-  }
-
-  function openNotifications() {
-    setUnreadIds(
-      new Set(
-        notifications
-          .filter((item) => Date.parse(item.at) > (readUpTo ?? 0))
-          .map((item) => item.id),
-      ),
-    );
-    setSheet("notifications");
-    const stamp = Date.now();
-    setReadUpTo(stamp);
     try {
-      window.localStorage.setItem(readKey, String(stamp));
+      const { data, error } = await createClient().rpc("track_delivery", {
+        code,
+      });
+      const found = error ? null : fromTrackingPayload(data);
+      if (found) {
+        setPublicHit(found);
+        setSelectedId(found.order.id);
+        setLookupMiss(null);
+        rememberTrackingCode(found.order.tracking_code);
+        return;
+      }
     } catch {
-      // Unread state just won't persist.
+      // Treated as not found below.
     }
+    setLookupMiss(code);
   }
 
   function dismissDemo() {
@@ -288,26 +248,14 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   );
 
   useEffect(() => {
-    if (!selectedOrder) return;
-    if (selectedId !== selectedOrder.id) setSelectedId(selectedOrder.id);
-  }, [selectedId, selectedOrder]);
-
-  useEffect(() => {
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(timer);
   }, []);
 
   const locationState = parcelLocationState(selectedOrder, now);
-  const deliveredEvent = selectedOrder
-    ? workspace.data.statusEvents
-        .filter(
-          (event) =>
-            event.order_id === selectedOrder.id && event.status === "delivered",
-        )
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
-    : null;
-  const locationHeading = workspace.isDemo
+  const showsDemo = workspace.isDemo && !publicHit;
+  const locationHeading = showsDemo
     ? "Simulated tracking"
     : locationState === "live"
       ? "Your rider’s latest location"
@@ -318,8 +266,8 @@ export function CustomerApp({ view }: { view: CustomerView }) {
           : selectedOrder && hasCollectedParcel(selectedOrder.status)
             ? "Waiting for the rider’s first location"
             : "Live location starts at pickup";
-  const locationDescription = workspace.isDemo
-    ? "A sample route for illustration only. Times shown are estimates, not a real delivery. Sign in to follow your own parcel."
+  const locationDescription = showsDemo
+    ? "A sample route for illustration only. Enter your tracking code to follow your own parcel."
     : locationState === "live"
       ? "Location points update automatically while the rider keeps their app open."
       : locationState === "closed"
@@ -330,39 +278,86 @@ export function CustomerApp({ view }: { view: CustomerView }) {
             ? "Your parcel is collected. The map will update when your rider shares a GPS point."
             : "Your rider’s location becomes available after they receive the parcel.";
 
-  if (workspace.isLoading || now === 0) {
-    if (view !== "home")
-      return <LoadingBlock title="Opening your delivery view…" />;
+  const goBack = useBackNavigation(
+    view === "track" && linkedOrder ? "/orders" : "/home",
+  );
+  const trackDetailOnly = view === "track" && linkedOrder && !!selectedOrder;
+  const isRootTab = view === "home" || view === "orders" || view === "profile";
+  const helpOrder =
+    view === "track" ? selectedOrder : pickNextParcel(realOrders);
+  const firstName = workspace.profile?.full_name?.split(" ")[0];
+  const header = {
+    home: {
+      title:
+        workspace.isAuthenticated && firstName ? `Hi, ${firstName}` : "Welcome",
+      subtitle: workspace.isAuthenticated
+        ? homeSummary(realOrders)
+        : "Track and send parcels in Yangon",
+    },
+    track:
+      trackDetailOnly && selectedOrder
+        ? { title: selectedOrder.tracking_code, subtitle: "Delivery details" }
+        : {
+            title: "Track a parcel",
+            subtitle: "Enter the code from your receipt",
+          },
+    orders: {
+      title: "Orders",
+      subtitle: workspace.isAuthenticated
+        ? homeSummary(realOrders)
+        : "Deliveries linked to your account",
+    },
+    profile: { title: "Profile", subtitle: undefined },
+    notifications: {
+      title: "Notifications",
+      subtitle: !workspace.isAuthenticated
+        ? undefined
+        : unreadCount > 0
+          ? `${unreadCount} unread`
+          : "All caught up",
+    },
+  }[view];
+
+  // Keep the page's own header and tab bar while loading so nothing jumps.
+  if (workspace.isLoading || now === 0)
     return (
       <main className="customer-app">
-        <CustomerTopBar
-          profile={workspace.profile}
-          isAuthenticated={workspace.isAuthenticated}
+        <CustomerHeader
+          title={view === "home" ? "Welcome" : header.title}
+          isAuthenticated={false}
           unreadCount={0}
-          summary={null}
-          onSignIn={() => setAuthOpen(true)}
-          onOpenNotifications={() => undefined}
+          onBack={isRootTab ? undefined : goBack}
         />
         <HomeSkeleton />
-        <CustomerBottomNav activeId={view} />
+        {isRootTab && <CustomerBottomNav activeId={view} />}
       </main>
     );
-  }
 
   return (
     <main className="customer-app">
-      <CustomerTopBar
-        profile={workspace.profile}
+      <CustomerHeader
+        title={header.title}
+        subtitle={header.subtitle}
         isAuthenticated={workspace.isAuthenticated}
         unreadCount={unreadCount}
-        summary={homeSummary(realOrders)}
-        onSignIn={() => setAuthOpen(true)}
-        onOpenNotifications={openNotifications}
+        onBack={isRootTab ? undefined : goBack}
+        showBell={view === "home" || view === "orders"}
+        action={
+          view === "notifications" && unreadCount > 0 ? (
+            <Button
+              color="secondary"
+              onClick={markAllRead}
+              sx={{ minHeight: 44, fontWeight: 700, flex: "none" }}
+            >
+              Mark all read
+            </Button>
+          ) : undefined
+        }
       />
 
-      {workspace.isDemo && view !== "home" && !demoDismissed && (
-        <DemoChip onDismiss={dismissDemo} />
-      )}
+      {workspace.isDemo &&
+        (view === "orders" || (view === "track" && !publicHit)) &&
+        !demoDismissed && <DemoChip onDismiss={dismissDemo} />}
 
       {workspace.error && (
         <div className="error-notice shell-width" role="alert">
@@ -387,413 +382,95 @@ export function CustomerApp({ view }: { view: CustomerView }) {
 
       {view === "track" && (
         <>
-          <h1 className="sr-only">Track</h1>
-          <TrackingLookup
-            onLookup={lookupCode}
-            onOpenScan={() => setSheet("scan")}
-          />
-          {lookupMiss && (
-            <TrackLookupNotice
-              code={lookupMiss}
-              isAuthenticated={workspace.isAuthenticated}
-              onSignIn={() => setAuthOpen(true)}
-            />
+          {!trackDetailOnly && (
+            <>
+              <TrackingLookup
+                onLookup={(code) => void lookupCode(code)}
+                onOpenScan={() => setSheet("scan")}
+              />
+              {lookupMiss && <TrackLookupNotice code={lookupMiss} />}
+              {!lookupMiss && !publicHit && (
+                <ParcelSwitcher
+                  orders={orders}
+                  selectedId={selectedOrder?.id ?? ""}
+                  onSelect={(order) => setSelectedId(order.id)}
+                />
+              )}
+            </>
           )}
-          {!lookupMiss && (
-            <ParcelSwitcher
-              orders={orders}
-              selectedId={selectedOrder?.id ?? ""}
-              onSelect={(order) => setSelectedId(order.id)}
-            />
-          )}
+          {!lookupMiss &&
+            (selectedOrder ? (
+              <TrackDetail
+                order={selectedOrder}
+                events={trackEvents}
+                isDemo={showsDemo}
+                now={now}
+                locationHeading={locationHeading}
+                locationDescription={locationDescription}
+                onOpenHelp={() => setSheet("help")}
+              />
+            ) : (
+              <EmptyState
+                illustration="/icons/track-parcel.svg"
+                title="Follow any parcel"
+                body={
+                  orders.length > 0
+                    ? "Enter a tracking code, or pick one of your parcels above."
+                    : "Enter the tracking code from your receipt or message. No account needed."
+                }
+              />
+            ))}
         </>
       )}
 
-      {view === "track" &&
-        !lookupMiss &&
-        (selectedOrder ? (
-          <section
-            className="tracking-layout shell-width"
-            aria-label="Selected delivery"
-          >
-            <div className="tracking-map-column">
-              <div className="selected-order-kicker">
-                <div>
-                  <Eyebrow>Tracking number</Eyebrow>
-                  <strong>{selectedOrder.tracking_code}</strong>
-                </div>
-                <StatusBadge status={selectedOrder.status} />
-              </div>
-              <LocationMap
-                order={selectedOrder}
-                mode="customer"
-                isDemo={workspace.isDemo}
-                tall
-              />
-              <div className="map-underbar">
-                <div className="map-underbar-icon">
-                  <Icon name="track" size={18} />
-                </div>
-                <div>
-                  <strong>{locationHeading}</strong>
-                  <span>{locationDescription}</span>
-                </div>
-                <span className="map-underbar-arrow">
-                  <Icon name="arrow-right" size={17} />
-                </span>
-              </div>
-            </div>
-
-            <aside className="tracking-side-column">
-              <div className="eta-panel">
-                <div className="eta-head">
-                  <span className="eta-label">
-                    {selectedOrder.status === "delivered"
-                      ? "Delivery complete"
-                      : workspace.isDemo
-                        ? "Estimated arrival · sample"
-                        : "Estimated arrival"}
-                  </span>
-                  <span className="eta-icon">
-                    <Icon name="navigation" size={17} />
-                  </span>
-                </div>
-                <div className="eta-time">{etaCopy(selectedOrder)}</div>
-                <p>
-                  {selectedOrder.status === "delivered"
-                    ? deliveredEvent
-                      ? `Delivered ${formatDateTime(deliveredEvent.created_at)} · Yangon time`
-                      : "Delivery confirmed · completion time unavailable"
-                    : selectedOrder.status === "failed" ||
-                        selectedOrder.status === "cancelled"
-                      ? "See the latest delivery status below."
-                      : selectedOrder.estimated_delivery_at
-                        ? `Around ${formatDateTime(selectedOrder.estimated_delivery_at)} · Yangon time`
-                        : "An arrival estimate is being arranged."}
-                </p>
-                {selectedOrder.eta_updated_at &&
-                  !["delivered", "failed", "cancelled"].includes(
-                    selectedOrder.status,
-                  ) && (
-                    <div className="eta-intelligence-note">
-                      <span>
-                        {selectedOrder.eta_confidence ?? "low"} confidence
-                      </span>
-                      {selectedOrder.traffic_delay_minutes > 0
-                        ? `Verified road conditions add about ${selectedOrder.traffic_delay_minutes} min.`
-                        : "Updated from the rider’s route progress."}
-                    </div>
-                  )}
-                <div className="tracking-freshness-row">
-                  <span>
-                    {relativeUpdatedAt(
-                      selectedOrder.latest_location?.recorded_at ??
-                        selectedOrder.eta_updated_at,
-                      now,
-                    )}
-                  </span>
-                  <strong>
-                    {nextCustomerAction(
-                      selectedOrder.status,
-                      selectedOrder.traffic_delay_minutes > 0,
-                    )}
-                  </strong>
-                </div>
-                <div className="eta-meter">
-                  <span
-                    style={{
-                      width:
-                        selectedOrder.status === "delivered"
-                          ? "100%"
-                          : selectedOrder.route_progress_percent != null
-                            ? `${selectedOrder.route_progress_percent}%`
-                            : selectedOrder.status === "in_transit"
-                              ? "72%"
-                              : selectedOrder.status === "picked_up"
-                                ? "56%"
-                                : selectedOrder.status === "accepted"
-                                  ? "32%"
-                                  : "18%",
-                    }}
-                  />
-                </div>
-                <div className="eta-meter-labels">
-                  <span>Collected</span>
-                  <span>At your door</span>
-                </div>
-              </div>
-
-              <div className="order-route-card">
-                <div className="route-address-row">
-                  <span className="address-marker pickup-marker">
-                    <Icon name="box" size={14} />
-                  </span>
-                  <div>
-                    <small>From</small>
-                    <strong>{selectedOrder.pickup_address}</strong>
-                  </div>
-                </div>
-                <div className="address-connector" />
-                <div className="route-address-row">
-                  <span className="address-marker destination-marker">
-                    <Icon name="location" size={14} />
-                  </span>
-                  <div>
-                    <small>To</small>
-                    <strong>{selectedOrder.delivery_address}</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div className="tracking-timeline-card">
-                <div className="section-head-inline">
-                  <h2>Delivery progress</h2>
-                  <span>Live updates</span>
-                </div>
-                <div className="progress-timeline">
-                  {STATUS_STEPS.map((step, index) => {
-                    const activeIndex = STATUS_STEPS.indexOf(
-                      selectedOrder.status as (typeof STATUS_STEPS)[number],
-                    );
-                    const completed =
-                      selectedOrder.status === "delivered" ||
-                      (activeIndex >= 0 && index <= activeIndex);
-                    const event = workspace.data.statusEvents.find(
-                      (item) =>
-                        item.order_id === selectedOrder.id &&
-                        item.status === step,
-                    );
-                    return (
-                      <div
-                        className={`timeline-step ${completed ? "is-complete" : ""} ${selectedOrder.status === step ? "is-current" : ""}`}
-                        key={step}
-                      >
-                        <span className="timeline-dot">
-                          {completed ? (
-                            <Icon name="check" size={12} strokeWidth={2.4} />
-                          ) : (
-                            <span />
-                          )}
-                        </span>
-                        <div>
-                          <strong>{STATUS_LABELS[step]}</strong>
-                          <small>
-                            {event
-                              ? formatDateTime(event.created_at)
-                              : completed
-                                ? "Completed"
-                                : "Up next"}
-                          </small>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="rider-card">
-                <div className="rider-avatar">
-                  <Icon name="user" size={21} />
-                </div>
-                <div className="rider-card-copy">
-                  <small>Your rider</small>
-                  <strong>
-                    {selectedOrder.driver_name ?? "Finding your rider"}
-                  </strong>
-                  <span>
-                    {selectedOrder.vehicle_label ??
-                      (selectedOrder.driver_id
-                        ? "On a delivery route"
-                        : "Assigned before pickup")}
-                  </span>
-                </div>
-                {selectedOrder.driver_phone &&
-                  selectedOrder.latest_location && (
-                    <a
-                      className="rider-call"
-                      href={`tel:${selectedOrder.driver_phone}`}
-                      aria-label="Call your rider"
-                    >
-                      <Icon name="user" size={17} />
-                    </a>
-                  )}
-              </div>
-
-              {selectedOrder.cod_amount > 0 && (
-                <div className="cod-card">
-                  <span className="cod-icon">
-                    <Icon name="coin" size={18} />
-                  </span>
-                  <div>
-                    <small>Cash on delivery</small>
-                    <strong>{currency.format(selectedOrder.cod_amount)}</strong>
-                  </div>
-                  <span
-                    className={`cod-state ${selectedOrder.cod_status === "collected" || selectedOrder.cod_status === "settled" ? "cod-paid" : ""}`}
-                  >
-                    {selectedOrder.cod_status === "collected" ||
-                    selectedOrder.cod_status === "settled"
-                      ? "COD collected"
-                      : "COD due"}
-                  </span>
-                </div>
-              )}
-            </aside>
-          </section>
-        ) : (
-          <div className="empty-state shell-width">
-            <span className="empty-icon">
-              <Icon name="package" size={24} />
-            </span>
-            <h2>No deliveries to track yet</h2>
-            <p>
-              When an order is connected to your account, it will appear here.
-            </p>
-          </div>
-        ))}
-
       {view === "orders" && (
-        <section className="delivery-list shell-width" id="history">
-          <div className="section-head-block">
-            <div>
-              <h2>{showAll ? "All deliveries" : "Your deliveries"}</h2>
-            </div>
-            <button
-              className="text-button"
-              type="button"
-              onClick={() => setShowAll(!showAll)}
-            >
-              {showAll ? "Show recent" : "See all"}
-              <Icon name="arrow-right" size={15} />
-            </button>
-          </div>
-          <nav className="orders-filter" aria-label="Filter deliveries">
-            {ORDER_FILTERS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={orderFilter === item.id}
-                onClick={() => setOrderFilter(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-          {visibleOrders.length === 0 && (
-            <p className="orders-empty">No deliveries in this group.</p>
-          )}
-          <div className="delivery-order-grid">
-            {(showAll ? visibleOrders : visibleOrders.slice(0, 3)).map(
-              (order) => (
-                <Link
-                  key={order.id}
-                  className={`delivery-order-card ${selectedOrder?.id === order.id ? "is-selected" : ""}`}
-                  href={`/track?order=${encodeURIComponent(order.id)}`}
-                >
-                  <div className="delivery-order-top">
-                    <span className="order-code">{order.tracking_code}</span>
-                    <Icon name="arrow-right" size={16} />
-                  </div>
-                  <strong>{order.delivery_address}</strong>
-                  <div className="delivery-order-bottom">
-                    <StatusBadge status={order.status} />
-                    <span>
-                      {order.status === "in_transit" ||
-                      order.status === "picked_up"
-                        ? `ETA ${timeUntil(order.estimated_delivery_at)}`
-                        : formatTime(order.estimated_delivery_at)}
-                    </span>
-                  </div>
-                </Link>
-              ),
-            )}
-          </div>
-        </section>
+        <>
+          <OrdersPage
+            orders={orders}
+            filter={orderFilter}
+            onFilter={setOrderFilter}
+            isAuthenticated={workspace.isAuthenticated}
+            onSignIn={() => setAuthOpen(true)}
+          />
+          <CustomerProviderTracking />
+        </>
       )}
-
-      {view === "orders" && <CustomerProviderTracking />}
 
       {view === "profile" && (
-        <section className="customer-profile-page shell-width">
-          <div className="customer-profile-card">
-            <span className="customer-profile-avatar">
-              <PersonOutlined />
-            </span>
-            <div>
-              <Eyebrow>Account</Eyebrow>
-              <h1>{workspace.profile?.full_name || "Guest"}</h1>
-              <p>
-                {workspace.isAuthenticated
-                  ? (workspace.profile?.phone ?? "No phone number on file")
-                  : "Sign in to manage your account."}
-              </p>
-            </div>
-          </div>
-          {!workspace.isAuthenticated && (
-            <button
-              className="button button-primary"
-              type="button"
-              onClick={() => setAuthOpen(true)}
-            >
-              Sign in to your account <Icon name="arrow-right" size={16} />
-            </button>
-          )}
-          <div className="customer-profile-links">
-            <button type="button" onClick={() => setSheet("notifications")}>
-              <Icon name="bell" size={18} />
-              <span>
-                <strong>Notifications</strong>
-                <small>Delivery updates and alerts</small>
-              </span>
-              <Icon name="arrow-right" size={16} />
-            </button>
-            <button type="button" onClick={() => setSheet("help")}>
-              <Icon name="help" size={18} />
-              <span>
-                <strong>Help and support</strong>
-                <small>Report a problem with a parcel</small>
-              </span>
-              <Icon name="arrow-right" size={16} />
-            </button>
-          </div>
-          {workspace.isAuthenticated && (
-            <button
-              className="button button-outline"
-              type="button"
-              onClick={() => void signOut()}
-            >
-              Sign out
-            </button>
-          )}
-        </section>
+        <ProfilePage
+          name={workspace.profile?.full_name ?? null}
+          phone={workspace.profile?.phone ?? null}
+          isAuthenticated={workspace.isAuthenticated}
+          unreadCount={unreadCount}
+          onSignIn={() => setAuthOpen(true)}
+          onSignOut={() => void signOut()}
+          onOpenHelp={() => setSheet("help")}
+        />
       )}
 
-      {view !== "home" && (
-        <footer className="customer-footer shell-width">
-          <Brand href="/home" />
-          <span>Every parcel deserves a clear path home.</span>
-          <div className="workspace-links">
-            <a href="/rider/route">
-              Rider workspace <Icon name="arrow-right" size={13} />
-            </a>
-            <a href="/manager">
-              Operations <Icon name="arrow-right" size={13} />
-            </a>
-          </div>
-        </footer>
+      {view === "notifications" && (
+        <NotificationsPage
+          notifications={notifications}
+          isUnread={isUnread}
+          isAuthenticated={workspace.isAuthenticated}
+          now={now}
+          onOpen={markRead}
+          onSignIn={() => setAuthOpen(true)}
+        />
       )}
-      <CustomerBottomNav activeId={view} />
-      <NotificationsSheet
-        open={sheet === "notifications"}
-        notifications={notifications}
-        unreadIds={unreadIds}
-        isAuthenticated={workspace.isAuthenticated}
-        onSignIn={() => setAuthOpen(true)}
-        onClose={() => setSheet(null)}
-      />
+
+      {isRootTab && <CustomerBottomNav activeId={view} />}
       <HelpSheet
         open={sheet === "help"}
-        order={pickNextParcel(realOrders)}
+        order={helpOrder}
+        requesterId={
+          workspace.isAuthenticated ? (workspace.profile?.id ?? null) : null
+        }
+        showStatusLink={view !== "track"}
+        onSignIn={() => {
+          setSheet(null);
+          setAuthOpen(true);
+        }}
         onClose={() => setSheet(null)}
       />
       <ScanSheet

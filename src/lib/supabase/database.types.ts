@@ -1074,6 +1074,10 @@ export type Database = {
       };
     };
     Functions: {
+      track_delivery: {
+        Args: { code: string };
+        Returns: Json;
+      };
       ensure_delivery_route: {
         Args: { target_order_id: string };
         Returns: string;
