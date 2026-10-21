@@ -10,6 +10,7 @@ import HistoryToggleOff from "@mui/icons-material/HistoryToggleOff";
 import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
 import IosShare from "@mui/icons-material/IosShare";
 import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
+import MyLocationOutlined from "@mui/icons-material/MyLocationOutlined";
 import NavigationOutlined from "@mui/icons-material/NavigationOutlined";
 import NotificationsNoneOutlined from "@mui/icons-material/NotificationsNoneOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
@@ -327,14 +328,17 @@ function QuickAction({
       sx={{
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "flex-start",
+        justifyContent: "center",
         gap: 0.5,
-        minHeight: 96,
+        minHeight: 104,
         borderRadius: "16px",
+        border: 1,
+        borderColor: "divider",
+        bgcolor: "background.paper",
         px: 0.5,
-        py: 1,
+        py: 1.25,
         typography: "caption",
-        fontWeight: 600,
+        fontWeight: 650,
         lineHeight: "16px",
         textAlign: "center",
         color: "text.primary",
@@ -345,11 +349,93 @@ function QuickAction({
           component="img"
           src={illustration}
           alt=""
-          sx={{ display: "block", width: 64, height: 64 }}
+          sx={{ display: "block", width: 56, height: 56 }}
         />
       </Badge>
       {label}
     </ButtonBase>
+  );
+}
+
+/** Primary job on Home: start a pickup. The whole card is the tap target. */
+function PickupPrompt() {
+  return (
+    <Card
+      elevation={0}
+      sx={{
+        mx: 2,
+        mt: 2,
+        borderRadius: "20px",
+        border: 1,
+        borderColor: "divider",
+        bgcolor: "background.paper",
+      }}
+    >
+      <CardActionArea component={Link} href="/pickup" sx={{ p: 2 }}>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="h6"
+              component="h2"
+              sx={{ fontWeight: 750, lineHeight: 1.25 }}
+            >
+              Send a parcel
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              A rider collects it from your door.
+            </Typography>
+          </Box>
+          <Box
+            component="img"
+            src="/icons/pickup.svg"
+            alt=""
+            sx={{ display: "block", width: 72, height: 72, flex: "none" }}
+          />
+        </Stack>
+        <Stack
+          direction="row"
+          spacing={1.25}
+          sx={{
+            alignItems: "center",
+            mt: 1.5,
+            minHeight: 48,
+            px: 1.5,
+            borderRadius: "14px",
+            bgcolor: "grey.100",
+          }}
+        >
+          <MyLocationOutlined fontSize="small" color="info" />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              sx={{ display: "block", color: "text.secondary" }}
+            >
+              Pickup from
+            </Typography>
+            <Typography variant="body2" noWrap sx={{ fontWeight: 650 }}>
+              Current location
+            </Typography>
+          </Box>
+          <Box
+            component="span"
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 0.5,
+              minHeight: 36,
+              px: 1.75,
+              borderRadius: "999px",
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
+              typography: "body2",
+              fontWeight: 700,
+            }}
+          >
+            Request <ArrowForward fontSize="small" />
+          </Box>
+        </Stack>
+      </CardActionArea>
+    </Card>
   );
 }
 
@@ -372,7 +458,7 @@ function QuickActions({
         px: 2,
         mt: 1.5,
         display: "grid",
-        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
         gap: 1,
       }}
     >
@@ -394,15 +480,9 @@ function QuickActions({
       )}
       <QuickAction
         component={Link}
-        href="/track"
-        label="Track by ID"
+        href="/orders"
+        label="All orders"
         illustration="/icons/track-parcel.svg"
-      />
-      <QuickAction
-        component={Link}
-        href="/pickup"
-        label="Request pickup"
-        illustration="/icons/pickup.svg"
       />
       <QuickAction
         component="button"
@@ -951,7 +1031,11 @@ export function CustomerHome({
         Home
       </Box>
 
+      <TrackingLookup />
+
       {isAuthenticated && next && <NextParcelCard order={next} now={now} />}
+
+      <PickupPrompt />
 
       <QuickActions
         isAuthenticated={isAuthenticated}
@@ -1828,17 +1912,22 @@ export function HomeSkeleton() {
         height={188}
         sx={{ mt: 2, borderRadius: "20px" }}
       />
+      <Skeleton
+        variant="rounded"
+        height={148}
+        sx={{ mt: 2, borderRadius: "20px" }}
+      />
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(3, 1fr)",
           gap: 1,
           mt: 2,
           mb: 3,
         }}
       >
-        {[0, 1, 2, 3].map((item) => (
-          <Skeleton key={item} variant="rounded" height={76} />
+        {[0, 1, 2].map((item) => (
+          <Skeleton key={item} variant="rounded" height={104} />
         ))}
       </Box>
       <Skeleton variant="rounded" height={64} sx={{ mb: 1 }} />
