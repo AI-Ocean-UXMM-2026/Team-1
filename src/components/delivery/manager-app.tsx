@@ -20,6 +20,7 @@ import {
   assignDelivery,
   reviewRoadReport,
   setDriverAvailability,
+  updateRiderRequestStatus,
 } from "@/lib/delivery/actions";
 import {
   attentionSummary,
@@ -40,6 +41,7 @@ import { recommendAssignments } from "@/lib/delivery/intelligence";
 import type {
   DeliveryOrder,
   DriverOption,
+  RiderRequest,
   WorkspaceData,
 } from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
@@ -77,9 +79,19 @@ function initialFilter(value: string | null): OrderFilter {
 }
 type Workspace = ReturnType<typeof useWorkspace>;
 type Notice = {
-  scope: "assign" | "reports" | "riders";
+  scope: "assign" | "reports" | "riders" | "requests";
   tone: "success" | "error";
   text: string;
+};
+
+const RIDER_REQUEST_LABELS: Record<RiderRequest["category"], string> = {
+  refuel: "Needs fuel",
+  recharge: "Needs a charge",
+  vehicle_problem: "Vehicle problem",
+  accident: "Accident",
+  parcel_damaged: "Parcel damaged",
+  unsafe_area: "Feels unsafe",
+  other: "Needs help",
 };
 
 function vehicleText(value: string) {
@@ -370,12 +382,60 @@ export function ManagerDashboard({
     }
   }
 
+  async function handleRequest(
+    request: RiderRequest,
+    status: "acknowledged" | "resolved",
+  ) {
+    setSaving(true);
+    setNotice(null);
+    try {
+      if (workspace.isDemo || request.id.startsWith("demo-")) {
+        workspace.updateData((previous) => ({
+          ...previous,
+          riderRequests: previous.riderRequests.map((item) =>
+            item.id === request.id ? { ...item, status } : item,
+          ),
+        }));
+      } else if (workspace.canUseLiveData) {
+        await updateRiderRequestStatus(createClient(), request.id, status);
+        await workspace.refresh();
+      } else {
+        throw new Error(
+          "Refresh the manager workspace before handling requests.",
+        );
+      }
+      setNotice({
+        scope: "requests",
+        tone: "success",
+        text:
+          status === "resolved"
+            ? `${request.driver_name}'s request is resolved.`
+            : `${request.driver_name} can see you're on it.`,
+      });
+    } catch (cause) {
+      setNotice({
+        scope: "requests",
+        tone: "error",
+        text:
+          cause instanceof Error
+            ? cause.message
+            : "Could not update this request.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const signedOut = !workspace.isAuthenticated && !workspace.isDemo;
+  const openRequests = workspace.data.riderRequests.filter(
+    (request) => request.status !== "resolved",
+  );
   const attentionTotal =
     summary.needsRider +
     summary.delayed +
     summary.codPending +
-    summary.pendingReports;
+    summary.pendingReports +
+    openRequests.length;
 
   const pageCopy = {
     home: {
@@ -629,6 +689,11 @@ export function ManagerDashboard({
                           "COD to settle",
                           summary.codPending,
                           "/manager/order?filter=cod",
+                        ],
+                        [
+                          "Rider requests",
+                          openRequests.length,
+                          "/manager/track#rider-requests",
                         ],
                         [
                           "Road reports",
@@ -1041,6 +1106,116 @@ export function ManagerDashboard({
                       </small>
                     </span>
                     <StatusBadge status={selectedOrder.status} />
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {view === "track" && (
+            <section
+              className="road-knowledge-panel rider-requests-panel"
+              id="rider-requests"
+            >
+              <div className="road-knowledge-heading">
+                <div>
+                  <span className="section-kicker">From riders on route</span>
+                  <h2>Rider requests</h2>
+                </div>
+                <span className="manager-live-tag">
+                  {openRequests.length} open
+                </span>
+              </div>
+              <p className="road-knowledge-intro">
+                Fuel and charging stops, breakdowns and other problems riders
+                raise from the road. Acknowledge so the rider knows someone is
+                on it.
+              </p>
+              <NoticeStrip notice={notice} scope="requests" />
+              <div className="road-report-list">
+                {openRequests.map((request) => {
+                  const order = request.order_id
+                    ? orders.find((item) => item.id === request.order_id)
+                    : null;
+                  const vehicle = request.vehicle_id
+                    ? workspace.data.vehicles.find(
+                        (item) => item.id === request.vehicle_id,
+                      )
+                    : null;
+                  return (
+                    <article
+                      className={`road-report-card rider-request-card is-${request.kind}`}
+                      key={request.id}
+                    >
+                      <div className="road-report-title">
+                        <span
+                          className={`road-severity ${request.kind === "energy" ? "road-severity-medium" : "road-severity-high"}`}
+                        >
+                          {request.kind === "energy" ? "Energy" : "Issue"}
+                        </span>
+                        <strong>
+                          {RIDER_REQUEST_LABELS[request.category]} ·{" "}
+                          {request.driver_name}
+                        </strong>
+                        <small>{formatTime(request.created_at)}</small>
+                      </div>
+                      {request.note && <p>{request.note}</p>}
+                      <span className="road-report-meta">
+                        {[
+                          order?.tracking_code,
+                          vehicle?.registration_number,
+                          request.energy_level_percent != null
+                            ? `${request.energy_level_percent}% left`
+                            : null,
+                          request.status === "acknowledged"
+                            ? "Acknowledged"
+                            : "Waiting",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                      <div className="road-report-actions">
+                        {request.latitude != null &&
+                          request.longitude != null && (
+                            <a
+                              className="button button-outline button-small"
+                              href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Open location
+                            </a>
+                          )}
+                        {request.status === "open" && (
+                          <button
+                            type="button"
+                            className="button button-outline button-small"
+                            onClick={() =>
+                              void handleRequest(request, "acknowledged")
+                            }
+                            disabled={saving}
+                          >
+                            Acknowledge
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="button button-dark button-small"
+                          onClick={() =>
+                            void handleRequest(request, "resolved")
+                          }
+                          disabled={saving}
+                        >
+                          Resolve
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+                {!openRequests.length && (
+                  <div className="road-report-empty">
+                    <Icon name="check" size={18} /> No rider is waiting on
+                    operations.
                   </div>
                 )}
               </div>

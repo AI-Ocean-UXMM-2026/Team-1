@@ -255,7 +255,7 @@
 }
 
 .road-report-title strong {
-  text-transform: capitalize;
+  text-transform: none;
 }
 
 .road-severity {

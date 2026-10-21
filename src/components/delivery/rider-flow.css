@@ -1847,3 +1847,742 @@
   cursor: not-allowed;
   opacity: 0.7;
 }
+
+/* ---------- map: later legs and road cautions ---------- */
+
+.rnav-route-upcoming {
+  fill: none;
+  stroke: var(--color-map-origin, #64748b);
+  stroke-width: 4;
+  stroke-dasharray: 2 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.8;
+}
+
+.rnav-caution path {
+  fill: var(--color-warning);
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 2px 3px rgb(23 43 77 / 0.35));
+}
+
+.rnav-caution-high path,
+.rnav-caution-blocked path {
+  fill: var(--color-error);
+}
+
+.rnav-caution text {
+  fill: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+/* ---------- task list: cash, cautions, points ---------- */
+
+.rf-app .rf-subtitle {
+  margin-top: -8px;
+  margin-bottom: 12px;
+}
+
+.rf-task-summary {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.rf-task-cash {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-warning-text);
+}
+
+.rf-task-cash > svg {
+  flex: none;
+  padding: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-warning-surface);
+}
+
+.rf-task-cash span {
+  display: grid;
+}
+
+.rf-task-cash small {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.rf-task-cash strong {
+  color: var(--color-text-primary);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 700;
+}
+
+.rf-task-summary dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.rf-task-summary dl > div + div {
+  padding-left: 12px;
+  border-left: 1px solid var(--color-border);
+}
+
+.rf-task-summary dt {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.rf-task-summary dd {
+  margin: 2px 0 0;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 700;
+}
+
+.rf-point-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A connected timeline: each point's mark sits on one rail. */
+.rf-point {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.rf-point + .rf-point::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: 15px;
+  width: 2px;
+  height: 24px;
+  background: var(--color-border);
+}
+
+.rf-point-mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-brand-navy);
+  color: var(--color-text-inverse);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rf-point.is-pickup .rf-point-mark {
+  border: 2px solid var(--color-border-control);
+  background: var(--color-surface);
+  color: var(--color-text-secondary-subtle);
+}
+
+.rf-point.is-done .rf-point-mark {
+  border: 0;
+  background: var(--color-success);
+  color: #ffffff;
+}
+
+.rf-point.is-failed .rf-point-mark {
+  border: 0;
+  background: var(--color-error);
+  color: #ffffff;
+}
+
+.rf-point.is-current .rf-point-mark {
+  box-shadow: 0 0 0 4px var(--color-info-surface);
+}
+
+.rf-point-copy {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rf-point.is-current .rf-point-copy {
+  margin: -8px 0 0;
+  padding: 8px 12px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.rf-point-copy > small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.rf-point.is-current .rf-point-copy > small {
+  color: var(--color-info-text);
+}
+
+.rf-point-copy > strong {
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.rf-point-copy > span {
+  color: var(--color-text-secondary-subtle);
+  overflow-wrap: anywhere;
+}
+
+.rf-point.is-done .rf-point-copy > strong,
+.rf-point.is-failed .rf-point-copy > strong {
+  color: var(--color-text-secondary-subtle);
+}
+
+.rf-checks.is-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 13px;
+}
+
+.rf-checks.is-inline svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---------- road cautions ---------- */
+
+.rf-caution-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid #fcd34d;
+  border-radius: 14px;
+  background: var(--color-warning-surface);
+  box-shadow: var(--rf-shadow-float);
+  color: var(--color-warning-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rf-caution-banner.is-high,
+.rf-caution-banner.is-blocked {
+  border-color: #fca5a5;
+  background: var(--color-error-surface);
+  color: #991b1b;
+}
+
+.rf-caution-banner.is-inline {
+  margin-top: 12px;
+  box-shadow: none;
+}
+
+.rf-caution-banner > svg {
+  flex: none;
+}
+
+.rf-caution-banner > span:not(.rf-caution-count) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.rf-caution-banner strong {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.rf-caution-banner small {
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-caution-count {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.7);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rf-caution-group {
+  display: grid;
+  gap: 8px;
+}
+
+.rf-caution-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.rf-caution-icon {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.rf-caution-item.is-high .rf-caution-icon,
+.rf-caution-item.is-blocked .rf-caution-icon {
+  background: var(--color-error-surface);
+  color: #991b1b;
+}
+
+.rf-caution-item > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rf-caution-item p {
+  overflow-wrap: anywhere;
+}
+
+.rf-app .rf-caution-advice {
+  color: var(--color-text-secondary-subtle);
+}
+
+.rf-caution-item small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* ---------- navigation: Grab-style instruction, tools, focus card ---------- */
+
+.rf-nav .rf-nav-instruction {
+  border-color: transparent;
+  background: var(--color-brand-navy);
+  color: var(--color-text-inverse);
+}
+
+.rf-nav .rf-nav-instruction > div > span {
+  color: #cbd5e1;
+}
+
+.rf-nav .rf-turn {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.rf-nav .rf-directions {
+  background: #ffffff;
+  color: var(--color-info-text);
+}
+
+.rf-nav:has(.rf-caution-banner) .rnav-zoom {
+  top: calc(env(safe-area-inset-top, 0px) + 264px);
+}
+
+.rf-nav:has(.rf-caution-banner) .rnav-attribution {
+  top: calc(env(safe-area-inset-top, 0px) + 228px);
+}
+
+/* Part of the header's flow, so a two-line instruction never covers them. */
+.rf-nav-fabs {
+  display: grid;
+  justify-self: start;
+  gap: 10px;
+}
+
+.rf-fab-tool {
+  display: grid;
+  width: 60px;
+  min-height: 60px;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: var(--rf-shadow-float);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rf-fab-tool.is-energy.is-tight {
+  border-color: #fcd34d;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.rf-fab-tool.is-energy.is-short {
+  border-color: #fca5a5;
+  background: var(--color-error-surface);
+  color: #991b1b;
+}
+
+.rf-fab-tool.is-issue {
+  color: var(--color-error-text);
+}
+
+.rf-eta-pill {
+  flex: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--color-info-surface);
+  color: var(--color-info-text);
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.rf-eta-pill strong {
+  font-size: 15px;
+}
+
+.rf-collect {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface-subtle);
+}
+
+.rf-collect > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.rf-collect > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rf-collect small {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+.rf-collect strong {
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.rf-collect span {
+  color: var(--color-text-secondary-subtle);
+  overflow-wrap: anywhere;
+}
+
+/* Cash is the one number the rider must not miss at a drop-off. */
+.rf-collect.is-cash {
+  border-color: #fcd34d;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.rf-collect.is-cash strong {
+  color: var(--color-text-primary);
+  font-size: 26px;
+  line-height: 32px;
+}
+
+.rf-collect.is-none {
+  color: var(--color-success-text);
+}
+
+.rf-collect.is-parcels {
+  color: var(--color-text-secondary-subtle);
+}
+
+.rf-app .rf-next-peek {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.rf-next-peek > span {
+  grid-row: span 2;
+  align-self: start;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rf-next-peek small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- sheets: fuel, issue, requests ---------- */
+
+.rf-panel .rf-sheet-head {
+  margin-bottom: 12px;
+}
+
+.rf-panel .rf-sheet-head p {
+  margin-top: 4px;
+}
+
+.rf-panel-body {
+  display: grid;
+  gap: 14px;
+}
+
+.rf-gauge {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.rf-gauge-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rf-gauge-row strong {
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: 700;
+}
+
+.rf-gauge-row span {
+  font-weight: 700;
+}
+
+.rf-gauge-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  overflow: hidden;
+}
+
+.rf-gauge-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-success);
+}
+
+.rf-gauge.is-enough .rf-gauge-row span {
+  color: var(--color-success-text);
+}
+
+.rf-gauge.is-tight .rf-gauge-row span {
+  color: var(--color-warning-text);
+}
+
+.rf-gauge.is-tight .rf-gauge-bar > span {
+  background: var(--color-warning);
+}
+
+.rf-gauge.is-short .rf-gauge-row span {
+  color: var(--color-error-text);
+}
+
+.rf-gauge.is-short .rf-gauge-bar > span {
+  background: var(--color-error);
+}
+
+.rf-gauge p {
+  color: var(--color-text-secondary-subtle);
+}
+
+.rf-request-card,
+.rf-request-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rf-request-card {
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: var(--color-info-surface);
+}
+
+.rf-request-card > span,
+.rf-request-list li > span:first-child {
+  display: grid;
+}
+
+.rf-request-card small,
+.rf-request-list small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.rf-request-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rf-request-status {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rf-request-status.is-acknowledged {
+  background: var(--color-info-surface);
+  color: var(--color-info-text);
+}
+
+.rf-request-status.is-resolved {
+  background: var(--color-success-surface);
+  color: var(--color-success-text);
+}
+
+.rf-issue-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rf-issue-list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rf-issue-list button > span {
+  display: grid;
+  flex: 1;
+}
+
+.rf-issue-list small {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.rf-option-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rf-option-group legend {
+  width: 100%;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.rf-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rf-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rf-option:has(input:focus-visible) {
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+.rf-option.is-selected {
+  border-color: var(--color-brand-navy);
+  background: var(--color-brand-navy);
+  color: var(--color-text-inverse);
+}
+
+.rf-stop-num.is-pickup {
+  border: 2px solid var(--color-border-control);
+  background: var(--color-surface);
+  color: var(--color-text-secondary-subtle);
+}
+
+/* The task list dock can hold a slider and a second action. */
+.rf-overview {
+  padding-bottom: calc(var(--rf-safe-bottom) + 176px);
+}
+
+/* Readiness checks sit above the slider; a fade would show list text through them. */
+.rf-overview .rf-dock {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background);
+}

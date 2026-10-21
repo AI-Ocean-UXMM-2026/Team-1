@@ -15,6 +15,7 @@ const emptyWorkspace = (): WorkspaceData => ({
   vehicles: [],
   statusEvents: [],
   roadReports: [],
+  riderRequests: [],
   routes: [],
   routeStops: [],
 });

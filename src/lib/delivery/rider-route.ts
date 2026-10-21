@@ -1,7 +1,9 @@
 import type {
   DeliveryOrder,
   DeliveryStatus,
+  RoadReport,
   StatusEvent,
+  VehicleOption,
 } from "@/lib/delivery/types";
 
 export type GeoPoint = { latitude: number; longitude: number };
@@ -244,4 +246,312 @@ export function formatDuration(minutes: number | null) {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest ? `${hours} hr ${rest} min` : `${hours} hr`;
+}
+
+/* ------------------------------------------------------------ route points */
+
+/** Pickups closer than this are the same place: one stop, several parcels. */
+export const SAME_PLACE_KM = 0.08;
+
+/**
+ * One place the rider has to reach. A day can hold many of these; the rider
+ * works through them one at a time, so each point says exactly what to do
+ * there (collect parcels, or hand one over and take the cash).
+ */
+export type RoutePoint = {
+  key: string;
+  kind: "pickup" | "dropoff";
+  /** Pickups at the same place share one point. Drop-offs hold one order. */
+  orders: DeliveryOrder[];
+  address: string;
+  point: GeoPoint | null;
+  state: "done" | "failed" | "current" | "upcoming";
+  /** Cash the rider must take at this point, in MMK. Always 0 at pickups. */
+  codDue: number;
+  etaAt: string | null;
+};
+
+export function codDueFor(order: DeliveryOrder) {
+  return order.cod_amount > 0 &&
+    order.cod_status !== "collected" &&
+    order.cod_status !== "settled"
+    ? order.cod_amount
+    : 0;
+}
+
+function pickupPoint(order: DeliveryOrder): GeoPoint | null {
+  return order.pickup_latitude != null && order.pickup_longitude != null
+    ? { latitude: order.pickup_latitude, longitude: order.pickup_longitude }
+    : null;
+}
+
+function samePlace(a: DeliveryOrder, b: DeliveryOrder) {
+  const pa = pickupPoint(a);
+  const pb = pickupPoint(b);
+  if (pa && pb) return distanceKm(pa, pb) <= SAME_PLACE_KM;
+  return (
+    a.pickup_address.trim().toLowerCase() ===
+    b.pickup_address.trim().toLowerCase()
+  );
+}
+
+/**
+ * The day's points in the order the rider reaches them: finished drop-offs,
+ * then each remaining order's pickup (merged with other parcels waiting at
+ * the same place) followed by its drop-off.
+ */
+export function buildRoutePoints(route: RiderRoute): RoutePoint[] {
+  const points: RoutePoint[] = route.closedToday.map((order) => ({
+    key: `${order.id}-dropoff`,
+    kind: "dropoff",
+    orders: [order],
+    address: order.delivery_address,
+    point: legFor(order).point,
+    state: order.status === "delivered" ? "done" : "failed",
+    codDue: 0,
+    etaAt: null,
+  }));
+
+  const pending: RoutePoint[] = [];
+  for (const order of route.active) {
+    if (!hasParcelOnBoard(order.status)) {
+      const group = pending.find(
+        (item) =>
+          item.kind === "pickup" &&
+          item.orders.every((other) => !hasParcelOnBoard(other.status)) &&
+          samePlace(item.orders[0], order),
+      );
+      if (group) group.orders.push(order);
+      else
+        pending.push({
+          key: `${order.id}-pickup`,
+          kind: "pickup",
+          orders: [order],
+          address: order.pickup_address,
+          point: pickupPoint(order),
+          state: "upcoming",
+          codDue: 0,
+          etaAt: null,
+        });
+    }
+    pending.push({
+      key: `${order.id}-dropoff`,
+      kind: "dropoff",
+      orders: [order],
+      address: order.delivery_address,
+      point:
+        order.delivery_latitude != null && order.delivery_longitude != null
+          ? {
+              latitude: order.delivery_latitude,
+              longitude: order.delivery_longitude,
+            }
+          : null,
+      state: "upcoming",
+      codDue: codDueFor(order),
+      etaAt: order.estimated_delivery_at,
+    });
+  }
+  if (pending[0]) pending[0].state = "current";
+  return [...points, ...pending];
+}
+
+/** Orders to collect at the rider's current pickup, or none at a drop-off. */
+export function currentPickupOrders(points: RoutePoint[]) {
+  const current = points.find((item) => item.state === "current");
+  return current?.kind === "pickup" ? current.orders : [];
+}
+
+/** Total cash still to collect on the open part of the route. */
+export function routeCodDue(route: RiderRoute) {
+  return route.active.reduce((sum, order) => sum + codDueFor(order), 0);
+}
+
+/* ------------------------------------------------------------ road cautions */
+
+export type RoadCaution = {
+  report: RoadReport;
+  /** How far the report sits from the path, in km. */
+  offsetKm: number;
+  /** How far along the path it is, from the path's start, in km. */
+  aheadKm: number;
+};
+
+/** Reports a rider should still hear about: not rejected, not expired. */
+export function activeRoadReports(reports: RoadReport[], now: number) {
+  return reports.filter(
+    (report) =>
+      report.status !== "rejected" && Date.parse(report.expires_at) > now,
+  );
+}
+
+const KM_PER_DEGREE_LAT = 110.574;
+
+/** Local flat projection in km around `origin`; plenty for city distances. */
+function toKm(point: GeoPoint, origin: GeoPoint) {
+  const kmPerDegreeLon = 111.32 * Math.cos((origin.latitude * Math.PI) / 180);
+  return {
+    x: (point.longitude - origin.longitude) * kmPerDegreeLon,
+    y: (point.latitude - origin.latitude) * KM_PER_DEGREE_LAT,
+  };
+}
+
+/**
+ * Road reports within `radiusKm` of a path, nearest first along the way.
+ * The path is the rider's road route when one is known, or the straight
+ * line to the next point otherwise.
+ */
+export function cautionsAlong(
+  path: GeoPoint[],
+  reports: RoadReport[],
+  now: number,
+  radiusKm = 0.4,
+): RoadCaution[] {
+  if (path.length === 0) return [];
+  const origin = path[0];
+  const points = path.map((point) => toKm(point, origin));
+  const cautions: RoadCaution[] = [];
+
+  for (const report of activeRoadReports(reports, now)) {
+    const target = toKm(report, origin);
+    let best = { offset: Number.POSITIVE_INFINITY, along: 0 };
+    let travelled = 0;
+    if (points.length === 1) {
+      best = {
+        offset: Math.hypot(target.x - points[0].x, target.y - points[0].y),
+        along: 0,
+      };
+    }
+    for (let index = 1; index < points.length; index += 1) {
+      const a = points[index - 1];
+      const b = points[index];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const length = Math.hypot(dx, dy);
+      const t =
+        length === 0
+          ? 0
+          : Math.max(
+              0,
+              Math.min(
+                1,
+                ((target.x - a.x) * dx + (target.y - a.y) * dy) /
+                  (length * length),
+              ),
+            );
+      const offset = Math.hypot(
+        target.x - (a.x + t * dx),
+        target.y - (a.y + t * dy),
+      );
+      if (offset < best.offset)
+        best = { offset, along: travelled + t * length };
+      travelled += length;
+    }
+    if (best.offset <= radiusKm)
+      cautions.push({ report, offsetKm: best.offset, aheadKm: best.along });
+  }
+
+  return cautions.sort((a, b) => a.aheadKm - b.aheadKm);
+}
+
+const CAUTION_COPY: Record<
+  RoadReport["category"],
+  { title: string; advice: string }
+> = {
+  flooding: {
+    title: "Flooding",
+    advice: "Slow down, avoid deep water and keep parcels dry.",
+  },
+  closure: {
+    title: "Road closed",
+    advice: "Take another way. Your directions app may not know yet.",
+  },
+  roadwork: {
+    title: "Roadwork",
+    advice: "Lanes narrow here. Slow down and expect a short wait.",
+  },
+  congestion: {
+    title: "Heavy traffic",
+    advice: "Allow extra time. Don’t rush to make it up later.",
+  },
+  hazard: {
+    title: "Road hazard",
+    advice: "Ride carefully and keep your distance.",
+  },
+};
+
+const SEVERITY_COPY: Record<RoadReport["severity"], string> = {
+  low: "Minor",
+  medium: "Slows traffic",
+  high: "Major delay",
+  blocked: "Blocked",
+};
+
+export function cautionCopy(report: RoadReport) {
+  return {
+    ...CAUTION_COPY[report.category],
+    impact: SEVERITY_COPY[report.severity],
+    confirmed: report.status === "verified",
+  };
+}
+
+/* ---------------------------------------------------------- energy on route */
+
+const ROAD_DISTANCE_FACTOR = 1.18;
+
+export type RouteEnergy = {
+  source: "fuel" | "battery";
+  levelPercent: number | null;
+  usableKm: number | null;
+  neededKm: number | null;
+  status: "unknown" | "enough" | "tight" | "short";
+};
+
+/**
+ * Whether the vehicle's usable range covers what is left of today's route.
+ * Straight-line distances are padded to approximate roads; a road distance
+ * from the routing service is used as-is.
+ */
+export function energyForRoute(
+  vehicle: VehicleOption | null,
+  remainingKm: number | null,
+  isRoadDistance = false,
+): RouteEnergy {
+  const source = vehicle?.energy_source === "electric" ? "battery" : "fuel";
+  const levelPercent = !vehicle
+    ? null
+    : vehicle.energy_source === "electric"
+      ? vehicle.battery_level_percent
+      : vehicle.energy_source === "fuel"
+        ? vehicle.fuel_level_percent
+        : (vehicle.fuel_level_percent ?? vehicle.battery_level_percent);
+  if (!vehicle || levelPercent == null || !vehicle.range_km_at_full)
+    return {
+      source,
+      levelPercent,
+      usableKm: null,
+      neededKm: null,
+      status: "unknown",
+    };
+  const usableKm =
+    vehicle.range_km_at_full *
+    (Math.max(0, levelPercent - vehicle.reserve_percent) / 100);
+  const neededKm =
+    remainingKm == null
+      ? null
+      : remainingKm * (isRoadDistance ? 1 : ROAD_DISTANCE_FACTOR);
+  const status =
+    neededKm == null
+      ? "unknown"
+      : usableKm < neededKm
+        ? "short"
+        : usableKm - neededKm < Math.max(5, vehicle.range_km_at_full * 0.08)
+          ? "tight"
+          : "enough";
+  return {
+    source,
+    levelPercent,
+    usableKm: Math.round(usableKm * 10) / 10,
+    neededKm: neededKm == null ? null : Math.round(neededKm * 10) / 10,
+    status,
+  };
 }

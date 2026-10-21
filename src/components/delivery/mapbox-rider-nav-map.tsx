@@ -14,9 +14,11 @@ import {
   svgMarker,
   useMapboxMap,
 } from "@/components/delivery/mapbox-kit";
-import type {
-  NavStop,
-  RiderNavMapProps,
+import {
+  CAUTION_PATH,
+  type NavCaution,
+  type NavStop,
+  type RiderNavMapProps,
 } from "@/components/delivery/rider-nav-map";
 import type { MapPoint } from "@/lib/delivery/map-projection";
 
@@ -34,6 +36,14 @@ function stopMarker(stop: NavStop) {
     `<g class="rnav-stop rnav-stop-${stop.state}"><circle r="13"/>${inner}</g>`,
     32,
     "-16 -16 32 32",
+  );
+}
+
+function cautionMarker(severity: NavCaution["severity"]) {
+  return svgMarker(
+    `<g class="rnav-caution rnav-caution-${severity}"><path d="${CAUTION_PATH}"/><text y="5">!</text></g>`,
+    30,
+    "-15 -15 30 30",
   );
 }
 
@@ -84,6 +94,8 @@ export function MapboxRiderNavMap({
   interactive = true,
   label,
   road = null,
+  upcoming = [],
+  cautions = [],
 }: RiderNavMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapState = useMapboxMap(container, interactive);
@@ -179,9 +191,35 @@ export function MapboxRiderNavMap({
     };
   }, [map, gl, driver, heading]);
 
+  const upcomingCoordinates =
+    target && upcoming.length
+      ? [lngLat(target), ...upcoming.map((point) => lngLat(point))]
+      : [];
+
+  useEffect(() => {
+    if (!map || !gl) return;
+    const markers = cautions.map((caution) =>
+      new gl.Marker({
+        element: cautionMarker(caution.severity),
+        anchor: "center",
+      })
+        .setLngLat(lngLat(caution.point))
+        .addTo(map),
+    );
+    return () => {
+      for (const marker of markers) marker.remove();
+    };
+  }, [map, gl, cautions]);
+
   useEffect(() => {
     if (!map) return;
     const palette = mapPalette(prefersDark());
+    // Later legs first, so the current leg draws on top of them.
+    drawLines(map, "rnav-route-upcoming", [upcomingCoordinates], {
+      color: palette.origin,
+      width: 4,
+      dash: [1.5, 1.5],
+    });
     drawLines(map, "rnav-route-casing", [routeCoordinates], {
       color: palette.casing,
       width: 11,
@@ -190,7 +228,7 @@ export function MapboxRiderNavMap({
       color: palette.route,
       width: 6,
     });
-  }, [map, routeCoordinates]);
+  }, [map, routeCoordinates, upcomingCoordinates]);
 
   function zoomBy(step: number) {
     if (!map) return;

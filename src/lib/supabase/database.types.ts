@@ -557,6 +557,92 @@ export type Database = {
         };
         Relationships: [];
       };
+      rider_assistance_requests: {
+        Row: {
+          acknowledged_at: string | null;
+          category: string;
+          created_at: string;
+          driver_id: string;
+          energy_level_percent: number | null;
+          handled_by: string | null;
+          id: string;
+          kind: string;
+          latitude: number | null;
+          longitude: number | null;
+          note: string | null;
+          order_id: string | null;
+          resolved_at: string | null;
+          status: string;
+          updated_at: string;
+          vehicle_id: string | null;
+        };
+        Insert: {
+          acknowledged_at?: string | null;
+          category: string;
+          created_at?: string;
+          driver_id: string;
+          energy_level_percent?: number | null;
+          handled_by?: string | null;
+          id?: string;
+          kind: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          note?: string | null;
+          order_id?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          vehicle_id?: string | null;
+        };
+        Update: {
+          acknowledged_at?: string | null;
+          category?: string;
+          created_at?: string;
+          driver_id?: string;
+          energy_level_percent?: number | null;
+          handled_by?: string | null;
+          id?: string;
+          kind?: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          note?: string | null;
+          order_id?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          vehicle_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rider_assistance_requests_driver_id_fkey";
+            columns: ["driver_id"];
+            isOneToOne: false;
+            referencedRelation: "driver_profiles";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "rider_assistance_requests_handled_by_fkey";
+            columns: ["handled_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rider_assistance_requests_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rider_assistance_requests_vehicle_id_fkey";
+            columns: ["vehicle_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       road_reports: {
         Row: {
           category: string;

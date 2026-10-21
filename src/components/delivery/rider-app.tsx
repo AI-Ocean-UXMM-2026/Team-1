@@ -17,35 +17,50 @@ import {
   signOut,
 } from "@/components/delivery/common";
 import { Icon, type IconName } from "@/components/delivery/icons";
-import { type NavStop, RiderNavMap } from "@/components/delivery/rider-nav-map";
+import {
+  type NavCaution,
+  type NavStop,
+  RiderNavMap,
+} from "@/components/delivery/rider-nav-map";
 import {
   collectCod,
   type FailureReason,
   recordDeliveryOutcome,
+  requestRiderAssistance,
   sendDriverLocation,
   setOrderStatus,
   submitRoadReport,
   updateVehicleEnergy,
 } from "@/lib/delivery/actions";
-import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
 import { currency, formatTime } from "@/lib/delivery/format";
 import { formatDriveMinutes } from "@/lib/delivery/mapbox";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
 import {
   bearingDegrees,
   buildRiderRoute,
+  buildRoutePoints,
+  cautionCopy,
+  cautionsAlong,
+  codDueFor,
   compassDirection,
+  currentPickupOrders,
   distanceKm,
+  energyForRoute,
   formatDistance,
   formatDuration,
   type GeoPoint,
   hasParcelOnBoard,
   legFor,
+  type RoadCaution,
+  type RoutePoint,
+  routeCodDue,
   summariseRoute,
 } from "@/lib/delivery/rider-route";
 import type {
   DeliveryOrder,
   DeliveryStatus,
+  RiderRequest,
+  RiderRequestCategory,
   RoadReport,
   WorkspaceData,
 } from "@/lib/delivery/types";
@@ -53,13 +68,74 @@ import { useRoadRoute } from "@/lib/delivery/use-road-route";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
-type Screen =
-  | "overview"
-  | "start"
-  | "navigate"
-  | "outcome"
-  | "result"
-  | "complete";
+type Screen = "overview" | "navigate" | "outcome" | "result" | "complete";
+
+/** Sheets over the map: road cautions, fuel or charge, and the issue flow. */
+type Panel = "cautions" | "energy" | "issue";
+
+type IssueChoice =
+  | "cannot_deliver"
+  | "road"
+  | Exclude<RiderRequestCategory, "refuel" | "recharge">;
+
+const ISSUE_CHOICES: { id: IssueChoice; label: string; detail: string }[] = [
+  {
+    id: "cannot_deliver",
+    label: "Can’t deliver this parcel",
+    detail: "Recipient not there, wrong address or refused",
+  },
+  {
+    id: "road",
+    label: "Road blocked or unsafe road",
+    detail: "Flooding, closure, roadwork or a hazard",
+  },
+  {
+    id: "vehicle_problem",
+    label: "Vehicle problem",
+    detail: "Breakdown, flat tyre, won’t start",
+  },
+  {
+    id: "accident",
+    label: "Accident",
+    detail: "You or someone else needs help",
+  },
+  {
+    id: "parcel_damaged",
+    label: "Parcel damaged",
+    detail: "Torn, wet or broken",
+  },
+  {
+    id: "unsafe_area",
+    label: "I don’t feel safe here",
+    detail: "Operations can reroute or send help",
+  },
+  { id: "other", label: "Something else", detail: "Tell operations in a note" },
+];
+
+const ROAD_CATEGORIES: { id: RoadReport["category"]; label: string }[] = [
+  { id: "flooding", label: "Flooding" },
+  { id: "closure", label: "Road closed" },
+  { id: "roadwork", label: "Roadwork" },
+  { id: "congestion", label: "Heavy traffic" },
+  { id: "hazard", label: "Hazard" },
+];
+
+const ROAD_SEVERITIES: { id: RoadReport["severity"]; label: string }[] = [
+  { id: "low", label: "Minor" },
+  { id: "medium", label: "Slow" },
+  { id: "high", label: "Major" },
+  { id: "blocked", label: "Blocked" },
+];
+
+const REQUEST_LABELS: Record<RiderRequestCategory, string> = {
+  refuel: "Fuel stop",
+  recharge: "Charging stop",
+  vehicle_problem: "Vehicle problem",
+  accident: "Accident",
+  parcel_damaged: "Parcel damaged",
+  unsafe_area: "Unsafe area",
+  other: "Issue",
+};
 
 type DevicePosition = GeoPoint & {
   heading: number | null;
@@ -178,6 +254,150 @@ function Notice({
   );
 }
 
+/** What the rider does at a point, in the words used across the flow. */
+function pointTitle(
+  point: RoutePoint,
+  stopNumber: (order: DeliveryOrder | null) => number,
+) {
+  if (point.kind === "pickup")
+    return point.orders.length > 1
+      ? `Pickup · ${point.orders.length} parcels`
+      : `Pickup · ${point.orders[0].tracking_code}`;
+  return `${stopNumber(point.orders[0])} · ${recipientLabel(point.orders[0])}`;
+}
+
+function PointRow({
+  point,
+  title,
+  number,
+}: {
+  point: RoutePoint;
+  title: string;
+  number: number;
+}) {
+  const order = point.orders[0];
+  const pickup = point.kind === "pickup";
+  return (
+    <li className={`rf-point is-${point.state} is-${point.kind}`}>
+      <span className="rf-point-mark" aria-hidden="true">
+        {point.state === "done" ? (
+          <Icon name="check" size={16} strokeWidth={2.6} />
+        ) : point.state === "failed" ? (
+          <Icon name="close" size={16} strokeWidth={2.6} />
+        ) : pickup ? (
+          <Icon name="package" size={16} />
+        ) : (
+          number
+        )}
+      </span>
+      <div className="rf-point-copy">
+        <small>
+          {point.state === "current" ? "Now · " : ""}
+          {pickup ? "Pickup" : "Drop-off"}
+          {!pickup && point.etaAt && point.state !== "done"
+            ? ` · ETA ${formatTime(point.etaAt)}`
+            : ""}
+        </small>
+        <strong>
+          {pickup
+            ? title.replace("Pickup · ", "Collect ")
+            : recipientLabel(order)}
+        </strong>
+        <span>{point.address}</span>
+        <div className="rf-meta">
+          {point.state === "done" || point.state === "failed" ? (
+            <StatusBadge status={order.status} />
+          ) : pickup ? (
+            <span>
+              <Icon name="box" size={14} />
+              {point.orders.map((item) => item.tracking_code).join(" · ")}
+            </span>
+          ) : point.codDue > 0 ? (
+            <span className="rf-cod is-due">
+              <Icon name="coin" size={14} strokeWidth={2.1} />
+              Collect {currency.format(point.codDue)}
+            </span>
+          ) : (
+            <span>
+              <Icon name="check" size={14} /> No cash to collect
+            </span>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function CautionItem({ caution, now }: { caution: RoadCaution; now: number }) {
+  const copy = cautionCopy(caution.report);
+  const minutes = Math.max(
+    0,
+    Math.round((now - Date.parse(caution.report.reported_at)) / 60_000),
+  );
+  return (
+    <article className={`rf-caution-item is-${caution.report.severity}`}>
+      <span className="rf-caution-icon" aria-hidden="true">
+        <Icon name="warning" size={18} />
+      </span>
+      <div>
+        <strong>
+          {copy.title} · {copy.impact}
+        </strong>
+        <p>{caution.report.description}</p>
+        <p className="rf-caution-advice">{copy.advice}</p>
+        <small>
+          {caution.aheadKm < 0.05
+            ? "Where you are"
+            : `${formatDistance(caution.aheadKm)} ahead`}{" "}
+          · reported {minutes < 1 ? "just now" : `${minutes} min ago`} ·{" "}
+          {copy.confirmed ? "confirmed by operations" : "not yet confirmed"}
+        </small>
+      </div>
+    </article>
+  );
+}
+
+function RequestStatus({ request }: { request: RiderRequest }) {
+  const label =
+    request.status === "resolved"
+      ? "Resolved"
+      : request.status === "acknowledged"
+        ? "Operations is on it"
+        : "Waiting for operations";
+  return (
+    <span className={`rf-request-status is-${request.status}`}>{label}</span>
+  );
+}
+
+function energyStatusLabel(
+  status: ReturnType<typeof energyForRoute>["status"],
+) {
+  return status === "enough"
+    ? "Enough for today"
+    : status === "tight"
+      ? "Plan a stop"
+      : status === "short"
+        ? "Not enough"
+        : "Range unknown";
+}
+
+function energyAdvice(
+  energy: ReturnType<typeof energyForRoute>,
+  word: "fuel" | "charging",
+) {
+  if (energy.status === "unknown")
+    return energy.levelPercent == null
+      ? "Set your current level to check today’s range."
+      : "Range shows once the route distance is known.";
+  const usable = formatDistance(energy.usableKm);
+  const needed = formatDistance(energy.neededKm);
+  if (energy.status === "enough")
+    return `About ${usable} usable after your reserve, for ${needed} left today.`;
+  if (energy.status === "tight")
+    return `About ${usable} usable for ${needed} left. Plan a ${word} stop.`;
+  return `Only about ${usable} usable for ${needed} left. Get ${word === "fuel" ? "fuel" : "a charge"} before your next drop.`;
+}
+
 export function RiderApp() {
   const workspace = useWorkspace("driver");
   const driverId = workspace.isDemo
@@ -217,13 +437,27 @@ export function RiderApp() {
     [workspace.data.orders, workspace.data.statusEvents, driverId, now],
   );
   const current = route.current;
+  // Every place the rider must reach today, worked through one at a time.
+  const points = useMemo(() => buildRoutePoints(route), [route]);
+  const dropoffPoints = points.filter((point) => point.kind === "dropoff");
   const stopNumber = (order: DeliveryOrder | null) =>
-    order ? route.stops.findIndex((stop) => stop.id === order.id) + 1 : 0;
+    order
+      ? dropoffPoints.findIndex((point) => point.orders[0].id === order.id) + 1
+      : 0;
+  const currentPoint = points.find((point) => point.state === "current");
+  const pointIndex = currentPoint ? points.indexOf(currentPoint) : -1;
+  const nextPoint = pointIndex >= 0 ? (points[pointIndex + 1] ?? null) : null;
+  const pickupOrders = currentPickupOrders(points);
   const leg = current ? legFor(current) : null;
-  const vehicle = current?.vehicle_id
-    ? (workspace.data.vehicles.find((item) => item.id === current.vehicle_id) ??
-      null)
+  const vehicleId =
+    current?.vehicle_id ??
+    route.active.find((order) => order.vehicle_id)?.vehicle_id ??
+    null;
+  const vehicle = vehicleId
+    ? (workspace.data.vehicles.find((item) => item.id === vehicleId) ?? null)
     : null;
+  const codTotal = routeCodDue(route);
+  const newTasks = route.active.filter((order) => order.status === "assigned");
 
   // The screen follows route progress unless the rider is mid-way through a step.
   const defaultScreen: Screen =
@@ -278,7 +512,7 @@ export function RiderApp() {
   const wantsGps =
     !workspace.isDemo &&
     workspace.isAuthenticated &&
-    (activeScreen === "start" ||
+    (route.phase === "ready" ||
       activeScreen === "navigate" ||
       route.phase === "active");
   useEffect(() => {
@@ -418,54 +652,72 @@ export function RiderApp() {
     return known ? total : null;
   }, [riderPoint, route.active]);
 
-  // Each order contributes its pickup (until collected) and its numbered drop-off, in route order.
-  const navStops: NavStop[] = route.stops.flatMap((order, index) => {
-    const state: NavStop["state"] =
-      order.status === "delivered"
-        ? "done"
-        : order.status === "failed" || order.status === "cancelled"
-          ? "failed"
-          : order.id === current?.id
-            ? "current"
-            : "queued";
-    const items: NavStop[] = [];
-    if (
-      legFor(order).kind === "pickup" &&
-      order.pickup_latitude != null &&
-      order.pickup_longitude != null
-    )
-      items.push({
-        id: order.id,
-        number: index + 1,
-        kind: "pickup",
-        state,
-        point: {
-          latitude: order.pickup_latitude,
-          longitude: order.pickup_longitude,
+  // Pickups (until collected) and numbered drop-offs, matching the task list.
+  const navStops: NavStop[] = useMemo(() => {
+    let dropNumber = 0;
+    return points.flatMap((item) => {
+      if (item.kind === "dropoff") dropNumber += 1;
+      if (!item.point) return [];
+      return [
+        {
+          id: item.orders[0].id,
+          number: dropNumber,
+          kind: item.kind,
+          state:
+            item.state === "upcoming"
+              ? ("queued" as const)
+              : item.state === "current"
+                ? ("current" as const)
+                : item.state,
+          point: item.point,
         },
-      });
-    if (order.delivery_latitude != null && order.delivery_longitude != null)
-      items.push({
-        id: order.id,
-        number: index + 1,
-        kind: "dropoff",
-        state,
-        point: {
-          latitude: order.delivery_latitude,
-          longitude: order.delivery_longitude,
-        },
-      });
-    return items;
-  });
+      ];
+    });
+  }, [points]);
+  const upcomingPoints = useMemo(
+    () =>
+      points
+        .slice(pointIndex + 1)
+        .flatMap((item) =>
+          item.state === "upcoming" && item.point ? [item.point] : [],
+        ),
+    [points, pointIndex],
+  );
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("keydown", close);
-    return () => document.removeEventListener("keydown", close);
-  }, [menuOpen]);
+  // Road reports along the way: the current leg drives the banner, the
+  // rest of the route feeds the overview and the map markers.
+  const legPath: GeoPoint[] = useMemo(() => {
+    if (legRoute)
+      return legRoute.coordinates.map(([longitude, latitude]) => ({
+        latitude,
+        longitude,
+      }));
+    return [riderPoint, leg?.point ?? null].filter(
+      (item): item is GeoPoint => item != null,
+    );
+  }, [legRoute, riderPoint, leg?.point]);
+  const legCautions = useMemo(
+    () => cautionsAlong(legPath, workspace.data.roadReports, now),
+    [legPath, workspace.data.roadReports, now],
+  );
+  const routeCautions = useMemo(() => {
+    const path = [
+      riderPoint,
+      ...points
+        .filter((item) => item.state === "current" || item.state === "upcoming")
+        .map((item) => item.point),
+    ].filter((item): item is GeoPoint => item != null);
+    return cautionsAlong(path, workspace.data.roadReports, now);
+  }, [riderPoint, points, workspace.data.roadReports, now]);
+  const navCautions: NavCaution[] = useMemo(
+    () =>
+      routeCautions.map(({ report }) => ({
+        id: report.id,
+        point: { latitude: report.latitude, longitude: report.longitude },
+        severity: report.severity,
+      })),
+    [routeCautions],
+  );
 
   /* ---------------- data writes ---------------- */
 
@@ -529,21 +781,32 @@ export function RiderApp() {
     }
   }
 
-  const startRoute = () =>
+  /** Accepts every newly assigned task; starting the day also opens the map. */
+  const acceptTasks = (openMap: boolean) =>
     run("start", async () => {
       for (const order of route.active)
         if (order.status === "assigned") await changeStatus(order, "accepted");
       setSheetOpen(false);
-      setScreen("navigate");
+      if (openMap) setScreen("navigate");
     });
 
+  // Every parcel waiting at this pickup is collected in one step.
   const confirmPickup = () =>
     run("pickup", async () => {
-      if (!current) return;
-      if (current.status === "accepted")
-        await changeStatus(current, "picked_up");
-      await changeStatus({ ...current, status: "picked_up" }, "in_transit");
-      setArrived((ids) => ids.filter((id) => id !== current.id));
+      const batch = pickupOrders.length
+        ? pickupOrders
+        : current
+          ? [current]
+          : [];
+      for (const order of batch) {
+        if (order.status === "assigned") await changeStatus(order, "accepted");
+        if (order.status === "assigned" || order.status === "accepted")
+          await changeStatus({ ...order, status: "accepted" }, "picked_up");
+        await changeStatus({ ...order, status: "picked_up" }, "in_transit");
+      }
+      setArrived((ids) =>
+        ids.filter((id) => !batch.some((order) => order.id === id)),
+      );
       setSheetOpen(false);
     });
 
@@ -641,16 +904,48 @@ export function RiderApp() {
       setScreen("result");
     });
 
-  /* ---------------- shift menu: vehicle energy + road reports ---------------- */
+  /* ---------------- fuel, issues and road reports ---------------- */
 
+  const [panel, setPanel] = useState<Panel | null>(null);
+  const [panelDone, setPanelDone] = useState<string | null>(null);
   const [energyLevel, setEnergyLevel] = useState("");
+  const [energyNote, setEnergyNote] = useState("");
+  const [issue, setIssue] = useState<IssueChoice | null>(null);
+  const [issueNote, setIssueNote] = useState("");
   const [roadCategory, setRoadCategory] =
-    useState<RoadReport["category"]>("congestion");
+    useState<RoadReport["category"]>("flooding");
   const [roadSeverity, setRoadSeverity] =
     useState<RoadReport["severity"]>("medium");
-  const [roadText, setRoadText] = useState("");
-  const [menuNote, setMenuNote] = useState<string | null>(null);
-  const energy = current ? assessEnergyRoute(current, vehicle) : null;
+  const routeEnergy = energyForRoute(
+    vehicle,
+    routeSummary?.distanceKm ?? remainingDistance,
+    routeSummary != null,
+  );
+  const myRequests = workspace.data.riderRequests.filter(
+    (request) => request.driver_id === driverId,
+  );
+  const openEnergyRequest = myRequests.find(
+    (request) => request.kind === "energy" && request.status !== "resolved",
+  );
+
+  const openPanel = (next: Panel) => {
+    setActionError(null);
+    setPanelDone(null);
+    setIssue(null);
+    setIssueNote("");
+    setPanel(next);
+  };
+
+  useEffect(() => {
+    if (!panel && !menuOpen) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setPanel(null);
+      setMenuOpen(false);
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [panel, menuOpen]);
 
   const saveEnergy = () =>
     run("energy", async () => {
@@ -682,7 +977,52 @@ export function RiderApp() {
           levelPercent: level,
         });
       setEnergyLevel("");
-      setMenuNote("Vehicle level saved.");
+    });
+
+  /** Sends a fuel, charging or issue request to dispatch with where the rider is. */
+  const requestHelp = (category: RiderRequestCategory, note: string) =>
+    run("request", async () => {
+      if (!driverId) return;
+      const record: RiderRequest = {
+        id: `local-${Date.now()}`,
+        driver_id: driverId,
+        driver_name: workspace.profile?.full_name ?? "Rider",
+        order_id: current?.id ?? null,
+        vehicle_id: vehicle?.id ?? null,
+        kind:
+          category === "refuel" || category === "recharge" ? "energy" : "issue",
+        category,
+        note: note.trim() || null,
+        energy_level_percent: routeEnergy.levelPercent,
+        latitude: riderPoint?.latitude ?? null,
+        longitude: riderPoint?.longitude ?? null,
+        status: "open",
+        created_at: new Date().toISOString(),
+        acknowledged_at: null,
+        resolved_at: null,
+      };
+      if (!workspace.isDemo)
+        await requestRiderAssistance(createClient(), {
+          driverId,
+          orderId: record.order_id,
+          vehicleId: record.vehicle_id,
+          category,
+          note,
+          energyLevelPercent: record.energy_level_percent,
+          latitude: record.latitude,
+          longitude: record.longitude,
+        });
+      workspace.updateData((previous) => ({
+        ...previous,
+        riderRequests: [record, ...previous.riderRequests],
+      }));
+      setEnergyNote("");
+      setIssueNote("");
+      setPanelDone(
+        category === "refuel" || category === "recharge"
+          ? "Operations has your request and your location. Keep riding only if it’s safe."
+          : "Sent to operations with your location and this stop. They’ll contact you.",
+      );
     });
 
   const sendRoadReport = (event: FormEvent<HTMLFormElement>) => {
@@ -700,13 +1040,13 @@ export function RiderApp() {
           orderId: current?.id ?? null,
           category: roadCategory,
           severity: roadSeverity,
-          description: roadText,
+          description: issueNote,
           latitude: point.latitude,
           longitude: point.longitude,
         });
-      setRoadText("");
-      setMenuNote(
-        "Road report sent. Operations reviews it before it changes ETAs.",
+      setIssueNote("");
+      setPanelDone(
+        "Road report sent. Operations checks it before it changes anyone’s ETA.",
       );
     });
   };
@@ -789,7 +1129,7 @@ export function RiderApp() {
             <strong>{workspace.profile?.full_name || "Oern rider"}</strong>
             <span>
               {vehicle
-                ? `${vehicle.registration_number} · ${vehicle.vehicle_type}`
+                ? `${vehicle.registration_number} · ${vehicle.vehicle_type.replace("_", "-")}`
                 : "No vehicle on this route"}
             </span>
           </div>
@@ -802,106 +1142,26 @@ export function RiderApp() {
             <Icon name="close" size={20} />
           </button>
         </header>
-        {menuNote && (
-          <Notice tone="success" icon="check">
-            {menuNote}
-          </Notice>
-        )}
-        {vehicle && (
-          <div className="rf-menu-block">
-            <h3>
-              {vehicle.energy_source === "electric"
-                ? "Battery level"
-                : "Fuel level"}
-            </h3>
-            <p>
-              {energy?.message ??
-                "Set the current level to check range for this route."}
+        <div className="rf-menu-block">
+          <h3>Your requests to operations</h3>
+          {myRequests.length ? (
+            <ul className="rf-request-list">
+              {myRequests.slice(0, 5).map((request) => (
+                <li key={request.id}>
+                  <span>
+                    <strong>{REQUEST_LABELS[request.category]}</strong>
+                    <small>{formatTime(request.created_at)}</small>
+                  </span>
+                  <RequestStatus request={request} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rf-muted">
+              Fuel, charging and issue requests you send appear here.
             </p>
-            <div className="rf-inline-field">
-              <label className="rf-field">
-                <span>Current level (%)</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={100}
-                  value={energyLevel}
-                  placeholder={String(energy?.energyLevelPercent ?? "")}
-                  onChange={(event) => setEnergyLevel(event.target.value)}
-                />
-              </label>
-              <button
-                type="button"
-                className="rf-btn rf-btn-secondary"
-                disabled={energyLevel === "" || busy != null}
-                onClick={() => void saveEnergy()}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        )}
-        <form
-          className="rf-menu-block"
-          onSubmit={(event) => void sendRoadReport(event)}
-        >
-          <h3>Report a road condition</h3>
-          <p>
-            Send only when safely stopped. Operations checks reports before they
-            affect ETAs.
-          </p>
-          <div className="rf-two">
-            <label className="rf-field">
-              <span>Condition</span>
-              <select
-                value={roadCategory}
-                onChange={(event) =>
-                  setRoadCategory(event.target.value as RoadReport["category"])
-                }
-              >
-                <option value="congestion">Congestion</option>
-                <option value="closure">Road closure</option>
-                <option value="roadwork">Roadwork</option>
-                <option value="flooding">Flooding</option>
-                <option value="hazard">Road hazard</option>
-              </select>
-            </label>
-            <label className="rf-field">
-              <span>Impact</span>
-              <select
-                value={roadSeverity}
-                onChange={(event) =>
-                  setRoadSeverity(event.target.value as RoadReport["severity"])
-                }
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="blocked">Blocked</option>
-              </select>
-            </label>
-          </div>
-          <label className="rf-field">
-            <span>What did you see?</span>
-            <textarea
-              value={roadText}
-              minLength={3}
-              maxLength={240}
-              required
-              placeholder="Left lane closed after the market entrance"
-              onChange={(event) => setRoadText(event.target.value)}
-            />
-          </label>
-          <button
-            type="submit"
-            className="rf-btn rf-btn-secondary"
-            disabled={roadText.trim().length < 3 || busy != null}
-          >
-            <Icon name="location" size={18} />
-            {busy === "road" ? "Sending…" : "Send with my location"}
-          </button>
-        </form>
+          )}
+        </div>
         <button
           type="button"
           className="rf-btn rf-btn-quiet"
@@ -912,6 +1172,388 @@ export function RiderApp() {
       </section>
     </div>
   ) : null;
+
+  const closePanel = () => setPanel(null);
+  const panelSheet = (title: string, body: ReactNode, subtitle?: string) => (
+    <div className="rf-scrim">
+      <section
+        className="rf-sheet rf-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rf-panel-title"
+      >
+        <span className="rf-handle" aria-hidden="true" />
+        <div className="rf-sheet-head">
+          <div>
+            <h2 id="rf-panel-title">{title}</h2>
+            {subtitle && <p className="rf-muted">{subtitle}</p>}
+          </div>
+          <button
+            type="button"
+            className="rf-icon-btn"
+            onClick={closePanel}
+            aria-label={`Close ${title.toLowerCase()}`}
+          >
+            <Icon name="close" size={20} />
+          </button>
+        </div>
+        {body}
+      </section>
+    </div>
+  );
+
+  const legIds = new Set(legCautions.map((item) => item.report.id));
+  const laterCautions = routeCautions.filter(
+    (item) => !legIds.has(item.report.id),
+  );
+  const cautionsSheet =
+    panel === "cautions"
+      ? panelSheet(
+          "Road cautions",
+          <div className="rf-panel-body">
+            {legCautions.length > 0 && (
+              <section className="rf-caution-group">
+                <h3>On the way to this stop</h3>
+                {legCautions.map((item) => (
+                  <CautionItem key={item.report.id} caution={item} now={now} />
+                ))}
+              </section>
+            )}
+            {laterCautions.length > 0 && (
+              <section className="rf-caution-group">
+                <h3>Later on today’s route</h3>
+                {laterCautions.map((item) => (
+                  <CautionItem key={item.report.id} caution={item} now={now} />
+                ))}
+              </section>
+            )}
+            {!routeCautions.length && (
+              <p className="rf-muted">
+                No road reports near your route right now.
+              </p>
+            )}
+            <button
+              type="button"
+              className="rf-btn rf-btn-secondary"
+              onClick={() => {
+                openPanel("issue");
+                setIssue("road");
+              }}
+            >
+              <Icon name="warning" size={18} /> Report a road condition
+            </button>
+          </div>,
+          "Reports from riders near your route. Confirmed ones already count in your ETA.",
+        )
+      : null;
+
+  const energyWord = routeEnergy.source === "battery" ? "charging" : "fuel";
+  const energySheet =
+    panel === "energy"
+      ? panelSheet(
+          routeEnergy.source === "battery" ? "Battery" : "Fuel",
+          <div className="rf-panel-body">
+            <div className={`rf-gauge is-${routeEnergy.status}`}>
+              <div className="rf-gauge-row">
+                <strong>
+                  {routeEnergy.levelPercent == null
+                    ? "—"
+                    : `${routeEnergy.levelPercent}%`}
+                </strong>
+                <span>{energyStatusLabel(routeEnergy.status)}</span>
+              </div>
+              <span className="rf-gauge-bar" aria-hidden="true">
+                <span style={{ width: `${routeEnergy.levelPercent ?? 0}%` }} />
+              </span>
+              <p>{energyAdvice(routeEnergy, energyWord)}</p>
+            </div>
+            {vehicle && (
+              <div className="rf-inline-field">
+                <label className="rf-field">
+                  <span>Update current level (%)</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={100}
+                    value={energyLevel}
+                    placeholder={String(routeEnergy.levelPercent ?? "")}
+                    onChange={(event) => setEnergyLevel(event.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="rf-btn rf-btn-secondary"
+                  disabled={energyLevel === "" || busy != null}
+                  onClick={() => void saveEnergy()}
+                >
+                  {busy === "energy" ? "Saving…" : "Save"}
+                </button>
+              </div>
+            )}
+            {openEnergyRequest ? (
+              <>
+                {panelDone && (
+                  <Notice tone="success" icon="check">
+                    {panelDone}
+                  </Notice>
+                )}
+                <div className="rf-request-card">
+                  <span>
+                    <strong>
+                      {REQUEST_LABELS[openEnergyRequest.category]}
+                    </strong>
+                    <small>
+                      Requested {formatTime(openEnergyRequest.created_at)}
+                    </small>
+                  </span>
+                  <RequestStatus request={openEnergyRequest} />
+                </div>
+              </>
+            ) : panelDone ? (
+              <Notice tone="success" icon="check">
+                {panelDone}
+              </Notice>
+            ) : (
+              <>
+                <label className="rf-field">
+                  <span>Note for operations (optional)</span>
+                  <textarea
+                    value={energyNote}
+                    maxLength={500}
+                    placeholder={
+                      routeEnergy.source === "battery"
+                        ? "Battery at 20%, 3 drops left"
+                        : "Fuel light on, 3 drops left"
+                    }
+                    onChange={(event) => setEnergyNote(event.target.value)}
+                  />
+                </label>
+                {errorBanner}
+                <button
+                  type="button"
+                  className="rf-btn rf-btn-primary"
+                  disabled={busy != null}
+                  onClick={() =>
+                    void requestHelp(
+                      routeEnergy.source === "battery" ? "recharge" : "refuel",
+                      energyNote,
+                    )
+                  }
+                >
+                  <Icon
+                    name={routeEnergy.source === "battery" ? "battery" : "fuel"}
+                    size={18}
+                  />
+                  {busy === "request"
+                    ? "Sending…"
+                    : routeEnergy.source === "battery"
+                      ? "Request a charging stop"
+                      : "Request a fuel stop"}
+                </button>
+              </>
+            )}
+          </div>,
+          vehicle
+            ? `${vehicle.registration_number} · ${vehicle.vehicle_type.replace("_", "-")}`
+            : "No vehicle is linked to your route",
+        )
+      : null;
+
+  const issueChoice = ISSUE_CHOICES.find((item) => item.id === issue);
+  const issueSheet =
+    panel === "issue"
+      ? panelSheet(
+          issue === "road"
+            ? "Report a road condition"
+            : (issueChoice?.label ?? "Report an issue"),
+          <div className="rf-panel-body">
+            {panelDone ? (
+              <>
+                <Notice tone="success" icon="check">
+                  {panelDone}
+                </Notice>
+                <button
+                  type="button"
+                  className="rf-btn rf-btn-primary"
+                  onClick={closePanel}
+                >
+                  Back to the map
+                </button>
+              </>
+            ) : issue == null ? (
+              <ul className="rf-issue-list">
+                {ISSUE_CHOICES.filter(
+                  (item) =>
+                    item.id !== "cannot_deliver" ||
+                    (currentPoint?.kind === "dropoff" && current != null),
+                ).map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (item.id === "cannot_deliver") {
+                          closePanel();
+                          updateDraft({ outcome: "failed" });
+                          setOutcomeStep(2);
+                          setScreen("outcome");
+                          return;
+                        }
+                        setIssue(item.id);
+                      }}
+                    >
+                      <span>
+                        <strong>{item.label}</strong>
+                        <small>{item.detail}</small>
+                      </span>
+                      <Icon name="arrow-right" size={18} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : issue === "road" ? (
+              <form
+                className="rf-form"
+                onSubmit={(event) => void sendRoadReport(event)}
+              >
+                <p className="rf-muted">
+                  Send only when you’ve stopped safely. Operations checks
+                  reports before they change ETAs.
+                </p>
+                <fieldset className="rf-option-group">
+                  <legend>What’s on the road?</legend>
+                  {ROAD_CATEGORIES.map((item) => (
+                    <label
+                      key={item.id}
+                      className={`rf-option ${roadCategory === item.id ? "is-selected" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="road-category"
+                        checked={roadCategory === item.id}
+                        onChange={() => setRoadCategory(item.id)}
+                      />
+                      {item.label}
+                    </label>
+                  ))}
+                </fieldset>
+                <fieldset className="rf-option-group">
+                  <legend>How bad is it?</legend>
+                  {ROAD_SEVERITIES.map((item) => (
+                    <label
+                      key={item.id}
+                      className={`rf-option ${roadSeverity === item.id ? "is-selected" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="road-severity"
+                        checked={roadSeverity === item.id}
+                        onChange={() => setRoadSeverity(item.id)}
+                      />
+                      {item.label}
+                    </label>
+                  ))}
+                </fieldset>
+                <label className="rf-field">
+                  <span>What did you see?</span>
+                  <textarea
+                    value={issueNote}
+                    minLength={3}
+                    maxLength={240}
+                    required
+                    placeholder="Water over the road after the bridge"
+                    onChange={(event) => setIssueNote(event.target.value)}
+                  />
+                </label>
+                {errorBanner}
+                <button
+                  type="submit"
+                  className="rf-btn rf-btn-primary"
+                  disabled={issueNote.trim().length < 3 || busy != null}
+                >
+                  <Icon name="location" size={18} />
+                  {busy === "road" ? "Sending…" : "Send with my location"}
+                </button>
+              </form>
+            ) : (
+              <form
+                className="rf-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void requestHelp(issue as RiderRequestCategory, issueNote);
+                }}
+              >
+                {issue === "accident" && (
+                  <Notice tone="error" icon="warning">
+                    <strong>If anyone is hurt, get help first.</strong> Call
+                    emergency services, then send this so operations can cover
+                    your deliveries.
+                  </Notice>
+                )}
+                <p className="rf-muted">
+                  Operations gets your location
+                  {current ? `, stop ${stopNumber(current)}` : ""} and vehicle
+                  with this.
+                </p>
+                <label className="rf-field">
+                  <span>
+                    {issue === "other"
+                      ? "What happened?"
+                      : "Anything they should know? (optional)"}
+                  </span>
+                  <textarea
+                    value={issueNote}
+                    maxLength={500}
+                    required={issue === "other"}
+                    placeholder={
+                      issue === "vehicle_problem"
+                        ? "Rear tyre flat, can walk it 200 m"
+                        : issue === "parcel_damaged"
+                          ? "Box wet from rain, item looks fine"
+                          : "Short note for the dispatcher"
+                    }
+                    onChange={(event) => setIssueNote(event.target.value)}
+                  />
+                </label>
+                {errorBanner}
+                <button
+                  type="submit"
+                  className="rf-btn rf-btn-primary"
+                  disabled={
+                    busy != null ||
+                    (issue === "other" && issueNote.trim().length < 3)
+                  }
+                >
+                  {busy === "request" ? "Sending…" : "Send to operations"}
+                </button>
+              </form>
+            )}
+            {issue != null && !panelDone && (
+              <button
+                type="button"
+                className="rf-btn rf-btn-quiet"
+                onClick={() => setIssue(null)}
+              >
+                Choose a different problem
+              </button>
+            )}
+          </div>,
+          issue == null
+            ? currentPoint
+              ? `${currentPoint.kind === "pickup" ? "Pickup" : `Stop ${stopNumber(current)}`} · ${currentPoint.address}`
+              : undefined
+            : undefined,
+        )
+      : null;
+
+  const sheets = (
+    <>
+      {cautionsSheet}
+      {energySheet}
+      {issueSheet}
+      {menu}
+    </>
+  );
 
   /* ----- Screen 6: result + next stop ----- */
   if (activeScreen === "result" && lastResult) {
@@ -968,34 +1610,55 @@ export function RiderApp() {
             />
           </div>
         </section>
-        {next && nextLeg ? (
+        {next && nextLeg && currentPoint ? (
           <section className="rf-next-card">
-            <span className="rf-stop-num">{stopNumber(next)}</span>
+            <span
+              className={`rf-stop-num ${currentPoint.kind === "pickup" ? "is-pickup" : ""}`}
+            >
+              {currentPoint.kind === "pickup" ? (
+                <Icon name="package" size={16} />
+              ) : (
+                stopNumber(next)
+              )}
+            </span>
             <div>
               <small>
-                {nextLeg.kind === "pickup"
-                  ? "Next · collect parcel"
+                {currentPoint.kind === "pickup"
+                  ? "Next · pickup"
                   : "Next · deliver to"}
               </small>
               <strong>
-                {nextLeg.kind === "pickup"
-                  ? next.tracking_code
+                {currentPoint.kind === "pickup"
+                  ? currentPoint.orders.length > 1
+                    ? `Collect ${currentPoint.orders.length} parcels`
+                    : `Collect ${next.tracking_code}`
                   : recipientLabel(next)}
               </strong>
-              <p>{nextLeg.address}</p>
+              <p>{currentPoint.address}</p>
               <div className="rf-meta">
                 <span>
                   <Icon name="navigation" size={15} />
                   {formatDistance(nextDistance)} direct
                 </span>
-                {nextLeg.kind === "dropoff" && next.estimated_delivery_at && (
+                {currentPoint.kind === "dropoff" && currentPoint.etaAt && (
                   <span>
                     <Icon name="history" size={15} />
-                    ETA {formatTime(next.estimated_delivery_at)}
+                    ETA {formatTime(currentPoint.etaAt)}
                   </span>
                 )}
               </div>
-              <CodBadge order={next} />
+              {currentPoint.kind === "dropoff" && currentPoint.codDue > 0 ? (
+                <span className="rf-cod is-due">
+                  <Icon name="coin" size={14} strokeWidth={2.1} />
+                  Collect {currency.format(currentPoint.codDue)}
+                </span>
+              ) : (
+                <span className="rf-muted">
+                  {currentPoint.kind === "pickup"
+                    ? "No cash at pickup"
+                    : "No cash to collect"}
+                </span>
+              )}
             </div>
           </section>
         ) : null}
@@ -1005,10 +1668,21 @@ export function RiderApp() {
             className="rf-btn rf-btn-primary"
             onClick={() => {
               setSheetOpen(false);
-              setScreen(next ? "navigate" : "complete");
+              // Unaccepted tasks go back to the list, where the rider slides to start.
+              setScreen(
+                route.phase === "ready"
+                  ? "overview"
+                  : next
+                    ? "navigate"
+                    : "complete",
+              );
             }}
           >
-            {next ? "Navigate to next stop" : "See route summary"}
+            {route.phase === "ready"
+              ? "Review next tasks"
+              : next
+                ? "Navigate to next stop"
+                : "See route summary"}
             <Icon name="arrow-right" size={18} />
           </button>
         </div>
@@ -1122,7 +1796,7 @@ export function RiderApp() {
             Finish route
           </button>
         </div>
-        {menu}
+        {sheets}
       </main>
     );
   }
@@ -1517,7 +2191,7 @@ export function RiderApp() {
     );
   }
 
-  /* ----- Screens 3 + 4: full-screen navigation with delivery sheet ----- */
+  /* ----- Screens 3 + 4: full-screen navigation, one point at a time ----- */
   if (activeScreen === "navigate" && current && leg) {
     const pickup = leg.kind === "pickup";
     const instruction = !leg.point
@@ -1553,6 +2227,26 @@ export function RiderApp() {
       !pickup && current.estimated_delivery_at
         ? formatTime(current.estimated_delivery_at)
         : null;
+    const parcelsHere = pickupOrders.length ? pickupOrders : [current];
+    const dropsDone = dropoffPoints.filter(
+      (item) => item.state === "done" || item.state === "failed",
+    ).length;
+    const codHere = currentPoint?.codDue ?? 0;
+    const codLater = pickup
+      ? parcelsHere.reduce((sum, order) => sum + codDueFor(order), 0)
+      : 0;
+    const nextCaution = legCautions[0] ?? null;
+    const nextCautionCopy = nextCaution
+      ? cautionCopy(nextCaution.report)
+      : null;
+    const confirmedOnLeg = legCautions.filter(
+      (item) => item.report.status === "verified",
+    ).length;
+    const nextLabel = nextPoint ? pointTitle(nextPoint, stopNumber) : null;
+    const nextDistance =
+      nextPoint?.point && leg.point
+        ? distanceKm(leg.point, nextPoint.point)
+        : null;
 
     return (
       <main className="rf-app rf-nav">
@@ -1562,27 +2256,29 @@ export function RiderApp() {
           target={leg.point ? { ...leg.point, kind: leg.kind } : null}
           targetId={current.id}
           stops={navStops}
+          upcoming={upcomingPoints}
+          cautions={navCautions}
           padding={{
             x: 56,
-            top: 168,
-            bottom: sheetOpen ? Math.round(viewHeight * 0.6) + 16 : 300,
+            top: nextCaution ? 236 : 168,
+            bottom: sheetOpen ? Math.round(viewHeight * 0.6) + 16 : 320,
           }}
           road={legRoute}
-          label={`Map to stop ${stopNumber(current)}: ${leg.address}`}
+          label={`Map to ${pickup ? "pickup" : `drop-off ${stopNumber(current)} of ${dropoffPoints.length}`}: ${leg.address}`}
         />
 
         <header className="rf-nav-top">
           <div
             className="rf-route-progress"
             role="progressbar"
-            aria-label="Stops completed"
+            aria-label="Drop-offs completed"
             aria-valuemin={0}
-            aria-valuemax={route.stops.length}
-            aria-valuenow={route.closedToday.length}
+            aria-valuemax={dropoffPoints.length}
+            aria-valuenow={dropsDone}
           >
             <span
               style={{
-                width: `${(route.closedToday.length / Math.max(1, route.stops.length)) * 100}%`,
+                width: `${(dropsDone / Math.max(1, dropoffPoints.length)) * 100}%`,
               }}
             />
           </div>
@@ -1619,13 +2315,36 @@ export function RiderApp() {
               <span>Directions</span>
             </a>
           </div>
+          {nextCaution && nextCautionCopy && (
+            <button
+              type="button"
+              className={`rf-caution-banner is-${nextCaution.report.severity}`}
+              onClick={() => openPanel("cautions")}
+            >
+              <Icon name="warning" size={20} />
+              <span>
+                <strong>
+                  {nextCautionCopy.title} ·{" "}
+                  {nextCaution.aheadKm < 0.05
+                    ? "here"
+                    : `${formatDistance(nextCaution.aheadKm)} ahead`}
+                </strong>
+                <small>{nextCautionCopy.advice}</small>
+              </span>
+              {legCautions.length > 1 && (
+                <span className="rf-caution-count">
+                  +{legCautions.length - 1}
+                </span>
+              )}
+            </button>
+          )}
           <div className="rf-nav-chips">
             <button
               type="button"
               className="rf-chip-btn"
               onClick={() => setScreen("overview")}
             >
-              <Icon name="list" size={16} /> All stops
+              <Icon name="list" size={16} /> All points
             </button>
             {workspace.isDemo ? (
               <span className="rf-chip">Sample route · no GPS used</span>
@@ -1661,55 +2380,127 @@ export function RiderApp() {
               <Icon name="menu" size={20} />
             </button>
           </div>
+          <div className="rf-nav-fabs">
+            <button
+              type="button"
+              className={`rf-fab-tool is-energy is-${routeEnergy.status}`}
+              onClick={() => openPanel("energy")}
+              aria-label={`${routeEnergy.source === "battery" ? "Battery" : "Fuel"} ${routeEnergy.levelPercent ?? "unknown"}%: check range or request a stop`}
+            >
+              <Icon
+                name={routeEnergy.source === "battery" ? "battery" : "fuel"}
+                size={20}
+              />
+              <span>
+                {routeEnergy.levelPercent == null
+                  ? routeEnergy.source === "battery"
+                    ? "Battery"
+                    : "Fuel"
+                  : `${routeEnergy.levelPercent}%`}
+              </span>
+            </button>
+            <button
+              type="button"
+              className="rf-fab-tool is-issue"
+              onClick={() => openPanel("issue")}
+              aria-label="Report an issue"
+            >
+              <Icon name="warning" size={20} />
+              <span>Issue</span>
+            </button>
+          </div>
         </header>
 
         <section
           className={`rf-sheet rf-nav-sheet ${sheetOpen ? "is-open" : ""}`}
-          aria-label="Current stop"
+          aria-label="Current point"
         >
           <SheetHandle open={sheetOpen} onToggle={setSheetOpen} />
           <div className="rf-sheet-head">
             <div>
               <small className={`rf-leg-type is-${leg.kind}`}>
-                Stop {stopNumber(current)} of {route.stops.length} ·{" "}
-                {pickup ? "Collect parcel" : "Deliver parcel"}
+                {pickup
+                  ? `Pickup · ${parcelsHere.length} ${parcelsHere.length === 1 ? "parcel" : "parcels"}`
+                  : `Drop-off ${stopNumber(current)} of ${dropoffPoints.length}`}
               </small>
               <h2>
                 {pickup
-                  ? `Collect ${current.tracking_code}`
-                  : `Delivering to ${recipientLabel(current)}`}
+                  ? parcelsHere.length > 1
+                    ? `Collect ${parcelsHere.length} parcels`
+                    : `Collect ${current.tracking_code}`
+                  : recipientLabel(current)}
               </h2>
             </div>
-            <StatusBadge status={current.status} />
+            <span className="rf-eta-pill">
+              {etaText ? (
+                <>
+                  <strong>{etaText}</strong> · {formatDistance(legDistance)}
+                </>
+              ) : (
+                <strong>{formatDistance(legDistance)}</strong>
+              )}
+            </span>
           </div>
           <p className="rf-address">{leg.address}</p>
-          <div className="rf-meta">
-            {etaText ? (
-              <span className="rf-eta">
-                <strong>{etaText}</strong> ETA
-                {current.eta_confidence
-                  ? ` · ${current.eta_confidence} confidence`
-                  : ""}
-              </span>
-            ) : null}
-            <span>
-              <Icon name="navigation" size={15} />
-              {formatDistance(legDistance)}
-            </span>
-            <span>
-              <Icon name="box" size={15} />1 parcel
-            </span>
-            <CodBadge order={current} />
-          </div>
-          {current.traffic_delay_minutes > 0 && !pickup && (
+
+          {pickup ? (
+            <div className="rf-collect is-parcels">
+              <Icon name="package" size={22} />
+              <div>
+                <small>Pick up</small>
+                <strong>
+                  {parcelsHere.length}{" "}
+                  {parcelsHere.length === 1 ? "parcel" : "parcels"}
+                </strong>
+                <span>
+                  {parcelsHere.map((order) => order.tracking_code).join(" · ")}
+                </span>
+                <span>
+                  No cash here.
+                  {codLater > 0
+                    ? ` Collect ${currency.format(codLater)} later at their drop-offs.`
+                    : ""}
+                </span>
+              </div>
+            </div>
+          ) : codHere > 0 ? (
+            <div className="rf-collect is-cash">
+              <Icon name="coin" size={22} />
+              <div>
+                <small>Collect cash</small>
+                <strong>{currency.format(codHere)}</strong>
+                <span>
+                  Exact amount from {recipientLabel(current)} before you hand
+                  over the parcel.
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="rf-collect is-none">
+              <Icon name="check" size={22} />
+              <div>
+                <strong>No cash to collect</strong>
+                <span>
+                  {current.cod_amount > 0
+                    ? "Cash on delivery is already recorded."
+                    : "This parcel is prepaid."}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {!pickup && current.traffic_delay_minutes > 0 && (
             <Notice tone="warning" icon="history">
-              Running about {current.traffic_delay_minutes} min late from
-              verified road reports.
+              ETA includes about {current.traffic_delay_minutes} min for{" "}
+              {confirmedOnLeg > 1
+                ? `${confirmedOnLeg} confirmed road reports`
+                : "confirmed road reports"}{" "}
+              on this trip.
             </Notice>
           )}
 
           <fieldset className="rf-quick-actions">
-            <legend className="rf-sr-only">Quick actions for this stop</legend>
+            <legend className="rf-sr-only">Quick actions for this point</legend>
             {!pickup && current.recipient_phone && (
               <a
                 className="rf-quick-action"
@@ -1738,29 +2529,17 @@ export function RiderApp() {
             </button>
           </fieldset>
 
-          {(codNeeded || current.parcel_description) && (
-            <div className="rf-must-know">
-              {codNeeded && (
-                <Notice tone="warning" icon="coin">
-                  <strong>Collect {currency.format(codExpected)} cash</strong>{" "}
-                  {pickup
-                    ? "at drop-off, not at pickup."
-                    : "from the recipient before you leave."}
-                </Notice>
-              )}
-              {current.parcel_description && (
-                <Notice tone="neutral" icon="package">
-                  {current.parcel_description}
-                  {current.parcel_weight_kg
-                    ? ` · ${current.parcel_weight_kg} kg`
-                    : ""}
-                  {current.parcel_weight_kg != null &&
-                  current.parcel_weight_kg >= 5
-                    ? " · heavy, plan for help carrying it"
-                    : ""}
-                </Notice>
-              )}
-            </div>
+          {nextPoint && nextLabel && (
+            <p className="rf-next-peek">
+              <span>Then</span>
+              <strong>{nextLabel}</strong>
+              <small>
+                {nextPoint.address}
+                {nextDistance != null
+                  ? ` · ${formatDistance(nextDistance)} from here`
+                  : ""}
+              </small>
+            </p>
           )}
 
           {sheetOpen && (
@@ -1776,15 +2555,27 @@ export function RiderApp() {
                   </p>
                   {!current.recipient_phone && (
                     <p className="rf-muted">
-                      No phone number on this order. Contact operations if you
-                      can’t find the recipient.
+                      No phone number on this order. Use Issue if you can’t find
+                      the recipient.
                     </p>
                   )}
                 </div>
               )}
               <div className="rf-detail">
-                <h3>Parcel ID</h3>
-                <p>{current.tracking_code}</p>
+                <h3>{parcelsHere.length > 1 ? "Parcels" : "Parcel"}</h3>
+                {parcelsHere.map((order) => (
+                  <p key={order.id}>
+                    {order.tracking_code} ·{" "}
+                    {order.parcel_description ?? "No description"}
+                    {order.parcel_weight_kg
+                      ? ` · ${order.parcel_weight_kg} kg`
+                      : ""}
+                    {order.parcel_weight_kg != null &&
+                    order.parcel_weight_kg >= 5
+                      ? " · heavy"
+                      : ""}
+                  </p>
+                ))}
               </div>
             </div>
           )}
@@ -1812,7 +2603,9 @@ export function RiderApp() {
                 <Icon name="package" size={18} />
                 {busy === "pickup"
                   ? "Saving…"
-                  : "Parcel collected · start delivery"}
+                  : parcelsHere.length > 1
+                    ? `${parcelsHere.length} parcels collected`
+                    : "Parcel collected"}
               </button>
             ) : (
               <button
@@ -1823,7 +2616,7 @@ export function RiderApp() {
                   setScreen("outcome");
                 }}
               >
-                Report delivery outcome <Icon name="arrow-right" size={18} />
+                Hand over parcel <Icon name="arrow-right" size={18} />
               </button>
             )}
             {!sheetOpen && (
@@ -1832,7 +2625,7 @@ export function RiderApp() {
                 className="rf-btn rf-btn-quiet"
                 onClick={() => setSheetOpen(true)}
               >
-                View delivery details
+                View parcel details
               </button>
             )}
             {hasArrived && sheetOpen && (
@@ -1849,19 +2642,60 @@ export function RiderApp() {
             )}
           </div>
         </section>
-        {menu}
+        {sheets}
       </main>
     );
   }
 
-  /* ----- Screens 1 + 2: task overview and start sheet ----- */
-  const first = route.active[0] ?? null;
-  const firstLeg = first ? legFor(first) : null;
+  /* ----- Screens 1 + 2: today's task list and slide to start ----- */
+  const remainingPoints = points.filter(
+    (item) => item.state === "current" || item.state === "upcoming",
+  );
+  const dropsLeft = remainingPoints.filter(
+    (item) => item.kind === "dropoff",
+  ).length;
+  const pickupsLeft = remainingPoints.length - dropsLeft;
   const lastEta = route.active
     .map((order) => order.estimated_delivery_at)
     .filter((value): value is string => value != null)
     .sort()
     .at(-1);
+  const dayLabel = new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Yangon",
+  }).format(now || Date.now());
+  const firstCaution = routeCautions[0] ?? null;
+  const readiness = (
+    <ul className="rf-checks is-inline" aria-label="Ready to ride">
+      <ReadyItem
+        ok={workspace.isDemo || gpsState === "live"}
+        warn={gpsState === "waiting" || gpsState === "stale"}
+        label={
+          workspace.isDemo
+            ? "Sample GPS"
+            : gpsState === "live"
+              ? "GPS ready"
+              : gpsState === "waiting"
+                ? "Finding GPS…"
+                : gpsState === "denied"
+                  ? "Allow location"
+                  : "No GPS"
+        }
+      />
+      <ReadyItem ok={online} label={online ? "Online" : "Offline"} />
+      <ReadyItem
+        ok={routeEnergy.status === "enough"}
+        warn={routeEnergy.status !== "short"}
+        label={
+          routeEnergy.levelPercent == null
+            ? "Set fuel level"
+            : `${routeEnergy.source === "battery" ? "Battery" : "Fuel"} ${routeEnergy.levelPercent}%`
+        }
+      />
+    </ul>
+  );
 
   return (
     <main className="rf-app rf-overview">
@@ -1882,7 +2716,13 @@ export function RiderApp() {
           <Icon name="menu" size={20} />
         </button>
       </header>
-      <h1>Today’s deliveries</h1>
+      <h1>Today’s tasks</h1>
+      <p className="rf-muted rf-subtitle">
+        {dayLabel}
+        {remainingPoints.length
+          ? ` · ${dropsLeft} ${dropsLeft === 1 ? "drop-off" : "drop-offs"}${pickupsLeft ? ` · ${pickupsLeft} ${pickupsLeft === 1 ? "pickup" : "pickups"}` : ""} left`
+          : ""}
+      </p>
       {workspace.isDemo && (
         <Notice tone="neutral" icon="shield">
           Sample route. Nothing you do here is saved or shared.
@@ -1893,36 +2733,72 @@ export function RiderApp() {
 
       {route.stops.length ? (
         <>
-          <section className="rf-summary-strip" aria-label="Route summary">
-            <div>
-              <strong>{route.stops.length}</strong>
-              <span>Assigned</span>
+          <section className="rf-task-summary" aria-label="Route summary">
+            <div className="rf-task-cash">
+              <Icon name="coin" size={22} />
+              <span>
+                <small>Cash to collect today</small>
+                <strong>{currency.format(codTotal)}</strong>
+              </span>
             </div>
-            <div>
-              <strong>{route.closedToday.length}</strong>
-              <span>Done</span>
-            </div>
-            <div>
-              <strong>{route.active.length}</strong>
-              <span>Left</span>
-            </div>
-            <div>
-              <strong>
-                {formatDistance(routeSummary?.distanceKm ?? remainingDistance)}
-              </strong>
-              <span>{routeSummary ? "Road distance" : "Direct distance"}</span>
-            </div>
-            {routeSummary && (
+            <dl>
               <div>
-                <strong>{formatDriveMinutes(routeSummary.durationMin)}</strong>
-                <span>Drive time</span>
+                <dt>Points left</dt>
+                <dd>{remainingPoints.length}</dd>
               </div>
-            )}
-            <div>
-              <strong>{lastEta ? formatTime(lastEta) : "—"}</strong>
-              <span>Last ETA</span>
-            </div>
+              <div>
+                <dt>{routeSummary ? "By road" : "Direct"}</dt>
+                <dd>
+                  {formatDistance(
+                    routeSummary?.distanceKm ?? remainingDistance,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>{routeSummary ? "Ride time" : "Last ETA"}</dt>
+                <dd>
+                  {routeSummary
+                    ? formatDriveMinutes(routeSummary.durationMin)
+                    : lastEta
+                      ? formatTime(lastEta)
+                      : "—"}
+                </dd>
+              </div>
+            </dl>
           </section>
+
+          {firstCaution && (
+            <button
+              type="button"
+              className={`rf-caution-banner is-${firstCaution.report.severity} is-inline`}
+              onClick={() => openPanel("cautions")}
+            >
+              <Icon name="warning" size={20} />
+              <span>
+                <strong>
+                  {routeCautions.length}{" "}
+                  {routeCautions.length === 1
+                    ? "road caution"
+                    : "road cautions"}{" "}
+                  on your route
+                </strong>
+                <small>
+                  {cautionCopy(firstCaution.report).title} ·{" "}
+                  {cautionCopy(firstCaution.report).impact} ·{" "}
+                  {firstCaution.report.description}
+                </small>
+              </span>
+            </button>
+          )}
+
+          {route.phase === "active" && newTasks.length > 0 && (
+            <Notice tone="info" icon="plus">
+              <strong>
+                {newTasks.length} new {newTasks.length === 1 ? "task" : "tasks"}
+              </strong>{" "}
+              added to your route. Slide below to accept.
+            </Notice>
+          )}
 
           {navStops.length > 0 && (
             <div className="rf-preview-map">
@@ -1931,51 +2807,25 @@ export function RiderApp() {
                 heading={null}
                 target={null}
                 stops={navStops}
+                cautions={navCautions}
                 padding={{ x: 28, top: 28, bottom: 28 }}
                 routeThroughStops
                 road={routeSummary}
                 interactive={false}
-                label="Preview of today’s stops"
+                label="Preview of today’s points"
               />
             </div>
           )}
 
-          <ol className="rf-stop-list">
-            {route.stops.map((order, index) => {
-              const stopLeg = legFor(order);
-              return (
-                <li
-                  key={order.id}
-                  className={order.id === current?.id ? "is-current" : ""}
-                >
-                  <span
-                    className={`rf-stop-num ${order.status === "delivered" ? "is-done" : order.status === "failed" || order.status === "cancelled" ? "is-failed" : ""}`}
-                  >
-                    {order.status === "delivered" ? (
-                      <Icon name="check" size={16} strokeWidth={2.6} />
-                    ) : (
-                      index + 1
-                    )}
-                  </span>
-                  <div className="rf-stop-copy">
-                    <strong>{recipientLabel(order)}</strong>
-                    <span>{order.delivery_address}</span>
-                    {stopLeg.kind === "pickup" && (
-                      <span className="rf-muted">
-                        Collect first from {order.pickup_address}
-                      </span>
-                    )}
-                    <div className="rf-meta">
-                      <StatusBadge status={order.status} />
-                      <span>
-                        <Icon name="box" size={14} /> 1 parcel
-                      </span>
-                      <CodBadge order={order} />
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
+          <ol className="rf-point-list">
+            {points.map((item) => (
+              <PointRow
+                key={item.key}
+                point={item}
+                title={pointTitle(item, stopNumber)}
+                number={stopNumber(item.orders[0])}
+              />
+            ))}
           </ol>
         </>
       ) : (
@@ -1991,21 +2841,50 @@ export function RiderApp() {
       {route.phase !== "idle" && (
         <div className="rf-dock">
           {route.phase === "ready" && (
-            <button
-              type="button"
-              className="rf-btn rf-btn-primary"
-              onClick={() => setScreen("start")}
-            >
-              Start tasks <Icon name="arrow-right" size={18} />
-            </button>
+            <div className="rf-confirm-actions">
+              {readiness}
+              <SlideToConfirm
+                label={`Slide to start · ${remainingPoints.length} ${remainingPoints.length === 1 ? "point" : "points"}`}
+                busyLabel="Starting your route…"
+                busy={busy === "start"}
+                disabled={!online}
+                onConfirm={() => void acceptTasks(true)}
+              />
+              {!online && (
+                <p className="rf-dock-note">
+                  Waiting for a connection to start.
+                </p>
+              )}
+            </div>
           )}
-          {route.phase === "active" && (
+          {route.phase === "active" && newTasks.length > 0 && (
+            <div className="rf-confirm-actions">
+              <SlideToConfirm
+                label={`Slide to accept ${newTasks.length} new ${newTasks.length === 1 ? "task" : "tasks"}`}
+                busyLabel="Accepting…"
+                busy={busy === "start"}
+                disabled={!online}
+                onConfirm={() => void acceptTasks(false)}
+              />
+              <button
+                type="button"
+                className="rf-btn rf-btn-quiet"
+                onClick={() => setScreen("navigate")}
+              >
+                Back to navigation
+              </button>
+            </div>
+          )}
+          {route.phase === "active" && newTasks.length === 0 && (
             <button
               type="button"
               className="rf-btn rf-btn-primary"
               onClick={() => setScreen("navigate")}
             >
-              Continue navigation <Icon name="arrow-right" size={18} />
+              {currentPoint?.kind === "pickup"
+                ? "Continue to pickup"
+                : `Continue to drop-off ${stopNumber(current)}`}{" "}
+              <Icon name="arrow-right" size={18} />
             </button>
           )}
           {route.phase === "complete" && (
@@ -2019,96 +2898,7 @@ export function RiderApp() {
           )}
         </div>
       )}
-
-      {activeScreen === "start" && first && firstLeg && (
-        <div className="rf-scrim">
-          <section
-            className="rf-sheet rf-start"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="rf-start-title"
-          >
-            <span className="rf-handle" aria-hidden="true" />
-            <div className="rf-sheet-head">
-              <h2 id="rf-start-title">Ready to start?</h2>
-              <button
-                type="button"
-                className="rf-icon-btn"
-                onClick={() => setScreen("overview")}
-                aria-label="Not now"
-              >
-                <Icon name="close" size={20} />
-              </button>
-            </div>
-            <p className="rf-muted">
-              {route.active.length}{" "}
-              {route.active.length === 1 ? "stop" : "stops"} · operations and
-              customers see that you’ve accepted them.
-            </p>
-            <div className="rf-first-stop">
-              <span className="rf-stop-num">1</span>
-              <div>
-                <small>
-                  {firstLeg.kind === "pickup"
-                    ? "First, collect from"
-                    : "First drop-off"}
-                </small>
-                <strong>{firstLeg.address}</strong>
-                <span>
-                  {riderPoint && firstLeg.point
-                    ? `${formatDistance(distanceKm(riderPoint, firstLeg.point))} straight-line from you`
-                    : "Distance shows once GPS is ready"}
-                </span>
-              </div>
-            </div>
-            <ul className="rf-checks">
-              <ReadyItem
-                ok={workspace.isDemo || gpsState === "live"}
-                warn={gpsState === "waiting" || gpsState === "stale"}
-                label={
-                  workspace.isDemo
-                    ? "GPS not used for the sample route"
-                    : gpsState === "live"
-                      ? `GPS ready${position?.accuracy ? ` · ±${Math.round(position.accuracy)} m` : ""}`
-                      : gpsState === "waiting"
-                        ? "Waiting for GPS…"
-                        : gpsState === "denied"
-                          ? "Location access is blocked. Allow it in browser settings."
-                          : "GPS unavailable on this device"
-                }
-              />
-              <ReadyItem
-                ok={online}
-                label={
-                  online
-                    ? "Connected"
-                    : "Offline. Starting will wait for a connection."
-                }
-              />
-              <ReadyItem
-                ok={energy?.status === "sufficient"}
-                warn={!vehicle || energy?.status !== "sufficient"}
-                label={
-                  vehicle
-                    ? (energy?.message ?? "Range not set")
-                    : "No vehicle linked to this route"
-                }
-              />
-            </ul>
-            {errorBanner}
-            <button
-              type="button"
-              className="rf-btn rf-btn-primary"
-              disabled={!online || busy != null}
-              onClick={() => void startRoute()}
-            >
-              <Icon name="navigation" size={18} />
-              {busy === "start" ? "Starting…" : "Start navigation"}
-            </button>
-          </section>
-        </div>
-      )}
-      {menu}
+      {sheets}
     </main>
   );
 }

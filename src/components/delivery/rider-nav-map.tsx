@@ -22,6 +22,16 @@ export type NavStop = {
   kind: "pickup" | "dropoff";
 };
 
+/** A road report drawn on the map; shape and "!" carry it, not colour alone. */
+export type NavCaution = {
+  id: string;
+  point: MapPoint;
+  severity: "low" | "medium" | "high" | "blocked";
+};
+
+/** Warning triangle centred on its point; shared by both map renderers. */
+export const CAUTION_PATH = "M0-13 12 8H-12Z";
+
 const MAX_ZOOM = 17;
 const MIN_ZOOM = 11;
 const YANGON = { latitude: 16.8007, longitude: 96.15 };
@@ -78,11 +88,16 @@ function OsmRiderNavMap({
   routeThroughStops = false,
   interactive = true,
   label,
+  upcoming = [],
+  cautions = [],
 }: {
   driver: MapPoint | null;
   heading: number | null;
   target: (MapPoint & { kind: "pickup" | "dropoff" }) | null;
   stops: NavStop[];
+  /** Points after the target, drawn lighter so the current leg stays the focus. */
+  upcoming?: MapPoint[];
+  cautions?: NavCaution[];
   padding?: { x: number; top: number; bottom: number };
   /** Order whose leg is the target; its matching stop marker is replaced by the target pin. */
   targetId?: string | null;
@@ -175,6 +190,13 @@ function OsmRiderNavMap({
           .join(" ")
       : null;
 
+  const upcomingPath =
+    targetPos && upcoming.length
+      ? [targetPos, ...upcoming.map((point) => project(point))]
+          .map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+          .join(" ")
+      : null;
+
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (!interactive || event.button !== 0) return;
     drag.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
@@ -228,12 +250,28 @@ function OsmRiderNavMap({
             viewBox={`0 0 ${size.width} ${size.height}`}
             aria-hidden="true"
           >
+            {upcomingPath && (
+              <path className="rnav-route-upcoming" d={upcomingPath} />
+            )}
             {routePath && (
               <>
                 <path className="rnav-route-casing" d={routePath} />
                 <path className="rnav-route" d={routePath} />
               </>
             )}
+            {cautions.map((caution) => {
+              const p = project(caution.point);
+              return (
+                <g
+                  key={caution.id}
+                  className={`rnav-caution rnav-caution-${caution.severity}`}
+                  transform={`translate(${p.x} ${p.y})`}
+                >
+                  <path d={CAUTION_PATH} />
+                  <text y="5">!</text>
+                </g>
+              );
+            })}
             {stops.map((stop) => {
               if (
                 targetPos &&

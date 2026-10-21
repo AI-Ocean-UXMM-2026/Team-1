@@ -115,6 +115,19 @@ export function subscribeWorkspaceRealtime(
       {
         event: "*",
         schema: "public",
+        table: "rider_assistance_requests",
+        ...(role === "driver" ? { filter: `driver_id=eq.${userId}` } : {}),
+      },
+      () => {
+        // Riders see operations acknowledge their request; dispatch sees it arrive.
+        if (active && (role === "manager" || role === "driver")) refresh();
+      },
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
         table: "delivery_orders",
         ...(role === "customer" ? { filter: `customer_id=eq.${userId}` } : {}),
       },
