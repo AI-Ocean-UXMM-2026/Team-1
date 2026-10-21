@@ -149,6 +149,8 @@ flowchart TD
 9. Push the branch and open a pull request to `main` with verification evidence.
 10. Merge only after required checks and deployment previews pass.
 
+Contributor branches are integrated through `main`; before publishing, fetch the contributor branches, confirm their commits are included, resolve conflicts on the integration branch, and rerun the checks. The current contributor intelligence and operations/integrations branches have no commits ahead of `main`.
+
 ## Current limitations
 
 - Rider browser tracking requires the app to remain open.

@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 export function useOperationsWorkspace(role: OperationsProfile["role"]) {
   const [data, setData] = useState<OperationsData>(emptyOperationsData);
   const [profile, setProfile] = useState<OperationsProfile | null>(null);
-  const [isDemo, setIsDemo] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
