@@ -753,17 +753,6 @@
   flex: none;
 }
 
-.dv-directions {
-  display: grid;
-  flex: none;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--color-info);
-  color: #ffffff;
-}
-
 /* Call / Message / Problem: equal columns with hairlines, as in Grab Driver. */
 .dv-strip {
   display: grid;

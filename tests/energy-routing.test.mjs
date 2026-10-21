@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   assessEnergyRoute,
   countTrafficSignalsBetween,
-  distanceKm,
   distanceToSegmentKm,
   findOptimalFuelStation,
   YANGON_FUEL_STATIONS,
@@ -49,7 +48,7 @@ test("distanceToSegmentKm computes perpendicular distance accurately", () => {
   assert.ok(distanceToSegmentKm(mid, a, b) < 0.001);
 
   // Point offset slightly eastward (~1 km)
-  const offset = { latitude: 16.82, longitude: 16.82 ? 96.14 : 96.14 };
+  const offset = { latitude: 16.82, longitude: 96.14 };
   const dist = distanceToSegmentKm(offset, a, b);
   assert.ok(dist > 0.8 && dist < 1.3);
 });

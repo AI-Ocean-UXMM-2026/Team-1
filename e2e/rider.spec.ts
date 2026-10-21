@@ -35,11 +35,23 @@ async function openRider(
   return backend;
 }
 
+async function expandStopActions(page: import("@playwright/test").Page) {
+  await page
+    .getByRole("button", { name: "Show stop details and full route" })
+    .click();
+  await expect(page.getByRole("button", { name: /i.ve arrived/i })).toBeVisible();
+}
+
 test("the handover is one page and the swipe unlocks when it is complete (C-06)", async ({
   page,
   context,
 }) => {
   const backend = await openRider(page, context, "in_transit");
+  await expect(
+    page.getByRole("button", { name: /i.ve arrived/i }),
+  ).toHaveCount(0);
+  await expect(page.locator('a[href*="google.com/maps"]')).toHaveCount(0);
+  await expandStopActions(page);
   await swipeToConfirm(page, /i.ve arrived/i);
   // The test position is a few km from the stop, so arrival asks first.
   await page.getByRole("button", { name: /yes, i.m here/i }).click();
@@ -146,6 +158,7 @@ test("arriving far from the stop asks before telling the customer", async ({
   context,
 }) => {
   await openRider(page, context, "in_transit");
+  await expandStopActions(page);
   await swipeToConfirm(page, /i.ve arrived/i);
   await expect(page.getByText(/km away\. arrived anyway\?/i)).toBeVisible();
   await page.getByRole("button", { name: "Not yet" }).click();
@@ -249,6 +262,7 @@ test("tapping or half-swiping arrive does not confirm it", async ({
   context,
 }) => {
   await openRider(page, context, "in_transit");
+  await expandStopActions(page);
   const knob = page.getByRole("button", { name: /i.ve arrived/i });
   await knob.click();
   await swipeToConfirm(page, /i.ve arrived/i, 0.4);
@@ -268,6 +282,7 @@ test("cash due is not in the overview; the one-page handover has it", async ({
   await expect(sheet.getByText(/collect cash/i)).toHaveCount(0);
   await expect(sheet.getByText(/68,000/)).toHaveCount(0);
 
+  await expandStopActions(page);
   await swipeToConfirm(page, /i.ve arrived/i);
   await page.getByRole("button", { name: /yes, i.m here/i }).click();
   await page.getByRole("button", { name: "Start handover" }).click();

@@ -135,17 +135,6 @@ function friendlyError(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback;
 }
 
-function directionsUrl(stop: DeliveryStop) {
-  const destination = stop.point
-    ? `${stop.point.latitude},${stop.point.longitude}`
-    : stop.address;
-  return `https://www.google.com/maps/dir/?${new URLSearchParams({
-    api: "1",
-    destination,
-    dir_action: "navigate",
-  })}`;
-}
-
 function yangonDate(now: number) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Yangon",
@@ -1157,7 +1146,7 @@ export function RiderApp() {
                 gpsState === "denied" || gpsState === "unavailable"
                   ? "Live position unavailable"
                   : "Finding your location…",
-              sub: "Route shown from stop pins. Use Directions to navigate.",
+              sub: "Route shown from stop pins. Check the address below.",
               arrow: null,
               turnSymbol: "straight",
             }
@@ -1261,7 +1250,6 @@ export function RiderApp() {
               />
             ) : null
           }
-          directionsHref={directionsUrl(stop)}
           error={errorBanner}
           busy={busy != null}
           onArrived={() => {

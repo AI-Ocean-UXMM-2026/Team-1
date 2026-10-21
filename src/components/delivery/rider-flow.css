@@ -2608,10 +2608,10 @@
   color: var(--color-text-secondary);
 }
 
-/* Google Maps' "Re-centre": appears only after the rider moves the map. */
+/* Appears only after the rider moves the map. */
 .rnav-recenter {
   position: absolute;
-  right: 12px;
+  right: max(12px, calc(50% - 203px));
   top: calc(env(safe-area-inset-top, 0px) + 176px);
   z-index: 5;
   display: inline-flex;

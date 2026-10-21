@@ -85,7 +85,7 @@ function driverMarker() {
 
 /**
  * Rider map on Mapbox GL. In `follow` mode the camera trails the rider with
- * the map turned to their heading and tilted, like Google Maps navigation;
+ * the map turned to their heading and tilted for active navigation;
  * dragging or rotating hands control back until "Re-centre" is pressed.
  */
 export function MapboxRiderNavMap({
