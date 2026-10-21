@@ -5,6 +5,7 @@ import type { FloodReport, GeoJsonLike } from "./flood.ts";
 import { DEFAULT_HAZARD_WEIGHTS, FloodField } from "./flood.ts";
 import type { PlanDataSource, SaveOutcome } from "./handler.ts";
 import type { DepotRow, OrderRow, TruckRow } from "./inputs.ts";
+import { fetchLiveFloodConditions } from "./open-meteo.ts";
 import type { SavePayload } from "./plan.ts";
 
 /*
@@ -135,6 +136,10 @@ export function createSupabaseSource(
         lng: row.longitude,
         severity: row.severity,
       })) as FloodReport[];
+    },
+
+    async loadLiveFlood(coords) {
+      return fetchLiveFloodConditions(coords);
     },
 
     async save(

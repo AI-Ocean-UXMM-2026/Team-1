@@ -1,6 +1,7 @@
 import type { FloodField, FloodReport } from "./flood.ts";
 import type { DepotRow, OrderRow, TruckRow } from "./inputs.ts";
 import { yangonDate } from "./inputs.ts";
+import type { LiveFloodConditions } from "./open-meteo.ts";
 import type { PlanDeps, PlanErrorCode, SavePayload } from "./plan.ts";
 import { MAX_ORDERS, planDispatch } from "./plan.ts";
 import type { DispatchParams } from "./types.ts";
@@ -43,6 +44,10 @@ export interface PlanDataSource {
   loadOrders(ids: string[] | undefined, limit: number): Promise<OrderRow[]>;
   loadFlood(): Promise<{ field: FloodField | null; layerId: string | null }>;
   loadReports(now: Date): Promise<FloodReport[]>;
+  loadLiveFlood?(coords: {
+    lat: number;
+    lng: number;
+  }): Promise<LiveFloodConditions | null>;
   save(
     payload: SavePayload,
     clientKey: string,
@@ -240,11 +245,19 @@ export async function handlePlan(
       "Confirm the depot location before planning routes",
     );
 
-  const [trucks, orders, flood, reports] = await Promise.all([
+  const [trucks, orders, flood, reports, liveFlood] = await Promise.all([
     ctx.source.loadTrucks(req.vehicleIds),
     ctx.source.loadOrders(req.orderIds, MAX_ORDERS + 1),
     ctx.source.loadFlood(),
     ctx.source.loadReports(ctx.now),
+    depot.latitude != null &&
+    depot.longitude != null &&
+    ctx.source.loadLiveFlood
+      ? ctx.source.loadLiveFlood({
+          lat: depot.latitude,
+          lng: depot.longitude,
+        })
+      : Promise.resolve(null),
   ]);
 
   const driverByVehicle: Record<string, string | null> = {};
@@ -268,6 +281,7 @@ export async function handlePlan(
       params,
       field: flood.field,
       reports,
+      liveFlood,
     },
     ctx.makeDeps(req.matrixPolicy),
   );

@@ -343,7 +343,7 @@ test("manager can group cash by rider and batch settle shift", async ({
   await expect(
     riderCard.getByRole("heading", { name: "Aung Kyaw" }),
   ).toBeVisible();
-  await expect(riderCard.getByText("80,000")).toBeVisible();
+  await expect(riderCard.locator(".cod-metric-val").first()).toContainText("80,000");
 
   const settleBtn = riderCard.getByRole("button", { name: /Settle shift/ });
   await expect(settleBtn).toBeVisible();
@@ -536,4 +536,54 @@ test("mobile bottom nav includes More drawer with full manager operations", asyn
   await expect(menu.getByRole("link", { name: /Plan routes/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /Job board/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /Fleet insights/ })).toBeVisible();
+});
+
+test("manager profile consolidates team riders and fleet vehicles with direct tab navigation", async ({
+  page,
+  context,
+}) => {
+  await signInAs(context, "manager", {
+    profiles: [
+      { id: "user-1", full_name: "Manager", phone: null, role: "manager" },
+      {
+        id: "driver-1",
+        full_name: "Aung Kyaw",
+        phone: "+95 9 111 222",
+        role: "driver",
+      },
+    ],
+    driver_profiles: [{ user_id: "driver-1", availability: "available" }],
+    vehicles: [
+      {
+        id: "v-1",
+        registration_number: "YGN-FLEET-1",
+        vehicle_type: "motorcycle",
+        status: "available",
+        capacity_kg: 30,
+        energy_source: "fuel",
+        fuel_level_percent: 75,
+        battery_level_percent: null,
+        range_km_at_full: 200,
+        reserve_percent: 10,
+        odometer_km: 12500,
+        service_due_at_km: null,
+      },
+    ],
+  });
+
+  await page.goto("/manager/profile");
+  await expect(
+    page.getByRole("heading", { name: "Team & Fleet" }),
+  ).toBeVisible();
+  await expect(page.getByText("Aung Kyaw")).toBeVisible();
+
+  // Switch to Vehicles tab
+  await page.getByRole("tab", { name: /Vehicles/ }).click();
+  await expect(page.getByText("YGN-FLEET-1")).toBeVisible();
+  await expect(page.getByText("Motorcycle")).toBeVisible();
+  await expect(page.getByText("75%")).toBeVisible();
+
+  // Direct tab navigation via URL
+  await page.goto("/manager/profile?tab=vehicles");
+  await expect(page.getByText("YGN-FLEET-1")).toBeVisible();
 });

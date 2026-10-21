@@ -158,6 +158,16 @@ export function ManagerDashboard({
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [profileTab, setProfileTab] = useState<"riders" | "vehicles">(() =>
+    searchParams.get("tab") === "vehicles" ? "vehicles" : "riders",
+  );
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "vehicles" || tab === "riders") {
+      setProfileTab(tab);
+    }
+  }, [searchParams]);
 
   const mobileNavItems: MobileNavItem[] = useMemo(
     () => [
@@ -1339,41 +1349,181 @@ export function ManagerDashboard({
           )}
 
           {!signedOut && view === "profile" && (
-            <section className="dash-card" id="drivers">
-              <CardHeader title="Riders" />
+            <section className="dash-card" id="team-roster">
+              <header className="dash-card-header team-roster-header">
+                <div>
+                  <span className="section-kicker">Operations Resources</span>
+                  <h2>Team & Fleet</h2>
+                </div>
+                <div
+                  className="order-filter-tabs"
+                  role="tablist"
+                  aria-label="Team and fleet roster tabs"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={profileTab === "riders"}
+                    className={profileTab === "riders" ? "is-active" : ""}
+                    onClick={() => setProfileTab("riders")}
+                  >
+                    Riders <span>{workspace.data.drivers.length}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={profileTab === "vehicles"}
+                    className={profileTab === "vehicles" ? "is-active" : ""}
+                    onClick={() => setProfileTab("vehicles")}
+                  >
+                    Vehicles <span>{workspace.data.vehicles.length}</span>
+                  </button>
+                </div>
+              </header>
               <NoticeStrip notice={notice} scope="riders" />
-              <ul className="dash-list dash-roster">
-                {workspace.data.drivers.map((driver) => {
-                  const riding = assignedDrivers.has(driver.id);
-                  const offDuty = driver.availability === "off_duty";
-                  return (
-                    <li key={driver.id}>
-                      <span className="dash-roster-name">
-                        <strong>{driver.full_name || "Rider"}</strong>
-                        <small>
-                          <i className={`fleet-dot ${riding ? "busy" : ""}`} />
-                          {offDuty
-                            ? "Off duty"
-                            : riding
-                              ? "On delivery"
-                              : "Available"}
-                        </small>
-                      </span>
-                      <button
-                        type="button"
-                        className="button button-outline button-small"
-                        onClick={() => void toggleAvailability(driver)}
-                        disabled={saving || !!workspace.error}
+
+              {profileTab === "riders" ? (
+                <ul className="dash-list dash-roster">
+                  {workspace.data.drivers.map((driver) => {
+                    const riding = assignedDrivers.has(driver.id);
+                    const offDuty = driver.availability === "off_duty";
+                    const activeOrder = orders.find(
+                      (o) => o.driver_id === driver.id && isActiveOrder(o),
+                    );
+                    return (
+                      <li key={driver.id} className="team-roster-item">
+                        <span className="dash-roster-name">
+                          <strong>{driver.full_name || "Rider"}</strong>
+                          <small>
+                            <i
+                              className={`fleet-dot ${riding ? "busy" : ""}`}
+                            />
+                            {offDuty
+                              ? "Off duty"
+                              : riding
+                                ? "On delivery"
+                                : "Available"}
+                            {driver.phone && (
+                              <a
+                                href={`tel:${driver.phone}`}
+                                className="team-roster-phone"
+                              >
+                                · {driver.phone}
+                              </a>
+                            )}
+                          </small>
+                          {activeOrder && (
+                            <span className="team-roster-assignment">
+                              Active: <strong>{activeOrder.tracking_code}</strong> ·{" "}
+                              {activeOrder.delivery_address}
+                            </span>
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          className="button button-outline button-small"
+                          onClick={() => void toggleAvailability(driver)}
+                          disabled={saving || !!workspace.error}
+                        >
+                          {offDuty ? "Set on duty" : "Set off duty"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {!workspace.data.drivers.length && (
+                    <li className="dash-empty">No rider profiles available.</li>
+                  )}
+                </ul>
+              ) : (
+                <div className="team-vehicles-grid">
+                  {workspace.data.vehicles.map((vehicle) => {
+                    const inUse = orders.some(
+                      (o) => o.vehicle_id === vehicle.id && isActiveOrder(o),
+                    );
+                    const energyLevel =
+                      vehicle.energy_source === "electric"
+                        ? vehicle.battery_level_percent
+                        : vehicle.fuel_level_percent;
+                    return (
+                      <article
+                        key={vehicle.id}
+                        className={`team-vehicle-card ${inUse ? "is-in-use" : ""}`}
                       >
-                        {offDuty ? "Set on duty" : "Set off duty"}
-                      </button>
-                    </li>
-                  );
-                })}
-                {!workspace.data.drivers.length && (
-                  <li className="dash-empty">No rider profiles available.</li>
-                )}
-              </ul>
+                        <div className="team-vehicle-header">
+                          <div>
+                            <strong>{vehicle.registration_number}</strong>
+                            <span className="team-vehicle-type">
+                              {vehicleText(vehicle.vehicle_type)}
+                            </span>
+                          </div>
+                          <span
+                            className={`vehicle-status-tag ${inUse ? "status-busy" : vehicle.status === "available" ? "status-available" : "status-maintenance"}`}
+                          >
+                            {inUse
+                              ? "In use"
+                              : vehicle.status === "available"
+                                ? "Ready"
+                                : sentenceCase(vehicle.status)}
+                          </span>
+                        </div>
+
+                        <div className="team-vehicle-specs">
+                          <div className="team-spec-item">
+                            <span className="spec-label">Capacity</span>
+                            <strong>
+                              {vehicle.capacity_kg != null
+                                ? `${vehicle.capacity_kg} kg`
+                                : "—"}
+                            </strong>
+                          </div>
+                          <div className="team-spec-item">
+                            <span className="spec-label">Odometer</span>
+                            <strong>
+                              {vehicle.odometer_km.toLocaleString()} km
+                            </strong>
+                          </div>
+                        </div>
+
+                        {energyLevel != null && (
+                          <div className="team-vehicle-energy">
+                            <div className="energy-meter-header">
+                              <span className="energy-label">
+                                <Icon
+                                  name={
+                                    vehicle.energy_source === "electric"
+                                      ? "compass"
+                                      : "truck"
+                                  }
+                                  size={13}
+                                />
+                                {vehicle.energy_source === "electric"
+                                  ? "Battery"
+                                  : "Fuel"}
+                              </span>
+                              <strong className="energy-percent">
+                                {energyLevel}%
+                              </strong>
+                            </div>
+                            <div className="energy-bar-track">
+                              <div
+                                className={`energy-bar-fill ${energyLevel < 20 ? "is-low" : energyLevel < 50 ? "is-mid" : "is-good"}`}
+                                style={{
+                                  width: `${Math.min(100, Math.max(0, energyLevel))}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                  {!workspace.data.vehicles.length && (
+                    <div className="dash-empty">
+                      No vehicles in fleet roster.
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           )}
 

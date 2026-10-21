@@ -324,7 +324,7 @@ export function ManagerHomeView({
           <CardHeader title="Fleet" />
           <ul className="dash-list">
             <li>
-              <Link href="/manager/profile">
+              <Link href="/manager/profile?tab=riders">
                 <span>Riders free</span>
                 <strong>
                   {workspace.data.drivers.length ? (
@@ -340,7 +340,7 @@ export function ManagerHomeView({
               </Link>
             </li>
             <li>
-              <Link href="/manager/profile">
+              <Link href="/manager/profile?tab=vehicles">
                 <span>Vehicles ready</span>
                 <strong>
                   {workspace.data.vehicles.length ? (

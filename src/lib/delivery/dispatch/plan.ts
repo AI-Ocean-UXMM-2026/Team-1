@@ -1,6 +1,5 @@
 import type { FloodField, FloodReport, FloodSummary } from "./flood.ts";
 import { applyFlood } from "./flood.ts";
-import { applyTraffic, type TrafficSummary } from "./traffic.ts";
 import type {
   BuildInstanceResult,
   DepotRow,
@@ -9,9 +8,11 @@ import type {
 } from "./inputs.ts";
 import { buildInstance } from "./inputs.ts";
 import { nodePoints } from "./matrix.ts";
+import type { LiveFloodConditions } from "./open-meteo.ts";
 import { withParams } from "./params.ts";
 import type { RoadMatrixStats } from "./road-matrix.ts";
 import { solve } from "./solve.ts";
+import { applyTraffic, type TrafficSummary } from "./traffic.ts";
 import type { DispatchParams, Matrix, Plan, Point } from "./types.ts";
 import { validateSolution } from "./validate.ts";
 
@@ -28,6 +29,7 @@ export type PlanInput = {
   params?: Partial<DispatchParams>;
   field: FloodField | null;
   reports: FloodReport[];
+  liveFlood?: LiveFloodConditions | null;
 };
 
 export type PlanDeps = {
@@ -178,10 +180,28 @@ export async function planDispatch(
       detail: built.excludedTrucks,
     };
 
+  // If live rain or flood risk was detected and not manually overridden, adjust flood slowdown.
+  if (
+    input.liveFlood &&
+    input.params?.floodSlowdown == null &&
+    input.liveFlood.suggestedSlowdown > 0
+  ) {
+    params.floodSlowdown = Math.max(
+      params.floodSlowdown,
+      input.liveFlood.suggestedSlowdown,
+    );
+  }
+
   // Road data first; flood and traffic interception exposure are layered onto the matrix.
   const points = nodePoints(inst);
   const road = await deps.buildMatrix(points, params);
-  const flooded = applyFlood(road.matrix, points, input.field, input.reports);
+  const flooded = applyFlood(
+    road.matrix,
+    points,
+    input.field,
+    input.reports,
+    input.liveFlood,
+  );
   const trafficked = applyTraffic(flooded.matrix, points);
   const matrix = trafficked.matrix;
 
@@ -204,6 +224,15 @@ export async function planDispatch(
     traffic: trafficked.summary,
   };
   const warnings = [...built.warnings];
+  if (
+    input.liveFlood &&
+    (input.liveFlood.severity === "heavy_rain" ||
+      input.liveFlood.severity === "flood_risk")
+  ) {
+    warnings.push(
+      `live_flood_alert: Live Open-Meteo reports ${input.liveFlood.precipitationMm} mm/h rain (active weather slowdown applied)`,
+    );
+  }
   if (flooded.summary.status === "unknown")
     warnings.push(
       "flood_unknown: no flood layer or verified reports were available, so flood risk is unknown (not zero)",

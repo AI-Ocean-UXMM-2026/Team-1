@@ -1,4 +1,5 @@
 import { haversineKm } from "./matrix.ts";
+import type { LiveFloodConditions } from "./open-meteo.ts";
 import type { Matrix, Point } from "./types.ts";
 
 /*
@@ -213,6 +214,7 @@ export type FloodSummary = {
   reportsUsed: number;
   exposedArcs: number;
   blockedArcs: number;
+  live?: LiveFloodConditions | null;
 };
 
 /** Returns a copy of the matrix with per-arc flood fraction and blocked flags. */
@@ -221,6 +223,7 @@ export function applyFlood(
   points: Point[],
   field: FloodField | null,
   reports: FloodReport[],
+  live?: LiveFloodConditions | null,
 ): { matrix: Matrix; summary: FloodSummary } {
   const hasLayer = field != null && field.featureCount > 0;
   const status: FloodStatus = hasLayer
@@ -237,6 +240,7 @@ export function applyFlood(
         reportsUsed: 0,
         exposedArcs: 0,
         blockedArcs: 0,
+        live: live ?? null,
       },
     };
   }
@@ -270,6 +274,7 @@ export function applyFlood(
       reportsUsed: reports.length,
       exposedArcs: exposed,
       blockedArcs: blockedCount,
+      live: live ?? null,
     },
   };
 }

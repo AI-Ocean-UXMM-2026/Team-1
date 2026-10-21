@@ -7,6 +7,7 @@ export type CodOrder = {
   tracking_code: string;
   status: string;
   cod_amount: number;
+  driver_id?: string | null;
   driver_name: string | null;
   customer_name: string;
 };

@@ -536,6 +536,16 @@ export function DispatchApp() {
                     : plan.quality.flood.status === "reports_only"
                       ? "Only verified road reports were used for flooding."
                       : "Flood risk is unknown, not zero."}{" "}
+                  {plan.quality.flood.live && (
+                    <>
+                      Live Open-Meteo: {plan.quality.flood.live.precipitationMm}{" "}
+                      mm/h rain
+                      {plan.quality.flood.live.riverDischargeM3s != null
+                        ? ` (river discharge ${plan.quality.flood.live.riverDischargeM3s} m³/s)`
+                        : ""}
+                      .{" "}
+                    </>
+                  )}
                   {summary.mixedWeights}.
                 </span>
               </div>

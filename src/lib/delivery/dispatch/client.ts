@@ -87,6 +87,12 @@ export type PlanResponse = {
       status: "layer" | "reports_only" | "unknown";
       blockedArcs: number;
       exposedArcs: number;
+      live?: {
+        source: string;
+        precipitationMm: number;
+        riverDischargeM3s: number | null;
+        severity: string;
+      } | null;
     };
   };
   objective: { total: number; unserved: number } & Record<string, number>;
@@ -219,6 +225,8 @@ const WARNING_COPY: Record<string, string> = {
     "Flood risk is unknown: no flood map or verified reports were available. This is not the same as no risk.",
   flood_layer_missing:
     "Only verified road reports were used for flooding; no flood map is loaded.",
+  live_flood_alert:
+    "Live weather alert: Elevated rainfall or flood risk detected by Open-Meteo; wet-weather road slowdown applied.",
   volume_unconstrained:
     "Some trucks have no volume set, so only weight limits their load.",
   energy_unknown:
