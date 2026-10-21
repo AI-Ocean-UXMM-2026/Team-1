@@ -52,6 +52,8 @@ export type ApiRoute = {
 
 export type ApiOrder = {
   order_id: string;
+  pickup_address?: string;
+  delivery_address?: string;
   disposition: "assigned" | "unassigned";
   vehicle_id?: string;
   unassigned_reason?: string;
