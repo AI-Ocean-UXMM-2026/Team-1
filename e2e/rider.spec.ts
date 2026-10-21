@@ -1,6 +1,5 @@
-import { expect, test } from "@playwright/test";
-
 import { failSupabase, makeOrder, signInAs } from "./support/supabase-mock";
+import { expect, test } from "./support/test";
 
 const assignment = {
   id: "assignment-1",

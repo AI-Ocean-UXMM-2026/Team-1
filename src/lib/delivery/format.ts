@@ -24,12 +24,14 @@ export function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-export function timeUntil(value: string | null) {
+/** Minutes past the estimate before a parcel is reported as running late. */
+export const LATE_AFTER_MINUTES = 5;
+
+export function timeUntil(value: string | null, now = Date.now()) {
   if (!value) return "Soon";
-  const minutes = Math.max(
-    0,
-    Math.round((new Date(value).getTime() - Date.now()) / 60_000),
-  );
+  const raw = Math.round((new Date(value).getTime() - now) / 60_000);
+  if (raw < -LATE_AFTER_MINUTES) return "Running late";
+  const minutes = Math.max(0, raw);
   if (minutes < 1) return "Arriving now";
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);

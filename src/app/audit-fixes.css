@@ -108,3 +108,30 @@
     display: none;
   }
 }
+
+/* H-07: Orders search and terminal timeline step (H-05). */
+.orders-search {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+  font-weight: 500;
+}
+.orders-search input {
+  min-height: var(--target-min, 48px);
+  padding: 0 14px;
+  border: 1px solid var(--color-border-control, #64748b);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 16px;
+}
+.timeline-step.is-failed .timeline-dot {
+  border-color: var(--color-error);
+  background: var(--color-error-surface, #fee2e2);
+  color: var(--color-error-text);
+}
+.timeline-step.is-failed strong {
+  color: var(--color-error-text);
+}

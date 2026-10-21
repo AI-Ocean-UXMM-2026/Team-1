@@ -1,6 +1,5 @@
-import { expect, test } from "@playwright/test";
-
 import { signInAs } from "./support/supabase-mock";
+import { expect, test } from "./support/test";
 
 const publicRoutes = ["/welcome", "/home", "/track", "/orders", "/profile"];
 const teamRoutes = [

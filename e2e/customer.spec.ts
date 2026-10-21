@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
-
 import { makeOrder, minutesAgo, signInAs } from "./support/supabase-mock";
+import { expect, test } from "./support/test";
 
 test("sign-in dialog covers the app chrome (C-01)", async ({ page }) => {
   await page.goto("/home?signin=1");

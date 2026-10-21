@@ -52,6 +52,7 @@ import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  type ChangeEvent,
   type FormEvent,
   type ReactElement,
   type ReactNode,
@@ -82,6 +83,7 @@ import {
   nextCustomerAction,
   timeUntil,
 } from "@/lib/delivery/format";
+import { createSupportCase } from "@/lib/delivery/operations-actions";
 import type {
   DeliveryOrder,
   DeliveryStatus,
@@ -89,6 +91,7 @@ import type {
   WorkspaceProfile,
 } from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
+import { createClient } from "@/lib/supabase/client";
 
 /* ----------------------------------------------------------------- shared */
 
@@ -1361,13 +1364,137 @@ const faqs = [
   },
 ];
 
+const ISSUE_CATEGORIES = [
+  "Parcel is late",
+  "Wrong or incomplete address",
+  "Parcel damaged or missing",
+  "Problem with the rider",
+  "Cash on delivery question",
+  "Something else",
+] as const;
+
+function IssueForm({
+  order,
+  profileId,
+}: {
+  order: DeliveryOrder | null;
+  profileId: string | null;
+}) {
+  const [category, setCategory] = useState<string>(ISSUE_CATEGORIES[0]);
+  const [details, setDetails] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(
+    "idle",
+  );
+
+  if (!profileId)
+    return (
+      <Typography variant="body2" sx={{ color: "text.secondary", mt: 1.75 }}>
+        Sign in to report a problem with a delivery.
+      </Typography>
+    );
+  if (state === "sent")
+    return (
+      <Alert severity="success" sx={{ mt: 1.75 }}>
+        Thanks. Support has your report
+        {order ? ` for ${order.tracking_code}` : ""} and will follow up.
+      </Alert>
+    );
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (state === "sending" || !profileId) return;
+    setState("sending");
+    try {
+      await createSupportCase(createClient(), {
+        requesterId: profileId,
+        orderId: order?.id,
+        subject: order ? `${category} · ${order.tracking_code}` : category,
+        description: details || category,
+        priority: "normal",
+      });
+      setState("sent");
+    } catch {
+      setState("error");
+    }
+  }
+
+  return (
+    <Box
+      component="form"
+      onSubmit={submit}
+      sx={{ mt: 2, display: "grid", gap: 1.25 }}
+    >
+      <Typography variant="subtitle2" component="h3" sx={{ fontWeight: 700 }}>
+        Tell support what happened
+      </Typography>
+      <Box component="label" sx={{ display: "grid", gap: 0.5, fontSize: 12 }}>
+        What is the problem?
+        <Box
+          component="select"
+          value={category}
+          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+            setCategory(event.target.value)
+          }
+          sx={{
+            minHeight: 48,
+            px: 1.5,
+            fontSize: 16,
+            borderRadius: "12px",
+            border: 1,
+            borderColor: "text.secondary",
+            bgcolor: "background.paper",
+          }}
+        >
+          {ISSUE_CATEGORIES.map((item) => (
+            <option key={item}>{item}</option>
+          ))}
+        </Box>
+      </Box>
+      <Box component="label" sx={{ display: "grid", gap: 0.5, fontSize: 12 }}>
+        Details (optional)
+        <Box
+          component="textarea"
+          rows={3}
+          value={details}
+          onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+            setDetails(event.target.value)
+          }
+          sx={{
+            p: 1.5,
+            fontSize: 16,
+            borderRadius: "12px",
+            border: 1,
+            borderColor: "text.secondary",
+            font: "inherit",
+          }}
+        />
+      </Box>
+      {state === "error" && (
+        <Alert severity="error">
+          We couldn’t send your report. Check your connection and try again.
+        </Alert>
+      )}
+      <Button
+        type="submit"
+        variant="contained"
+        disabled={state === "sending"}
+        sx={{ minHeight: 52 }}
+      >
+        {state === "sending" ? "Sending…" : "Send report"}
+      </Button>
+    </Box>
+  );
+}
+
 export function HelpSheet({
   open,
   order,
+  profileId,
   onClose,
 }: {
   open: boolean;
   order: DeliveryOrder | null;
+  profileId: string | null;
   onClose: () => void;
 }) {
   return (
@@ -1459,10 +1586,11 @@ export function HelpSheet({
           </Accordion>
         ))}
       </Box>
-      <Typography variant="body2" sx={{ color: "text.secondary", mt: 1.75 }}>
-        In-app issue reports aren’t available yet. Contact the sender for order
-        changes.
-      </Typography>
+      <IssueForm
+        key={order?.id ?? "none"}
+        order={order}
+        profileId={profileId}
+      />
     </Sheet>
   );
 }

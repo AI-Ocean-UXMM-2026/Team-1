@@ -7,8 +7,15 @@ import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
 import BottomNavigation from "@mui/material/BottomNavigation";
 import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
@@ -46,6 +53,7 @@ import {
   currency,
   formatDateTime,
   formatTime,
+  isLiveStatus,
   nextCustomerAction,
   prioritiseOrders,
   relativeUpdatedAt,
@@ -55,9 +63,18 @@ import {
   hasCollectedParcel,
   parcelLocationState,
 } from "@/lib/delivery/location-state";
-import type { DeliveryOrder } from "@/lib/delivery/types";
+import type { DeliveryOrder, StatusEvent } from "@/lib/delivery/types";
 import { STATUS_LABELS, STATUS_STEPS } from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
+
+function terminalEventText(order: DeliveryOrder, events: StatusEvent[]) {
+  const event = [...events]
+    .reverse()
+    .find((item) => item.order_id === order.id && item.status === order.status);
+  if (!event) return "Contact support if you need help with this delivery.";
+  const when = formatDateTime(event.created_at);
+  return event.note ? `${when} · ${event.note}` : when;
+}
 
 function etaCopy(order: DeliveryOrder) {
   if (order.status === "delivered") return "Arrived safely";
@@ -93,6 +110,28 @@ function matchesOrderFilter(order: DeliveryOrder, filter: OrderFilter) {
   if (filter === "active") return ACTIVE_ORDER_STATUSES.includes(order.status);
   if (filter === "delivered") return order.status === "delivered";
   return order.status === "failed" || order.status === "cancelled";
+}
+
+function matchesOrderQuery(order: DeliveryOrder, query: string) {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return [
+    order.tracking_code,
+    order.delivery_address,
+    order.pickup_address,
+    order.recipient_name,
+  ].some((field) => field?.toLowerCase().includes(needle));
+}
+
+function orderWhen(order: DeliveryOrder, events: StatusEvent[]) {
+  if (order.status === "in_transit" || order.status === "picked_up")
+    return `ETA ${timeUntil(order.estimated_delivery_at)}`;
+  const closing = [...events]
+    .reverse()
+    .find((item) => item.order_id === order.id && item.status === order.status);
+  if (closing && ["delivered", "failed", "cancelled"].includes(order.status))
+    return `${STATUS_LABELS[order.status]} ${formatDateTime(closing.created_at)}`;
+  return `Ordered ${formatDateTime(order.created_at)}`;
 }
 
 const customerNavIcons = {
@@ -145,11 +184,41 @@ function CustomerBottomNav({ activeId }: { activeId: string }) {
 
 export type CustomerView = (typeof customerNavItems)[number]["id"];
 
+/**
+ * Applies ?order= and ?code= whenever they change, including when Track is
+ * already open (notifications and the scanner navigate to the same route).
+ */
+function UrlSelection({
+  ready,
+  orders,
+  onOrder,
+  onCode,
+}: {
+  ready: boolean;
+  orders: DeliveryOrder[];
+  onOrder: (id: string) => void;
+  onCode: (code: string) => void;
+}) {
+  const params = useSearchParams();
+  const key = params.toString();
+  const applied = useRef("");
+  useEffect(() => {
+    if (!ready || !key || applied.current === key) return;
+    applied.current = key;
+    const requestedOrder = params.get("order");
+    if (requestedOrder && orders.some((order) => order.id === requestedOrder))
+      onOrder(requestedOrder);
+    const code = params.get("code");
+    if (code) onCode(code);
+  }, [ready, key, params, orders, onOrder, onCode]);
+  return null;
+}
+
 export function CustomerApp({ view }: { view: CustomerView }) {
   const workspace = useWorkspace("customer");
   const [selectedId, setSelectedId] = useState("");
   const [authOpen, setAuthOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
+  const [orderQuery, setOrderQuery] = useState("");
   const [now, setNow] = useState(0);
   const router = useRouter();
   const [sheet, setSheet] = useState<
@@ -159,7 +228,6 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   const [unreadIds, setUnreadIds] = useState<ReadonlySet<string>>(new Set());
   const [demoDismissed, setDemoDismissed] = useState(false);
   const [lookupMiss, setLookupMiss] = useState<string | null>(null);
-  const urlHandled = useRef(false);
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("all");
   const orders = useMemo(
     () => prioritiseOrders(workspace.data.orders),
@@ -172,8 +240,10 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   );
   const selectedOrder =
     orders.find((order) => order.id === selectedId) ?? orders[0] ?? null;
-  const visibleOrders = orders.filter((order) =>
-    matchesOrderFilter(order, orderFilter),
+  const visibleOrders = orders.filter(
+    (order) =>
+      matchesOrderFilter(order, orderFilter) &&
+      matchesOrderQuery(order, orderQuery),
   );
   const profileId = workspace.profile?.id ?? "guest";
   const readKey = `oern.notifications.readAt.${profileId}`;
@@ -220,19 +290,6 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       // Storage can be blocked; the notice simply stays visible.
     }
   }, []);
-
-  // Runs once, when the data first arrives, to apply ?order= and ?code=.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: one-shot URL handling
-  useEffect(() => {
-    if (urlHandled.current || workspace.isLoading) return;
-    urlHandled.current = true;
-    const params = new URLSearchParams(window.location.search);
-    const requestedOrder = params.get("order");
-    if (requestedOrder && orders.some((order) => order.id === requestedOrder))
-      setSelectedId(requestedOrder);
-    const code = params.get("code");
-    if (code) lookupCode(code);
-  }, [orders, workspace.isLoading]);
 
   function lookupCode(value: string) {
     const code = value.trim();
@@ -349,6 +406,14 @@ export function CustomerApp({ view }: { view: CustomerView }) {
 
   return (
     <main className="customer-app">
+      <Suspense fallback={null}>
+        <UrlSelection
+          ready={!workspace.isLoading}
+          orders={orders}
+          onOrder={setSelectedId}
+          onCode={lookupCode}
+        />
+      </Suspense>
       <CustomerTopBar
         profile={workspace.profile}
         isAuthenticated={workspace.isAuthenticated}
@@ -497,28 +562,35 @@ export function CustomerApp({ view }: { view: CustomerView }) {
                     )}
                   </strong>
                 </div>
-                <div className="eta-meter">
-                  <span
-                    style={{
-                      width:
+                {/* Only real progress is drawn; no invented percentages. */}
+                {(selectedOrder.status === "delivered" ||
+                  (selectedOrder.route_progress_percent != null &&
+                    isLiveStatus(selectedOrder.status))) && (
+                  <>
+                    <div
+                      className="eta-meter"
+                      role="progressbar"
+                      aria-label="Route progress"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={
                         selectedOrder.status === "delivered"
-                          ? "100%"
-                          : selectedOrder.route_progress_percent != null
-                            ? `${selectedOrder.route_progress_percent}%`
-                            : selectedOrder.status === "in_transit"
-                              ? "72%"
-                              : selectedOrder.status === "picked_up"
-                                ? "56%"
-                                : selectedOrder.status === "accepted"
-                                  ? "32%"
-                                  : "18%",
-                    }}
-                  />
-                </div>
-                <div className="eta-meter-labels">
-                  <span>Collected</span>
-                  <span>At your door</span>
-                </div>
+                          ? 100
+                          : (selectedOrder.route_progress_percent ?? 0)
+                      }
+                    >
+                      <span
+                        style={{
+                          width: `${selectedOrder.status === "delivered" ? 100 : selectedOrder.route_progress_percent}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="eta-meter-labels">
+                      <span>Collected</span>
+                      <span>At your door</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="order-route-card">
@@ -546,21 +618,31 @@ export function CustomerApp({ view }: { view: CustomerView }) {
               <div className="tracking-timeline-card">
                 <div className="section-head-inline">
                   <h2>Delivery progress</h2>
-                  <span>Live updates</span>
+                  <span>
+                    {isLiveStatus(selectedOrder.status)
+                      ? "Live updates"
+                      : "Latest status"}
+                  </span>
                 </div>
                 <div className="progress-timeline">
                   {STATUS_STEPS.map((step, index) => {
+                    const closedUnsuccessfully =
+                      selectedOrder.status === "failed" ||
+                      selectedOrder.status === "cancelled";
                     const activeIndex = STATUS_STEPS.indexOf(
                       selectedOrder.status as (typeof STATUS_STEPS)[number],
                     );
-                    const completed =
-                      selectedOrder.status === "delivered" ||
-                      (activeIndex >= 0 && index <= activeIndex);
                     const event = workspace.data.statusEvents.find(
                       (item) =>
                         item.order_id === selectedOrder.id &&
                         item.status === step,
                     );
+                    // After a failure only steps that really happened count;
+                    // the rest will not happen.
+                    const completed = closedUnsuccessfully
+                      ? Boolean(event)
+                      : selectedOrder.status === "delivered" ||
+                        (activeIndex >= 0 && index <= activeIndex);
                     return (
                       <div
                         className={`timeline-step ${completed ? "is-complete" : ""} ${selectedOrder.status === step ? "is-current" : ""}`}
@@ -580,12 +662,31 @@ export function CustomerApp({ view }: { view: CustomerView }) {
                               ? formatDateTime(event.created_at)
                               : completed
                                 ? "Completed"
-                                : "Up next"}
+                                : closedUnsuccessfully
+                                  ? "Not reached"
+                                  : "Up next"}
                           </small>
                         </div>
                       </div>
                     );
                   })}
+                  {(selectedOrder.status === "failed" ||
+                    selectedOrder.status === "cancelled") && (
+                    <div className="timeline-step is-failed is-current">
+                      <span className="timeline-dot">
+                        <Icon name="warning" size={12} strokeWidth={2.4} />
+                      </span>
+                      <div>
+                        <strong>{STATUS_LABELS[selectedOrder.status]}</strong>
+                        <small>
+                          {terminalEventText(
+                            selectedOrder,
+                            workspace.data.statusEvents,
+                          )}
+                        </small>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -654,17 +755,19 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         <section className="delivery-list shell-width" id="history">
           <div className="section-head-block">
             <div>
-              <h2>{showAll ? "All deliveries" : "Your deliveries"}</h2>
+              <h1>Your deliveries</h1>
             </div>
-            <button
-              className="text-button"
-              type="button"
-              onClick={() => setShowAll(!showAll)}
-            >
-              {showAll ? "Show recent" : "See all"}
-              <Icon name="arrow-right" size={15} />
-            </button>
           </div>
+          <label className="orders-search">
+            <span>Search deliveries</span>
+            <input
+              type="search"
+              value={orderQuery}
+              onChange={(event) => setOrderQuery(event.target.value)}
+              placeholder="Tracking ID, address or name"
+              autoComplete="off"
+            />
+          </label>
           <nav className="orders-filter" aria-label="Filter deliveries">
             {ORDER_FILTERS.map((item) => (
               <button
@@ -678,33 +781,32 @@ export function CustomerApp({ view }: { view: CustomerView }) {
             ))}
           </nav>
           {visibleOrders.length === 0 && (
-            <p className="orders-empty">No deliveries in this group.</p>
+            <p className="orders-empty">
+              {orderQuery.trim()
+                ? "No deliveries match that search."
+                : workspace.isAuthenticated
+                  ? "No deliveries in this group."
+                  : "Sign in to see your deliveries."}
+            </p>
           )}
           <div className="delivery-order-grid">
-            {(showAll ? visibleOrders : visibleOrders.slice(0, 3)).map(
-              (order) => (
-                <Link
-                  key={order.id}
-                  className={`delivery-order-card ${selectedOrder?.id === order.id ? "is-selected" : ""}`}
-                  href={`/track?order=${encodeURIComponent(order.id)}`}
-                >
-                  <div className="delivery-order-top">
-                    <span className="order-code">{order.tracking_code}</span>
-                    <Icon name="arrow-right" size={16} />
-                  </div>
-                  <strong>{order.delivery_address}</strong>
-                  <div className="delivery-order-bottom">
-                    <StatusBadge status={order.status} />
-                    <span>
-                      {order.status === "in_transit" ||
-                      order.status === "picked_up"
-                        ? `ETA ${timeUntil(order.estimated_delivery_at)}`
-                        : formatTime(order.estimated_delivery_at)}
-                    </span>
-                  </div>
-                </Link>
-              ),
-            )}
+            {visibleOrders.map((order) => (
+              <Link
+                key={order.id}
+                className={`delivery-order-card ${selectedOrder?.id === order.id ? "is-selected" : ""}`}
+                href={`/track?order=${encodeURIComponent(order.id)}`}
+              >
+                <div className="delivery-order-top">
+                  <span className="order-code">{order.tracking_code}</span>
+                  <Icon name="arrow-right" size={16} />
+                </div>
+                <strong>{order.delivery_address}</strong>
+                <div className="delivery-order-bottom">
+                  <StatusBadge status={order.status} />
+                  <span>{orderWhen(order, workspace.data.statusEvents)}</span>
+                </div>
+              </Link>
+            ))}
           </div>
         </section>
       )}
@@ -792,6 +894,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       <HelpSheet
         open={sheet === "help"}
         order={pickNextParcel(realOrders)}
+        profileId={workspace.profile?.id ?? null}
         onClose={() => setSheet(null)}
       />
       <ScanSheet
