@@ -105,7 +105,18 @@ export function ManagerDashboard({
     () => prioritiseOrders(workspace.data.orders),
     [workspace.data.orders],
   );
-  const filteredOrders = orders.filter((order) => {
+  // Dispatch works the queue from the orders that still need a rider.
+  const queueOrders = useMemo(
+    () =>
+      view === "order"
+        ? [...orders].sort(
+            (left, right) =>
+              Number(needsRider(right)) - Number(needsRider(left)),
+          )
+        : orders,
+    [orders, view],
+  );
+  const filteredOrders = queueOrders.filter((order) => {
     if (filter === "unassigned") return needsRider(order);
     if (filter === "moving") return isMovingOrder(order);
     return true;
@@ -480,7 +491,7 @@ export function ManagerDashboard({
             <p>{pageCopy.description}</p>
           </header>
 
-          {view === "home" && signedOut && (
+          {signedOut && (
             <section
               className="dash-card dash-signin"
               aria-label="Sign in required"
@@ -691,7 +702,7 @@ export function ManagerDashboard({
             </div>
           )}
 
-          {view === "order" && (
+          {!signedOut && view === "order" && (
             <section className="manager-operations-grid">
               <div className="manager-orders-panel" id="orders">
                 <div className="panel-heading-row">
@@ -936,7 +947,7 @@ export function ManagerDashboard({
             </section>
           )}
 
-          {view === "profile" && (
+          {!signedOut && view === "profile" && (
             <section className="manager-profile-grid">
               <article className="manager-profile-card">
                 <span className="manager-profile-avatar">
@@ -964,7 +975,7 @@ export function ManagerDashboard({
             </section>
           )}
 
-          {view === "profile" && (
+          {!signedOut && view === "profile" && (
             <section className="dash-card" id="drivers">
               <CardHeader title="Riders" />
               <NoticeStrip notice={notice} scope="riders" />
@@ -1003,7 +1014,7 @@ export function ManagerDashboard({
             </section>
           )}
 
-          {view === "track" && (
+          {!signedOut && view === "track" && (
             <section className="manager-track-grid">
               <div className="manager-live-orders">
                 <div className="panel-heading-row">
@@ -1073,7 +1084,7 @@ export function ManagerDashboard({
             </section>
           )}
 
-          {view === "track" && (
+          {!signedOut && view === "track" && (
             <section className="road-knowledge-panel" id="road-knowledge">
               <div className="road-knowledge-heading">
                 <div>

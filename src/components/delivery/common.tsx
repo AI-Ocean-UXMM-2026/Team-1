@@ -195,3 +195,28 @@ export async function signOut() {
   await supabase.auth.signOut();
   window.location.assign("/");
 }
+
+export function SignInRequired({
+  title,
+  description,
+  onSignIn,
+}: {
+  title: string;
+  description: string;
+  onSignIn: () => void;
+}) {
+  return (
+    <section className="dash-card dash-signin" aria-label="Sign in required">
+      <h1>{title}</h1>
+      <p>{description}</p>
+      <button
+        type="button"
+        className="button button-primary"
+        onClick={onSignIn}
+      >
+        Sign in
+        <Icon name="arrow-right" size={16} />
+      </button>
+    </section>
+  );
+}
