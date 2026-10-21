@@ -59,7 +59,6 @@ import {
   useState,
 } from "react";
 
-import { Mascot } from "@/components/delivery/mascot";
 import {
   buildTodayItems,
   type ContextAction,
@@ -144,31 +143,15 @@ export function CustomerTopBar({
   return (
     <AppBar
       position="sticky"
-      color="secondary"
+      color="inherit"
       elevation={0}
-      sx={{
-        pt: "env(safe-area-inset-top)",
-        borderRadius: "0 0 28px 28px",
-        overflow: "hidden",
-        backgroundImage:
-          "radial-gradient(circle at 88% 0%, rgb(249 115 22 / 0.35), transparent 55%)",
-      }}
+      sx={{ bgcolor: "background.default", pt: "env(safe-area-inset-top)" }}
     >
-      <Toolbar disableGutters sx={{ minHeight: 96, pl: 2.5, pr: 1.5, gap: 1 }}>
+      <Toolbar
+        disableGutters
+        sx={{ minHeight: 72, px: 2, gap: 1.5, alignItems: "center" }}
+      >
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              display: "block",
-              opacity: 0.8,
-              fontWeight: 650,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              lineHeight: "16px",
-            }}
-          >
-            Oern
-          </Typography>
           <Typography
             variant="h5"
             component="p"
@@ -179,15 +162,12 @@ export function CustomerTopBar({
           </Typography>
           <Typography
             variant="body2"
-            sx={{ opacity: 0.85, lineHeight: "20px" }}
+            sx={{ color: "text.secondary", lineHeight: "20px" }}
           >
             {isAuthenticated
               ? (summary ?? "Checking your deliveries…")
-              : "Sign in to see your deliveries"}
+              : "Track and send parcels in Yangon"}
           </Typography>
-        </Box>
-        <Box sx={{ flex: "none", mb: -1.5 }}>
-          <Mascot size={80} />
         </Box>
         {isAuthenticated ? (
           <IconButton
@@ -197,12 +177,7 @@ export function CustomerTopBar({
                 ? `Notifications, ${unreadCount} unread`
                 : "Notifications"
             }
-            sx={{
-              width: 48,
-              height: 48,
-              bgcolor: "background.paper",
-              "&:hover": { bgcolor: "background.paper" },
-            }}
+            sx={{ width: 48, height: 48 }}
           >
             <Badge
               variant="dot"
@@ -221,7 +196,7 @@ export function CustomerTopBar({
         ) : (
           <Button
             variant="contained"
-            color="primary"
+            color="secondary"
             onClick={onSignIn}
             sx={{ px: 2, minHeight: 40, flex: "none" }}
           >
@@ -967,44 +942,7 @@ export function CustomerHome({
       )}
 
       {isAuthenticated ? (
-        orders.length === 0 ? (
-          <Box
-            sx={{
-              mx: 2,
-              mt: 3,
-              p: 2,
-              borderRadius: "16px",
-              bgcolor: "grey.100",
-            }}
-          >
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 750 }}>
-              Nothing on the way yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Track a parcel with its ID, or ask a rider to collect one from
-              you.
-            </Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-              <Button
-                component={Link}
-                href="/track"
-                variant="contained"
-                startIcon={<TrackChangesOutlined />}
-                sx={{ minHeight: 44 }}
-              >
-                Track a parcel
-              </Button>
-              <Button
-                component={Link}
-                href="/pickup"
-                variant="outlined"
-                sx={{ minHeight: 44 }}
-              >
-                Request pickup
-              </Button>
-            </Stack>
-          </Box>
-        ) : (
+        orders.length === 0 ? null : (
           rest.length > 0 && (
             <Box
               component="section"
