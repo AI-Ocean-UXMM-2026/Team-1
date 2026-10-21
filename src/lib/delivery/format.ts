@@ -33,10 +33,7 @@ export function timeUntil(value: string | null) {
   if (!value) return "Soon";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "Soon";
-  const minutes = Math.max(
-    0,
-    Math.round((d.getTime() - Date.now()) / 60_000),
-  );
+  const minutes = Math.max(0, Math.round((d.getTime() - Date.now()) / 60_000));
   if (minutes < 1) return "Arriving now";
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
@@ -88,4 +85,10 @@ export function prioritiseOrders(orders: DeliveryOrder[]) {
     cancelled: 7,
   };
   return [...orders].sort((a, b) => rank[a.status] - rank[b.status]);
+}
+
+/** Database enums ("in_progress", "high") as interface labels ("In progress"). */
+export function sentenceCase(value: string) {
+  const text = value.replaceAll("_", " ").trim();
+  return text ? text[0].toUpperCase() + text.slice(1) : text;
 }

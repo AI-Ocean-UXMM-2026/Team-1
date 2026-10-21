@@ -4,7 +4,6 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Mascot } from "@/components/delivery/mascot";
@@ -37,6 +36,7 @@ export function WelcomeScreen() {
       >
         <Mascot size={240} />
         <Typography
+          component="h1"
           sx={{
             fontWeight: 800,
             fontSize: 44,
@@ -44,10 +44,7 @@ export function WelcomeScreen() {
             color: "secondary.main",
           }}
         >
-          oern
-          <Box component="span" sx={{ color: "primary.main" }}>
-            .
-          </Box>
+          Oern
         </Typography>
         <Typography
           variant="body1"
@@ -76,27 +73,13 @@ export function WelcomeScreen() {
         >
           I already have an account
         </Button>
+        {/* One sign-in serves every role; the account's role decides which
+            workspace opens, so team members don't need their own links. */}
         <Typography
           variant="caption"
           sx={{ textAlign: "center", color: "text.secondary", pt: 0.5 }}
         >
-          Operations team?{" "}
-          <Link href="/rider" style={{ color: "inherit" }}>
-            Rider
-          </Link>
-          ,{" "}
-          <Link href="/manager" style={{ color: "inherit" }}>
-            manager
-          </Link>
-          ,{" "}
-          <Link href="/seller" style={{ color: "inherit" }}>
-            seller
-          </Link>
-          , and{" "}
-          <Link href="/support" style={{ color: "inherit" }}>
-            support
-          </Link>{" "}
-          all have their own sign-in.
+          Rider or Oern staff? Sign in with your team account above.
         </Typography>
       </Stack>
     </Box>

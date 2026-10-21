@@ -1,9 +1,7 @@
 "use client";
 
-import AddAPhotoOutlined from "@mui/icons-material/AddAPhotoOutlined";
-import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
+import ArrowBack from "@mui/icons-material/ArrowBack";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
-import CloseOutlined from "@mui/icons-material/CloseOutlined";
 import MyLocationOutlined from "@mui/icons-material/MyLocationOutlined";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -17,24 +15,20 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
-import {
-  type ChangeEvent,
-  type FormEvent,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
+import { AuthDialog } from "@/components/delivery/auth-dialog";
 import { Icon } from "@/components/delivery/icons";
 import { useMapboxMap } from "@/components/delivery/mapbox-kit";
+import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import type { MapPoint } from "@/lib/delivery/map-projection";
 import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
+import { createSupportCase } from "@/lib/delivery/operations-actions";
+import { createClient } from "@/lib/supabase/client";
 
 const pickupWindows = ["Morning", "Afternoon", "Evening"] as const;
 type PickupWindow = (typeof pickupWindows)[number];
 type GpsState = "idle" | "locating" | "ready" | "denied" | "unavailable";
-
-const MAX_PHOTOS = 3;
 
 function FieldLabel({ children }: { children: string }) {
   return (
@@ -110,125 +104,22 @@ function MapPointPicker({
   );
 }
 
-function PhotoAttach({
-  photos,
-  onAdd,
-  onRemove,
-}: {
-  photos: { file: File; url: string }[];
-  onAdd: (files: FileList) => void;
-  onRemove: (url: string) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  return (
-    <Box>
-      <FieldLabel>Photo (optional)</FieldLabel>
-      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-        {photos.map((photo) => (
-          <Box
-            key={photo.url}
-            sx={{
-              position: "relative",
-              width: 84,
-              height: 84,
-              borderRadius: "12px",
-              overflow: "hidden",
-              border: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            {/* biome-ignore lint/performance/noImgElement: local blob preview, never optimized by next/image */}
-            <img
-              src={photo.url}
-              alt=""
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
-              }}
-            />
-            <IconButton
-              size="small"
-              aria-label="Remove photo"
-              onClick={() => onRemove(photo.url)}
-              sx={{
-                position: "absolute",
-                top: 2,
-                right: 2,
-                width: 24,
-                height: 24,
-                minHeight: 24,
-                bgcolor: "rgba(15, 23, 42, 0.55)",
-                color: "#fff",
-                "&:hover": { bgcolor: "rgba(15, 23, 42, 0.75)" },
-              }}
-            >
-              <CloseOutlined sx={{ fontSize: 15 }} />
-            </IconButton>
-          </Box>
-        ))}
-        {photos.length < MAX_PHOTOS && (
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={() => inputRef.current?.click()}
-            sx={{
-              width: 84,
-              height: 84,
-              minHeight: 84,
-              minWidth: 84,
-              flexDirection: "column",
-              gap: 0.5,
-              borderRadius: "12px",
-              borderStyle: "dashed",
-            }}
-          >
-            <AddAPhotoOutlined fontSize="small" />
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              Add
-            </Typography>
-          </Button>
-        )}
-      </Stack>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        multiple
-        hidden
-        onChange={(event: ChangeEvent<HTMLInputElement>) => {
-          if (event.target.files?.length) onAdd(event.target.files);
-          event.target.value = "";
-        }}
-      />
-    </Box>
-  );
-}
-
 export function PickupRequestPage() {
   const router = useRouter();
+  const goBack = useBackNavigation("/home");
 
   const [point, setPoint] = useState<MapPoint | null>(null);
   const [placeName, setPlaceName] = useState("");
   const [address, setAddress] = useState("");
+  const [dropoff, setDropoff] = useState("");
   const [gpsState, setGpsState] = useState<GpsState>("idle");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [window, setWindow] = useState<PickupWindow>("Morning");
-  const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
-  const [submitted, setSubmitted] = useState(false);
-  const photosRef = useRef(photos);
-  photosRef.current = photos;
-
-  // Revoke any still-held blob URLs when the page unmounts; removePhoto
-  // already revokes its own, so this only mops up what's left.
-  useEffect(() => {
-    return () => {
-      for (const photo of photosRef.current) URL.revokeObjectURL(photo.url);
-    };
-  }, []);
+  const [state, setState] = useState<"editing" | "sending" | "sent">("editing");
+  const [error, setError] = useState<string | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const ready = address.trim().length > 0 && dropoff.trim().length > 0;
 
   useEffect(() => {
     if (!point) return;
@@ -265,23 +156,51 @@ export function PickupRequestPage() {
     );
   }
 
-  function addPhotos(files: FileList) {
-    const room = MAX_PHOTOS - photos.length;
-    const next = Array.from(files)
-      .slice(0, room)
-      .map((file) => ({ file, url: URL.createObjectURL(file) }));
-    setPhotos((current) => [...current, ...next]);
-  }
-
-  function removePhoto(url: string) {
-    URL.revokeObjectURL(url);
-    setPhotos((current) => current.filter((photo) => photo.url !== url));
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  /**
+   * Requests reach the operations team's support queue, which already lets
+   * customers write and staff follow up. Nothing is shown as "received"
+   * until that write succeeds.
+   */
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!address.trim()) return;
-    setSubmitted(true);
+    if (!ready || state === "sending") return;
+    setError(null);
+    const supabase = createClient();
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user.id;
+    if (!userId) {
+      // Everything typed stays on the page while the person signs in.
+      setAuthOpen(true);
+      return;
+    }
+    setState("sending");
+    try {
+      await createSupportCase(supabase, {
+        requesterId: userId,
+        subject: `Pickup request · ${window.toLowerCase()}`,
+        description: [
+          `Pickup: ${address.trim()}`,
+          point
+            ? `Pin: ${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`
+            : null,
+          `Deliver to: ${dropoff.trim()}`,
+          `Preferred time: ${window}`,
+          phone.trim() ? `Contact phone: ${phone.trim()}` : null,
+          notes.trim() ? `Notes: ${notes.trim()}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        priority: "normal",
+      });
+      setState("sent");
+    } catch (cause) {
+      setState("editing");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "We couldn’t send your request. Check your connection and try again.",
+      );
+    }
   }
 
   return (
@@ -297,33 +216,40 @@ export function PickupRequestPage() {
           borderColor: "divider",
         }}
       >
-        <Toolbar disableGutters sx={{ minHeight: 64, px: 1, gap: 1 }}>
+        <Toolbar disableGutters sx={{ minHeight: 72, px: 2, gap: 1 }}>
           <IconButton
             aria-label="Back"
-            onClick={() => router.back()}
-            sx={{ ml: 0.5 }}
+            edge="start"
+            onClick={goBack}
+            sx={{ width: 48, height: 48, color: "text.primary" }}
           >
-            <ArrowBackIosNew sx={{ fontSize: 18 }} />
+            <ArrowBack />
           </IconButton>
-          <Typography variant="h6" sx={{ fontWeight: 750, fontSize: 18 }}>
+          <Typography
+            variant="h5"
+            component="h1"
+            noWrap
+            sx={{ fontWeight: 750, lineHeight: "30px" }}
+          >
             Request a pickup
           </Typography>
         </Toolbar>
       </AppBar>
 
-      {submitted ? (
+      {state === "sent" ? (
         <Stack
           spacing={1.5}
           sx={{ px: 2, pt: 4, pb: 6, alignItems: "flex-start" }}
         >
           <CheckCircleOutlined sx={{ fontSize: 36, color: "success.main" }} />
-          <Typography variant="h6" sx={{ fontWeight: 750 }}>
-            Request received
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 750 }}>
+            Request sent
           </Typography>
           <Typography sx={{ color: "text.secondary" }}>
-            Our team will confirm {/^[aeiou]/i.test(window) ? "an" : "a"}{" "}
-            {window.toLowerCase()} pickup window for {address} and reach you at{" "}
-            {phone || "the number on your account"}.
+            The Oern team will call{" "}
+            {phone.trim() || "the number on your account"} to confirm{" "}
+            {/^[aeiou]/i.test(window) ? "an" : "a"} {window.toLowerCase()}{" "}
+            pickup from {address.trim()}.
           </Typography>
           <Button
             fullWidth
@@ -411,11 +337,17 @@ export function PickupRequestPage() {
             />
           </Box>
 
-          <PhotoAttach
-            photos={photos}
-            onAdd={addPhotos}
-            onRemove={removePhoto}
-          />
+          <Box>
+            <FieldLabel>Deliver to</FieldLabel>
+            <OutlinedInput
+              fullWidth
+              required
+              value={dropoff}
+              onChange={(event) => setDropoff(event.target.value)}
+              placeholder="Recipient’s address and township"
+              inputProps={{ "aria-label": "Delivery address" }}
+            />
+          </Box>
 
           <Box>
             <FieldLabel>Contact phone (optional)</FieldLabel>
@@ -488,19 +420,29 @@ export function PickupRequestPage() {
               borderColor: "divider",
             }}
           >
+            {error && (
+              <Typography
+                role="alert"
+                variant="body2"
+                sx={{ color: "error.main", mb: 1 }}
+              >
+                {error}
+              </Typography>
+            )}
             <Button
               fullWidth
               type="submit"
               variant="contained"
               size="large"
-              disabled={!address.trim()}
+              disabled={!ready || state === "sending"}
               sx={{ minHeight: 52 }}
             >
-              Request pickup
+              {state === "sending" ? "Sending…" : "Request pickup"}
             </Button>
           </Box>
         </Box>
       )}
+      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
     </main>
   );
 }

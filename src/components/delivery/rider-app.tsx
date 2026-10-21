@@ -1656,9 +1656,9 @@ export function RiderApp() {
               type="button"
               className="rf-icon-btn rf-help"
               onClick={() => setMenuOpen(true)}
-              aria-label="Help and shift tools"
+              aria-label="Shift tools"
             >
-              <Icon name="help" size={20} />
+              <Icon name="menu" size={20} />
             </button>
           </div>
         </header>
@@ -1724,19 +1724,10 @@ export function RiderApp() {
                 className="rf-quick-action"
                 href={`sms:${current.recipient_phone.replace(/\s+/g, "")}`}
               >
-                <Icon name="share" size={18} />
+                <Icon name="message" size={18} />
                 <span>Message</span>
               </a>
             )}
-            <a
-              className="rf-quick-action"
-              href={mapsUrl(legDestination(current))}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Icon name="navigation" size={18} />
-              <span>Directions</span>
-            </a>
             <button
               type="button"
               className="rf-quick-action"
@@ -1774,10 +1765,6 @@ export function RiderApp() {
 
           {sheetOpen && (
             <div className="rf-sheet-body">
-              <div className="rf-detail">
-                <h3>{pickup ? "Pickup" : "Address"}</h3>
-                <p>{leg.address}</p>
-              </div>
               {!pickup && (
                 <div className="rf-detail">
                   <h3>Recipient</h3>
@@ -1796,28 +1783,9 @@ export function RiderApp() {
                 </div>
               )}
               <div className="rf-detail">
-                <h3>Parcel</h3>
-                <p>
-                  {current.tracking_code} ·{" "}
-                  {current.parcel_description ?? "No description"}
-                  {current.parcel_weight_kg
-                    ? ` · ${current.parcel_weight_kg} kg`
-                    : ""}
-                </p>
+                <h3>Parcel ID</h3>
+                <p>{current.tracking_code}</p>
               </div>
-              {current.cod_amount > 0 && (
-                <div className="rf-detail">
-                  <h3>
-                    <Icon name="coin" size={16} /> Payment
-                  </h3>
-                  <CodBadge order={current} />
-                  <p className="rf-muted">
-                    {pickup
-                      ? "Collect this cash from the recipient at drop-off, not at pickup."
-                      : "Collect the exact amount in cash. You’ll record what you received after delivery."}
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
@@ -1909,9 +1877,9 @@ export function RiderApp() {
           type="button"
           className="rf-icon-btn"
           onClick={() => setMenuOpen(true)}
-          aria-label="Help and shift tools"
+          aria-label="Shift tools"
         >
-          <Icon name="help" size={20} />
+          <Icon name="menu" size={20} />
         </button>
       </header>
       <h1>Today’s deliveries</h1>

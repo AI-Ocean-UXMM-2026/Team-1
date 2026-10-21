@@ -1205,3 +1205,235 @@
     display: none;
   }
 }
+
+/* Manager below desktop width: the workspace used to be pinned at 1024px,
+   so phones scrolled sideways past a sidebar that filled the screen. The
+   sidebar becomes a labelled bottom tab bar and every grid stacks. */
+@media (max-width: 899px) {
+  .manager-app {
+    min-width: 0;
+    display: block;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+
+  .manager-sidebar {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: 100%;
+    height: auto;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-border);
+    border-right: 0;
+  }
+
+  .manager-sidebar > .brand-lockup,
+  .manager-sidebar-label {
+    display: none;
+  }
+
+  .manager-side-nav {
+    width: 100%;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .manager-side-nav a {
+    position: relative;
+    width: auto;
+    min-height: 58px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 2px;
+    font-size: 11px;
+    line-height: 14px;
+    text-align: center;
+  }
+
+  .manager-side-nav a > svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .manager-side-nav a > span,
+  .manager-side-nav a:not(.side-nav-active) > span {
+    position: absolute;
+    top: 4px;
+    left: calc(50% + 6px);
+    min-width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0 4px;
+    color: var(--color-text-inverse);
+    background: var(--color-info);
+    font-size: 10px;
+  }
+
+  .manager-topbar {
+    height: 60px;
+    justify-content: space-between;
+    padding: 0 16px;
+  }
+
+  .manager-topbar > .brand-lockup {
+    display: inline-flex;
+  }
+
+  .manager-date {
+    display: none;
+  }
+
+  .manager-content {
+    width: calc(100% - 32px);
+    padding: 16px 0 24px;
+  }
+
+  .dash-overview,
+  .manager-operations-grid,
+  .manager-track-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .manager-profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dash-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: var(--space-4);
+  }
+
+  .dash-kpi:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .manager-track-map .map-viewport,
+  .manager-track-map .map-card-tall .map-viewport {
+    height: 360px;
+  }
+
+  .manager-live-orders .manager-order-list {
+    max-height: none;
+  }
+
+  .order-filter-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+}
+
+/* Seller, support and fleet workspaces: plain page headers, a sign-in gate
+   instead of disabled forms, and save feedback pinned where it's seen. */
+.operations-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-6);
+}
+
+.operations-page-header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.operations-signin {
+  max-width: 520px;
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.operations-signin h2,
+.operations-signin p {
+  margin: 0;
+}
+
+.operations-signin p {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.operations-notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  z-index: 60;
+  width: min(calc(100% - 32px), 480px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 12px 8px 12px 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-text-inverse);
+  background: var(--color-brand-navy);
+  box-shadow: 0 12px 32px rgb(15 23 42 / 24%);
+  font-size: 14px;
+  line-height: 20px;
+  transform: translateX(-50%);
+}
+
+.operations-notice > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.operations-notice > button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* The section tabs are a phone pattern; on wide screens every section is
+   already visible, so the floating bar only covered content. */
+@media (min-width: 900px) {
+  .operations-app .mobile-bottom-nav {
+    display: none;
+  }
+
+  .operations-app {
+    padding-bottom: 40px;
+  }
+
+  .operations-notice {
+    bottom: 24px;
+  }
+}
+
+.support-order-context > span:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.support-case-description {
+  margin: 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+  line-height: 20px;
+}

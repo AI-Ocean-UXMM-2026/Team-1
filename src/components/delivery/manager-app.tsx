@@ -23,15 +23,25 @@ import {
 } from "@/lib/delivery/actions";
 import {
   attentionSummary,
+  codPending,
   hourlyBuckets,
   isActiveOrder,
   isMovingOrder,
   needsRider,
   recentOrders,
 } from "@/lib/delivery/dashboard";
-import { currency, formatTime, prioritiseOrders } from "@/lib/delivery/format";
+import {
+  currency,
+  formatTime,
+  prioritiseOrders,
+  sentenceCase,
+} from "@/lib/delivery/format";
 import { recommendAssignments } from "@/lib/delivery/intelligence";
-import type { DriverOption, WorkspaceData } from "@/lib/delivery/types";
+import type {
+  DeliveryOrder,
+  DriverOption,
+  WorkspaceData,
+} from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
@@ -44,7 +54,27 @@ const managerNavItems = [
 
 export type ManagerView = (typeof managerNavItems)[number]["id"];
 
-type OrderFilter = "all" | "unassigned" | "moving";
+type OrderFilter = "all" | "unassigned" | "moving" | "cod";
+
+const ORDER_FILTERS: { id: OrderFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "unassigned", label: "Needs rider" },
+  { id: "moving", label: "On route" },
+  { id: "cod", label: "COD due" },
+];
+
+function matchesFilter(order: DeliveryOrder, filter: OrderFilter) {
+  if (filter === "unassigned") return needsRider(order);
+  if (filter === "moving") return isMovingOrder(order);
+  if (filter === "cod") return codPending(order);
+  return true;
+}
+
+function initialFilter(value: string | null): OrderFilter {
+  return ORDER_FILTERS.some((item) => item.id === value)
+    ? (value as OrderFilter)
+    : "all";
+}
 type Workspace = ReturnType<typeof useWorkspace>;
 type Notice = {
   scope: "assign" | "reports" | "riders";
@@ -87,18 +117,14 @@ export function ManagerDashboard({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [filter, setFilter] = useState<OrderFilter>(
-    searchParams.get("filter") === "unassigned" ? "unassigned" : "all",
+    initialFilter(searchParams.get("filter")),
   );
 
   const orders = useMemo(
     () => prioritiseOrders(workspace.data.orders),
     [workspace.data.orders],
   );
-  const filteredOrders = orders.filter((order) => {
-    if (filter === "unassigned") return needsRider(order);
-    if (filter === "moving") return isMovingOrder(order);
-    return true;
-  });
+  const filteredOrders = orders.filter((order) => matchesFilter(order, filter));
   const selectedOrder =
     filteredOrders.find((order) => order.id === selectedId) ??
     filteredOrders[0] ??
@@ -366,8 +392,8 @@ export function ManagerDashboard({
       description: "Work through the queue and assign riders in one step.",
     },
     profile: {
-      title: "Team & fleet",
-      description: "Rider availability and the vehicles supporting dispatch.",
+      title: "Team",
+      description: "Rider availability for dispatch.",
     },
   }[view];
 
@@ -395,18 +421,10 @@ export function ManagerDashboard({
             </Link>
           ))}
           <Link href="/manager/insights">
-            <Icon name="coin" size={17} />
-            Fleet insights
+            <Icon name="truck" size={17} />
+            Fleet
           </Link>
         </nav>
-        <div className="manager-sidebar-bottom">
-          <span className="sidebar-avatar">OP</span>
-          <div>
-            <strong>Oern Dispatch</strong>
-            <small>Yangon operations</small>
-          </div>
-          <Icon name="more" size={16} />
-        </div>
       </aside>
 
       <div className="manager-main">
@@ -427,7 +445,7 @@ export function ManagerDashboard({
               onClick={() => void workspace.refresh()}
               disabled={saving || signedOut}
             >
-              <Icon name="history" size={16} />
+              <Icon name="refresh" size={16} />
             </button>
             <UserActions
               profile={workspace.profile}
@@ -610,7 +628,7 @@ export function ManagerDashboard({
                         [
                           "COD to settle",
                           summary.codPending,
-                          "/manager/insights",
+                          "/manager/order?filter=cod",
                         ],
                         [
                           "Road reports",
@@ -681,48 +699,31 @@ export function ManagerDashboard({
                   <div>
                     <h2>Delivery queue</h2>
                   </div>
-                  <button
-                    type="button"
-                    className="icon-button manager-filter-button"
-                    aria-label="Refresh orders"
-                    onClick={() => void workspace.refresh()}
-                    disabled={saving}
-                  >
-                    <Icon name="history" size={17} />
-                  </button>
                 </div>
                 <div
                   className="order-filter-tabs"
                   role="tablist"
                   aria-label="Filter delivery orders"
                 >
-                  <button
-                    type="button"
-                    className={filter === "all" ? "is-active" : ""}
-                    role="tab"
-                    aria-selected={filter === "all"}
-                    onClick={() => setFilter("all")}
-                  >
-                    All <span>{orders.length}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={filter === "unassigned" ? "is-active" : ""}
-                    role="tab"
-                    aria-selected={filter === "unassigned"}
-                    onClick={() => setFilter("unassigned")}
-                  >
-                    Needs rider
-                  </button>
-                  <button
-                    type="button"
-                    className={filter === "moving" ? "is-active" : ""}
-                    role="tab"
-                    aria-selected={filter === "moving"}
-                    onClick={() => setFilter("moving")}
-                  >
-                    On route
-                  </button>
+                  {ORDER_FILTERS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={filter === item.id ? "is-active" : ""}
+                      role="tab"
+                      aria-selected={filter === item.id}
+                      onClick={() => setFilter(item.id)}
+                    >
+                      {item.label}{" "}
+                      <span>
+                        {
+                          orders.filter((order) =>
+                            matchesFilter(order, item.id),
+                          ).length
+                        }
+                      </span>
+                    </button>
+                  ))}
                 </div>
                 <div className="manager-order-list">
                   {filteredOrders.map((order) => (
@@ -887,7 +888,7 @@ export function ManagerDashboard({
                         <strong>
                           {currency.format(selectedOrder.cod_amount)}
                         </strong>
-                        <small>{selectedOrder.cod_status}</small>
+                        <small>{sentenceCase(selectedOrder.cod_status)}</small>
                       </div>
                     )}
                     {selectedRoute && (
@@ -934,16 +935,6 @@ export function ManagerDashboard({
                   <Icon name="shield" size={13} /> Manager access
                 </span>
               </article>
-              <Link className="manager-insights-card" href="/manager/insights">
-                <Icon name="coin" size={20} />
-                <span>
-                  <strong>Open fleet insights</strong>
-                  <small>
-                    Review maintenance, utilization, and delivery costs.
-                  </small>
-                </span>
-                <Icon name="arrow-right" size={17} />
-              </Link>
             </section>
           )}
 
@@ -1081,9 +1072,9 @@ export function ManagerDashboard({
                         <span
                           className={`road-severity road-severity-${report.severity}`}
                         >
-                          {report.severity}
+                          {sentenceCase(report.severity)}
                         </span>
-                        <strong>{report.category.replace("_", " ")}</strong>
+                        <strong>{sentenceCase(report.category)}</strong>
                         <small>{formatTime(report.reported_at)}</small>
                       </div>
                       <p>{report.description}</p>

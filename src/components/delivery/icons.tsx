@@ -23,9 +23,11 @@ export type IconName =
   | "more"
   | "navigation"
   | "list"
+  | "message"
   | "package"
   | "phone"
   | "plus"
+  | "refresh"
   | "search"
   | "settings"
   | "shield"
@@ -107,6 +109,9 @@ const pathByName: Record<IconName, ReactNode> = {
     </>
   ),
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+  message: (
+    <path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 3V6a1 1 0 0 1 1-1Z" />
+  ),
   more: (
     <>
       <circle cx="5" cy="12" r="1" />
@@ -130,6 +135,7 @@ const pathByName: Record<IconName, ReactNode> = {
     <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  refresh: <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />,
   search: (
     <>
       <circle cx="10.8" cy="10.8" r="6.8" />
