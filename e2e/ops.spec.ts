@@ -163,3 +163,47 @@ test("managers reconcile and settle cash on delivery (O-02)", async ({
     backend.mutations.find((m) => m.table === "cod_payments")?.body,
   ).toMatchObject({ status: "settled" });
 });
+
+test("dispatch can show every rider, not only the top three (O-03)", async ({
+  page,
+  context,
+}) => {
+  const ids = ["d1", "d2", "d3", "d4", "d5"];
+  await signInAs(context, "manager", {
+    delivery_orders: [
+      makeOrder({ id: "order-1", tracking_code: "OR-5001", status: "pending" }),
+    ],
+    profiles: [
+      { id: "user-1", full_name: "Manager", phone: null, role: "manager" },
+      ...ids.map((id) => ({
+        id,
+        full_name: `Rider ${id}`,
+        phone: null,
+        role: "driver",
+      })),
+    ],
+    driver_profiles: ids.map((id) => ({
+      user_id: id,
+      availability: "available",
+    })),
+    vehicles: ids.map((id) => ({
+      id: `bike-${id}`,
+      registration_number: `YGN-${id}`,
+      vehicle_type: "motorcycle",
+      status: "available",
+      capacity_kg: 20,
+      energy_source: "fuel",
+      fuel_level_percent: 80,
+      battery_level_percent: null,
+      range_km_at_full: 200,
+      reserve_percent: 10,
+      odometer_km: 0,
+      service_due_at_km: null,
+    })),
+  });
+  await page.goto("/manager/order");
+  const cards = page.locator(".recommendation-card");
+  await expect(cards).toHaveCount(3);
+  await page.getByRole("button", { name: "Show all 5 riders" }).click();
+  await expect(cards).toHaveCount(5);
+});

@@ -127,16 +127,21 @@ export function ManagerDashboard({
         .filter((stop) => stop.route_id === selectedRoute.id)
         .sort((left, right) => left.sequence_number - right.sequence_number)
     : [];
-  const recommendations = useMemo(
+  const [showAllRiders, setShowAllRiders] = useState(false);
+  const allRecommendations = useMemo(
     () =>
       recommendAssignments(
         selectedOrder,
         workspace.data.drivers,
         workspace.data.vehicles,
         orders,
+        Number.POSITIVE_INFINITY,
       ),
     [selectedOrder, workspace.data.drivers, workspace.data.vehicles, orders],
   );
+  const recommendations = showAllRiders
+    ? allRecommendations
+    : allRecommendations.slice(0, 3);
   const summary = useMemo(
     () => attentionSummary(orders, workspace.data.roadReports),
     [orders, workspace.data.roadReports],
@@ -203,6 +208,13 @@ export function ManagerDashboard({
     vehicleId: string | null,
   ) {
     if (!selectedOrder || !canAssign) return;
+    if (
+      selectedOrder.driver_id &&
+      !window.confirm(
+        `Reassign ${selectedOrder.tracking_code} from ${selectedOrder.driver_name || "the current rider"}?`,
+      )
+    )
+      return;
     setSaving(true);
     setPendingKey(`${driverId}-${vehicleId ?? "none"}`);
     setNotice(null);
@@ -901,6 +913,18 @@ export function ManagerDashboard({
                             No compatible on-duty rider and vehicle pair is
                             available.
                           </p>
+                        )}
+                        {allRecommendations.length > 3 && (
+                          <button
+                            type="button"
+                            className="button button-outline"
+                            aria-expanded={showAllRiders}
+                            onClick={() => setShowAllRiders((value) => !value)}
+                          >
+                            {showAllRiders
+                              ? "Show top 3 only"
+                              : `Show all ${allRecommendations.length} riders`}
+                          </button>
                         )}
                       </div>
                     )}
