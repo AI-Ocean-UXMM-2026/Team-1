@@ -61,6 +61,25 @@ export type DispatchParams = {
   maxIterations: number;
   deadlineMs: number;
   seed: number;
+  /** Mapbox "driving" is a car profile; trucks are slower (ASSUMED). */
+  truckTimeFactor: number;
+  /** Per-run traffic scalar on road times (ASSUMED, not live traffic). */
+  trafficMultiplier: number;
+  maxMatrixElements: number;
+  maxMatrixRequests: number;
+  /** Minutes between "now" and the earliest departure when planning today. */
+  dispatchLeadMin: number;
+  /** Size-class estimates used only when no weight or volume was declared (ASSUMED). */
+  sizeKg: { small: number; medium: number; large: number };
+  sizeM3: { small: number; medium: number; large: number };
+  serviceExtraMin: {
+    small: number;
+    medium: number;
+    large: number;
+    cod: number;
+  };
+  defaultDeadlineSlackMin: number;
+  defaultCostPerKm: number;
 };
 
 export type Instance = {
@@ -131,9 +150,13 @@ export type StopTiming = {
   leave: number;
   slack: number;
   loadKg: number;
+  legMin: number;
+  legKm: number;
+  floodKm: number;
 };
 
 export type UnassignedReason =
+  | "missing_coordinates"
   | "exceeds_capacity_single"
   | "window_passed"
   | "window_infeasible"
