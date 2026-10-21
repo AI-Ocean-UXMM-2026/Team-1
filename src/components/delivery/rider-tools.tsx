@@ -1,7 +1,7 @@
 "use client";
 
-import type { FormEvent, ReactNode } from "react";
-import { useState } from "react";
+import type { FormEvent, KeyboardEvent, ReactNode } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Icon, type IconName } from "@/components/delivery/icons";
 import { currency, formatTime } from "@/lib/delivery/format";
@@ -77,27 +77,77 @@ export function Sheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const panel = useRef<HTMLElement>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const firstControl = panel.current?.querySelector<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]',
+    );
+    (firstControl ?? panel.current)?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected)
+        previousFocus.focus();
+    };
+  }, []);
+
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const controls = Array.from(
+      panel.current?.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]',
+      ) ?? [],
+    ).filter((control) => control.getClientRects().length > 0);
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (!first || !last) {
+      event.preventDefault();
+      panel.current?.focus();
+    } else if (
+      event.shiftKey &&
+      (document.activeElement === first ||
+        document.activeElement === panel.current)
+    ) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the backdrop only dismisses on pointer input; the dialog handles Escape and focus.
     <div
       className="rf-scrim"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") onClose();
-      }}
       role="presentation"
     >
       <section
+        ref={panel}
         className="rf-sheet rf-panel"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="dv-sheet-title"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
       >
         <span className="rf-handle" aria-hidden="true" />
         <div className="rf-sheet-head">
           <div>
-            <h2 id="dv-sheet-title">{title}</h2>
+            <h2 id={titleId}>{title}</h2>
             {subtitle && <p className="rf-muted">{subtitle}</p>}
           </div>
           <button

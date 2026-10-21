@@ -1036,7 +1036,8 @@
 }
 
 .dash-cell-main a:focus-visible {
-  outline: none;
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
 }
 
 .dash-cell-main a::after {

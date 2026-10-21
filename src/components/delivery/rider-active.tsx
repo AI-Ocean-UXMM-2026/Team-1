@@ -1,7 +1,7 @@
 "use client";
 
-import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useRef } from "react";
+import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { StopMark, StopRow } from "@/components/delivery/rider-overview";
@@ -26,8 +26,16 @@ function SheetHandle({
   open: boolean;
   onToggle: (open: boolean) => void;
 }) {
-  const start = useRef<number | null>(null);
+  const start = useRef<{ id: number; y: number } | null>(null);
   const dragged = useRef(false);
+  useEffect(() => {
+    const cancelDrag = () => {
+      start.current = null;
+      dragged.current = false;
+    };
+    window.addEventListener("blur", cancelDrag);
+    return () => window.removeEventListener("blur", cancelDrag);
+  }, []);
   return (
     <button
       type="button"
@@ -40,17 +48,26 @@ function SheetHandle({
         else onToggle(!open);
       }}
       onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) => {
-        start.current = event.clientY;
+        if (start.current) return;
+        start.current = { id: event.pointerId, y: event.clientY };
         dragged.current = false;
+        event.currentTarget.setPointerCapture(event.pointerId);
       }}
       onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) => {
-        if (start.current == null) return;
-        const delta = event.clientY - start.current;
+        if (start.current?.id !== event.pointerId) return;
+        const delta = event.clientY - start.current.y;
         start.current = null;
         if (Math.abs(delta) > 24) {
           dragged.current = true;
           onToggle(delta < 0);
         }
+      }}
+      onPointerCancel={(event) => {
+        if (start.current?.id === event.pointerId) start.current = null;
+        dragged.current = false;
+      }}
+      onLostPointerCapture={(event) => {
+        if (start.current?.id === event.pointerId) start.current = null;
       }}
     >
       <span className="rf-handle" />
