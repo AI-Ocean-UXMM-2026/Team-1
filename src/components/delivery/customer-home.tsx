@@ -47,7 +47,6 @@ import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  type ChangeEvent,
   type FormEvent,
   type ReactElement,
   type ReactNode,

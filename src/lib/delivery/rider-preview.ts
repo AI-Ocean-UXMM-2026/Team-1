@@ -294,9 +294,9 @@ export function previewState(
     close(orders[1], "delivered");
   }
   if (scenario === "complete") {
-    orders.forEach((order, index) =>
-      close(order, index === 4 ? "failed" : "delivered"),
-    );
+    orders.forEach((order, index) => {
+      close(order, index === 4 ? "failed" : "delivered");
+    });
   }
   const started = new Date(now - 90 * 60_000).toISOString();
   return {

@@ -348,6 +348,7 @@ export function RiderApp() {
     live.isAuthenticated &&
     route.state !== "NONE" &&
     route.state !== "CLOSED";
+  // biome-ignore lint/correctness/useExhaustiveDependencies: gpsAttempt re-triggers watchPosition on user retry
   useEffect(() => {
     if (!wantsGps) {
       setGps("off");
