@@ -70,6 +70,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .dispatch-segment button {
@@ -226,11 +229,11 @@
   }
 }
 
-.dispatch-check {
+.dispatch-setup label.dispatch-check {
   flex-direction: row;
-  display: flex !important;
+  display: flex;
   align-items: center;
-  gap: var(--space-3) !important;
+  gap: var(--space-3);
   min-height: var(--target-min);
 }
 
@@ -446,8 +449,8 @@
   background: var(--color-brand-navy);
 }
 
-.dispatch-flood {
-  color: var(--color-warning-text) !important;
+.dispatch-stops small.dispatch-flood {
+  color: var(--color-warning-text);
 }
 
 /* ------------------------------------------------------------------- sketch */
@@ -633,6 +636,7 @@
 }
 
 .dispatch-outcome {
+  display: block;
   margin: 0;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
