@@ -196,10 +196,10 @@ insert into public.route_stops (route_id, order_id, stop_type, sequence_number, 
 select route_id, order_id, stop_type, sequence_number, address, latitude, longitude, status
 from oern_seed_route,
   lateral (
-    select order_id, 'pickup'::text as stop_type, 1 as sequence_number, pickup_address as address, pickup_latitude as latitude, pickup_longitude as longitude, 'completed'::text as status
+    select id as order_id, 'pickup'::text as stop_type, 1 as sequence_number, pickup_address as address, pickup_latitude as latitude, pickup_longitude as longitude, 'completed'::text as status
     from public.delivery_orders where tracking_code = 'DYN-SEED-003'
     union all
-    select order_id, 'delivery'::text, 2, delivery_address, delivery_latitude, delivery_longitude, 'pending'::text
+    select id as order_id, 'delivery'::text, 2, delivery_address, delivery_latitude, delivery_longitude, 'pending'::text
     from public.delivery_orders where tracking_code = 'DYN-SEED-003'
   ) stops;
 
