@@ -13,7 +13,8 @@ const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
 const ahead = (minutes: number) =>
   new Date(NOW + minutes * 60_000).toISOString();
 
-test.beforeEach(({}, testInfo) => {
+test.beforeEach(({ browserName }, testInfo) => {
+  void browserName;
   test.skip(
     testInfo.project.name !== "mobile-390",
     "Baselines are captured at 390×844 (manager desktop uses its own viewport)",

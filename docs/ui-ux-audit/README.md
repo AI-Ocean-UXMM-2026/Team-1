@@ -1,6 +1,6 @@
 # Oern UI/UX research, audit and improvement plan
 
-**Date:** 2026-10-21 · **Branch:** `claude/beautiful-clarke-epzs43` · **Status:** Plan only. It needs approval before any production code changes.
+**Date:** 2026-10-21 · **Branch:** `claude/beautiful-clarke-epzs43` · **Status:** Plan approved; implementation in progress. See [Implementation status](#implementation-status) for what is done and what is still open.
 
 This plan is based on four sources:
 
@@ -10,6 +10,18 @@ This plan is based on four sources:
 4. `DESIGN.md` and `PRODUCT.md`, which this plan treats as the approved contract.
 
 Each finding is labelled with its evidence type: **[code]**, **[screenshot]**, **[Mobbin]**, **[DESIGN.md]**, or **[hypothesis]**.
+
+---
+
+## Implementation status
+
+Every fixed item has a regression test that fails without the fix (checked by reverting the fix). Commands: `bun run test` (unit), `bun run test:e2e` (Playwright at 360, 390, 430 and 768px), `bun run build`.
+
+| Status | Findings |
+|---|---|
+| **Done** | C-01 dialog above app chrome · C-02 ETA freshness row readable · C-03 / O-01 manager fits phones with bottom nav · C-05 rider keeps last good route on refresh failure (stale banner) · C-06 outcome step 1 dead end · H-01 Track follows `?order=`/`?code=` · H-02 addresses wrap · H-03 Help sends a support case with the order · H-04 late ETA · H-05 failed/cancelled timeline · H-06 COD amount size · H-07 Orders search, dates, all cards · H-08 slide-to-confirm via screen reader/keyboard · H-09 report a problem before arrival · H-10 sharing-health chip · H-11 shift-tool errors · H-13 rider dark theme · H-14 (partial) self-hosted Burmese + Latin fonts, Burmese line height · O-02 COD reconciliation view · O-03 (partial) all riders + reassign confirmation · O-04 dispatch order · O-05 sign-in gates · O-08 support notes · M-01 customer 48px targets · M-02 no invented progress · M-03/M-04 rider targets and 12px text · M-15 (rider only) tokens · D-01 (partial) 62 duplicate CSS rules removed · D-07 (partial) manifest, icons, theme colour |
+| **Changed from the plan** | **C-04 sample data was not restored.** Commit 5d5aa38 removed it on purpose, so README/PRODUCT.md were corrected instead and browser tests use a synthetic Supabase mock. |
+| **Open** | C-05 reload while offline still shows an empty route (needs a device cache with a sign-out wipe) · H-12 proof-of-delivery photo (needs a Storage bucket + migration) · H-14 full Burmese translation (no i18n layer yet) · O-03 create-order form and override reason · O-06 query windowing/debounce · O-07 map marker diffing, keyboard markers, compact-map scroll trap · O-09…O-13 smaller ops items · M-05 map controls vs sheet · M-06 real notification inbox · M-08 rider sheets onto `ModalPanel` · M-09 map `role="img"` · M-10 COD input validation copy · M-11 atomic outcome RPC · M-12 customer offline banner · M-13 native back · M-14 single status badge · M-16/M-17 · stop list taps and On-shift toggle · D-02 hex literals outside the rider (about 380) · D-03 type tokens · D-04 dark theme for customer/ops · D-05 · D-06 breakpoints · service worker / offline shell |
 
 ---
 
