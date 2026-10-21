@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
-import { Mascot } from "@/components/delivery/mascot";
 import { createClient } from "@/lib/supabase/client";
 
 function formatAuthError(error: unknown): string {
@@ -53,7 +52,6 @@ export function SigninForm() {
         <Link className="auth-page-back" href="/welcome">
           <Icon name="arrow-left" size={16} /> Back
         </Link>
-        <Mascot size={72} />
         <span className="eyebrow">Sign in to Oern</span>
         <h1>Your parcel, in view.</h1>
         <p>Sign in to see your orders and the rider’s location after pickup.</p>
