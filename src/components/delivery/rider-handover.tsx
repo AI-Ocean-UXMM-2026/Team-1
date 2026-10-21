@@ -56,9 +56,16 @@ export function HandoverPanel({
   onComplete: () => void;
   onCannotDeliver: () => void;
 }) {
+  const [stage, setStage] = useState(0);
   const requirements = handoverRequirements(stop, draft);
   const missing = requirements.find((item) => !item.met);
   const amount = Number(draft.codAmount);
+  const verifiedIds = new Set(draft.verified);
+  const parcelReady = stop.open.every((order) => verifiedIds.has(order.id));
+  const recipientReady = draft.receivedBy.trim().length > 0;
+  const paymentReady = stop.codDue <= 0 || requirements.at(-1)?.met === true;
+  const stageReady = [parcelReady, recipientReady, paymentReady];
+  const stageLabels = ["Parcel", "Recipient", "Payment"];
   const toggle = (id: string) =>
     onChange({
       verified: draft.verified.includes(id)
@@ -67,191 +74,253 @@ export function HandoverPanel({
     });
   return (
     <div className="dv-handover">
-      <ol className="dv-reqs" aria-label="Before you can complete">
-        {requirements.map((item) => (
-          <li key={item.key} className={item.met ? "is-met" : ""}>
-            <Icon
-              name={item.met ? "check" : "arrow-right"}
-              size={14}
-              strokeWidth={2.4}
-            />
-            {item.label}
+      <ol className="dv-handover-steps" aria-label="Handover progress">
+        {stageLabels.map((label, index) => (
+          <li
+            key={label}
+            className={`${stage === index ? "is-current" : ""} ${stageReady[index] ? "is-met" : ""}`}
+          >
+            <button
+              type="button"
+              aria-current={stage === index ? "step" : undefined}
+              onClick={() => setStage(index)}
+            >
+              <span>
+                {stageReady[index] ? (
+                  <Icon name="check" size={14} strokeWidth={2.6} />
+                ) : (
+                  index + 1
+                )}
+              </span>
+              {label}
+            </button>
           </li>
         ))}
       </ol>
 
-      <fieldset className="dv-group">
-        <legend>
-          {stop.open.length > 1
-            ? `Check ${stop.open.length} parcels against the label`
-            : "Check the parcel against the label"}
-        </legend>
-        {stop.open.map((order) => (
-          <label
-            key={order.id}
-            className={`dv-check ${draft.verified.includes(order.id) ? "is-checked" : ""}`}
-          >
-            <input
-              type="checkbox"
-              checked={draft.verified.includes(order.id)}
-              onChange={() => toggle(order.id)}
-            />
-            <span className="dv-check-box" aria-hidden="true">
-              <Icon name="check" size={16} strokeWidth={2.6} />
-            </span>
-            <ParcelLine order={order} />
-          </label>
-        ))}
-        {stop.notLoaded.length > 0 && (
-          <p className="rf-muted">
-            {stop.notLoaded.length} more{" "}
-            {stop.notLoaded.length === 1 ? "parcel" : "parcels"} for this
-            recipient{" "}
-            {stop.notLoaded.length === 1 ? "isn’t" : "aren’t"} on your truck.
-            Deliver what you have; operations follows up on the rest.
-          </p>
+      <section className="dv-handover-stage" aria-live="polite">
+        {stage === 0 ? (
+          <fieldset className="dv-group">
+            <legend>
+              {stop.open.length > 1
+                ? `Verify ${stop.open.length} parcels`
+                : "Verify the parcel"}
+            </legend>
+            <p className="rf-muted">
+              Match each parcel ID with its label before handing it over.
+            </p>
+            {stop.open.map((order) => (
+              <label
+                key={order.id}
+                className={`dv-check ${verifiedIds.has(order.id) ? "is-checked" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={verifiedIds.has(order.id)}
+                  onChange={() => toggle(order.id)}
+                />
+                <span className="dv-check-box" aria-hidden="true">
+                  <Icon name="check" size={16} strokeWidth={2.6} />
+                </span>
+                <ParcelLine order={order} />
+              </label>
+            ))}
+            {stop.notLoaded.length > 0 && (
+              <p className="rf-muted">
+                {stop.notLoaded.length} more{" "}
+                {stop.notLoaded.length === 1 ? "parcel" : "parcels"} for this
+                recipient {stop.notLoaded.length === 1 ? "isn’t" : "aren’t"} on
+                your truck. Deliver what you have; operations follows up on the
+                rest.
+              </p>
+            )}
+          </fieldset>
+        ) : stage === 1 ? (
+          <div className="dv-recipient-stage">
+            <div>
+              <h3>Verify the receiver</h3>
+              <p className="rf-muted">
+                Intended recipient: <strong>{stop.recipient}</strong>
+              </p>
+            </div>
+            <label className="rf-field">
+              <span>Actual receiver</span>
+              <input
+                value={draft.receivedBy}
+                autoComplete="off"
+                placeholder="Name of the person taking the parcels"
+                onChange={(event) =>
+                  onChange({ receivedBy: event.target.value })
+                }
+              />
+            </label>
+            {draft.receivedBy !== stop.recipient && (
+              <button
+                type="button"
+                className="rf-btn rf-btn-secondary"
+                onClick={() => onChange({ receivedBy: stop.recipient })}
+              >
+                Recipient is receiving
+              </button>
+            )}
+            <label className="rf-field">
+              <span>Handover note (optional)</span>
+              <textarea
+                value={draft.note}
+                maxLength={500}
+                placeholder="For example: authorized building security"
+                onChange={(event) => onChange({ note: event.target.value })}
+              />
+            </label>
+          </div>
+        ) : (
+          <div className="dv-payment-stage">
+            {stop.codDue > 0 ? (
+              <fieldset className="rf-cod-panel">
+                <legend>
+                  <Icon name="coin" size={17} /> Collect payment
+                </legend>
+                <div className="rf-cod-due">
+                  <span>COD due</span>
+                  <strong>{currency.format(stop.codDue)}</strong>
+                </div>
+                <div className="rf-reasons">
+                  <label
+                    className={`rf-reason is-positive ${draft.codMode === "full" ? "is-selected" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="cod-mode"
+                      checked={draft.codMode === "full"}
+                      onChange={() => onChange({ codMode: "full" })}
+                    />
+                    I received the full amount in cash
+                  </label>
+                  <label
+                    className={`rf-reason ${draft.codMode === "different" ? "is-selected" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="cod-mode"
+                      checked={draft.codMode === "different"}
+                      onChange={() => onChange({ codMode: "different" })}
+                    />
+                    I received a different amount
+                  </label>
+                </div>
+                {draft.codMode === "different" && (
+                  <>
+                    <label className="rf-field">
+                      <span>Amount received (MMK)</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={draft.codAmount}
+                        onChange={(event) =>
+                          onChange({ codAmount: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="rf-field">
+                      <span>Why is it different?</span>
+                      <textarea
+                        value={draft.codReason}
+                        maxLength={240}
+                        placeholder="Explain what happened for operations"
+                        onChange={(event) =>
+                          onChange({ codReason: event.target.value })
+                        }
+                      />
+                    </label>
+                    {draft.codAmount !== "" && Number.isFinite(amount) && (
+                      <p className="rf-field-warn">
+                        <Icon name="warning" size={15} />{" "}
+                        {currency.format(amount)} of{" "}
+                        {currency.format(stop.codDue)}. COD stays open for
+                        operations to review.
+                      </p>
+                    )}
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="rf-link"
+                  onClick={onCannotDeliver}
+                >
+                  Recipient can’t pay? Record the exception
+                </button>
+              </fieldset>
+            ) : (
+              <div className="dv-no-payment">
+                <Icon name="check" size={22} strokeWidth={2.4} />
+                <div>
+                  <strong>No payment to collect</strong>
+                  <p>This stop has no cash-on-delivery amount.</p>
+                </div>
+              </div>
+            )}
+          </div>
         )}
-      </fieldset>
+      </section>
 
-      <label className="rf-field">
-        <span>Received by</span>
-        <input
-          value={draft.receivedBy}
-          autoComplete="off"
-          placeholder="Name of the person who took the parcels"
-          onChange={(event) => onChange({ receivedBy: event.target.value })}
-        />
-        {!draft.receivedBy && (
+      {stage < 2 && (
+        <div className="dv-sheet-actions">
           <button
             type="button"
-            className="rf-link rf-field-help"
-            onClick={() => onChange({ receivedBy: stop.recipient })}
+            className="rf-btn rf-btn-primary"
+            disabled={!stageReady[stage]}
+            onClick={() => setStage(stage + 1)}
           >
-            Use “{stop.recipient}”
+            {stage === 0 ? "Continue to recipient" : "Continue to payment"}
+            <Icon name="arrow-right" size={18} />
           </button>
-        )}
-      </label>
+          <button
+            type="button"
+            className="rf-btn rf-btn-quiet"
+            onClick={() => setStage(Math.max(0, stage - 1))}
+            disabled={stage === 0}
+          >
+            Back
+          </button>
+        </div>
+      )}
 
-      {stop.codDue > 0 && (
-        <fieldset className="rf-cod-panel">
-          <legend>
-            <Icon name="coin" size={17} /> Cash on delivery
-          </legend>
-          <div className="rf-cod-due">
-            <span>Collect</span>
-            <strong>{currency.format(stop.codDue)}</strong>
-          </div>
-          <div className="rf-reasons">
-            <label
-              className={`rf-reason is-positive ${draft.codMode === "full" ? "is-selected" : ""}`}
-            >
-              <input
-                type="radio"
-                name="cod-mode"
-                checked={draft.codMode === "full"}
-                onChange={() => onChange({ codMode: "full" })}
-              />
-              Received the full {currency.format(stop.codDue)}
-            </label>
-            <label
-              className={`rf-reason ${draft.codMode === "different" ? "is-selected" : ""}`}
-            >
-              <input
-                type="radio"
-                name="cod-mode"
-                checked={draft.codMode === "different"}
-                onChange={() => onChange({ codMode: "different" })}
-              />
-              Received a different amount
-            </label>
-          </div>
-          {draft.codMode === "different" && (
-            <>
-              <label className="rf-field">
-                <span>Amount received (MMK)</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={draft.codAmount}
-                  onChange={(event) =>
-                    onChange({ codAmount: event.target.value })
-                  }
-                />
-              </label>
-              <label className="rf-field">
-                <span>Why is it different?</span>
-                <textarea
-                  value={draft.codReason}
-                  maxLength={240}
-                  placeholder="Paid 10,000 now, rest by KPay to the shop"
-                  onChange={(event) =>
-                    onChange({ codReason: event.target.value })
-                  }
-                />
-              </label>
-              {draft.codAmount !== "" && Number.isFinite(amount) && (
-                <p className="rf-field-warn">
-                  <Icon name="warning" size={15} />{" "}
-                  {currency.format(amount)} of {currency.format(stop.codDue)}.
-                  COD stays open for operations to review.
-                </p>
-              )}
-            </>
+      {error}
+      {stage === 2 && (
+        <div className="dv-sheet-actions">
+          <button
+            type="button"
+            className="rf-btn rf-btn-primary"
+            disabled={!!missing || busy || !online}
+            onClick={onComplete}
+          >
+            {busy
+              ? "Saving…"
+              : !online
+                ? "Waiting for connection"
+                : missing
+                  ? missing.label
+                  : stop.open.length > 1
+                    ? `Complete delivery · ${stop.open.length} parcels`
+                    : "Complete delivery"}
+          </button>
+          {!online && (
+            <p className="rf-dock-note">
+              Your entries are kept on this phone. Completion is sent when
+              you’re back online.
+            </p>
           )}
           <button
             type="button"
-            className="rf-link"
-            onClick={onCannotDeliver}
+            className="rf-btn rf-btn-secondary"
+            onClick={() => setStage(1)}
+            disabled={busy}
           >
-            Recipient can’t pay? Don’t hand over — record it instead
+            Review recipient
           </button>
-        </fieldset>
+        </div>
       )}
-
-      <label className="rf-field">
-        <span>Note for operations (optional)</span>
-        <textarea
-          value={draft.note}
-          maxLength={500}
-          placeholder="Left with building security, 3rd floor"
-          onChange={(event) => onChange({ note: event.target.value })}
-        />
-      </label>
-
-      {error}
-      <div className="dv-sheet-actions">
-        <button
-          type="button"
-          className="rf-btn rf-btn-primary"
-          disabled={!!missing || busy || !online}
-          onClick={onComplete}
-        >
-          {busy
-            ? "Saving…"
-            : !online
-              ? "Waiting for connection"
-              : missing
-                ? missing.label
-                : stop.open.length > 1
-                  ? `Complete delivery · ${stop.open.length} parcels`
-                  : "Complete delivery"}
-        </button>
-        {!online && (
-          <p className="rf-dock-note">
-            Your entries are kept on this phone. Completion is sent when you’re
-            back online.
-          </p>
-        )}
-        <button
-          type="button"
-          className="rf-btn rf-btn-quiet"
-          onClick={onCannotDeliver}
-          disabled={busy}
-        >
-          Can’t deliver
-        </button>
-      </div>
     </div>
   );
 }
@@ -336,7 +405,12 @@ export function ExceptionPanel({
           onSubmit={(event) => {
             event.preventDefault();
             if (ready && action)
-              onSubmit({ reason: option.id, parcelIds, nextAction: action, note });
+              onSubmit({
+                reason: option.id,
+                parcelIds,
+                nextAction: action,
+                note,
+              });
           }}
         >
           {chooseParcels && (

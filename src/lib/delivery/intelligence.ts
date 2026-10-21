@@ -107,6 +107,7 @@ export function recommendAssignments(
         }))
         .filter((candidate) => Number.isFinite(candidate.score))
         .sort((a, b) => b.score - a.score);
+      if (vehicles.length > 0 && rankedVehicles.length === 0) return [];
 
       const chosenVehicle = rankedVehicles[0] ?? null;
       const availabilityScore = driver.availability === "available" ? 28 : 12;

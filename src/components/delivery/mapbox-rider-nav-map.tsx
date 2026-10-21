@@ -285,15 +285,19 @@ export function MapboxRiderNavMap({
       width: 4,
       dash: [1.5, 1.5],
     });
-    drawLines(map, "rnav-route-casing", [routeCoordinates], {
+    drawLines(map, "rnav-route-casing", road ? [routeCoordinates] : [], {
       color: palette.casing,
       width: 11,
     });
-    drawLines(map, "rnav-route", [routeCoordinates], {
-      color: palette.route,
-      width: 6,
-    });
-  }, [map, routeCoordinates, upcomingCoordinates]);
+    drawLines(
+      map,
+      "rnav-route",
+      [routeCoordinates],
+      road
+        ? { color: palette.route, width: 6 }
+        : { color: palette.origin, width: 4, dash: [1.5, 1.5] },
+    );
+  }, [map, routeCoordinates, upcomingCoordinates, road]);
 
   return (
     <div className="rnav-map" aria-label={label} role="img">

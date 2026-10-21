@@ -325,7 +325,7 @@ function ShortcutRow({
   );
 }
 
-/** Home's primary action: one full-width card, the whole surface opens /pickup. */
+/** Home's primary action: the whole surface opens /pickup. */
 function PickupHero() {
   return (
     <Card
@@ -353,26 +353,8 @@ function PickupHero() {
               variant="body2"
               sx={{ color: "text.secondary", mt: 0.75 }}
             >
-              A rider collects your parcel from your door, anywhere in Yangon.
+              Book a rider to collect your parcel in Yangon.
             </Typography>
-            <Box
-              component="span"
-              sx={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 0.75,
-                mt: 2,
-                minHeight: 44,
-                px: 2.25,
-                borderRadius: "999px",
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-                typography: "body2",
-                fontWeight: 700,
-              }}
-            >
-              Request pickup <ArrowForward fontSize="small" />
-            </Box>
           </Box>
           <Box
             component="img"
@@ -659,7 +641,7 @@ function TrackingField({
           {!value && onPaste && (
             <IconButton
               size="small"
-              aria-label="Paste tracking number"
+              aria-label="Paste tracking code"
               onClick={onPaste}
             >
               <ContentPasteOutlined fontSize="small" />
@@ -668,7 +650,7 @@ function TrackingField({
           {!value && onScan && (
             <IconButton
               size="small"
-              aria-label="Scan parcel code"
+              aria-label="Scan tracking code"
               onClick={onScan}
             >
               <QrCodeScannerOutlined fontSize="small" />
@@ -755,7 +737,7 @@ export function TrackingLookup({
           onPaste={() => void paste()}
           onScan={onOpenScan}
           placeholder="Tracking code"
-          ariaLabel="Tracking number"
+          ariaLabel="Tracking code"
         />
       </Box>
       {!code && recent.length > 0 && (
@@ -763,7 +745,7 @@ export function TrackingLookup({
           direction="row"
           spacing={1}
           role="group"
-          aria-label="Recent tracking numbers"
+          aria-label="Recent tracking codes"
           sx={{
             mt: 1.25,
             overflowX: "auto",
@@ -882,7 +864,7 @@ export function CustomerHome({
             component="h2"
             sx={{ fontWeight: 750 }}
           >
-            Active deliveries
+            Your deliveries
           </Typography>
           {isAuthenticated && activeCount > 0 && (
             <Chip size="small" label={activeCount} sx={toneSx("info")} />
@@ -926,7 +908,7 @@ export function CustomerHome({
         ) : latest ? (
           <Box sx={{ px: 2, mt: 1 }}>
             <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-              Nothing on the way right now. Your latest delivery:
+              No deliveries on the way. Your latest delivery:
             </Typography>
             <ListItemButton
               component={Link}
@@ -1775,8 +1757,8 @@ function ScanView({ onDetected }: { onDetected: (code: string) => void }) {
     return (
       <Alert severity="info" icon={false} sx={{ borderRadius: "12px", mb: 2 }}>
         {status === "blocked"
-          ? "Camera access was blocked. Allow it in your browser settings, or type the tracking number instead."
-          : "This browser can’t scan codes. Type or paste the tracking number instead."}
+          ? "Camera access was blocked. Allow it in your browser settings, or type the tracking code instead."
+          : "This browser can’t scan codes. Type or paste the tracking code instead."}
       </Alert>
     );
 

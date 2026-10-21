@@ -437,7 +437,7 @@
   left: 50%;
   z-index: 10;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   width: calc(100% - 24px);
   max-width: 456px;
   transform: translateX(-50%);
@@ -449,8 +449,20 @@
 }
 
 .dv-instruction strong {
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 20px;
+  line-height: 26px;
+}
+
+.dv-active .dv-instruction {
+  border: 0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px -8px rgb(23 43 77 / 0.28);
+}
+
+.dv-active .dv-instruction .rf-turn {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .dv-top-row {
@@ -478,6 +490,7 @@
 
 .dv-chip-btn {
   display: inline-flex;
+  border-radius: 12px;
   cursor: pointer;
 }
 
@@ -493,19 +506,29 @@
   left: 50%;
   bottom: 0;
   z-index: 15;
-  max-height: 52dvh;
+  max-height: 46dvh;
   padding-bottom: 0;
+  border: 0;
+  background: #ffffff;
   transform: translateX(-50%);
   transition: max-height 240ms var(--rf-ease);
 }
 
 .dv-sheet.is-open {
-  max-height: 74dvh;
+  display: flex;
+  height: 76dvh;
+  max-height: 76dvh;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .dv-sheet.is-handover {
   max-height: 90dvh;
   padding-top: 12px;
+}
+
+.dv-sheet.is-arrived:not(.is-open, .is-handover) {
+  max-height: 50dvh;
 }
 
 .dv-sheet-head {
@@ -560,8 +583,7 @@
   font-size: 12px;
   line-height: 16px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .dv-stop-title > small.is-arrived {
@@ -581,14 +603,32 @@
   margin: 10px 0 0 56px;
 }
 
+.dv-sheet > .dv-meta .rf-cod {
+  flex-basis: 100%;
+  width: fit-content;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
 .dv-quick {
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  margin-top: 0;
 }
 
 .dv-details {
   display: grid;
+  flex: 1;
   gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
   padding-top: 16px;
+  overscroll-behavior: contain;
+}
+
+.dv-details > .dv-quick {
+  margin-inline: -16px;
 }
 
 .dv-parcel-list {
@@ -623,10 +663,9 @@
 }
 
 .dv-sheet-actions {
-  position: sticky;
-  bottom: 0;
   display: grid;
-  gap: 4px;
+  flex: none;
+  gap: 8px;
   margin: 12px -16px 0;
   padding: 12px 16px calc(var(--rf-safe-bottom) + 12px);
   border-top: 1px solid var(--color-border);
@@ -637,12 +676,77 @@
 
 .dv-handover {
   display: grid;
-  gap: 4px;
+  gap: 16px;
 }
 
-.dv-handover > .rf-field,
-.dv-handover > .rf-cod-panel {
-  margin-top: 16px;
+.dv-handover-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-handover-steps button {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  place-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-text-secondary-subtle);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dv-handover-steps button > span {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid var(--color-border-control);
+  border-radius: 999px;
+}
+
+.dv-handover-steps .is-current button {
+  background: var(--color-info-surface);
+  color: var(--color-info-text);
+}
+
+.dv-handover-steps .is-met button > span {
+  border-color: var(--color-success);
+  background: var(--color-success-surface);
+  color: var(--color-success-text);
+}
+
+.dv-handover-stage {
+  min-height: 280px;
+}
+
+.dv-recipient-stage,
+.dv-payment-stage {
+  display: grid;
+  gap: 16px;
+}
+
+.dv-no-payment {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-success-surface);
+  color: var(--color-success-text);
+}
+
+.dv-no-payment p {
+  margin-top: 2px;
 }
 
 .dv-reqs {
