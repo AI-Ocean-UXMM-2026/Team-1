@@ -6,7 +6,6 @@ import { type FormEvent, useMemo, useState } from "react";
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
   ActionToast,
-  Brand,
   DemoBadge,
   LoadingBlock,
   MobileNav,
@@ -223,7 +222,6 @@ export function FleetInsightsApp() {
     <main className="operations-app fleet-app">
       <header className="workspace-header">
         <div className="workspace-header-inner">
-          <Brand href="/manager" />
           <Link className="workspace-back-link" href="/manager/home">
             <Icon name="arrow-left" size={15} /> Back to dispatch
           </Link>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BrandMark } from "@/components/delivery/common";
 
 export const metadata: Metadata = {
   title: "Page Not Found — Oern",
@@ -10,9 +11,9 @@ export default function NotFound() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-50 text-slate-800">
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-8 shadow-xs text-center flex flex-col items-center">
-        <div className="text-sm font-bold tracking-wider uppercase text-orange-600 mb-3">
-          oern<span className="text-slate-900">.</span>
-        </div>
+        <Link href="/" aria-label="Oern home" className="mb-3">
+          <BrandMark size={56} />
+        </Link>
         <h1 className="text-5xl font-black text-slate-900 mb-2 tracking-tight">
           404
         </h1>

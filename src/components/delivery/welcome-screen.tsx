@@ -6,7 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 
-import { Mascot } from "@/components/delivery/mascot";
+import { BrandMark } from "@/components/delivery/common";
 
 export function WelcomeScreen() {
   const router = useRouter();
@@ -71,7 +71,7 @@ export function WelcomeScreen() {
             </circle>
           </svg>
         </Box>
-        <Mascot size={240} />
+        <BrandMark size={200} />
         <Typography
           component="h1"
           sx={{
@@ -105,7 +105,7 @@ export function WelcomeScreen() {
           variant="outlined"
           color="secondary"
           size="large"
-          onClick={() => router.push("/home?signin=1")}
+          onClick={() => router.push("/signin")}
           sx={{ minHeight: 56, borderWidth: 1.5 }}
         >
           I already have an account

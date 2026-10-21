@@ -5,7 +5,6 @@ import { type FormEvent, useMemo, useState } from "react";
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
   ActionToast,
-  Brand,
   DemoBadge,
   LoadingBlock,
   MobileNav,
@@ -192,7 +191,6 @@ export function SellerApp() {
     <main className="operations-app seller-app">
       <header className="workspace-header">
         <div className="workspace-header-inner">
-          <Brand href="/seller" />
           <span className="workspace-role-label">Seller console</span>
           {/* Signed out, the page body already offers sign-in. */}
           {!signedOut && (

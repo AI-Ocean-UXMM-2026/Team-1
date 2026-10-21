@@ -428,6 +428,12 @@ a {
   letter-spacing: -0.075em;
   line-height: 1;
 }
+.brand-mark {
+  display: block;
+  flex: none;
+  border-radius: 8px;
+  object-fit: cover;
+}
 .brand-symbol {
   width: 31px;
   height: 31px;
@@ -2876,7 +2882,8 @@ a {
   color: #7f8981;
   font-size: 9px;
 }
-.auth-switch button {
+.auth-switch button,
+.auth-switch a {
   border: 0;
   padding: 3px;
   color: var(--forest);
@@ -2885,7 +2892,8 @@ a {
   font-weight: 720;
   cursor: pointer;
 }
-.auth-switch button:hover {
+.auth-switch button:hover,
+.auth-switch a:hover {
   text-decoration: underline;
 }
 .auth-note {
