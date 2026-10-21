@@ -274,11 +274,8 @@ export function DispatchApp() {
               real or saved, and committing is disabled. Times use a simulated
               clock (01:00 on the service day) and straight-line distances.
             </p>
-            <div
-              className="dispatch-segment"
-              role="group"
-              aria-label="Simulated scenario"
-            >
+            <fieldset className="dispatch-segment">
+              <legend className="sr-only">Simulated scenario</legend>
               {SYNTHETIC_SCENARIOS.map((item) => (
                 <button
                   key={item.id}
@@ -289,7 +286,7 @@ export function DispatchApp() {
                   {item.label}
                 </button>
               ))}
-            </div>
+            </fieldset>
             <p className="dispatch-synthetic-note">
               {
                 SYNTHETIC_SCENARIOS.find((item) => item.id === scenario)
@@ -347,7 +344,7 @@ export function DispatchApp() {
 
         {/* ------------------------------- committed ------------------------------- */}
         {committed && (
-          <section className="operations-panel dispatch-done" role="status">
+          <section className="operations-panel dispatch-done">
             <h2>
               <Icon name="check" size={18} /> Routes committed
             </h2>
@@ -510,11 +507,7 @@ export function DispatchApp() {
         {/* --------------------------------- review -------------------------------- */}
         {plan && !committed && summary && (
           <>
-            <section
-              className={`dispatch-quality tone-${summary.tone}`}
-              role="status"
-              aria-label="What this plan is based on"
-            >
+            <output className={`dispatch-quality tone-${summary.tone}`}>
               <Icon
                 name={summary.tone === "good" ? "shield" : "warning"}
                 size={18}
@@ -530,7 +523,7 @@ export function DispatchApp() {
                   {summary.mixedWeights}.
                 </span>
               </div>
-            </section>
+            </output>
 
             {plan.warnings.length > 0 && (
               <ul className="dispatch-warnings">
@@ -777,12 +770,9 @@ export function DispatchApp() {
             </details>
 
             {outcome && !dialog && (
-              <p
-                className={`dispatch-outcome kind-${outcome.kind}`}
-                role="status"
-              >
+              <output className={`dispatch-outcome kind-${outcome.kind}`}>
                 {outcome.text}
-              </p>
+              </output>
             )}
 
             <footer className="dispatch-footer">
