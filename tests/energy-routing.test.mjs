@@ -3,10 +3,13 @@ import test from "node:test";
 import {
   assessEnergyRoute,
   countTrafficSignalsBetween,
+  countInterceptionPointsBetween,
+  detectSignalBypasses,
   distanceToSegmentKm,
   findOptimalFuelStation,
   YANGON_FUEL_STATIONS,
   YANGON_TRAFFIC_SIGNALS,
+  YANGON_USER_INTERCEPTION_POINTS,
 } from "../src/lib/delivery/energy-routing.ts";
 
 test("yangon fuel stations dataset contains verified major retail brands across Yangon corridors", () => {
@@ -168,4 +171,33 @@ test("assessEnergyRoute advises nearest station immediately when fuel is insuffi
   );
   assert.ok(assessment.recommendedFuelStation != null);
   assert.ok(assessment.message.includes("Nearest fuel station:"));
+});
+
+test("detectSignalBypasses finds small rotation bypasses for long cycle junctions", () => {
+  const hledan = YANGON_TRAFFIC_SIGNALS.find((s) => s.name.includes("Hledan"));
+  assert.ok(hledan != null);
+  const bypasses = detectSignalBypasses([hledan]);
+  assert.equal(bypasses.length, 1);
+  assert.ok(bypasses[0].netTimeSavedMin > 0);
+  assert.ok(bypasses[0].fuelSavedLitres > 0);
+  assert.ok(bypasses[0].recommendedRotation.includes("Hledan"));
+});
+
+test("user-mapped interception points dataset loads 89 points with valid Yangon coordinates", () => {
+  assert.equal(YANGON_USER_INTERCEPTION_POINTS.length, 89);
+  for (const pt of YANGON_USER_INTERCEPTION_POINTS) {
+    assert.ok(pt.latitude > 16.7 && pt.latitude < 17.1);
+    assert.ok(pt.longitude > 96.0 && pt.longitude < 96.3);
+    assert.ok(pt.estimatedCycleSeconds > 0);
+    assert.ok(pt.township.length > 0);
+  }
+});
+
+test("countInterceptionPointsBetween detects intermediate points along Kyauktada downtown corridor", () => {
+  // Downtown corridor in Kyauktada
+  const p1 = { latitude: 16.782, longitude: 96.143 };
+  const p2 = { latitude: 16.772, longitude: 96.165 };
+  const result = countInterceptionPointsBetween(p1, p2, 0.5);
+  assert.ok(result.count >= 5);
+  assert.ok(result.points.some((p) => p.township === "Kyauktada"));
 });

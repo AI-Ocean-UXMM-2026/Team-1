@@ -223,7 +223,7 @@ export function FleetInsightsApp() {
       <header className="workspace-header">
         <div className="workspace-header-inner">
           <Link className="workspace-back-link" href="/manager/home">
-            <Icon name="arrow-left" size={15} /> Back to dispatch
+            <Icon name="arrow-left" size={15} /> Back to overview
           </Link>
           {/* Signed out, the page body already offers sign-in. */}
           {!signedOut && (

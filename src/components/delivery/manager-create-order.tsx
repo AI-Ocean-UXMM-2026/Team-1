@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/delivery/icons";
 import {
   createManualDeliveryOrder,
   type ManualOrderItem,
 } from "@/lib/delivery/actions";
+import { currency } from "@/lib/delivery/format";
 import { createClient } from "@/lib/supabase/client";
 
 type DraftItem = ManualOrderItem & { id: number };
@@ -20,6 +21,7 @@ const firstItem = (): DraftItem => ({
 
 export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
   const [items, setItems] = useState<DraftItem[]>(() => [firstItem()]);
+  const [codAmount, setCodAmount] = useState<number | string>(0);
   const nextItemId = useRef(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +29,16 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
   const successHeading = useRef<HTMLHeadingElement>(null);
   const senderField = useRef<HTMLInputElement>(null);
   const focusSender = useRef(false);
+
+  const itemsTotal = useMemo(
+    () =>
+      items.reduce(
+        (sum, item) =>
+          sum + Math.max(1, item.quantity) * Math.max(0, item.unitPrice),
+        0,
+      ),
+    [items],
+  );
 
   useEffect(() => {
     if (created) {
@@ -108,7 +120,15 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
             className="button button-primary"
             href={`/manager/order?id=${encodeURIComponent(created.id)}`}
           >
-            View order
+            {created.assigned_driver_id ? (
+              <>
+                <Icon name="box" size={16} /> View order
+              </>
+            ) : (
+              <>
+                <Icon name="user" size={16} /> Assign rider now
+              </>
+            )}
           </Link>
           <button
             type="button"
@@ -117,6 +137,7 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
               focusSender.current = true;
               setCreated(null);
               setError(null);
+              setCodAmount(0);
               setItems([firstItem()]);
             }}
           >
@@ -222,45 +243,73 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
                 />
               </label>
             </div>
-            {items.length > 1 && (
-              <button
-                type="button"
-                className="button button-outline"
-                aria-label={`Remove item ${index + 1}`}
-                onClick={() =>
-                  setItems((previous) =>
-                    previous.filter((current) => current.id !== item.id),
-                  )
-                }
-              >
-                Remove item
-              </button>
-            )}
+            <div className="manual-item-subtotal-row">
+              <span className="manual-item-subtotal">
+                Subtotal:{" "}
+                <strong>
+                  {currency.format(
+                    Math.max(1, item.quantity) * Math.max(0, item.unitPrice),
+                  )}
+                </strong>
+              </span>
+              {items.length > 1 && (
+                <button
+                  type="button"
+                  className="button button-outline button-small"
+                  aria-label={`Remove item ${index + 1}`}
+                  onClick={() =>
+                    setItems((previous) =>
+                      previous.filter((current) => current.id !== item.id),
+                    )
+                  }
+                >
+                  Remove item
+                </button>
+              )}
+            </div>
           </div>
         ))}
-        <button
-          type="button"
-          className="button button-outline manual-order-add"
-          onClick={() => {
-            const id = nextItemId.current++;
-            setItems((previous) => [...previous, { ...firstItem(), id }]);
-          }}
-        >
-          <Icon name="plus" size={18} /> Add item
-        </button>
+        <div className="manual-items-footer">
+          <button
+            type="button"
+            className="button button-outline manual-order-add"
+            onClick={() => {
+              const id = nextItemId.current++;
+              setItems((previous) => [...previous, { ...firstItem(), id }]);
+            }}
+          >
+            <Icon name="plus" size={18} /> Add item
+          </button>
+          <div className="manual-items-summary">
+            <span>Order items total:</span>
+            <strong>{currency.format(itemsTotal)}</strong>
+          </div>
+        </div>
       </fieldset>
       <fieldset disabled={saving} className="manual-order-fields">
         <legend>Payment and notes</legend>
-        <label>
-          COD amount (MMK)
-          <input
-            name="codAmount"
-            type="number"
-            min="0"
-            step="100"
-            defaultValue="0"
-          />
-        </label>
+        <div className="manual-cod-row">
+          <label>
+            COD amount (MMK)
+            <input
+              name="codAmount"
+              type="number"
+              min="0"
+              step="100"
+              value={codAmount}
+              onChange={(e) => setCodAmount(e.target.value)}
+            />
+          </label>
+          {itemsTotal > 0 && (
+            <button
+              type="button"
+              className="button button-small button-outline manual-cod-match"
+              onClick={() => setCodAmount(itemsTotal)}
+            >
+              Match items total ({currency.format(itemsTotal)})
+            </button>
+          )}
+        </div>
         <label>
           Notes (optional)
           <textarea

@@ -1319,9 +1319,10 @@
   overflow: hidden;
   border-radius: 999px;
   background: var(--color-brand-orange-action);
-  touch-action: pan-y;
+  touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+  transition: background-color 240ms var(--rf-ease);
 }
 
 /* The trail behind the knob darkens as it travels. */
@@ -1394,6 +1395,22 @@
   transform: translateX(var(--x, 0px));
 }
 
+.dv-swipe[data-phase="drag"] .dv-swipe-knob {
+  cursor: grabbing;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transform: translateX(var(--x, 0px)) scale(1.03);
+  transition: none;
+}
+
+.dv-swipe[data-phase="done"] {
+  background: var(--color-brand-green-fresh, #15803d);
+}
+
+.dv-swipe[data-phase="done"] .dv-swipe-knob {
+  color: var(--color-brand-green-fresh, #15803d);
+  animation: dv-pop 320ms var(--rf-ease);
+}
+
 .dv-swipe[data-phase="idle"] .dv-swipe-knob,
 .dv-swipe[data-phase="nudge"] .dv-swipe-knob,
 .dv-swipe[data-phase="done"] .dv-swipe-knob {
@@ -1402,10 +1419,6 @@
 
 .dv-swipe[data-phase="nudge"] .dv-swipe-knob {
   animation: dv-nudge 600ms var(--rf-ease);
-}
-
-.dv-swipe[data-phase="done"] .dv-swipe-knob {
-  animation: dv-pop 320ms var(--rf-ease);
 }
 
 .dv-swipe-knob:focus-visible {

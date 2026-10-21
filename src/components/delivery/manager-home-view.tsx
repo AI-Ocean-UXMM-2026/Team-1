@@ -249,24 +249,28 @@ export function ManagerHomeView({
               value={movingCount}
               hint={`${summary.gpsLive} GPS live · ${summary.staleLocations} stale`}
               tone="live"
+              href="/manager/track"
             />
             <KpiCell
               label="Needs rider"
               value={summary.needsRider}
               hint="Awaiting assignment"
               tone={summary.needsRider ? "warning" : undefined}
+              href="/manager/order?filter=unassigned"
             />
             <KpiCell
               label="Delivered today"
               value={deliveredCount}
               hint="Local time"
               tone="success"
+              href="/manager/order"
             />
             <KpiCell
               label="At risk"
               value={atRiskCount}
               hint="Delayed or failed"
               tone={atRiskCount ? "warning" : undefined}
+              href="/manager/order"
             />
           </div>
         </section>

@@ -9,6 +9,7 @@ import {
   DemoBadge,
   LoadingBlock,
   MobileNav,
+  type MobileNavItem,
   StatusBadge,
   signOut,
   UserActions,
@@ -19,6 +20,7 @@ import { CodLedgerView } from "@/components/delivery/manager-cod";
 import { ManagerCreateOrder } from "@/components/delivery/manager-create-order";
 import "@/components/delivery/manager-create-order.css";
 import { ManagerHomeView } from "@/components/delivery/manager-home-view";
+import { ModalPanel } from "@/components/delivery/modal-panel";
 import {
   CardHeader,
   type ManagerNotice as Notice,
@@ -45,10 +47,12 @@ import {
   sentenceCase,
 } from "@/lib/delivery/format";
 import { recommendAssignments } from "@/lib/delivery/intelligence";
+import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
 import type {
   DeliveryOrder,
   DriverOption,
   RiderRequest,
+  VehicleOption,
   WorkspaceData,
 } from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
@@ -138,6 +142,35 @@ export function ManagerDashboard({
   const [filter, setFilter] = useState<OrderFilter>(
     initialFilter(searchParams.get("filter")),
   );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [reassignModal, setReassignModal] = useState<{
+    driverId: string;
+    driverName: string;
+    vehicleId: string | null;
+    vehicleLabel: string;
+  } | null>(null);
+  const [manualOverrideOpen, setManualOverrideOpen] = useState(false);
+  const [manualDriverId, setManualDriverId] = useState("");
+  const [manualVehicleId, setManualVehicleId] = useState("");
+  const [overrideReason, setOverrideReason] = useState("");
+
+  const mobileNavItems: MobileNavItem[] = useMemo(
+    () => [
+      { id: "home", label: "Overview", href: "/manager/home", icon: "delivery" },
+      { id: "order", label: "Orders", href: "/manager/order", icon: "box" },
+      { id: "track", label: "Track", href: "/manager/track", icon: "track" },
+      { id: "cod", label: "COD", href: "/manager/cod", icon: "coin" },
+      {
+        id: "more",
+        label: "More",
+        href: "#more",
+        icon: "menu",
+        onClick: () => setMoreOpen(true),
+      },
+    ],
+    [],
+  );
 
   const orders = useMemo(
     () => prioritiseOrders(workspace.data.orders),
@@ -157,7 +190,20 @@ export function ManagerDashboard({
   const filteredOrders = queueOrders.filter((order) =>
     matchesFilter(order, filter),
   );
+  const searchedOrders = useMemo(() => {
+    if (!searchQuery.trim()) return filteredOrders;
+    const q = searchQuery.trim().toLowerCase();
+    return filteredOrders.filter(
+      (order) =>
+        order.tracking_code.toLowerCase().includes(q) ||
+        order.customer_name.toLowerCase().includes(q) ||
+        order.delivery_address.toLowerCase().includes(q) ||
+        (order.driver_name && order.driver_name.toLowerCase().includes(q)),
+    );
+  }, [filteredOrders, searchQuery]);
   const selectedOrder =
+    searchedOrders.find((order) => order.id === selectedId) ??
+    searchedOrders[0] ??
     filteredOrders.find((order) => order.id === selectedId) ??
     filteredOrders[0] ??
     null;
@@ -178,12 +224,33 @@ export function ManagerDashboard({
         workspace.data.vehicles,
         orders,
         Number.POSITIVE_INFINITY,
+        workspace.data.roadReports,
       ),
-    [selectedOrder, workspace.data.drivers, workspace.data.vehicles, orders],
+    [
+      selectedOrder,
+      workspace.data.drivers,
+      workspace.data.vehicles,
+      orders,
+      workspace.data.roadReports,
+    ],
   );
   const recommendations = showAllRiders
     ? allRecommendations
     : allRecommendations.slice(0, 3);
+  const selectedOrderAssessment = useMemo(() => {
+    if (!selectedOrder) return null;
+    const vehicle = selectedOrder.vehicle_id
+      ? workspace.data.vehicles.find((v) => v.id === selectedOrder.vehicle_id)
+      : recommendations[0]?.vehicleId
+        ? workspace.data.vehicles.find(
+            (v) => v.id === recommendations[0].vehicleId,
+          )
+        : workspace.data.vehicles[0] ?? null;
+    return assessEnergyRoute(
+      { ...selectedOrder, latest_location: null },
+      vehicle as VehicleOption | null,
+    );
+  }, [selectedOrder, workspace.data.vehicles, recommendations]);
   const summary = useMemo(
     () =>
       attentionSummary(
@@ -267,15 +334,41 @@ export function ManagerDashboard({
   async function assignRecommendation(
     driverId: string,
     vehicleId: string | null,
+    reasonOverride?: string,
   ) {
     if (!selectedOrder || !canAssign) return;
+    const driver = workspace.data.drivers.find((item) => item.id === driverId);
+    const vehicle = workspace.data.vehicles.find(
+      (item) => item.id === vehicleId,
+    );
+    const vehicleLabel = vehicle
+      ? `${vehicle.registration_number} · ${vehicleText(vehicle.vehicle_type)}`
+      : "No vehicle";
+    const driverName = driver?.full_name || "Rider";
+
     if (
       selectedOrder.driver_id &&
-      !window.confirm(
-        `Reassign ${selectedOrder.tracking_code} from ${selectedOrder.driver_name || "the current rider"}?`,
-      )
-    )
+      selectedOrder.driver_id !== driverId &&
+      !reasonOverride
+    ) {
+      setReassignModal({
+        driverId,
+        driverName,
+        vehicleId,
+        vehicleLabel,
+      });
       return;
+    }
+
+    await executeAssignment(driverId, vehicleId, reasonOverride);
+  }
+
+  async function executeAssignment(
+    driverId: string,
+    vehicleId: string | null,
+    reasonOverride?: string,
+  ) {
+    if (!selectedOrder || !canAssign) return;
     setSaving(true);
     setPendingKey(`${driverId}-${vehicleId ?? "none"}`);
     setNotice(null);
@@ -328,8 +421,10 @@ export function ManagerDashboard({
       setNotice({
         scope: "assign",
         tone: "success",
-        text: `${selectedOrder.tracking_code} assigned to ${riderName}.`,
+        text: `${selectedOrder.tracking_code} assigned to ${riderName}${reasonOverride ? ` (Override: ${reasonOverride})` : ""}.`,
       });
+      setManualOverrideOpen(false);
+      setOverrideReason("");
     } catch (cause) {
       setNotice({
         scope: "assign",
@@ -513,47 +608,113 @@ export function ManagerDashboard({
     },
   }[view];
 
+  const mobileActiveId = ["home", "order", "track", "cod"].includes(activeNav)
+    ? activeNav
+    : "more";
+
   return (
     <main className="manager-app">
       <aside className="manager-sidebar">
-        <div className="manager-sidebar-label">Workspace</div>
-        <nav className="manager-side-nav" aria-label="Manager workspace">
-          {managerNavItems.map((item) => (
+        <div className="manager-sidebar-group">
+          <div className="manager-sidebar-label">Dispatch Operations</div>
+          <nav className="manager-side-nav" aria-label="Dispatch operations">
             <Link
-              key={item.id}
-              className={activeNav === item.id ? "side-nav-active" : undefined}
-              href={item.href}
-              aria-current={activeNav === item.id ? "page" : undefined}
+              className={activeNav === "home" ? "side-nav-active" : undefined}
+              href="/manager/home"
+              aria-current={activeNav === "home" ? "page" : undefined}
             >
-              <Icon name={item.icon} size={17} />
-              {item.label}
-              {item.id === "track" && movingCount > 0 && (
-                <span>{movingCount}</span>
-              )}
-              {item.id === "order" && orders.length > 0 && (
-                <span>{orders.length}</span>
-              )}
+              <Icon name="delivery" size={17} />
+              Overview
             </Link>
-          ))}
-          <Link href="/manager/jobs">
-            <Icon name="box" size={17} />
-            Job board
-          </Link>
-          <Link href="/manager/dispatch">
-            <Icon name="navigation" size={17} />
-            Plan routes
-          </Link>
-          <Link href="/manager/insights">
-            <Icon name="truck" size={17} />
-            Fleet
-          </Link>
-        </nav>
+            <Link
+              className={activeNav === "order" ? "side-nav-active" : undefined}
+              href="/manager/order"
+              aria-current={activeNav === "order" ? "page" : undefined}
+            >
+              <Icon name="box" size={17} />
+              Orders
+              {orders.length > 0 && <span>{orders.length}</span>}
+            </Link>
+            <Link
+              className={activeNav === "track" ? "side-nav-active" : undefined}
+              href="/manager/track"
+              aria-current={activeNav === "track" ? "page" : undefined}
+            >
+              <Icon name="track" size={17} />
+              Live track
+              {movingCount > 0 && <span>{movingCount}</span>}
+            </Link>
+            <Link
+              className={view === "create" ? "side-nav-active" : undefined}
+              href="/manager/order/create"
+              aria-current={view === "create" ? "page" : undefined}
+            >
+              <Icon name="plus" size={17} />
+              Create order
+            </Link>
+            <Link href="/manager/dispatch">
+              <Icon name="navigation" size={17} />
+              Plan routes
+            </Link>
+          </nav>
+        </div>
+
+        <div className="manager-sidebar-group">
+          <div className="manager-sidebar-label">Field &amp; Fleet</div>
+          <nav className="manager-side-nav" aria-label="Field and fleet">
+            <Link
+              className={activeNav === "profile" ? "side-nav-active" : undefined}
+              href="/manager/profile"
+              aria-current={activeNav === "profile" ? "page" : undefined}
+            >
+              <Icon name="user" size={17} />
+              Team roster
+            </Link>
+            <Link href="/manager/jobs">
+              <Icon name="box" size={17} />
+              Job board
+            </Link>
+            <Link href="/manager/insights">
+              <Icon name="truck" size={17} />
+              Fleet insights
+            </Link>
+          </nav>
+        </div>
+
+        <div className="manager-sidebar-group">
+          <div className="manager-sidebar-label">Financials</div>
+          <nav className="manager-side-nav" aria-label="Financials">
+            <Link
+              className={activeNav === "cod" ? "side-nav-active" : undefined}
+              href="/manager/cod"
+              aria-current={activeNav === "cod" ? "page" : undefined}
+            >
+              <Icon name="coin" size={17} />
+              COD ledger
+            </Link>
+          </nav>
+        </div>
+
+        <div className="manager-sidebar-group">
+          <div className="manager-sidebar-label">Tools</div>
+          <nav className="manager-side-nav" aria-label="Tools">
+            <a
+              href="/tools/traffic-editor.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open interactive Yangon traffic and junction editor"
+            >
+              <Icon name="compass" size={17} />
+              Traffic editor ↗
+            </a>
+          </nav>
+        </div>
       </aside>
 
       <MobileNav
         label="Manager workspace"
-        items={managerMobileNav}
-        activeId={activeNav}
+        items={mobileNavItems}
+        activeId={mobileActiveId}
       />
 
       <div className="manager-main">
@@ -709,6 +870,26 @@ export function ManagerDashboard({
                     Plan routes
                   </Link>
                 </div>
+                <div className="manager-search-box">
+                  <Icon name="search" size={16} />
+                  <input
+                    type="search"
+                    placeholder="Search tracking ID, customer, address, rider…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Search deliveries"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className="manager-search-clear"
+                      onClick={() => setSearchQuery("")}
+                      aria-label="Clear search"
+                    >
+                      <Icon name="close" size={14} />
+                    </button>
+                  )}
+                </div>
                 <div
                   className="order-filter-tabs"
                   role="tablist"
@@ -735,7 +916,7 @@ export function ManagerDashboard({
                   ))}
                 </div>
                 <div className="manager-order-list">
-                  {filteredOrders.map((order) => (
+                  {searchedOrders.map((order) => (
                     <button
                       type="button"
                       key={order.id}
@@ -759,12 +940,30 @@ export function ManagerDashboard({
                       <span className="manager-row-side">
                         <StatusBadge status={order.status} />
                         <small>{formatTime(order.estimated_delivery_at)}</small>
+                        {selectedOrder?.id === order.id && (
+                          <span className="manager-row-selected-pill">
+                            Selected
+                          </span>
+                        )}
                       </span>
                     </button>
                   ))}
-                  {!filteredOrders.length && (
+                  {!searchedOrders.length && (
                     <div className="manager-empty-list">
-                      No deliveries match this view.
+                      {searchQuery ? (
+                        <div className="manager-search-empty">
+                          <p>No deliveries match &ldquo;{searchQuery}&rdquo;.</p>
+                          <button
+                            type="button"
+                            className="button button-small button-outline"
+                            onClick={() => setSearchQuery("")}
+                          >
+                            Clear search
+                          </button>
+                        </div>
+                      ) : (
+                        "No deliveries match this view."
+                      )}
                     </div>
                   )}
                 </div>
@@ -800,6 +999,88 @@ export function ManagerDashboard({
                       </span>
                       <StatusBadge status={selectedOrder.status} />
                     </div>
+                    {selectedOrderAssessment &&
+                      selectedOrderAssessment.distanceKm != null && (
+                        <div className="dispatch-energy-card">
+                          <div className="energy-card-metrics">
+                            <span className="energy-pill">
+                              <Icon name="navigation" size={14} />
+                              <strong>
+                                {selectedOrderAssessment.distanceKm} km
+                              </strong>
+                            </span>
+                            {selectedOrderAssessment.fuelLitresEstimated !=
+                              null && (
+                              <span className="energy-pill">
+                                <Icon name="truck" size={14} />
+                                <strong>
+                                  {selectedOrderAssessment.fuelLitresEstimated} L
+                                  fuel
+                                </strong>
+                              </span>
+                            )}
+                            {selectedOrderAssessment.signalsOnRoute != null && (
+                              <span className="energy-pill">
+                                <Icon name="warning" size={14} />
+                                <strong>
+                                  {selectedOrderAssessment.signalsOnRoute}{" "}
+                                  {selectedOrderAssessment.signalsOnRoute === 1
+                                    ? "traffic signal"
+                                    : "traffic signals"}
+                                </strong>
+                              </span>
+                            )}
+                            {selectedOrderAssessment.interceptionsOnRoute !=
+                              null &&
+                              selectedOrderAssessment.interceptionsOnRoute >
+                                0 && (
+                                <span className="energy-pill">
+                                  <Icon name="navigation" size={14} />
+                                  <strong>
+                                    {
+                                      selectedOrderAssessment.interceptionsOnRoute
+                                    }{" "}
+                                    {selectedOrderAssessment.interceptionsOnRoute ===
+                                    1
+                                      ? "interception"
+                                      : "interceptions"}
+                                  </strong>
+                                </span>
+                              )}
+                          </div>
+                          {selectedOrderAssessment.signalBypasses &&
+                            selectedOrderAssessment.signalBypasses.length > 0 && (
+                              <div className="energy-bypass-tip">
+                                <Icon name="compass" size={14} />
+                                <span>
+                                  <strong>Small rotation bypass:</strong>{" "}
+                                  {
+                                    selectedOrderAssessment.signalBypasses[0]
+                                      .recommendedRotation
+                                  }
+                                </span>
+                              </div>
+                            )}
+                          {selectedOrderAssessment.recommendedFuelStation && (
+                            <div className="energy-station-tip">
+                              <Icon name="location" size={14} />
+                              <span>
+                                <strong>Fuel station:</strong>{" "}
+                                {
+                                  selectedOrderAssessment.recommendedFuelStation
+                                    .name
+                                }{" "}
+                                (+
+                                {
+                                  selectedOrderAssessment.recommendedFuelStation
+                                    .detourKm
+                                }{" "}
+                                km detour)
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     {canAssign && (
                       <div className="assignment-recommendations">
                         <div className="recommendation-heading">
@@ -894,6 +1175,98 @@ export function ManagerDashboard({
                               : `Show all ${allRecommendations.length} riders`}
                           </button>
                         )}
+                        <div className="manual-override-container">
+                          <button
+                            type="button"
+                            className="button button-outline button-small"
+                            onClick={() =>
+                              setManualOverrideOpen((open) => !open)
+                            }
+                            aria-expanded={manualOverrideOpen}
+                          >
+                            <Icon name="user" size={15} />
+                            {manualOverrideOpen
+                              ? "Hide manual selection"
+                              : "Manual driver assignment (with override reason)"}
+                          </button>
+                          {manualOverrideOpen && (
+                            <form
+                              className="manual-override-panel"
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                if (!manualDriverId) return;
+                                void assignRecommendation(
+                                  manualDriverId,
+                                  manualVehicleId || null,
+                                  overrideReason.trim() || "Manual override",
+                                );
+                              }}
+                            >
+                              <div className="manual-override-fields">
+                                <label>
+                                  <span>Select driver</span>
+                                  <select
+                                    value={manualDriverId}
+                                    onChange={(e) =>
+                                      setManualDriverId(e.target.value)
+                                    }
+                                    required
+                                  >
+                                    <option value="">Select a driver…</option>
+                                    {workspace.data.drivers.map((driver) => (
+                                      <option key={driver.id} value={driver.id}>
+                                        {driver.full_name || "Rider"} (
+                                        {driver.availability.replace("_", " ")})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label>
+                                  <span>Vehicle (optional)</span>
+                                  <select
+                                    value={manualVehicleId}
+                                    onChange={(e) =>
+                                      setManualVehicleId(e.target.value)
+                                    }
+                                  >
+                                    <option value="">
+                                      Default / no vehicle
+                                    </option>
+                                    {workspace.data.vehicles.map((v) => (
+                                      <option key={v.id} value={v.id}>
+                                        {v.registration_number} (
+                                        {vehicleText(v.vehicle_type)})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label>
+                                  <span>Override reason</span>
+                                  <input
+                                    type="text"
+                                    value={overrideReason}
+                                    onChange={(e) =>
+                                      setOverrideReason(e.target.value)
+                                    }
+                                    placeholder="e.g. Shift swap, VIP urgent delivery, truck upgrade"
+                                    required
+                                  />
+                                </label>
+                              </div>
+                              <button
+                                type="submit"
+                                className="button button-primary button-small"
+                                disabled={
+                                  saving ||
+                                  !manualDriverId ||
+                                  !overrideReason.trim()
+                                }
+                              >
+                                {saving ? "Assigning…" : "Assign with override"}
+                              </button>
+                            </form>
+                          )}
+                        </div>
                       </div>
                     )}
                     {!canAssign && isMovingOrder(selectedOrder) && (
@@ -1249,6 +1622,150 @@ export function ManagerDashboard({
           )}
         </div>
       </div>
+
+      {reassignModal && (
+        <ModalPanel
+          titleId="reassign-modal-title"
+          className="reassign-modal"
+          onClose={() => setReassignModal(null)}
+        >
+          <div className="reassign-modal-content">
+            <p className="reassign-modal-desc">
+              Reassign delivery <strong>{selectedOrder?.tracking_code}</strong> to a different rider?
+            </p>
+            <div className="reassign-parties">
+              <div className="reassign-party">
+                <span className="reassign-party-label">Current assignment</span>
+                <strong>{selectedOrder?.driver_name || "Assigned rider"}</strong>
+              </div>
+              <div className="reassign-arrow" aria-hidden="true">
+                <Icon name="arrow-right" size={18} />
+              </div>
+              <div className="reassign-party is-new">
+                <span className="reassign-party-label">New assignment</span>
+                <strong>{reassignModal.driverName}</strong>
+                <small>{reassignModal.vehicleLabel}</small>
+              </div>
+            </div>
+            <div className="reassign-modal-actions">
+              <button
+                type="button"
+                className="button button-outline"
+                onClick={() => setReassignModal(null)}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => {
+                  const pending = reassignModal;
+                  setReassignModal(null);
+                  void executeAssignment(pending.driverId, pending.vehicleId);
+                }}
+                disabled={saving}
+              >
+                {saving ? "Reassigning…" : "Confirm reassignment"}
+              </button>
+            </div>
+          </div>
+        </ModalPanel>
+      )}
+
+      {moreOpen && (
+        <ModalPanel
+          titleId="operations-menu-title"
+          className="operations-menu-modal"
+          onClose={() => setMoreOpen(false)}
+        >
+          <div className="mobile-more-menu">
+            <Link
+              href="/manager/profile"
+              className="mobile-more-item"
+              onClick={() => setMoreOpen(false)}
+            >
+              <Icon name="user" size={20} />
+              <div>
+                <strong>Team roster</strong>
+                <small>Driver availability and on-duty status</small>
+              </div>
+            </Link>
+            <Link
+              href="/manager/dispatch"
+              className="mobile-more-item"
+              onClick={() => setMoreOpen(false)}
+            >
+              <Icon name="navigation" size={20} />
+              <div>
+                <strong>Plan routes</strong>
+                <small>Depot multi-truck assignment &amp; routing</small>
+              </div>
+            </Link>
+            <Link
+              href="/manager/jobs"
+              className="mobile-more-item"
+              onClick={() => setMoreOpen(false)}
+            >
+              <Icon name="box" size={20} />
+              <div>
+                <strong>Job board</strong>
+                <small>Batch requests and task automation</small>
+              </div>
+            </Link>
+            <Link
+              href="/manager/insights"
+              className="mobile-more-item"
+              onClick={() => setMoreOpen(false)}
+            >
+              <Icon name="truck" size={20} />
+              <div>
+                <strong>Fleet insights</strong>
+                <small>Energy reserves, service due &amp; operating costs</small>
+              </div>
+            </Link>
+            <a
+              href="/tools/traffic-editor.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mobile-more-item"
+              onClick={() => setMoreOpen(false)}
+            >
+              <Icon name="compass" size={20} />
+              <div>
+                <strong>Traffic editor ↗</strong>
+                <small>Interactive Yangon traffic and junction points</small>
+              </div>
+            </a>
+            <div className="mobile-more-auth">
+              {workspace.isAuthenticated ? (
+                <button
+                  type="button"
+                  className="button button-outline"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    void signOut();
+                  }}
+                >
+                  Sign out ({workspace.profile?.full_name || "Manager"})
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    setAuthOpen(true);
+                  }}
+                >
+                  Sign in
+                </button>
+              )}
+            </div>
+          </div>
+        </ModalPanel>
+      )}
+
       <AuthDialog
         open={authOpen}
         audience="team"

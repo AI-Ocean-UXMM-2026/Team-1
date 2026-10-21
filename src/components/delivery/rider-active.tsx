@@ -457,7 +457,7 @@ export function ActiveDelivery({
         {!handover && revision}
       </header>
 
-      {speed && !handover && <SpeedSign {...speed} />}
+      {speed && !handover && !expanded && <SpeedSign {...speed} />}
 
       <section
         ref={sheetRef}

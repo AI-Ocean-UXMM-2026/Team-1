@@ -112,32 +112,49 @@ export function RiderJobBoard({
         </div>
       ) : (
         <ul className="rj-list">
-          {jobs.map((job) => (
-            <li key={job.id} className="rj-card">
-              <div>
-                <strong>{job.label}</strong>
-                <span>
-                  {job.order_count}{" "}
-                  {job.order_count === 1 ? "parcel" : "parcels"} ·{" "}
-                  {job.total_weight_kg} kg
-                </span>
-                <span>
-                  {job.area_label ?? "Area to confirm"}
-                  {job.cod_total
-                    ? ` · COD ${currency.format(job.cod_total)}`
-                    : ""}
-                </span>
-              </div>
-              <button
-                type="button"
-                className="rj-take"
-                disabled={claiming != null}
-                onClick={() => void take(job)}
+          {jobs.map((job) => {
+            const isUrgent = job.priority === "urgent";
+            const isPriority = job.priority === "high" || job.reproduce_count > 0;
+
+            return (
+              <li
+                key={job.id}
+                className={`rj-card${isUrgent ? " is-urgent" : isPriority ? " is-priority" : ""}`}
               >
-                {claiming === job.id ? "Taking…" : "Take job"}
-              </button>
-            </li>
-          ))}
+                <div>
+                  <div className="rj-card-header">
+                    <strong>{job.label}</strong>
+                    {isUrgent ? (
+                      <span className="rj-priority-pill is-urgent">⚡ Urgent</span>
+                    ) : isPriority ? (
+                      <span className="rj-priority-pill is-high">
+                        ⚡ Priority {job.reproduce_count > 0 ? `· R${job.reproduce_count}` : ""}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span>
+                    {job.order_count}{" "}
+                    {job.order_count === 1 ? "parcel" : "parcels"} ·{" "}
+                    {job.total_weight_kg} kg
+                  </span>
+                  <span>
+                    {job.area_label ?? "Area to confirm"}
+                    {job.cod_total
+                      ? ` · COD ${currency.format(job.cod_total)}`
+                      : ""}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="rj-take"
+                  disabled={claiming != null}
+                  onClick={() => void take(job)}
+                >
+                  {claiming === job.id ? "Taking…" : "Take job"}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

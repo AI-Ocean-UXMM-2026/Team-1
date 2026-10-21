@@ -382,3 +382,298 @@
     padding: 0;
   }
 }
+
+/* ==========================================================================
+ * Operations / Admin UX Improvements (Phase 1 & Phase 2)
+ * ========================================================================== */
+
+/* Sidebar group sections */
+.manager-sidebar-group {
+  margin-bottom: 20px;
+}
+.manager-sidebar-group .manager-sidebar-label {
+  padding: 6px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary, #64748b);
+}
+.manager-side-nav a.side-nav-active {
+  background: var(--color-surface, #ffffff);
+  color: var(--color-brand-primary, #ea580c);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Mobile nav button reset */
+.mobile-nav-btn {
+  appearance: none;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 0;
+  cursor: pointer;
+  min-height: 48px;
+}
+.mobile-nav-btn.is-active {
+  color: var(--color-brand-primary, #ea580c);
+  font-weight: 600;
+}
+
+/* Mobile "More" Drawer Menu */
+.mobile-more-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 0 20px;
+}
+.mobile-more-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-surface-subtle, #f8fafc);
+  color: var(--color-text-primary, #172b4d);
+  text-decoration: none;
+  transition: background 0.15s ease;
+  min-height: 52px;
+}
+.mobile-more-item:hover,
+.mobile-more-item:focus-visible {
+  background: var(--color-surface-hover, #f1f5f9);
+}
+.mobile-more-item strong {
+  display: block;
+  font-size: 15px;
+  color: var(--color-text-primary, #172b4d);
+}
+.mobile-more-item small {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-secondary, #64748b);
+  margin-top: 2px;
+}
+.mobile-more-auth {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border-subtle, #e2e8f0);
+}
+.mobile-more-auth button {
+  width: 100%;
+  min-height: 48px;
+}
+
+/* Interactive KPI Cells */
+.dash-kpi-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dash-kpi-link:hover,
+.dash-kpi-link:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Orders Search Box */
+.manager-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border-control, #cbd5e1);
+  border-radius: var(--radius-md, 8px);
+  margin-bottom: 12px;
+  min-height: 44px;
+}
+.manager-search-box:focus-within {
+  border-color: var(--color-brand-primary, #ea580c);
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
+}
+.manager-search-box input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary, #172b4d);
+  font-size: 14px;
+  outline: none;
+}
+.manager-search-clear {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary, #64748b);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.manager-search-clear:hover {
+  background: var(--color-surface-hover, #f1f5f9);
+  color: var(--color-text-primary, #172b4d);
+}
+.manager-search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+/* Selected row pill */
+.manager-row-selected-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-brand-primary, #ea580c);
+  color: #ffffff;
+  align-self: flex-start;
+}
+
+/* Reassignment Modal */
+.reassign-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0 12px;
+}
+.reassign-modal-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-primary, #172b4d);
+}
+.reassign-parties {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface-subtle, #f8fafc);
+  border: 1px solid var(--color-border-subtle, #e2e8f0);
+}
+.reassign-party {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.reassign-party.is-new {
+  color: var(--color-brand-primary, #ea580c);
+}
+.reassign-party-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-text-secondary, #64748b);
+}
+.reassign-party strong {
+  font-size: 14px;
+}
+.reassign-party small {
+  font-size: 12px;
+  color: var(--color-text-secondary, #64748b);
+}
+.reassign-arrow {
+  color: var(--color-text-secondary, #64748b);
+}
+.reassign-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Manual Assignment Override */
+.manual-override-container {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border-subtle, #cbd5e1);
+}
+.manual-override-panel {
+  margin-top: 10px;
+  padding: 14px;
+  background: var(--color-surface-subtle, #f8fafc);
+  border: 1px solid var(--color-border-subtle, #e2e8f0);
+  border-radius: var(--radius-md, 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.manual-override-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.manual-override-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary, #172b4d);
+}
+.manual-override-fields select,
+.manual-override-fields input {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-control, #cbd5e1);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  background: var(--color-surface, #ffffff);
+}
+
+/* Manual Order Creation Ergonomics */
+.manual-item-subtotal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-subtle, #e2e8f0);
+}
+.manual-item-subtotal {
+  font-size: 13px;
+  color: var(--color-text-secondary, #64748b);
+}
+.manual-item-subtotal strong {
+  color: var(--color-text-primary, #172b4d);
+}
+.manual-items-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-subtle, #cbd5e1);
+}
+.manual-items-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.manual-items-summary strong {
+  font-size: 16px;
+  color: var(--color-brand-primary, #ea580c);
+}
+.manual-cod-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.manual-cod-match {
+  align-self: flex-start;
+  font-size: 12px;
+}

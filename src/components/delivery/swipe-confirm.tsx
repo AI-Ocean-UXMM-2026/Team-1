@@ -168,7 +168,8 @@ export function SwipeConfirm({
     const vx = velocity.current;
 
     // Confirms if dragged 70%+ OR flicked forward (> 38% travel with positive rightward velocity)
-    const shouldConfirm = maxT > 0 && (ratio >= 0.7 || (ratio >= 0.38 && vx > 0.35));
+    const shouldConfirm =
+      maxT > 0 && (ratio >= 0.7 || (ratio >= 0.38 && vx > 0.35));
 
     if (shouldConfirm) {
       confirm();
@@ -197,8 +198,6 @@ export function SwipeConfirm({
           "--p": travel() > 0 ? x / travel() : 0,
         } as CSSProperties
       }
-      role="group"
-      aria-label={label}
     >
       <span className="dv-swipe-label" aria-hidden="true">
         {hint}

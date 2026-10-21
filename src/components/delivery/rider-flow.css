@@ -2608,12 +2608,12 @@
   color: var(--color-text-secondary);
 }
 
-/* Appears only after the rider moves the map. Placed above the bottom sheet on the right to avoid overlapping the top-right tool buttons. */
+/* Appears only after the rider moves the map. Placed cleanly above the collapsed bottom sheet. */
 .rnav-recenter {
   position: absolute;
-  right: max(16px, calc(50% - 200px));
-  bottom: calc(var(--dv-sheet-h, var(--rf-sheet-h, 280px)) + 14px);
-  z-index: 15;
+  right: 16px;
+  bottom: calc(var(--dv-sheet-h, var(--rf-sheet-h, 190px)) + 14px);
+  z-index: 12;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2631,7 +2631,8 @@
   transition:
     transform 0.15s ease,
     background-color 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.15s ease,
+    opacity 0.2s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -2650,6 +2651,19 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* Hide recenter button and speed sign when bottom sheet is open/handover to keep map clean */
+.rf-nav:has(.dv-sheet.is-open) .rnav-recenter,
+.rf-nav:has(.dv-sheet.is-handover) .rnav-recenter,
+.rf-nav:has(.dv-sheet.is-open) .dv-speed,
+.rf-nav:has(.dv-sheet.is-handover) .dv-speed {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.92);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .rf-chip-btn.is-energy.is-tight {
@@ -2718,26 +2732,6 @@
   color: var(--color-text-secondary-subtle);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.rg-navigate {
-  display: grid;
-  flex: none;
-  min-width: 56px;
-  place-items: center;
-  gap: 2px;
-  color: var(--color-info-text);
-  font-size: 12px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.rg-navigate > svg {
-  box-sizing: content-box;
-  padding: 10px;
-  border-radius: 999px;
-  background: var(--color-info);
-  color: #ffffff;
 }
 
 .rf-nav-sheet .rf-address {

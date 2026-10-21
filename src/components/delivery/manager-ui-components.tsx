@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/delivery/icons";
 
@@ -14,17 +15,36 @@ export function KpiCell({
   value,
   hint,
   tone,
+  href,
 }: {
   label: string;
   value: number;
   hint: string;
   tone?: "live" | "warning" | "success";
+  href?: string;
 }) {
-  return (
-    <div className={`dash-kpi ${tone ? `is-${tone}` : ""}`}>
+  const content = (
+    <>
       <span className="dash-kpi-label">{label}</span>
       <strong className="dash-kpi-value">{value}</strong>
       <span className="dash-kpi-hint">{hint}</span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={`dash-kpi dash-kpi-link ${tone ? `is-${tone}` : ""}`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={`dash-kpi ${tone ? `is-${tone}` : ""}`}>
+      {content}
     </div>
   );
 }

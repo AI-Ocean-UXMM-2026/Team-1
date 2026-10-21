@@ -11,7 +11,10 @@ export type JobStatus =
   | "claimed"
   | "in_progress"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "superseded";
+
+export type JobPriority = "low" | "normal" | "high" | "urgent";
 
 export type DeliveryJob = {
   id: string;
@@ -31,11 +34,15 @@ export type DeliveryJob = {
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
+  reproduce_count: number;
+  priority: JobPriority;
+  reproduced_from_job_id: string | null;
+  metadata?: Record<string, unknown>;
 };
 
 export type JobBatch = {
   id: string;
-  trigger: "schedule" | "manual";
+  trigger: "schedule" | "manual" | "automation" | "reproduce";
   job_count: number;
   order_count: number;
   created_at: string;
@@ -45,6 +52,28 @@ export type QueueEntry = {
   order_id: string;
   queued_at: string;
   job_id: string | null;
+  auto_accepted?: boolean;
+  reproduce_count?: number;
+  last_calculated_at?: string | null;
+};
+
+export type ReproduceTasksResult = {
+  batch_id: string | null;
+  reproduced_jobs: number;
+  extracted_tasks: number;
+  stagnant_unassigned: number;
+  superseded_jobs: number;
+  message: string;
+};
+
+export type WorkflowRunResult = {
+  auto_accepted: number;
+  extracted_tasks: number;
+  superseded_jobs: number;
+  reproduced_jobs: number;
+  additional_jobs: number;
+  total_jobs_posted: number;
+  message: string;
 };
 
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
@@ -53,10 +82,11 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   in_progress: "On the road",
   completed: "Done",
   cancelled: "Cancelled",
+  superseded: "Superseded",
 };
 
 const JOB_COLUMNS =
-  "id, batch_id, label, status, area_label, order_count, total_weight_kg, cod_total, center_latitude, center_longitude, claimed_by, claimed_at, vehicle_id, route_id, started_at, completed_at, created_at";
+  "id, batch_id, label, status, area_label, order_count, total_weight_kg, cod_total, center_latitude, center_longitude, claimed_by, claimed_at, vehicle_id, route_id, started_at, completed_at, created_at, reproduce_count, priority, reproduced_from_job_id, metadata";
 
 /**
  * When the next scheduled batch runs. Batches run on the first hourly check at
@@ -99,6 +129,10 @@ function toJob(row: Record<string, unknown>): DeliveryJob {
       row.center_latitude == null ? null : toNumber(row.center_latitude),
     center_longitude:
       row.center_longitude == null ? null : toNumber(row.center_longitude),
+    reproduce_count: toNumber(row.reproduce_count) || 0,
+    priority: (row.priority as JobPriority) || "normal",
+    reproduced_from_job_id: (row.reproduced_from_job_id as string) || null,
+    metadata: (row.metadata as Record<string, unknown>) || {},
   };
 }
 
@@ -119,10 +153,17 @@ export async function loadJobs(
 export async function loadQueue(supabase: JobsClient): Promise<QueueEntry[]> {
   const { data, error } = await supabase
     .from("delivery_queue")
-    .select("order_id, queued_at, job_id")
+    .select("order_id, queued_at, job_id, auto_accepted, reproduce_count, last_calculated_at")
     .order("queued_at", { ascending: true });
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return (data ?? []).map((row) => ({
+    order_id: String(row.order_id),
+    queued_at: String(row.queued_at),
+    job_id: row.job_id ? String(row.job_id) : null,
+    auto_accepted: Boolean(row.auto_accepted),
+    reproduce_count: toNumber(row.reproduce_count) || 0,
+    last_calculated_at: row.last_calculated_at ? String(row.last_calculated_at) : null,
+  }));
 }
 
 export async function loadLastScheduledBatch(
@@ -183,4 +224,144 @@ export async function releaseJob(supabase: JobsClient, jobId: string) {
     p_job_id: jobId,
   });
   if (error) throw new Error(error.message);
+}
+
+/** Automatically accepts pending orders into the delivery queue. */
+export async function autoAcceptOrders(
+  supabase: JobsClient,
+  orderIds?: string[],
+): Promise<number> {
+  const { data, error } = await supabase.rpc("auto_accept_orders", {
+    p_order_ids: orderIds && orderIds.length > 0 ? orderIds : null,
+  });
+  if (error) throw new Error(error.message);
+  return Number(data ?? 0);
+}
+
+/**
+ * Extracts tasks from jobs not taken by any driver, enriches them with new
+ * data (priority escalation, reproduce count, time extensions), supersedes
+ * previous unclaimed jobs, and reproduces them onto the board for drivers.
+ */
+export async function reproduceUnclaimedTasks(
+  supabase: JobsClient,
+  options?: {
+    maxAgeInterval?: string;
+    maxOrders?: number;
+    maxKg?: number;
+  },
+): Promise<ReproduceTasksResult> {
+  const { data, error } = await supabase.rpc("reproduce_unclaimed_tasks", {
+    p_max_age_interval: options?.maxAgeInterval ?? "0 seconds",
+    p_max_orders: options?.maxOrders ?? 8,
+    p_max_kg: options?.maxKg ?? 150,
+  });
+  if (error) throw new Error(error.message);
+  return data as unknown as ReproduceTasksResult;
+}
+
+/**
+ * Full automated workflow:
+ * 1. Auto-accepts all pending unqueued orders into the delivery queue.
+ * 2. Extracts unclaimed tasks, adds new data, supersedes old jobs, and reproduces them.
+ * 3. Batches any remaining newly auto-accepted orders onto the board.
+ */
+export async function runAutomationWorkflow(
+  supabase: JobsClient,
+): Promise<WorkflowRunResult> {
+  const { data, error } = await supabase.rpc(
+    "run_auto_accept_and_reproduce_workflow",
+  );
+  if (error) throw new Error(error.message);
+  return data as unknown as WorkflowRunResult;
+}
+
+// -----------------------------------------------------------------------------
+// Pure Calculation Helpers for Automation Workflow
+// -----------------------------------------------------------------------------
+
+/**
+ * Identifies unclaimed open jobs and extracts their assigned queue order IDs.
+ * An open job with claimed_by === null and status === "open" is eligible.
+ */
+export function extractUnclaimedTasks(
+  jobs: DeliveryJob[],
+  queue: QueueEntry[],
+  cutoffMs: number = Date.now(),
+): { unclaimedJobs: DeliveryJob[]; extractedOrderIds: string[] } {
+  const unclaimedJobs = jobs.filter(
+    (job) =>
+      job.status === "open" &&
+      !job.claimed_by &&
+      Date.parse(job.created_at) <= cutoffMs,
+  );
+  const unclaimedJobIds = new Set(unclaimedJobs.map((j) => j.id));
+  const extractedOrderIds = queue
+    .filter((entry) => entry.job_id && unclaimedJobIds.has(entry.job_id))
+    .map((entry) => entry.order_id);
+
+  return { unclaimedJobs, extractedOrderIds };
+}
+
+/**
+ * Enriches a task when reproduced: increments reproduction count, escalates
+ * priority to 'high' or 'urgent', and extends the estimated delivery buffer (+90m).
+ */
+export function enrichReproducedTask(
+  task: {
+    reproduce_count?: number;
+    priority?: string;
+    estimated_delivery_at?: string | null;
+  },
+  nowMs: number = Date.now(),
+): {
+  reproduce_count: number;
+  priority: JobPriority;
+  estimated_delivery_at: string;
+  note: string;
+} {
+  const nextCount = (task.reproduce_count ?? 0) + 1;
+  const priority: JobPriority = nextCount >= 2 ? "urgent" : "high";
+  const existingEst = task.estimated_delivery_at
+    ? Date.parse(task.estimated_delivery_at)
+    : NaN;
+  const baseTime = Number.isFinite(existingEst) && existingEst > nowMs
+    ? existingEst
+    : nowMs;
+  const newDeliveryAt = new Date(baseTime + 90 * 60_000).toISOString();
+
+  return {
+    reproduce_count: nextCount,
+    priority,
+    estimated_delivery_at: newDeliveryAt,
+    note: `Auto-reproduced (cycle ${nextCount})`,
+  };
+}
+
+/**
+ * Calculates aggregate job priority from its constituent orders.
+ * If any order is urgent, job becomes urgent; if any is high, high; otherwise normal.
+ */
+export function calculateJobPriority(orderPriorities: string[]): JobPriority {
+  if (orderPriorities.some((p) => p === "urgent")) return "urgent";
+  if (orderPriorities.some((p) => p === "high")) return "high";
+  if (orderPriorities.some((p) => p === "low")) return "low";
+  return "normal";
+}
+
+/**
+ * Formats a reproduction-aware label for driver board cards.
+ */
+export function formatJobReproductionLabel(
+  baseLabel: string,
+  reproduceCount: number,
+  priority: string,
+): string {
+  if (priority === "urgent" || reproduceCount >= 2) {
+    return `⚡ Urgent · 2nd Call · ${baseLabel}`;
+  }
+  if (priority === "high" || reproduceCount === 1) {
+    return `⚡ Priority (R1) · ${baseLabel}`;
+  }
+  return baseLabel;
 }

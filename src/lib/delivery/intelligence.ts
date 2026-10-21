@@ -1,9 +1,13 @@
-import { countTrafficSignalsBetween } from "./energy-routing.ts";
+import {
+  countTrafficSignalsBetween,
+  distanceToSegmentKm,
+} from "./energy-routing.ts";
 import type {
   AssignmentRecommendation,
   DeliveryLocation,
   DeliveryOrder,
   DriverOption,
+  RoadReport,
   VehicleOption,
 } from "./types.ts";
 
@@ -68,6 +72,7 @@ export function recommendAssignments(
   orders: DeliveryOrder[],
   /** How many suggestions to return; managers can ask for every candidate. */
   limit = 3,
+  roadReports: RoadReport[] = [],
 ): AssignmentRecommendation[] {
   if (!order) return [];
   const pickup =
@@ -100,6 +105,25 @@ export function recommendAssignments(
           ? countTrafficSignalsBetween(driverLocation, pickup).count
           : 0;
 
+      // Dynamic Yangon monsoon flood & road caution avoidance
+      let floodPenalty = 0;
+      let floodBlocked = false;
+      if (driverLocation && pickup && roadReports.length > 0) {
+        const hazard = roadReports.find(
+          (r) =>
+            (r.severity === "high" || r.status === "verified") &&
+            distanceToSegmentKm(
+              { latitude: r.latitude, longitude: r.longitude },
+              driverLocation,
+              pickup,
+            ) <= 0.45,
+        );
+        if (hazard) {
+          floodPenalty = 18;
+          floodBlocked = true;
+        }
+      }
+
       const availableVehicles = vehicles.filter((vehicle) => {
         if (vehicle.status === "available") return true;
         return vehicle.status === "in_use" && activeVehicleIds.has(vehicle.id);
@@ -120,13 +144,16 @@ export function recommendAssignments(
       const chosenVehicle = rankedVehicles[0] ?? null;
       const availabilityScore = driver.availability === "available" ? 28 : 12;
 
-      // Corridor-adjusted distance with signal bottleneck penalty
+      // Corridor-adjusted distance with signal bottleneck penalty & flood avoidance
       const roadDistanceKm = distance != null ? distance * 1.22 : null;
       const signalPenalty = Math.min(5, signalCount * 1.2);
       const proximityScore =
         roadDistanceKm == null
           ? 8
-          : Math.max(0, 30 - roadDistanceKm * 3.3 - signalPenalty);
+          : Math.max(
+              0,
+              30 - roadDistanceKm * 3.3 - signalPenalty - floodPenalty,
+            );
 
       const workloadScore = Math.max(0, 24 - activeOrders.length * 10);
 
@@ -191,6 +218,9 @@ export function recommendAssignments(
         reasons.push(
           `${signalCount} traffic ${signalCount === 1 ? "signal" : "signals"} on corridor`,
         );
+      }
+      if (floodBlocked) {
+        reasons.push("Approach corridor affected by flood / road caution");
       }
 
       return [

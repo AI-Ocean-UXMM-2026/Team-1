@@ -186,6 +186,53 @@ export function improve(
       }
     }
 
+    // Or-Opt block relocations (relocating contiguous 2-stop blocks or adjacent P-D pairs)
+    for (let k = 0; k < inst.trucks.length; k++) {
+      let seq = state.routes[k];
+      if (seq.length < 4) continue;
+
+      let blockImproved = false;
+      for (let i = 0; i < seq.length - 1; i++) {
+        const block = seq.slice(i, i + 2);
+        const withoutBlock = [...seq.slice(0, i), ...seq.slice(i + 2)];
+
+        for (let p = 0; p <= withoutBlock.length; p++) {
+          if (p === i) continue;
+
+          const stop = budgetLeft();
+          if (stop) return { iterations, stopReason: stop };
+          iterations++;
+
+          const candidate = [
+            ...withoutBlock.slice(0, p),
+            ...block,
+            ...withoutBlock.slice(p),
+          ];
+
+          if (!satisfiesPrecedence(candidate, inst)) continue;
+
+          const candEval = evaluateRoute(
+            inst,
+            matrix,
+            inst.trucks[k],
+            candidate,
+          );
+          if (
+            candEval.feasible &&
+            state.evals[k].score - candEval.score > GAIN
+          ) {
+            state.routes[k] = candidate;
+            state.evals[k] = candEval;
+            seq = candidate;
+            improved = true;
+            blockImproved = true;
+            break;
+          }
+        }
+        if (blockImproved) break;
+      }
+    }
+
     // Swap one request between two trucks.
     for (let a = 0; a < inst.trucks.length; a++) {
       for (let b = a + 1; b < inst.trucks.length; b++) {

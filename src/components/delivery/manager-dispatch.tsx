@@ -259,7 +259,7 @@ export function DispatchApp() {
       <header className="workspace-header">
         <div className="workspace-header-inner">
           <Link className="workspace-back-link" href="/manager/order">
-            <Icon name="arrow-left" size={15} /> Back to dispatch
+            <Icon name="arrow-left" size={15} /> Back to orders
           </Link>
         </div>
       </header>

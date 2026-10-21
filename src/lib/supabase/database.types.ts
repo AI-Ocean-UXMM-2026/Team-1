@@ -254,6 +254,8 @@ export type Database = {
           parcel_description: string | null;
           parcel_weight_kg: number | null;
           notes: string | null;
+          priority: string;
+          reproduce_count: number;
           pickup_address: string;
           pickup_contact_name: string | null;
           pickup_contact_phone: string | null;
@@ -284,6 +286,8 @@ export type Database = {
           parcel_description?: string | null;
           parcel_weight_kg?: number | null;
           notes?: string | null;
+          priority?: string;
+          reproduce_count?: number;
           pickup_address: string;
           pickup_contact_name?: string | null;
           pickup_contact_phone?: string | null;
@@ -314,6 +318,8 @@ export type Database = {
           parcel_description?: string | null;
           parcel_weight_kg?: number | null;
           notes?: string | null;
+          priority?: string;
+          reproduce_count?: number;
           pickup_address?: string;
           pickup_contact_name?: string | null;
           pickup_contact_phone?: string | null;
@@ -491,6 +497,10 @@ export type Database = {
           status: string;
           total_weight_kg: number;
           vehicle_id: string | null;
+          reproduce_count: number;
+          priority: string;
+          reproduced_from_job_id: string | null;
+          metadata: Json;
         };
         Insert: {
           area_label?: string | null;
@@ -510,6 +520,10 @@ export type Database = {
           status?: string;
           total_weight_kg?: number;
           vehicle_id?: string | null;
+          reproduce_count?: number;
+          priority?: string;
+          reproduced_from_job_id?: string | null;
+          metadata?: Json;
         };
         Update: {
           area_label?: string | null;
@@ -529,6 +543,10 @@ export type Database = {
           status?: string;
           total_weight_kg?: number;
           vehicle_id?: string | null;
+          reproduce_count?: number;
+          priority?: string;
+          reproduced_from_job_id?: string | null;
+          metadata?: Json;
         };
         Relationships: [];
       };
@@ -538,18 +556,27 @@ export type Database = {
           order_id: string;
           queued_at: string;
           queued_by: string;
+          auto_accepted: boolean;
+          reproduce_count: number;
+          last_calculated_at: string | null;
         };
         Insert: {
           job_id?: string | null;
           order_id: string;
           queued_at?: string;
           queued_by: string;
+          auto_accepted?: boolean;
+          reproduce_count?: number;
+          last_calculated_at?: string | null;
         };
         Update: {
           job_id?: string | null;
           order_id?: string;
           queued_at?: string;
           queued_by?: string;
+          auto_accepted?: boolean;
+          reproduce_count?: number;
+          last_calculated_at?: string | null;
         };
         Relationships: [];
       };
@@ -2289,6 +2316,22 @@ export type Database = {
         Returns: number;
       };
       create_job_batch: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      auto_accept_orders: {
+        Args: { p_order_ids?: string[] | null };
+        Returns: number;
+      };
+      reproduce_unclaimed_tasks: {
+        Args: {
+          p_max_age_interval?: string | null;
+          p_max_orders?: number;
+          p_max_kg?: number;
+        };
+        Returns: Json;
+      };
+      run_auto_accept_and_reproduce_workflow: {
         Args: Record<PropertyKey, never>;
         Returns: Json;
       };

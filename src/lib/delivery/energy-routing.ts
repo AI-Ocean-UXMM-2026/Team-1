@@ -1,4 +1,10 @@
 import type { DeliveryOrder, VehicleOption } from "@/lib/delivery/types";
+import {
+  YANGON_USER_INTERCEPTION_POINTS,
+  type InterceptionPoint,
+} from "./data/yangon-interception-points.ts";
+
+export { YANGON_USER_INTERCEPTION_POINTS, type InterceptionPoint };
 
 export type EnergyRouteOrder = Pick<
   DeliveryOrder,
@@ -21,6 +27,16 @@ export type RecommendedFuelStation = {
   detourKm: number;
 };
 
+export type SignalBypassOpportunity = {
+  signalName: string;
+  township: string;
+  estimatedRedDelayMin: number;
+  bypassDetourKm: number;
+  netTimeSavedMin: number;
+  fuelSavedLitres: number;
+  recommendedRotation: string;
+};
+
 export type EnergyRouteAssessment = {
   distanceKm: number | null;
   availableRangeKm: number | null;
@@ -31,8 +47,10 @@ export type EnergyRouteAssessment = {
   fuelLitresEstimated?: number | null;
   payloadWeightKg?: number | null;
   signalsOnRoute?: number;
+  interceptionsOnRoute?: number;
   idlingPenaltyLitres?: number;
   recommendedFuelStation?: RecommendedFuelStation | null;
+  signalBypasses?: SignalBypassOpportunity[];
 };
 
 export type FuelStation = {
@@ -383,6 +401,20 @@ export function countTrafficSignalsBetween(
 }
 
 /**
+ * Counts user-mapped interception points and corridor midpoints between two locations.
+ */
+export function countInterceptionPointsBetween(
+  from: { latitude: number; longitude: number },
+  to: { latitude: number; longitude: number },
+  corridorThresholdKm = 0.5,
+): { count: number; points: readonly InterceptionPoint[] } {
+  const matched = YANGON_USER_INTERCEPTION_POINTS.filter((pt) => {
+    return distanceToSegmentKm(pt, from, to) <= corridorThresholdKm;
+  });
+  return { count: matched.length, points: matched };
+}
+
+/**
  * Finds the fuel station in Yangon that introduces the smallest marginal
  * detour between the route origin and destination.
  */
@@ -419,6 +451,39 @@ export function findOptimalFuelStation(
     longitude: bestStation.longitude,
     detourKm: Math.round(Math.max(0, minDetour) * 10) / 10,
   };
+}
+
+/**
+ * Evaluates whether taking a minor side-street rotation around a congested
+ * signalized junction (cycle >= 85s) saves time and fuel compared to waiting
+ * in the red-light queue.
+ */
+export function detectSignalBypasses(
+  signals: TrafficSignal[],
+): SignalBypassOpportunity[] {
+  return signals
+    .filter((sig) => sig.estimatedCycleSeconds >= 85)
+    .map((sig) => {
+      const redDelayMin =
+        Math.round(((sig.estimatedCycleSeconds * 0.55) / 60) * 10) / 10;
+      const bypassDetourKm = 0.35;
+      const bypassDriveTimeMin =
+        Math.round(((bypassDetourKm / 25) * 60) * 10) / 10;
+      const netTimeSavedMin = Math.max(
+        0.2,
+        Math.round((redDelayMin - bypassDriveTimeMin) * 10) / 10,
+      );
+      const fuelSavedLitres = 0.03;
+      return {
+        signalName: sig.name,
+        township: sig.township,
+        estimatedRedDelayMin: redDelayMin,
+        bypassDetourKm,
+        netTimeSavedMin,
+        fuelSavedLitres,
+        recommendedRotation: `Side-street rotation around ${sig.name} (${sig.township}) saves ~${netTimeSavedMin} min`,
+      };
+    });
 }
 
 export function assessEnergyRoute(
@@ -491,16 +556,30 @@ export function assessEnergyRoute(
   const approachSignals = currentPos
     ? countTrafficSignalsBetween(currentPos, pickup)
     : { count: 0, signals: [] };
-  const totalSignals = coreSignals.count + approachSignals.count;
+  const allMatchedSignals = [...coreSignals.signals, ...approachSignals.signals];
+  const totalSignals = allMatchedSignals.length;
+  const signalBypasses = detectSignalBypasses(allMatchedSignals);
+
+  // User-plotted interception midpoints along corridors
+  const coreInterceptions = countInterceptionPointsBetween(pickup, delivery);
+  const approachInterceptions = currentPos
+    ? countInterceptionPointsBetween(currentPos, pickup)
+    : { count: 0, points: [] };
+  const totalInterceptions =
+    coreInterceptions.count + approachInterceptions.count;
 
   // Cargo payload weight and idling fuel calculation
   const payloadWeight = order.parcel_weight_kg ?? 0;
   // Weight factor: +3% fuel per 100 kg
   const weightFactor = 1 + Math.max(0, payloadWeight / 100) * 0.03;
-  // Stop-and-go penalty: ~0.035 litres per signal
-  const idlingPenaltyLitres = Math.round(totalSignals * 0.035 * 100) / 100;
-  // Signal idling range penalty: ~0.35 km per signal
-  const signalRangeDrainKm = totalSignals * 0.35;
+  // Stop-and-go penalty: ~0.035 litres per major signal, ~0.012 litres per intermediate interception
+  const idlingPenaltyLitres =
+    Math.round(
+      (totalSignals * 0.035 + totalInterceptions * 0.012) * 100,
+    ) / 100;
+  // Signal & interception idling range penalty: ~0.35 km per major signal, ~0.12 km per interception
+  const signalRangeDrainKm =
+    totalSignals * 0.35 + totalInterceptions * 0.12;
 
   // Fuel consumption rate by vehicle type
   const baseRateLPerKm =
@@ -557,7 +636,9 @@ export function assessEnergyRoute(
     fuelLitresEstimated,
     payloadWeightKg: payloadWeight,
     signalsOnRoute: totalSignals,
+    interceptionsOnRoute: totalInterceptions,
     idlingPenaltyLitres,
     recommendedFuelStation: recommendedStation,
+    signalBypasses,
   };
 }

@@ -215,6 +215,7 @@ export type MobileNavItem = {
   label: string;
   href: string;
   icon: IconName;
+  onClick?: () => void;
 };
 
 export function MobileNav({
@@ -256,6 +257,19 @@ export function MobileNav({
             <span>{item.label}</span>
           </>
         );
+        if (item.onClick) {
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`mobile-nav-btn ${active ? "is-active" : ""}`}
+              onClick={item.onClick}
+              aria-current={active ? "page" : undefined}
+            >
+              {content}
+            </button>
+          );
+        }
         return item.href.startsWith("/") ? (
           <Link
             key={item.id}
