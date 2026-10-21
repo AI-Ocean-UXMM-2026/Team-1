@@ -1,0 +1,823 @@
+/* Driver delivery flow: route overview, map-first active delivery, handover.
+   Builds on the rf- primitives in rider-flow.css and the Color System v1.2 tokens. */
+
+/* ---------- shared ---------- */
+
+.dv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dv-tag.is-warning {
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.dv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.dv-meta > span:not(.rf-cod, .dv-tag) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dv-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px 0 8px;
+}
+
+.dv-section-head h2 {
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.dv-count {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dv-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dv-status.is-assigned,
+.dv-status.is-in_progress {
+  background: var(--color-info-surface);
+  color: var(--color-info-text);
+}
+
+.dv-status.is-ready,
+.dv-status.is-completed,
+.dv-status.is-closed {
+  background: var(--color-success-surface);
+  color: var(--color-success-text);
+}
+
+.dv-status.is-paused,
+.dv-status.is-manifest_verification {
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+/* ---------- route metrics ---------- */
+
+.dv-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 16px 0 0;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.dv-metrics > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.dv-metrics > div:nth-child(even) {
+  border-left: 1px solid var(--color-border);
+}
+
+.dv-metrics > div:nth-child(n + 3) {
+  border-top: 1px solid var(--color-border);
+}
+
+.dv-metrics dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.dv-metrics dd {
+  margin: 0;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+}
+
+.dv-metrics dd small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.dv-metrics dd .dv-metric-sub {
+  display: block;
+}
+
+.dv-metric-cod dt {
+  color: var(--color-warning-text);
+}
+
+/* ---------- stop lists ---------- */
+
+.dv-stop-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-stop-row {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.dv-stop-row:first-child {
+  border-top: 0;
+}
+
+.dv-stop-list.is-compact .dv-stop-row {
+  padding: 10px 0;
+}
+
+.dv-stop-mark {
+  display: inline-grid;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 2px solid var(--color-border-control);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.dv-stop-mark.is-navigating,
+.dv-stop-mark.is-arrived,
+.dv-stop-mark.is-handover_in_progress {
+  border-color: var(--color-brand-navy);
+  background: var(--color-brand-navy);
+  color: var(--color-text-inverse);
+}
+
+.dv-stop-mark.is-completed {
+  border-color: var(--color-success);
+  background: var(--color-success-surface);
+  color: var(--color-success-text);
+}
+
+.dv-stop-mark.is-failed {
+  border-color: var(--color-error);
+  background: var(--color-error-surface);
+  color: var(--color-error-text);
+}
+
+.dv-stop-copy {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dv-stop-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dv-stop-top strong {
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.dv-stop-state {
+  flex: none;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dv-stop-row.is-navigating .dv-stop-state,
+.dv-stop-row.is-arrived .dv-stop-state {
+  color: var(--color-info-text);
+}
+
+.dv-stop-row.is-completed .dv-stop-state {
+  color: var(--color-success-text);
+}
+
+.dv-stop-row.is-failed .dv-stop-state {
+  color: var(--color-error-text);
+}
+
+.dv-stop-row.is-completed .dv-stop-top strong,
+.dv-stop-row.is-failed .dv-stop-top strong {
+  color: var(--color-text-secondary-subtle);
+}
+
+.dv-stop-address {
+  color: var(--color-text-secondary-subtle);
+}
+
+/* ---------- checklists ---------- */
+
+.dv-group {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.dv-group legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.dv-group legend .dv-stop-mark {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+
+.dv-check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 12px;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.dv-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dv-check-box {
+  display: inline-grid;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 2px solid var(--color-border-control);
+  border-radius: 8px;
+  color: transparent;
+}
+
+.dv-check.is-checked {
+  border-color: var(--color-success);
+  background: var(--color-success-surface);
+}
+
+.dv-check.is-checked .dv-check-box {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: #ffffff;
+}
+
+.dv-check:has(input:focus-visible) {
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+.dv-parcel-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.dv-parcel-copy small {
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+}
+
+.dv-load .rf-link {
+  margin-top: 8px;
+}
+
+.dv-load .rf-dock {
+  display: grid;
+  gap: 4px;
+}
+
+/* ---------- route close ---------- */
+
+.dv-summary {
+  margin: 16px 0 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.dv-summary h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.dv-summary dl {
+  display: grid;
+  margin: 8px 0 0;
+}
+
+.dv-summary dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.dv-summary dl > div:first-child {
+  border-top: 0;
+}
+
+.dv-summary dt {
+  color: var(--color-text-secondary-subtle);
+}
+
+.dv-summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.dv-summary dd.is-success {
+  color: var(--color-success-text);
+}
+
+.dv-summary dd.is-failed {
+  color: var(--color-error-text);
+}
+
+.dv-summary dd.is-warning {
+  color: var(--color-warning-text);
+}
+
+.dv-summary .rf-field {
+  margin-top: 12px;
+}
+
+.dv-returns {
+  display: grid;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-returns li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.dv-returns li:first-child {
+  border-top: 0;
+}
+
+.dv-returns small {
+  color: var(--color-warning-text);
+  font-weight: 600;
+}
+
+/* ---------- active delivery: map overlay ---------- */
+
+.dv-top {
+  position: absolute;
+  top: calc(var(--rf-safe-top) + 12px);
+  left: 50%;
+  z-index: 10;
+  display: grid;
+  gap: 8px;
+  width: calc(100% - 24px);
+  max-width: 456px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.dv-top > * {
+  pointer-events: auto;
+}
+
+.dv-instruction strong {
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.dv-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.dv-top-row > * {
+  pointer-events: auto;
+}
+
+.dv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dv-chips:empty {
+  pointer-events: none;
+}
+
+.dv-chip-btn {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.dv-float-btn {
+  background: var(--color-surface);
+  box-shadow: var(--rf-shadow-float);
+}
+
+/* ---------- active delivery: sheet ---------- */
+
+.dv-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 15;
+  max-height: 52dvh;
+  padding-bottom: 0;
+  transform: translateX(-50%);
+  transition: max-height 240ms var(--rf-ease);
+}
+
+.dv-sheet.is-open {
+  max-height: 74dvh;
+}
+
+.dv-sheet.is-handover {
+  max-height: 90dvh;
+  padding-top: 12px;
+}
+
+.dv-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.dv-sheet-head small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.dv-stop-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.dv-stop-count {
+  display: grid;
+  flex: none;
+  justify-items: center;
+  gap: 2px;
+}
+
+.dv-stop-count .dv-stop-mark {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+}
+
+.dv-stop-count small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dv-stop-title {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dv-stop-title > small {
+  color: var(--color-info-text);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.dv-stop-title > small.is-arrived {
+  color: var(--color-success-text);
+}
+
+.dv-stop-title h2 {
+  font-size: 20px;
+  line-height: 26px;
+}
+
+.dv-stop-title p {
+  color: var(--color-text-secondary-subtle);
+}
+
+.dv-sheet > .dv-meta {
+  margin: 10px 0 0 56px;
+}
+
+.dv-quick {
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+}
+
+.dv-details {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.dv-parcel-list {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-parcel-list li {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dv-parcel-list span {
+  color: var(--color-text-secondary-subtle);
+}
+
+.dv-done summary {
+  min-height: 44px;
+  padding: 12px 0;
+  color: var(--color-text-secondary-subtle);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dv-secondary {
+  display: grid;
+  gap: 8px;
+}
+
+.dv-sheet-actions {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: 4px;
+  margin: 12px -16px 0;
+  padding: 12px 16px calc(var(--rf-safe-bottom) + 12px);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+/* ---------- handover ---------- */
+
+.dv-handover {
+  display: grid;
+  gap: 4px;
+}
+
+.dv-handover > .rf-field,
+.dv-handover > .rf-cod-panel {
+  margin-top: 16px;
+}
+
+.dv-reqs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-reqs li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dv-reqs li.is-met {
+  background: var(--color-success-surface);
+  color: var(--color-success-text);
+}
+
+.rf-reason > span {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+}
+
+.rf-reason > span small {
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+/* ---------- route revisions ---------- */
+
+.dv-revision {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-info);
+  border-radius: 14px;
+  background: var(--color-info-surface);
+  box-shadow: var(--rf-shadow-float);
+  color: var(--color-info-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dv-revision.is-urgent {
+  border-color: var(--color-warning);
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.dv-revision > span:not(.dv-revision-cta) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.dv-revision small {
+  color: inherit;
+  font-size: 13px;
+}
+
+.dv-revision-cta {
+  flex: none;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dv-revision.is-open {
+  display: grid;
+  gap: 8px;
+  max-height: 60dvh;
+  overflow-y: auto;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: default;
+}
+
+.dv-revision-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-info-text);
+}
+
+.dv-revision-head strong {
+  flex: 1;
+}
+
+.dv-revision-head .rf-icon-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.dv-revision ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-revision li {
+  display: grid;
+  gap: 2px;
+}
+
+.dv-revision li span {
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+}
+
+.dv-overview > .dv-revision {
+  margin: 12px 0;
+}
+
+/* ---------- location help ---------- */
+
+.dv-steps {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  padding-left: 20px;
+}
+
+/* ---------- development preview controls ---------- */
+
+.dv-preview-bar {
+  position: fixed;
+  right: 8px;
+  top: 72px;
+  z-index: 60;
+  max-width: 240px;
+  border: 1px dashed var(--color-border-control);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 6px 18px -6px rgb(23 43 77 / 0.28);
+  font-size: 12px;
+}
+
+.dv-preview-bar summary {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dv-preview-bar > div {
+  display: grid;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.dv-preview-bar button,
+.dv-preview-bar select {
+  min-height: 36px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+}

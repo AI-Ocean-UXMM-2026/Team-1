@@ -85,7 +85,7 @@ function MapPointPicker({
         borderColor: "divider",
       }}
     >
-      <Box ref={container} sx={{ position: "absolute", inset: 0 }} />
+      <Box ref={container} style={{ position: "absolute", inset: 0 }} />
       <Box
         aria-hidden="true"
         sx={{

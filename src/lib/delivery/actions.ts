@@ -336,3 +336,217 @@ export async function recordDeliveryOutcome(
   });
   if (error) throw new Error(error.message);
 }
+
+/* ------------------------------------------------- driver delivery flow */
+
+/** PostgREST reports a function or table that the database doesn't have yet. */
+function isMissingSchema(error: { code?: string; message: string }) {
+  return (
+    error.code === "PGRST202" ||
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    error.code === "42883" ||
+    /(could not find the function|does not exist|schema cache)/i.test(
+      error.message,
+    )
+  );
+}
+
+export type DeliveryOutcomeInput = {
+  orderId: string;
+  driverId: string;
+  /** Stays the same across retries, so a resend never records a second outcome. */
+  requestId: string;
+  outcome: "delivered" | "failed";
+  parcelVerified: boolean;
+  receivedBy: string | null;
+  failureReason: string | null;
+  nextAction: "none" | "retry_later" | "reschedule" | "return_to_depot";
+  note: string | null;
+  codExpected: number;
+  /** Cash received for this parcel; null when no COD is open. */
+  codReceived: number | null;
+  codReason: string | null;
+};
+
+export type DeliveryOutcomeResult = {
+  status: string;
+  codStatus: string;
+  duplicate: boolean;
+};
+
+/**
+ * Records one parcel's outcome. Uses the atomic, idempotent database function
+ * when it exists; before that migration is applied, falls back to the older
+ * separate writes after checking the parcel has not already been closed.
+ */
+export async function completeDelivery(
+  supabase: DeliveryActionClient,
+  input: DeliveryOutcomeInput,
+): Promise<DeliveryOutcomeResult> {
+  const { data, error } = await supabase.rpc("complete_delivery", {
+    target_order_id: input.orderId,
+    client_request_id: input.requestId,
+    delivery_outcome: input.outcome,
+    parcel_checked: input.parcelVerified,
+    received_by: input.receivedBy,
+    reason: input.failureReason,
+    follow_up: input.nextAction,
+    delivery_note: input.note,
+    cod_received: input.codReceived,
+    cod_reason: input.codReason,
+  });
+  if (!error) {
+    const result = data as {
+      status: string;
+      cod_status: string;
+      duplicate: boolean;
+    };
+    return {
+      status: result.status,
+      codStatus: result.cod_status,
+      duplicate: result.duplicate,
+    };
+  }
+  if (!isMissingSchema(error)) throw new Error(error.message);
+  return completeDeliveryLegacy(supabase, input);
+}
+
+async function completeDeliveryLegacy(
+  supabase: DeliveryActionClient,
+  input: DeliveryOutcomeInput,
+): Promise<DeliveryOutcomeResult> {
+  const { data: order, error: readError } = await supabase
+    .from("delivery_orders")
+    .select("status, cod_status, cod_amount")
+    .eq("id", input.orderId)
+    .single();
+  if (readError) throw new Error(readError.message);
+  // A retry after a dropped response: the first attempt already went through.
+  if (order.status === "delivered" || order.status === "failed")
+    return {
+      status: order.status,
+      codStatus: order.cod_status,
+      duplicate: true,
+    };
+  if (order.status === "picked_up")
+    await setOrderStatus(supabase, input.orderId, "in_transit");
+  if (
+    input.outcome === "delivered" &&
+    order.cod_status === "pending" &&
+    input.codReceived === order.cod_amount
+  )
+    await collectCod(supabase, {
+      orderId: input.orderId,
+      driverId: input.driverId,
+      amount: order.cod_amount,
+    });
+  await setOrderStatus(supabase, input.orderId, input.outcome);
+  await recordDeliveryOutcome(supabase, {
+    orderId: input.orderId,
+    driverId: input.driverId,
+    outcome: input.outcome,
+    recipientName: input.receivedBy,
+    failureReason: legacyReason(input.failureReason),
+    note: [
+      input.note,
+      input.failureReason && legacyReason(input.failureReason) === "other"
+        ? `Reason: ${input.failureReason}`
+        : null,
+      input.nextAction !== "none" ? `Next: ${input.nextAction}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    codExpected: input.codExpected,
+    codCollected: input.codReceived,
+    codDiscrepancyReason:
+      input.codReceived != null && input.codReceived !== input.codExpected
+        ? input.codReason
+        : null,
+  });
+  return {
+    status: input.outcome,
+    codStatus: order.cod_status,
+    duplicate: false,
+  };
+}
+
+/** Reasons the pre-migration outcome table accepts; the rest go in the note. */
+function legacyReason(reason: string | null): FailureReason | null {
+  if (reason == null) return null;
+  return (
+    [
+      "recipient_unavailable",
+      "incorrect_address",
+      "recipient_refused",
+      "recipient_unreachable",
+    ] as string[]
+  ).includes(reason)
+    ? (reason as FailureReason)
+    : "other";
+}
+
+export type StoredRouteSession = {
+  status: "in_progress" | "paused" | "closed";
+  started_at: string;
+  paused_at: string | null;
+  closed_at: string | null;
+  cod_declared: number | null;
+};
+
+/** Thrown when the route session table isn't in the database yet. */
+export class RouteSessionUnavailable extends Error {}
+
+export async function loadRouteSession(
+  supabase: DeliveryActionClient,
+  driverId: string,
+  routeDate: string,
+): Promise<StoredRouteSession | null> {
+  const { data, error } = await supabase
+    .from("driver_route_sessions")
+    .select("status, started_at, paused_at, closed_at, cod_declared")
+    .eq("driver_id", driverId)
+    .eq("route_date", routeDate)
+    .maybeSingle();
+  if (error) {
+    if (isMissingSchema(error))
+      throw new RouteSessionUnavailable(error.message);
+    throw new Error(error.message);
+  }
+  return data as StoredRouteSession | null;
+}
+
+export async function setRouteState(
+  supabase: DeliveryActionClient,
+  input: {
+    state: "in_progress" | "paused" | "closed";
+    reason?: string | null;
+    declaredCod?: number | null;
+  },
+): Promise<StoredRouteSession> {
+  const { data, error } = await supabase.rpc("set_driver_route_state", {
+    next_state: input.state,
+    reason: input.reason ?? null,
+    declared_cod: input.declaredCod ?? null,
+  });
+  if (error) {
+    if (isMissingSchema(error))
+      throw new RouteSessionUnavailable(error.message);
+    throw new Error(error.message);
+  }
+  return data as unknown as StoredRouteSession;
+}
+
+/** Marks the delivery stops for these parcels as arrived, where dispatch created them. */
+export async function markStopArrived(
+  supabase: DeliveryActionClient,
+  orderIds: string[],
+) {
+  const { error } = await supabase
+    .from("route_stops")
+    .update({ status: "arrived" })
+    .in("order_id", orderIds)
+    .eq("stop_type", "delivery")
+    .eq("status", "pending");
+  if (error) throw new Error(error.message);
+}

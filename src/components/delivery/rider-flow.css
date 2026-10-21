@@ -1428,6 +1428,12 @@
   overflow: hidden;
 }
 
+/* Mapbox adds .mapboxgl-map, whose position rule can override this viewport. */
+.rnav-viewport.mapboxgl-map {
+  position: absolute;
+  inset: 0;
+}
+
 .rnav-viewport.is-interactive {
   cursor: grab;
   touch-action: none;

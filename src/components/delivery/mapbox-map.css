@@ -31,3 +31,8 @@
   position: absolute;
   inset: 0;
 }
+
+.mapbox-canvas.mapboxgl-map {
+  position: absolute;
+  inset: 0;
+}

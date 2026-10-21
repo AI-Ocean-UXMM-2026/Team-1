@@ -351,9 +351,12 @@ export type Database = {
           id: string;
           note: string | null;
           order_id: string;
+          next_action: string;
           outcome: string;
+          parcel_verified: boolean;
           recipient_name: string | null;
           reported_at: string;
+          request_id: string | null;
         };
         Insert: {
           cod_collected?: number | null;
@@ -364,9 +367,12 @@ export type Database = {
           id?: string;
           note?: string | null;
           order_id: string;
+          next_action?: string;
           outcome: string;
+          parcel_verified?: boolean;
           recipient_name?: string | null;
           reported_at?: string;
+          request_id?: string | null;
         };
         Update: {
           cod_collected?: number | null;
@@ -377,9 +383,12 @@ export type Database = {
           id?: string;
           note?: string | null;
           order_id?: string;
+          next_action?: string;
           outcome?: string;
+          parcel_verified?: boolean;
           recipient_name?: string | null;
           reported_at?: string;
+          request_id?: string | null;
         };
         Relationships: [
           {
@@ -397,6 +406,45 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      driver_route_sessions: {
+        Row: {
+          closed_at: string | null;
+          cod_declared: number | null;
+          driver_id: string;
+          id: string;
+          pause_reason: string | null;
+          paused_at: string | null;
+          route_date: string;
+          started_at: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          closed_at?: string | null;
+          cod_declared?: number | null;
+          driver_id: string;
+          id?: string;
+          pause_reason?: string | null;
+          paused_at?: string | null;
+          route_date?: string;
+          started_at?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          closed_at?: string | null;
+          cod_declared?: number | null;
+          driver_id?: string;
+          id?: string;
+          pause_reason?: string | null;
+          paused_at?: string | null;
+          route_date?: string;
+          started_at?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       delivery_routes: {
         Row: {
@@ -1074,6 +1122,29 @@ export type Database = {
       };
     };
     Functions: {
+      complete_delivery: {
+        Args: {
+          target_order_id: string;
+          client_request_id: string;
+          delivery_outcome: string;
+          parcel_checked?: boolean;
+          received_by?: string | null;
+          reason?: string | null;
+          follow_up?: string;
+          delivery_note?: string | null;
+          cod_received?: number | null;
+          cod_reason?: string | null;
+        };
+        Returns: Json;
+      };
+      set_driver_route_state: {
+        Args: {
+          next_state: string;
+          reason?: string | null;
+          declared_cod?: number | null;
+        };
+        Returns: Database["public"]["Tables"]["driver_route_sessions"]["Row"];
+      };
       track_delivery: {
         Args: { code: string };
         Returns: Json;
