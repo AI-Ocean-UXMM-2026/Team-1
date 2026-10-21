@@ -117,7 +117,7 @@ flowchart TD
 - Manager, driver, seller, and support roles require trusted administrative provisioning.
 - Row-level security enforces order ownership and role access in the database.
 - The URL redirect is a navigation aid; it is not the security boundary.
-- Demo data is labeled and remains in browser memory.
+- Live workspace data comes from Supabase; empty states remain empty until records exist.
 
 ## Main code paths
 
@@ -148,6 +148,8 @@ flowchart TD
 8. Run the checks in `docs/TESTING.md`.
 9. Push the branch and open a pull request to `main` with verification evidence.
 10. Merge only after required checks and deployment previews pass.
+
+Contributor branches are integrated through `main`; before publishing, fetch the contributor branches, confirm their commits are included, resolve conflicts on the integration branch, and rerun the checks. The current contributor intelligence and operations/integrations branches have no commits ahead of `main`.
 
 ## Current limitations
 

@@ -23,7 +23,7 @@ const emptyWorkspace = (): WorkspaceData => ({
 export function useWorkspace(role: WorkspaceProfile["role"]) {
   const [data, setData] = useState<WorkspaceData>(emptyWorkspace);
   const [profile, setProfile] = useState<WorkspaceProfile | null>(null);
-  const [isDemo, setIsDemo] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
