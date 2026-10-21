@@ -50,6 +50,7 @@ import { prioritiseOrders } from "@/lib/delivery/format";
 import {
   hasCollectedParcel,
   parcelLocationState,
+  isRecentLocation,
 } from "@/lib/delivery/location-state";
 import {
   fromTrackingPayload,
@@ -269,7 +270,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       : locationState === "closed"
         ? "Location sharing has ended"
         : locationState === "stale"
-          ? "Showing the last known location"
+          ? isRecentLocation(selectedOrder, now)
+            ? "Your rider’s latest location"
+            : "Showing the last known location"
           : selectedOrder && hasCollectedParcel(selectedOrder.status)
             ? "Waiting for the rider’s first location"
             : "Live location starts at pickup";
@@ -280,7 +283,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       : locationState === "closed"
         ? "Your delivery’s final status remains available below."
         : locationState === "stale"
-          ? "A fresh GPS point has not arrived yet. The rider may have lost connection."
+          ? isRecentLocation(selectedOrder, now)
+            ? "The map refreshes on its own every few seconds."
+            : "No new GPS point for a few minutes. The rider may have lost connection."
           : selectedOrder && hasCollectedParcel(selectedOrder.status)
             ? "Your parcel is collected. The map will update when your rider shares a GPS point."
             : "Your rider’s location becomes available after they receive the parcel.";
@@ -336,9 +341,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
           onBack={isRootTab ? undefined : goBack}
         />
         <HomeSkeleton />
-        {isRootTab && (
-          <CustomerBottomNav activeId={view === "home" ? "orders" : view} />
-        )}
+        {isRootTab && <CustomerBottomNav activeId={view} />}
       </main>
     );
 
@@ -468,9 +471,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         />
       )}
 
-      {isRootTab && (
-        <CustomerBottomNav activeId={view === "home" ? "orders" : view} />
-      )}
+      {isRootTab && <CustomerBottomNav activeId={view} />}
       <HelpSheet
         open={sheet === "help"}
         order={helpOrder}

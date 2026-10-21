@@ -296,7 +296,7 @@
 }
 @media (max-width: 600px) {
   .auth-page {
-    align-items: start;
+    align-items: center;
     padding: 18px 12px;
   }
 }

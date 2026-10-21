@@ -1,5 +1,6 @@
 "use client";
 
+import { Home, HomeFill } from "@material-symbols-svg/react/rounded/icons/home";
 import {
   Person,
   PersonFill,
@@ -58,6 +59,13 @@ import { STATUS_LABELS, STATUS_STEPS } from "@/lib/delivery/types";
 
 const navItems = [
   {
+    id: "home",
+    label: "Home",
+    href: "/home",
+    icon: Home,
+    activeIcon: HomeFill,
+  },
+  {
     id: "orders",
     label: "Orders",
     href: "/orders",
@@ -66,7 +74,7 @@ const navItems = [
   },
   {
     id: "pickup",
-    label: "Request pickup",
+    label: "Pickup",
     href: "/pickup",
     icon: Inventory2Outlined,
     activeIcon: Inventory2Outlined,
@@ -145,21 +153,10 @@ export const CustomerBottomNav = memo(function CustomerBottomNav({
                   height: 32,
                   borderRadius: "999px",
                   bgcolor: (theme) =>
-                    item.id === "pickup"
-                      ? active
-                        ? "primary.main"
-                        : alpha(theme.palette.primary.main, 0.1)
-                      : active
-                        ? alpha(theme.palette.primary.main, 0.12)
-                        : "transparent",
-                  color:
-                    item.id === "pickup"
-                      ? active
-                        ? "primary.contrastText"
-                        : "primary.dark"
-                      : active
-                        ? "primary.dark"
-                        : "inherit",
+                    active
+                      ? alpha(theme.palette.primary.main, 0.12)
+                      : "transparent",
+                  color: active ? "primary.dark" : "inherit",
                   transition: "background-color 150ms ease",
                 }}
               >
@@ -426,6 +423,26 @@ export function TrackDetail({
         </Typography>
       </Box>
 
+      <Box
+        sx={{
+          mx: 2,
+          mt: 1.5,
+          borderRadius: "20px",
+          overflow: "hidden",
+          bgcolor: "grey.100",
+        }}
+      >
+        <LocationMap order={order} mode="customer" isDemo={isDemo} tall />
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {locationHeading}
+          </Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {locationDescription}
+          </Typography>
+        </Box>
+      </Box>
+
       <Stack direction="row" spacing={1} sx={{ mx: 2, mt: 1.5 }}>
         {!closed && !isDemo && <ShareTrackingButton order={order} />}
         <Button
@@ -443,26 +460,6 @@ export function TrackDetail({
           Get help
         </Button>
       </Stack>
-
-      <Box
-        sx={{
-          mx: 2,
-          mt: 2,
-          borderRadius: "20px",
-          overflow: "hidden",
-          bgcolor: "grey.100",
-        }}
-      >
-        <LocationMap order={order} mode="customer" isDemo={isDemo} tall />
-        <Box sx={{ px: 2, py: 1.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            {locationHeading}
-          </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {locationDescription}
-          </Typography>
-        </Box>
-      </Box>
 
       <Panel title="Route">
         <Stack spacing={1.5}>
@@ -790,6 +787,8 @@ export function OrdersPage({
             const count = orders.filter((order) =>
               matchesOrderFilter(order, item.id),
             ).length;
+            // A group with nothing in it is noise, unless it is the one open.
+            if (item.id === "issues" && count === 0 && !selected) return null;
             return (
               <Chip
                 key={item.id}
@@ -881,26 +880,45 @@ export function OrdersPage({
                   bgcolor: "grey.100",
                 }}
               >
-                <ListItemText
-                  sx={{ m: 0, minWidth: 0 }}
-                  primary={order.delivery_address}
-                  secondary={`${order.tracking_code} · Ordered ${formatDateTime(
-                    order.created_at,
-                  )}${
-                    order.status === "in_transit" ||
-                    order.status === "picked_up"
-                      ? ` · ETA ${timeUntil(order.estimated_delivery_at)}`
-                      : ""
-                  }`}
-                  slotProps={{
-                    primary: {
-                      noWrap: true,
-                      sx: { fontWeight: 700, fontSize: 14 },
-                    },
-                    secondary: { noWrap: true, sx: { fontSize: 12 } },
-                  }}
-                />
-                <StatusChip status={order.status} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ fontWeight: 700, overflowWrap: "anywhere" }}
+                  >
+                    {order.delivery_address}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", color: "text.secondary" }}
+                  >
+                    {order.tracking_code} · Ordered{" "}
+                    {formatDateTime(order.created_at)}
+                  </Typography>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ alignItems: "center", flexWrap: "wrap", mt: 0.75 }}
+                  >
+                    <StatusChip status={order.status} />
+                    {(order.status === "in_transit" ||
+                      order.status === "picked_up") && (
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        ETA {timeUntil(order.estimated_delivery_at)}
+                      </Typography>
+                    )}
+                    {order.cod_amount > 0 &&
+                      order.cod_status === "pending" &&
+                      ACTIVE_STATUSES.includes(order.status) && (
+                        <Typography
+                          variant="caption"
+                          sx={{ color: "warning.dark", fontWeight: 600 }}
+                        >
+                          Pay {currency.format(order.cod_amount)}
+                        </Typography>
+                      )}
+                  </Stack>
+                </Box>
+                <ChevronRight color="disabled" />
               </ListItemButton>
             </ListItem>
           ))}

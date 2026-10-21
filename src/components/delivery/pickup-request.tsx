@@ -152,6 +152,18 @@ export function PickupRequestPage() {
   const [error, setError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const nextMissing =
+    address.trim().length === 0
+      ? "the pickup address"
+      : dropoff.trim().length === 0
+        ? "the delivery address"
+        : recipientName.trim().length === 0
+          ? "the recipient’s name"
+          : recipientPhone.trim().length === 0
+            ? "the recipient’s phone number"
+            : parcelDescription.trim().length === 0
+              ? "what the parcel is"
+              : null;
   const ready =
     address.trim().length > 0 &&
     dropoff.trim().length > 0 &&
@@ -418,6 +430,20 @@ export function PickupRequestPage() {
             </Box>
 
             <Box>
+              <FieldLabel htmlFor="pickup-phone">
+                Your phone number (optional, so the rider can reach you)
+              </FieldLabel>
+              <OutlinedInput
+                id="pickup-phone"
+                fullWidth
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="09xxxxxxxxx"
+              />
+            </Box>
+
+            <Box>
               <FieldLabel htmlFor="delivery-address">
                 Delivery address
               </FieldLabel>
@@ -428,20 +454,6 @@ export function PickupRequestPage() {
                 value={dropoff}
                 onChange={(event) => setDropoff(event.target.value)}
                 placeholder="Recipient’s address and township"
-              />
-            </Box>
-
-            <Box>
-              <FieldLabel htmlFor="pickup-phone">
-                Your phone number (optional)
-              </FieldLabel>
-              <OutlinedInput
-                id="pickup-phone"
-                fullWidth
-                type="tel"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                placeholder="09xxxxxxxxx"
               />
             </Box>
           </Box>
@@ -614,6 +626,14 @@ export function PickupRequestPage() {
                 sx={{ color: "error.main", mb: 1 }}
               >
                 {error}
+              </Typography>
+            )}
+            {nextMissing && (
+              <Typography
+                variant="caption"
+                sx={{ display: "block", mb: 1, color: "text.secondary" }}
+              >
+                Add {nextMissing} to continue.
               </Typography>
             )}
             <Button

@@ -345,6 +345,39 @@ const PickupHero = memo(function PickupHero() {
   );
 });
 
+/** Once a parcel is on the way, booking another is a quiet row under it. */
+const PickupRow = memo(function PickupRow() {
+  return (
+    <Box sx={{ px: 2, mt: 3 }}>
+      <ListItemButton
+        component={Link}
+        href="/pickup"
+        sx={{
+          gap: 1.5,
+          minHeight: 64,
+          px: 1.5,
+          borderRadius: "16px",
+          bgcolor: "grey.100",
+        }}
+      >
+        <Box
+          component="img"
+          src="/icons/pickup.svg"
+          alt=""
+          sx={{ display: "block", width: 40, height: 40, flex: "none" }}
+        />
+        <ListItemText
+          primary="Request a pickup"
+          secondary="Book a rider to collect a parcel in Yangon."
+          slotProps={{ primary: { sx: { fontWeight: 700, fontSize: 14 } } }}
+          sx={{ m: 0 }}
+        />
+        <ChevronRight color="disabled" />
+      </ListItemButton>
+    </Box>
+  );
+});
+
 const MoreShortcuts = memo(function MoreShortcuts({
   onOpenHelp,
 }: {
@@ -829,27 +862,18 @@ export function CustomerHome({
     y.created_at.localeCompare(x.created_at),
   )[0];
 
+  // A parcel on the way leads the page; booking another waits underneath.
+  const hasLive = isAuthenticated && next != null;
+
   return (
     <>
-      <PickupHero />
-
-      {isAuthenticated && showCodChip && (
-        <Box sx={{ px: 2, mt: 1.5 }}>
-          <Chip
-            clickable
-            onClick={onOpenCod}
-            icon={<PaymentsOutlined />}
-            label={`${codCount} COD ${codCount === 1 ? "payment" : "payments"} due`}
-            sx={{ ...toneSx("warning"), height: 36, borderRadius: "999px" }}
-          />
-        </Box>
-      )}
+      {!hasLive && <PickupHero />}
 
       <Box
         component="section"
         id="active-deliveries"
         aria-labelledby="active-deliveries-title"
-        sx={{ mt: 3, scrollMarginTop: 72 }}
+        sx={{ mt: hasLive ? 1 : 3, scrollMarginTop: 72 }}
       >
         <Stack
           direction="row"
@@ -966,6 +990,20 @@ export function CustomerHome({
           </Box>
         )}
       </Box>
+
+      {isAuthenticated && showCodChip && (
+        <Box sx={{ px: 2, mt: 2 }}>
+          <Chip
+            clickable
+            onClick={onOpenCod}
+            icon={<PaymentsOutlined />}
+            label={`${codCount} COD ${codCount === 1 ? "payment" : "payments"} due`}
+            sx={{ ...toneSx("warning"), height: 36, borderRadius: "999px" }}
+          />
+        </Box>
+      )}
+
+      {hasLive && <PickupRow />}
 
       <MoreShortcuts onOpenHelp={onOpenHelp} />
     </>

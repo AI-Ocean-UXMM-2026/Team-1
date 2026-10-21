@@ -193,3 +193,29 @@ test("opening another parcel from Notifications while on Track switches to it (H
   await expect(delivery.getByText("OR-2002").first()).toBeVisible();
   await expect(delivery.getByText("OR-2001")).toHaveCount(0);
 });
+
+test("home leads with the parcel on the way, and the tab bar has one current tab", async ({
+  page,
+  context,
+}) => {
+  await signInAs(context, "customer", {
+    delivery_orders: [
+      makeOrder({ customer_id: "user-1", status: "in_transit" }),
+    ],
+  });
+  await page.goto("/home");
+  const live = page.getByRole("link", { name: /track live/i });
+  const pickup = page.getByRole("link", { name: /request a pickup/i });
+  await expect(live).toBeVisible();
+  const liveY = (await live.boundingBox())?.y ?? 0;
+  const pickupY = (await pickup.boundingBox())?.y ?? 0;
+  expect(liveY).toBeLessThan(pickupY);
+
+  const nav = page.getByRole("navigation", { name: "Customer app" });
+  await expect(nav.getByRole("link")).toHaveCount(4);
+  await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
+  await expect(nav.getByRole("link", { name: "Home" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+});
