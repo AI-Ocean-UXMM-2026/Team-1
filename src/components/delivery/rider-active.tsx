@@ -759,14 +759,6 @@ export function ActiveDelivery({
 
             {error}
             <div className="dv-sheet-actions">
-              {stop.codDue > 0 && !(confirmFar && far && !arrived) && (
-                <div className="dv-cash">
-                  <span>
-                    <Icon name="coin" size={16} /> Collect cash
-                  </span>
-                  <strong>{currency.format(stop.codDue)}</strong>
-                </div>
-              )}
               {arrived ? (
                 <Button
                   fullWidth

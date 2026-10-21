@@ -658,9 +658,15 @@
   overflow: hidden;
 }
 
+/* The handover is its own full-screen page: cash, checks and proof get the
+   whole screen, and the map is out of the way. */
 .dv-sheet.is-handover {
-  max-height: 90dvh;
-  padding-top: 12px;
+  top: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding-top: calc(var(--rf-safe-top) + 12px);
+  overflow-y: auto;
+  border-radius: 0;
 }
 
 .dv-sheet .rf-handle-btn {
@@ -1330,34 +1336,6 @@
 
 .dv-sheet-actions {
   flex-wrap: wrap;
-}
-
-.dv-cash {
-  display: flex;
-  flex: 1 1 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: var(--color-warning-surface);
-  color: var(--color-warning-text);
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-}
-
-.dv-cash > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dv-cash strong {
-  font-size: 24px;
-  line-height: 30px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 .dv-swipe {

@@ -241,15 +241,28 @@ test("tapping or half-swiping arrive does not confirm it", async ({
   await expect(knob).toBeVisible();
 });
 
-test("cash due sits above the swipe, not in the stop header", async ({
+test("cash due is not in the overview; the handover is a full page with it", async ({
   page,
   context,
 }) => {
   await openRider(page, context, "in_transit");
-  const actions = page.locator(".dv-sheet-actions");
-  await expect(actions.getByText("Collect cash")).toBeVisible();
-  await expect(actions.getByText(/68,000/)).toBeVisible();
-  await expect(page.locator(".dv-stop-head").getByText(/68,000/)).toHaveCount(
-    0,
-  );
+  const sheet = page.getByRole("region", { name: /Stop 1 of 1/ });
+  await expect(sheet.getByText(/collect cash/i)).toHaveCount(0);
+  await expect(sheet.getByText(/68,000/)).toHaveCount(0);
+
+  await swipeToConfirm(page, /i.ve arrived/i);
+  await page.getByRole("button", { name: /yes, i.m here/i }).click();
+  await page.getByRole("button", { name: "Start handover" }).click();
+
+  // Full screen: the page grows to cover the whole viewport.
+  const height = page.viewportSize()?.height;
+  await expect
+    .poll(async () => (await sheet.boundingBox())?.height)
+    .toBe(height);
+  expect((await sheet.boundingBox())?.y).toBe(0);
+  await page.getByText("OR-9001").click();
+  await page.getByRole("button", { name: "Continue to recipient" }).click();
+  await page.getByLabel("Actual receiver").fill("May Thazin");
+  await page.getByRole("button", { name: /continue to payment/i }).click();
+  await expect(page.getByText("Collect payment")).toBeVisible();
 });
