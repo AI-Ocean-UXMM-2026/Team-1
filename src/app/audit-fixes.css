@@ -283,3 +283,16 @@
     color-scheme: dark;
   }
 }
+
+/* M-01: every customer control is at least 48px tall. */
+.customer-app .MuiButton-root,
+.customer-app .MuiChip-clickable,
+.customer-app .orders-filter button,
+.auth-switch button {
+  min-height: var(--target-min, 48px);
+}
+.auth-switch button {
+  min-width: var(--target-min, 48px);
+  padding-inline: 8px;
+  font-size: 14px;
+}
