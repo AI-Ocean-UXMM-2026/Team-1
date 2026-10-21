@@ -830,28 +830,6 @@
   transition: transform 400ms var(--rf-ease);
 }
 
-.rf-directions {
-  display: grid;
-  flex: none;
-  min-width: 56px;
-  min-height: 52px;
-  place-items: center;
-  align-content: center;
-  gap: 2px;
-  padding: 4px 6px;
-  border-radius: 12px;
-  background: var(--color-info-surface);
-  color: var(--color-info-text);
-  text-decoration: none;
-}
-
-.rf-directions span {
-  color: inherit;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
-}
-
 .rf-nav-chips {
   display: flex;
   align-items: center;
@@ -1459,30 +1437,6 @@
   cursor: grabbing;
 }
 
-.rnav-tiles {
-  position: absolute;
-  inset: 0;
-  /* Quiet the base map so the route and markers carry the colour. */
-  filter: saturate(0.4) contrast(0.96) brightness(1.04);
-}
-
-.rnav-tile {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 256px;
-  height: 256px;
-  background-size: cover;
-}
-
-.rnav-overlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
 .rnav-route-casing {
   fill: none;
   stroke: var(--color-map-route-casing);
@@ -1583,68 +1537,6 @@
 .rnav-driver-arrow {
   fill: #ffffff;
   transition: transform 400ms var(--rf-ease);
-}
-
-.rnav-zoom {
-  position: absolute;
-  right: 12px;
-  top: calc(env(safe-area-inset-top, 0px) + 196px);
-  z-index: 5;
-  display: grid;
-  gap: 8px;
-}
-
-.rnav-fab {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: var(--color-surface);
-  box-shadow:
-    0 6px 18px -6px rgb(23 43 77 / 0.28),
-    0 2px 4px rgb(23 43 77 / 0.08);
-  color: var(--color-text-primary);
-  cursor: pointer;
-}
-
-.rnav-fab:disabled {
-  color: var(--color-text-secondary);
-  cursor: not-allowed;
-}
-
-.rnav-fab-large {
-  order: -1;
-  width: 56px;
-  height: 56px;
-  margin: 0 0 8px -8px;
-  border-radius: 999px;
-}
-
-.rnav-fab-large.is-off-centre {
-  background: var(--color-info);
-  border-color: var(--color-info);
-  color: #ffffff;
-}
-
-.rnav-attribution {
-  position: absolute;
-  left: 8px;
-  bottom: 4px;
-  z-index: 1;
-  padding: 0 4px;
-  border-radius: 4px;
-  background: rgb(255 255 255 / 0.8);
-  color: var(--color-text-secondary-subtle);
-  font-size: 10px;
-  line-height: 14px;
-}
-
-.rf-nav .rnav-attribution {
-  top: calc(env(safe-area-inset-top, 0px) + 160px);
-  bottom: auto;
-  left: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2201,61 +2093,8 @@
   background: rgb(255 255 255 / 0.12);
 }
 
-.rf-nav .rf-directions {
-  background: #ffffff;
-  color: var(--color-info-text);
-}
-
-.rf-nav:has(.rf-caution-banner) .rnav-zoom {
-  top: calc(env(safe-area-inset-top, 0px) + 264px);
-}
-
-.rf-nav:has(.rf-caution-banner) .rnav-attribution {
-  top: calc(env(safe-area-inset-top, 0px) + 228px);
-}
 
 /* Part of the header's flow, so a two-line instruction never covers them. */
-.rf-nav-fabs {
-  display: grid;
-  justify-self: start;
-  gap: 10px;
-}
-
-.rf-fab-tool {
-  display: grid;
-  width: 60px;
-  min-height: 60px;
-  place-items: center;
-  align-content: center;
-  gap: 2px;
-  padding: 6px 4px;
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: var(--color-surface);
-  box-shadow: var(--rf-shadow-float);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.rf-fab-tool.is-energy.is-tight {
-  border-color: #fcd34d;
-  background: var(--color-warning-surface);
-  color: var(--color-warning-text);
-}
-
-.rf-fab-tool.is-energy.is-short {
-  border-color: #fca5a5;
-  background: var(--color-error-surface);
-  color: #991b1b;
-}
-
-.rf-fab-tool.is-issue {
-  color: var(--color-error-text);
-}
 
 .rf-eta-pill {
   flex: none;
@@ -2585,4 +2424,235 @@
 .rf-overview .rf-dock {
   border-top: 1px solid var(--color-border);
   background: var(--color-background);
+}
+
+/* ---------- Mapbox only: map states and re-centre ---------- */
+
+.rnav-unavailable {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 0 32px 40%;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary-subtle);
+  text-align: center;
+}
+
+.rnav-unavailable strong {
+  color: var(--color-text-primary);
+  font-size: 16px;
+}
+
+.rnav-unavailable small {
+  color: var(--color-text-secondary);
+}
+
+/* Google Maps' "Re-centre": appears only after the rider moves the map. */
+.rnav-recenter {
+  position: absolute;
+  right: 12px;
+  top: calc(env(safe-area-inset-top, 0px) + 176px);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--color-info);
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: var(--rf-shadow-float);
+  color: var(--color-info-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rf-nav:has(.rf-caution-banner) .rnav-recenter {
+  top: calc(env(safe-area-inset-top, 0px) + 244px);
+}
+
+.rf-chip-btn.is-energy.is-tight {
+  border-color: #fcd34d;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.rf-chip-btn.is-energy.is-short {
+  border-color: #fca5a5;
+  background: var(--color-error-surface);
+  color: #991b1b;
+}
+
+.rf-chip-btn.is-issue {
+  color: var(--color-error-text);
+}
+
+/* ---------- navigation sheet in Grab Driver's layout ---------- */
+
+.rg-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rg-count {
+  display: grid;
+  flex: none;
+  min-width: 44px;
+  justify-items: center;
+}
+
+.rg-count strong {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 2px solid var(--color-border-control);
+  border-radius: 999px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.rg-count span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.rg-title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.rf-app .rg-title h2 {
+  color: var(--color-brand-orange-action);
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.rg-title span {
+  overflow: hidden;
+  color: var(--color-text-secondary-subtle);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rg-navigate {
+  display: grid;
+  flex: none;
+  min-width: 56px;
+  place-items: center;
+  gap: 2px;
+  color: var(--color-info-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rg-navigate > svg {
+  box-sizing: content-box;
+  padding: 10px;
+  border-radius: 999px;
+  background: var(--color-info);
+  color: #ffffff;
+}
+
+.rf-nav-sheet .rf-address {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.rg-money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 10px;
+}
+
+.rg-money strong {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+}
+
+.rg-badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rg-badge.is-cod {
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.rg-eta {
+  margin-left: auto;
+  color: var(--color-info-text);
+  font-weight: 700;
+}
+
+.rg-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 12px -16px 0;
+  padding: 0;
+  border: 0;
+  border-block: 1px solid var(--color-border);
+}
+
+.rg-actions > * {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  min-height: 64px;
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.rg-actions > * + * {
+  border-left: 1px solid var(--color-border);
+}
+
+.rg-actions > *:active {
+  background: var(--color-surface-subtle);
+}
+
+.rg-primary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.rg-primary .rf-btn {
+  flex: 1;
+}
+
+.rg-round {
+  display: grid;
+  flex: none;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 2px solid var(--color-border-control);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
 }

@@ -2227,6 +2227,11 @@ export function RiderApp() {
       !pickup && current.estimated_delivery_at
         ? formatTime(current.estimated_delivery_at)
         : null;
+    // While moving, the phone's heading; at the start (or standing still) the
+    // way to the next point, so the map opens already turned the right way.
+    const navHeading = workspace.isDemo
+      ? legBearing
+      : (position?.heading ?? legBearing);
     const parcelsHere = pickupOrders.length ? pickupOrders : [current];
     const dropsDone = dropoffPoints.filter(
       (item) => item.state === "done" || item.state === "failed",
@@ -2252,7 +2257,8 @@ export function RiderApp() {
       <main className="rf-app rf-nav">
         <RiderNavMap
           driver={riderPoint}
-          heading={workspace.isDemo ? legBearing : (position?.heading ?? null)}
+          heading={navHeading}
+          follow
           target={leg.point ? { ...leg.point, kind: leg.kind } : null}
           targetId={current.id}
           stops={navStops}
@@ -2261,7 +2267,7 @@ export function RiderApp() {
           padding={{
             x: 56,
             top: nextCaution ? 236 : 168,
-            bottom: sheetOpen ? Math.round(viewHeight * 0.6) + 16 : 320,
+            bottom: sheetOpen ? Math.round(viewHeight * 0.6) + 16 : 300,
           }}
           road={legRoute}
           label={`Map to ${pickup ? "pickup" : `drop-off ${stopNumber(current)} of ${dropoffPoints.length}`}: ${leg.address}`}
@@ -2288,7 +2294,9 @@ export function RiderApp() {
                 <svg
                   viewBox="0 0 32 32"
                   aria-hidden="true"
-                  style={{ transform: `rotate(${legBearing ?? 0}deg)` }}
+                  style={{
+                    transform: `rotate(${(legBearing ?? 0) - (navHeading ?? 0)}deg)`,
+                  }}
                 >
                   <path d="M16 3 26 27l-10-6-10 6Z" />
                 </svg>
@@ -2304,16 +2312,6 @@ export function RiderApp() {
               <strong>{instruction.title}</strong>
               <span>{instruction.sub}</span>
             </div>
-            <a
-              className="rf-directions"
-              href={mapsUrl(legDestination(current))}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open turn-by-turn directions in Google Maps"
-            >
-              <Icon name="navigation" size={18} />
-              <span>Directions</span>
-            </a>
           </div>
           {nextCaution && nextCautionCopy && (
             <button
@@ -2341,10 +2339,27 @@ export function RiderApp() {
           <div className="rf-nav-chips">
             <button
               type="button"
-              className="rf-chip-btn"
-              onClick={() => setScreen("overview")}
+              className={`rf-chip-btn is-energy is-${routeEnergy.status}`}
+              onClick={() => openPanel("energy")}
+              aria-label={`${routeEnergy.source === "battery" ? "Battery" : "Fuel"} ${routeEnergy.levelPercent ?? "unknown"}%: check range or request a stop`}
             >
-              <Icon name="list" size={16} /> All points
+              <Icon
+                name={routeEnergy.source === "battery" ? "battery" : "fuel"}
+                size={16}
+              />
+              {routeEnergy.levelPercent == null
+                ? routeEnergy.source === "battery"
+                  ? "Battery"
+                  : "Fuel"
+                : `${routeEnergy.levelPercent}%`}
+            </button>
+            <button
+              type="button"
+              className="rf-chip-btn is-issue"
+              onClick={() => openPanel("issue")}
+              aria-label="Report an issue"
+            >
+              <Icon name="warning" size={16} /> Issue
             </button>
             {workspace.isDemo ? (
               <span className="rf-chip">Sample route · no GPS used</span>
@@ -2380,35 +2395,6 @@ export function RiderApp() {
               <Icon name="menu" size={20} />
             </button>
           </div>
-          <div className="rf-nav-fabs">
-            <button
-              type="button"
-              className={`rf-fab-tool is-energy is-${routeEnergy.status}`}
-              onClick={() => openPanel("energy")}
-              aria-label={`${routeEnergy.source === "battery" ? "Battery" : "Fuel"} ${routeEnergy.levelPercent ?? "unknown"}%: check range or request a stop`}
-            >
-              <Icon
-                name={routeEnergy.source === "battery" ? "battery" : "fuel"}
-                size={20}
-              />
-              <span>
-                {routeEnergy.levelPercent == null
-                  ? routeEnergy.source === "battery"
-                    ? "Battery"
-                    : "Fuel"
-                  : `${routeEnergy.levelPercent}%`}
-              </span>
-            </button>
-            <button
-              type="button"
-              className="rf-fab-tool is-issue"
-              onClick={() => openPanel("issue")}
-              aria-label="Report an issue"
-            >
-              <Icon name="warning" size={20} />
-              <span>Issue</span>
-            </button>
-          </div>
         </header>
 
         <section
@@ -2416,134 +2402,114 @@ export function RiderApp() {
           aria-label="Current point"
         >
           <SheetHandle open={sheetOpen} onToggle={setSheetOpen} />
-          <div className="rf-sheet-head">
-            <div>
-              <small className={`rf-leg-type is-${leg.kind}`}>
-                {pickup
-                  ? `Pickup · ${parcelsHere.length} ${parcelsHere.length === 1 ? "parcel" : "parcels"}`
-                  : `Drop-off ${stopNumber(current)} of ${dropoffPoints.length}`}
-              </small>
+          {/* Grab Driver's layout: stop count, coloured step title, a round
+              Navigate button, then the money, three quick actions and one big
+              action. */}
+          <div className="rg-head">
+            <div className="rg-count">
+              <strong>
+                {pickup ? parcelsHere.length : stopNumber(current)}
+              </strong>
+              <span>{pickup ? "Parcels" : "Stop"}</span>
+            </div>
+            <div className="rg-title">
               <h2>
                 {pickup
-                  ? parcelsHere.length > 1
-                    ? `Collect ${parcelsHere.length} parcels`
-                    : `Collect ${current.tracking_code}`
-                  : recipientLabel(current)}
+                  ? "Collect parcels"
+                  : `${stopNumber(current)}. Hand over parcel`}
               </h2>
+              <span>
+                {pickup
+                  ? parcelsHere.map((order) => order.tracking_code).join(" · ")
+                  : recipientLabel(current)}
+              </span>
             </div>
-            <span className="rf-eta-pill">
-              {etaText ? (
-                <>
-                  <strong>{etaText}</strong> · {formatDistance(legDistance)}
-                </>
-              ) : (
-                <strong>{formatDistance(legDistance)}</strong>
-              )}
-            </span>
+            <a
+              className="rg-navigate"
+              href={mapsUrl(legDestination(current))}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open turn-by-turn directions in Google Maps"
+            >
+              <Icon name="navigation" size={22} />
+              <span>Navigate</span>
+            </a>
           </div>
           <p className="rf-address">{leg.address}</p>
 
-          {pickup ? (
-            <div className="rf-collect is-parcels">
-              <Icon name="package" size={22} />
-              <div>
-                <small>Pick up</small>
-                <strong>
-                  {parcelsHere.length}{" "}
-                  {parcelsHere.length === 1 ? "parcel" : "parcels"}
-                </strong>
-                <span>
-                  {parcelsHere.map((order) => order.tracking_code).join(" · ")}
-                </span>
-                <span>
-                  No cash here.
-                  {codLater > 0
-                    ? ` Collect ${currency.format(codLater)} later at their drop-offs.`
-                    : ""}
-                </span>
-              </div>
-            </div>
-          ) : codHere > 0 ? (
-            <div className="rf-collect is-cash">
-              <Icon name="coin" size={22} />
-              <div>
-                <small>Collect cash</small>
+          <div className="rg-money">
+            {pickup ? (
+              <>
+                <strong>No cash here</strong>
+                {codLater > 0 && (
+                  <span className="rg-badge">
+                    {currency.format(codLater)} at drop-offs
+                  </span>
+                )}
+              </>
+            ) : codHere > 0 ? (
+              <>
                 <strong>{currency.format(codHere)}</strong>
-                <span>
-                  Exact amount from {recipientLabel(current)} before you hand
-                  over the parcel.
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="rf-collect is-none">
-              <Icon name="check" size={22} />
-              <div>
+                <span className="rg-badge is-cod">Collect cash</span>
+              </>
+            ) : (
+              <>
                 <strong>No cash to collect</strong>
-                <span>
-                  {current.cod_amount > 0
-                    ? "Cash on delivery is already recorded."
-                    : "This parcel is prepaid."}
+                <span className="rg-badge">
+                  {current.cod_amount > 0 ? "Already recorded" : "Prepaid"}
                 </span>
-              </div>
-            </div>
-          )}
+              </>
+            )}
+            <span className="rg-eta">
+              {etaText ? `${etaText} · ` : ""}
+              {formatDistance(legDistance)}
+            </span>
+          </div>
 
-          {!pickup && current.traffic_delay_minutes > 0 && (
-            <Notice tone="warning" icon="history">
-              ETA includes about {current.traffic_delay_minutes} min for{" "}
-              {confirmedOnLeg > 1
-                ? `${confirmedOnLeg} confirmed road reports`
-                : "confirmed road reports"}{" "}
-              on this trip.
-            </Notice>
-          )}
-
-          <fieldset className="rf-quick-actions">
+          <fieldset className="rg-actions">
             <legend className="rf-sr-only">Quick actions for this point</legend>
-            {!pickup && current.recipient_phone && (
-              <a
-                className="rf-quick-action"
-                href={`tel:${current.recipient_phone.replace(/\s+/g, "")}`}
-              >
-                <Icon name="phone" size={18} />
+            {!pickup && current.recipient_phone ? (
+              <a href={`tel:${current.recipient_phone.replace(/\s+/g, "")}`}>
+                <Icon name="phone" size={20} />
                 <span>Call</span>
               </a>
-            )}
-            {!pickup && current.recipient_phone && (
-              <a
-                className="rf-quick-action"
-                href={`sms:${current.recipient_phone.replace(/\s+/g, "")}`}
+            ) : (
+              <button
+                type="button"
+                onClick={() => void navigator.clipboard?.writeText(leg.address)}
               >
-                <Icon name="message" size={18} />
+                <Icon name="copy" size={20} />
+                <span>Copy address</span>
+              </button>
+            )}
+            {!pickup && current.recipient_phone ? (
+              <a href={`sms:${current.recipient_phone.replace(/\s+/g, "")}`}>
+                <Icon name="message" size={20} />
                 <span>Message</span>
               </a>
+            ) : (
+              <button type="button" onClick={() => setSheetOpen(!sheetOpen)}>
+                <Icon name="box" size={20} />
+                <span>{pickup ? "Parcels" : "Details"}</span>
+              </button>
             )}
-            <button
-              type="button"
-              className="rf-quick-action"
-              onClick={() => void navigator.clipboard?.writeText(leg.address)}
-            >
-              <Icon name="copy" size={18} />
-              <span>Copy address</span>
+            <button type="button" onClick={() => openPanel("issue")}>
+              <Icon name="help" size={20} />
+              <span>Help</span>
             </button>
           </fieldset>
 
-          {nextPoint && nextLabel && (
-            <p className="rf-next-peek">
-              <span>Then</span>
-              <strong>{nextLabel}</strong>
-              <small>
-                {nextPoint.address}
-                {nextDistance != null
-                  ? ` · ${formatDistance(nextDistance)} from here`
-                  : ""}
-              </small>
-            </p>
-          )}
-
           {sheetOpen && (
             <div className="rf-sheet-body">
+              {!pickup && current.traffic_delay_minutes > 0 && (
+                <Notice tone="warning" icon="history">
+                  ETA includes about {current.traffic_delay_minutes} min for{" "}
+                  {confirmedOnLeg > 1
+                    ? `${confirmedOnLeg} confirmed road reports`
+                    : "confirmed road reports"}{" "}
+                  on this trip.
+                </Notice>
+              )}
               {!pickup && (
                 <div className="rf-detail">
                   <h3>Recipient</h3>
@@ -2555,7 +2521,7 @@ export function RiderApp() {
                   </p>
                   {!current.recipient_phone && (
                     <p className="rf-muted">
-                      No phone number on this order. Use Issue if you can’t find
+                      No phone number on this order. Use Help if you can’t find
                       the recipient.
                     </p>
                   )}
@@ -2577,11 +2543,22 @@ export function RiderApp() {
                   </p>
                 ))}
               </div>
+              {nextPoint && nextLabel && (
+                <div className="rf-detail">
+                  <h3>Then</h3>
+                  <p>
+                    {nextLabel} · {nextPoint.address}
+                    {nextDistance != null
+                      ? ` · ${formatDistance(nextDistance)} from here`
+                      : ""}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
           {errorBanner}
-          <div className="rf-sheet-actions">
+          <div className="rg-primary">
             {!hasArrived ? (
               <button
                 type="button"
@@ -2591,7 +2568,7 @@ export function RiderApp() {
                   setSheetOpen(true);
                 }}
               >
-                <Icon name="location" size={18} /> I’ve arrived
+                I’ve arrived
               </button>
             ) : pickup ? (
               <button
@@ -2600,7 +2577,6 @@ export function RiderApp() {
                 disabled={busy != null}
                 onClick={() => void confirmPickup()}
               >
-                <Icon name="package" size={18} />
                 {busy === "pickup"
                   ? "Saving…"
                   : parcelsHere.length > 1
@@ -2616,31 +2592,30 @@ export function RiderApp() {
                   setScreen("outcome");
                 }}
               >
-                Hand over parcel <Icon name="arrow-right" size={18} />
+                Hand over parcel
               </button>
             )}
-            {!sheetOpen && (
-              <button
-                type="button"
-                className="rf-btn rf-btn-quiet"
-                onClick={() => setSheetOpen(true)}
-              >
-                View parcel details
-              </button>
-            )}
-            {hasArrived && sheetOpen && (
-              <button
-                type="button"
-                className="rf-btn rf-btn-quiet"
-                onClick={() => {
-                  setArrived((ids) => ids.filter((id) => id !== current.id));
-                  setSheetOpen(false);
-                }}
-              >
-                Back to navigation
-              </button>
-            )}
+            <button
+              type="button"
+              className="rg-round"
+              onClick={() => setScreen("overview")}
+              aria-label="All points and today’s tasks"
+            >
+              <Icon name="list" size={22} />
+            </button>
           </div>
+          {hasArrived && sheetOpen && (
+            <button
+              type="button"
+              className="rf-btn rf-btn-quiet"
+              onClick={() => {
+                setArrived((ids) => ids.filter((id) => id !== current.id));
+                setSheetOpen(false);
+              }}
+            >
+              Back to navigation
+            </button>
+          )}
         </section>
         {sheets}
       </main>
