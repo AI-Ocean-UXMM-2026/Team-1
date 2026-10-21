@@ -229,3 +229,11 @@
   flex: 1 1 100%;
   font-size: 14px;
 }
+
+/* H-14: Burmese needs more line height than Latin so stacked marks are not clipped. */
+:lang(my),
+[lang="my"] {
+  line-height: 1.7;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
