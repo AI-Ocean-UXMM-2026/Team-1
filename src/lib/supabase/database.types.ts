@@ -1074,6 +1074,26 @@ export type Database = {
       };
     };
     Functions: {
+      create_customer_pickup_order: {
+        Args: {
+          p_cod_amount: number;
+          p_delivery_address: string;
+          p_delivery_latitude?: number | null;
+          p_delivery_longitude?: number | null;
+          p_parcel_description: string;
+          p_pickup_address: string;
+          p_pickup_contact_phone?: string | null;
+          p_pickup_latitude?: number | null;
+          p_pickup_longitude?: number | null;
+          p_recipient_name: string;
+          p_recipient_phone: string;
+        };
+        Returns: {
+          id: string;
+          tracking_code: string;
+          created_at: string;
+        }[];
+      };
       track_delivery: {
         Args: { code: string };
         Returns: Json;

@@ -21,9 +21,9 @@ import { AuthDialog } from "@/components/delivery/auth-dialog";
 import { Icon } from "@/components/delivery/icons";
 import { useMapboxMap } from "@/components/delivery/mapbox-kit";
 import { useBackNavigation } from "@/components/delivery/use-back-navigation";
+import { createCustomerPickupOrder } from "@/lib/delivery/actions";
 import type { MapPoint } from "@/lib/delivery/map-projection";
 import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
-import { createSupportCase } from "@/lib/delivery/operations-actions";
 import { createClient } from "@/lib/supabase/client";
 
 const pickupWindows = ["Morning", "Afternoon", "Evening"] as const;
@@ -114,12 +114,22 @@ export function PickupRequestPage() {
   const [dropoff, setDropoff] = useState("");
   const [gpsState, setGpsState] = useState<GpsState>("idle");
   const [phone, setPhone] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [parcelDescription, setParcelDescription] = useState("");
+  const [codAmount, setCodAmount] = useState("0");
   const [notes, setNotes] = useState("");
   const [window, setWindow] = useState<PickupWindow>("Morning");
   const [state, setState] = useState<"editing" | "sending" | "sent">("editing");
   const [error, setError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const ready = address.trim().length > 0 && dropoff.trim().length > 0;
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const ready =
+    address.trim().length > 0 &&
+    dropoff.trim().length > 0 &&
+    recipientName.trim().length > 0 &&
+    recipientPhone.trim().length > 0 &&
+    parcelDescription.trim().length > 0;
 
   useEffect(() => {
     if (!point) return;
@@ -156,11 +166,6 @@ export function PickupRequestPage() {
     );
   }
 
-  /**
-   * Requests reach the operations team's support queue, which already lets
-   * customers write and staff follow up. Nothing is shown as "received"
-   * until that write succeeds.
-   */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!ready || state === "sending") return;
@@ -175,23 +180,20 @@ export function PickupRequestPage() {
     }
     setState("sending");
     try {
-      await createSupportCase(supabase, {
-        requesterId: userId,
-        subject: `Pickup request · ${window.toLowerCase()}`,
-        description: [
-          `Pickup: ${address.trim()}`,
-          point
-            ? `Pin: ${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`
-            : null,
-          `Deliver to: ${dropoff.trim()}`,
-          `Preferred time: ${window}`,
-          phone.trim() ? `Contact phone: ${phone.trim()}` : null,
-          notes.trim() ? `Notes: ${notes.trim()}` : null,
-        ]
+      const result = await createCustomerPickupOrder(supabase, {
+        pickupAddress: address,
+        pickupLatitude: point?.latitude,
+        pickupLongitude: point?.longitude,
+        pickupContactPhone: phone,
+        deliveryAddress: dropoff,
+        recipientName,
+        recipientPhone,
+        parcelDescription: [parcelDescription, notes && `Pickup: ${notes}`]
           .filter(Boolean)
-          .join("\n"),
-        priority: "normal",
+          .join(" · "),
+        codAmount: Math.max(0, Number(codAmount) || 0),
       });
+      setTrackingCode(result.tracking_code);
       setState("sent");
     } catch (cause) {
       setState("editing");
@@ -246,10 +248,11 @@ export function PickupRequestPage() {
             Request sent
           </Typography>
           <Typography sx={{ color: "text.secondary" }}>
-            The Oern team will call{" "}
-            {phone.trim() || "the number on your account"} to confirm{" "}
+            Your order {trackingCode ? `${trackingCode} ` : ""}is now waiting
+            for assignment. We will confirm{" "}
             {/^[aeiou]/i.test(window) ? "an" : "a"} {window.toLowerCase()}{" "}
-            pickup from {address.trim()}.
+            pickup from {address.trim()} and reach you at{" "}
+            {phone.trim() || "the number on your account"}.
           </Typography>
           <Button
             fullWidth
@@ -358,6 +361,55 @@ export function PickupRequestPage() {
               onChange={(event) => setPhone(event.target.value)}
               placeholder="09xxxxxxxxx"
               inputProps={{ "aria-label": "Contact phone" }}
+            />
+          </Box>
+
+          <Box>
+            <FieldLabel>Recipient name</FieldLabel>
+            <OutlinedInput
+              fullWidth
+              required
+              value={recipientName}
+              onChange={(event) => setRecipientName(event.target.value)}
+              placeholder="Who should receive it?"
+              inputProps={{ "aria-label": "Recipient name" }}
+            />
+          </Box>
+
+          <Box>
+            <FieldLabel>Recipient phone</FieldLabel>
+            <OutlinedInput
+              fullWidth
+              required
+              value={recipientPhone}
+              onChange={(event) => setRecipientPhone(event.target.value)}
+              placeholder="09xxxxxxxxx"
+              inputProps={{ "aria-label": "Recipient phone" }}
+            />
+          </Box>
+
+          <Box>
+            <FieldLabel>Parcel details</FieldLabel>
+            <OutlinedInput
+              fullWidth
+              required
+              multiline
+              minRows={2}
+              value={parcelDescription}
+              onChange={(event) => setParcelDescription(event.target.value)}
+              placeholder="Documents, clothing, fragile items…"
+              inputProps={{ "aria-label": "Parcel details" }}
+            />
+          </Box>
+
+          <Box>
+            <FieldLabel>COD amount · MMK</FieldLabel>
+            <OutlinedInput
+              fullWidth
+              type="number"
+              value={codAmount}
+              onChange={(event) => setCodAmount(event.target.value)}
+              inputProps={{ min: 0, step: 1, "aria-label": "COD amount" }}
             />
           </Box>
 

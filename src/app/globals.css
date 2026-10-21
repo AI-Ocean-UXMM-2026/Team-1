@@ -1,5 +1,46 @@
 @import "tailwindcss";
 
+.welcome-route-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.36;
+}
+.welcome-route-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.welcome-route-road,
+.welcome-route-line {
+  fill: none;
+  stroke-linecap: round;
+}
+.welcome-route-road { stroke: #fff; stroke-width: 18; }
+.welcome-route-line { stroke: #2563eb; stroke-width: 3; stroke-dasharray: 7 9; }
+.welcome-route-pickup { fill: #c2410c; }
+.welcome-route-destination { fill: #2563eb; }
+.welcome-route-rider { fill: #f97316; stroke: #fff; stroke-width: 4; }
+.welcome-route-pulse {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 2;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: route-destination-pulse 3.2s ease-out infinite;
+}
+.welcome-route-pulse-delay { animation-delay: 1.6s; }
+@keyframes route-destination-pulse {
+  0% { opacity: 0.45; transform: scale(0.8); }
+  70%, 100% { opacity: 0; transform: scale(2.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-route-pulse { animation: none; opacity: 0.2; }
+}
+
 :root {
   --color-brand-orange: #f97316;
   --color-brand-orange-action: #c2410c;

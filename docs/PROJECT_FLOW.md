@@ -6,7 +6,7 @@ Oern is a door-to-door delivery platform with separate customer, rider, manageme
 
 | Workspace | URL | Main responsibility |
 | --- | --- | --- |
-| Customer | `/` | Track local and external shipments, view ETA and COD, and request support |
+| Customer | `/` and `/pickup` | Create customer pickup orders, track shipments, view ETA and COD, and request support |
 | Rider/driver | `/rider` | Accept tasks, confirm pickup, share GPS, report roads, collect COD, and finish delivery |
 | Management | `/manager` | Create orders, manage assignments, monitor deliveries, and review road knowledge |
 | Fleet insights | `/manager/insights` | Manage energy readiness, maintenance, and delivery costs |
@@ -40,6 +40,8 @@ The order statuses are:
 6. `delivered`, `failed`, or `cancelled`
 
 GPS writes are accepted only for the assigned rider after pickup and before the delivery closes. Customer access is limited to locations for their own active delivery.
+
+Customer pickup orders use the same lifecycle as manager-created door-to-door orders. The customer supplies the pickup and destination details; a guarded database function creates the order as `pending`, the manager sees it in the unassigned queue, and the rider completes the normal pickup, GPS, COD, and delivery steps.
 
 ## Assignment flow
 
