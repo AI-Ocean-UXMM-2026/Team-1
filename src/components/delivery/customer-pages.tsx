@@ -1,6 +1,5 @@
 "use client";
 
-import { Home, HomeFill } from "@material-symbols-svg/react/rounded/icons/home";
 import {
   Person,
   PersonFill,
@@ -56,18 +55,18 @@ import { STATUS_LABELS, STATUS_STEPS } from "@/lib/delivery/types";
 
 const navItems = [
   {
-    id: "home",
-    label: "Home",
-    href: "/home",
-    icon: Home,
-    activeIcon: HomeFill,
-  },
-  {
     id: "orders",
     label: "Orders",
     href: "/orders",
     icon: ReceiptLong,
     activeIcon: ReceiptLongFill,
+  },
+  {
+    id: "pickup",
+    label: "Request pickup",
+    href: "/pickup",
+    icon: Inventory2Outlined,
+    activeIcon: Inventory2Outlined,
   },
   {
     id: "profile",
@@ -138,8 +137,22 @@ export function CustomerBottomNav({ activeId }: { activeId: string }) {
                   width: 64,
                   height: 32,
                   borderRadius: "999px",
-                  bgcolor: active ? "#FFEDD5" : "transparent",
-                  color: active ? "primary.dark" : "inherit",
+                  bgcolor:
+                    item.id === "pickup"
+                      ? active
+                        ? "primary.main"
+                        : "#FFF7ED"
+                      : active
+                        ? "#FFEDD5"
+                        : "transparent",
+                  color:
+                    item.id === "pickup"
+                      ? active
+                        ? "primary.contrastText"
+                        : "primary.dark"
+                      : active
+                        ? "primary.dark"
+                        : "inherit",
                   transition: "background-color 150ms ease",
                 }}
               >

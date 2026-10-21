@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { type ReactNode, useEffect, useEffectEvent, useState } from "react";
 
@@ -19,11 +20,23 @@ const iconByStatus: Record<DeliveryStatus, IconName> = {
   cancelled: "close",
 };
 
-/** Plain product name; Oern has no logo mark yet, so none is drawn. */
+export function BrandMark({ size = 32 }: { size?: number }) {
+  return (
+    <Image
+      src="/brand/oern-character.png"
+      alt=""
+      width={size}
+      height={size}
+      className="brand-mark"
+    />
+  );
+}
+
 export function Brand({ href = "/" }: { href?: string }) {
   return (
     <Link href={href} className="brand-lockup" aria-label="Oern home">
-      Oern
+      <BrandMark />
+      <span>Oern</span>
     </Link>
   );
 }

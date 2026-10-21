@@ -7,7 +7,6 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
-  Brand,
   DemoBadge,
   LoadingBlock,
   MobileNav,
@@ -482,7 +481,6 @@ export function ManagerDashboard({
   return (
     <main className="manager-app">
       <aside className="manager-sidebar">
-        <Brand href="/manager/home" />
         <div className="manager-sidebar-label">Workspace</div>
         <nav className="manager-side-nav" aria-label="Manager workspace">
           {managerNavItems.map((item) => (
@@ -517,7 +515,6 @@ export function ManagerDashboard({
 
       <div className="manager-main">
         <header className="manager-topbar">
-          <Brand href="/manager/home" />
           <div className="manager-topbar-right">
             <span className="manager-date">
               {signedOut

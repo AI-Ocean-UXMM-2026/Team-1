@@ -6,7 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 
-import { Mascot } from "@/components/delivery/mascot";
+import { BrandMark } from "@/components/delivery/common";
 
 export function WelcomeScreen() {
   const router = useRouter();
@@ -71,7 +71,7 @@ export function WelcomeScreen() {
             </circle>
           </svg>
         </Box>
-        <Mascot size={240} />
+        <BrandMark size={200} />
         <Typography
           component="h1"
           sx={{

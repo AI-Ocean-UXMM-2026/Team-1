@@ -329,7 +329,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
           onBack={isRootTab ? undefined : goBack}
         />
         <HomeSkeleton />
-        {isRootTab && <CustomerBottomNav activeId={view} />}
+        {isRootTab && (
+          <CustomerBottomNav activeId={view === "home" ? "orders" : view} />
+        )}
       </main>
     );
 
@@ -459,7 +461,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         />
       )}
 
-      {isRootTab && <CustomerBottomNav activeId={view} />}
+      {isRootTab && (
+        <CustomerBottomNav activeId={view === "home" ? "orders" : view} />
+      )}
       <HelpSheet
         open={sheet === "help"}
         order={helpOrder}

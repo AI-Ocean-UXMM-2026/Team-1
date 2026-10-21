@@ -428,6 +428,12 @@ a {
   letter-spacing: -0.075em;
   line-height: 1;
 }
+.brand-mark {
+  display: block;
+  flex: none;
+  border-radius: 8px;
+  object-fit: cover;
+}
 .brand-symbol {
   width: 31px;
   height: 31px;
