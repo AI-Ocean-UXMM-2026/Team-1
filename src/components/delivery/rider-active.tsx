@@ -17,11 +17,16 @@ import UTurnLeftRounded from "@mui/icons-material/UTurnLeftRounded";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
-import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
+import type {
+  CSSProperties,
+  ReactNode,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { StopMark, StopRow } from "@/components/delivery/rider-overview";
+import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import { CodTag } from "@/components/delivery/rider-tools";
 import type { DeliveryStop, DriverRoute } from "@/lib/delivery/driver-route";
 import { currency, formatTime } from "@/lib/delivery/format";
@@ -188,138 +193,13 @@ function MarqueeText({ children }: { children: ReactNode }) {
             ? ({
                 "--shift": `-${shift}px`,
                 "--dur": `${Math.max(6, shift / 24 + 4)}s`,
-              } as React.CSSProperties)
+              } as CSSProperties)
             : undefined
         }
       >
         {children}
       </span>
     </span>
-  );
-}
-
-/**
- * Swipe-to-confirm, as in Grab: a knob that must be dragged most of the way
- * across, so a stray tap cannot tell the customer the rider is there. A tap
- * only nudges the knob; Enter or Space on the focused knob confirms for
- * keyboard and switch users.
- */
-function SwipeConfirm({
-  label,
-  hint,
-  onConfirm,
-}: {
-  label: string;
-  hint: string;
-  onConfirm: () => void;
-}) {
-  const track = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ id: number; from: number; moved: boolean } | null>(
-    null,
-  );
-  const timers = useRef<number[]>([]);
-  const [x, setX] = useState(0);
-  const [phase, setPhase] = useState<"idle" | "drag" | "done" | "nudge">(
-    "idle",
-  );
-  useEffect(
-    () => () => {
-      for (const id of timers.current) window.clearTimeout(id);
-    },
-    [],
-  );
-  const later = (fn: () => void, ms: number) => {
-    timers.current.push(window.setTimeout(fn, ms));
-  };
-  const travel = () => Math.max(0, (track.current?.clientWidth ?? 0) - 56);
-  const confirm = () => {
-    if (phase === "done") return;
-    setX(travel());
-    setPhase("done");
-    later(onConfirm, 260);
-    // The sheet normally changes; if it does not (far-away check), reset.
-    later(() => {
-      setX(0);
-      setPhase("idle");
-    }, 900);
-  };
-  return (
-    <div
-      ref={track}
-      className="dv-swipe"
-      data-phase={phase}
-      style={
-        {
-          "--x": `${x}px`,
-          "--p": travel() > 0 ? x / travel() : 0,
-        } as React.CSSProperties
-      }
-    >
-      <span className="dv-swipe-label" aria-hidden="true">
-        {hint}
-      </span>
-      <button
-        type="button"
-        className="dv-swipe-knob"
-        aria-label={label}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            confirm();
-          }
-        }}
-        onClick={() => {
-          // A tap is not a confirmation: show how to do it.
-          if (drag.current?.moved || phase !== "idle") return;
-          setPhase("nudge");
-          later(() => setPhase("idle"), 700);
-        }}
-        onPointerDown={(event) => {
-          if (phase === "done") return;
-          event.currentTarget.setPointerCapture(event.pointerId);
-          drag.current = {
-            id: event.pointerId,
-            from: event.clientX - x,
-            moved: false,
-          };
-          setPhase("drag");
-        }}
-        onPointerMove={(event) => {
-          const state = drag.current;
-          if (!state || state.id !== event.pointerId) return;
-          const next = Math.min(
-            travel(),
-            Math.max(0, event.clientX - state.from),
-          );
-          if (next > 4) state.moved = true;
-          setX(next);
-        }}
-        onPointerUp={(event) => {
-          const state = drag.current;
-          if (!state || state.id !== event.pointerId) return;
-          if (x >= travel() * 0.82 && travel() > 0) confirm();
-          else {
-            setX(0);
-            setPhase("idle");
-          }
-          // Let the click that follows a drag see that it was a drag.
-          later(() => {
-            drag.current = null;
-          }, 0);
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-          setX(0);
-          setPhase("idle");
-        }}
-      >
-        {phase === "done" ? (
-          <Icon name="check" size={22} strokeWidth={2.6} />
-        ) : (
-          <Icon name="arrow-right" size={22} strokeWidth={2.4} />
-        )}
-      </button>
-    </div>
   );
 }
 

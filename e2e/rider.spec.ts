@@ -35,26 +35,44 @@ async function openRider(
   return backend;
 }
 
-test("handover steps move forward and back (C-06)", async ({
+test("the handover is one page and the swipe unlocks when it is complete (C-06)", async ({
   page,
   context,
 }) => {
-  await openRider(page, context, "in_transit");
+  const backend = await openRider(page, context, "in_transit");
   await swipeToConfirm(page, /i.ve arrived/i);
   // The test position is a few km from the stop, so arrival asks first.
   await page.getByRole("button", { name: /yes, i.m here/i }).click();
   await page.getByRole("button", { name: "Start handover" }).click();
-  const next = page.getByRole("button", { name: "Continue to recipient" });
-  await expect(next).toBeDisabled();
+
+  const finish = page.getByRole("button", { name: "Complete delivery" });
+  await expect(page.getByText("Check the parcel")).toBeVisible();
+  // Locked: a full swipe does nothing while the page is incomplete.
+  await swipeToConfirm(page, /complete delivery/i);
+  await expect(page.getByText("Check the parcel")).toBeVisible();
+  expect(backend.mutations.filter((m) => m.table === "rpc")).toHaveLength(0);
 
   // The checkbox is a custom control; the label is what a finger taps.
   await page.getByText("OR-9001").click();
-  await expect(next).toBeEnabled();
-  await next.click();
-  await expect(next).toHaveCount(0);
+  await expect(page.getByText("Record who received it")).toBeVisible();
+  await page.locator("label.rf-reason", { hasText: "May Thazin" }).click();
+  await expect(page.getByText("Record the cash received")).toBeVisible();
+  await page.getByText("I received the full amount in cash").click();
+  await expect(page.getByText("Swipe to complete delivery")).toBeVisible();
+  await expect(finish).toBeVisible();
 
-  await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(next).toBeEnabled();
+  // Unlocked: the swipe now completes the delivery and records it.
+  await swipeToConfirm(page, /complete delivery/i);
+  await expect
+    .poll(() =>
+      backend.mutations.some(
+        (m) =>
+          m.table === "rpc" &&
+          (m.body as { target_order_id?: string })?.target_order_id ===
+            "order-1",
+      ),
+    )
+    .toBe(true);
 });
 
 test("a failed write keeps the load check on screen (C-05)", async ({
@@ -241,7 +259,7 @@ test("tapping or half-swiping arrive does not confirm it", async ({
   await expect(knob).toBeVisible();
 });
 
-test("cash due is not in the overview; the handover is a full page with it", async ({
+test("cash due is not in the overview; the one-page handover has it", async ({
   page,
   context,
 }) => {
@@ -260,9 +278,6 @@ test("cash due is not in the overview; the handover is a full page with it", asy
     .poll(async () => (await sheet.boundingBox())?.height)
     .toBe(height);
   expect((await sheet.boundingBox())?.y).toBe(0);
-  await page.getByText("OR-9001").click();
-  await page.getByRole("button", { name: "Continue to recipient" }).click();
-  await page.getByLabel("Actual receiver").fill("May Thazin");
-  await page.getByRole("button", { name: /continue to payment/i }).click();
-  await expect(page.getByText("Collect payment")).toBeVisible();
+  await expect(page.getByText("Collect cash")).toBeVisible();
+  await expect(page.locator(".rf-cod-due")).toContainText("68,000");
 });

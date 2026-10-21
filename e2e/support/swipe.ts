@@ -4,7 +4,16 @@ import type { Page } from "@playwright/test";
 export async function swipeToConfirm(page: Page, name: RegExp, fraction = 1) {
   const knob = page.getByRole("button", { name });
   const track = knob.locator("xpath=..");
-  const knobBox = await knob.boundingBox();
+  // The sheet animates in and out; measure only once the knob has stopped.
+  let knobBox = await knob.boundingBox();
+  for (let tries = 0; tries < 40; tries++) {
+    await page.waitForTimeout(60);
+    const next = await knob.boundingBox();
+    const settled =
+      next && knobBox && next.x === knobBox.x && next.y === knobBox.y;
+    knobBox = next;
+    if (settled) break;
+  }
   const trackBox = await track.boundingBox();
   if (!knobBox || !trackBox) throw new Error("swipe control not visible");
   const y = knobBox.y + knobBox.height / 2;
