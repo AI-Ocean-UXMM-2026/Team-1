@@ -52,9 +52,6 @@ export function SignupForm() {
         <Link className="auth-page-back" href="/home">
           <Icon name="arrow-left" size={16} /> Back to sign in
         </Link>
-        <div className="auth-mark">
-          <Icon name="delivery" size={22} />
-        </div>
         <span className="eyebrow">New customer account</span>
         <h1>Keep every delivery in view.</h1>
         <p>

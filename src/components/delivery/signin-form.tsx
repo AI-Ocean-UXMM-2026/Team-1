@@ -33,7 +33,6 @@ export function SigninForm() {
     <main className="auth-page">
       <section className="auth-dialog auth-page-card">
         <Link className="auth-page-back" href="/welcome"><Icon name="arrow-left" size={16} /> Back</Link>
-        <div className="auth-mark"><Icon name="delivery" size={22} /></div>
         <span className="eyebrow">Sign in to Oern</span>
         <h1>Your parcel, in view.</h1>
         <p>Sign in to see your orders and the rider’s location after pickup.</p>
