@@ -1,10 +1,13 @@
 import { signInAs } from "./support/supabase-mock";
 import { expect, test } from "./support/test";
 
-// The bottom nav hard-codes focusRipple: true inside BottomNavigationAction,
-// which cannot be turned off with the disableFocusRipple prop. Moving focus
-// (view switch, coming back to a page) used to start the pulsating focus
-// ripple there, so a tap on one control appeared to ripple another.
+// BottomNavigationAction hard-codes focusRipple: true and ignores
+// disableFocusRipple, so moving focus (view switch, coming back to a page)
+// used to start the pulsating focus ripple there, making a tap on one control
+// appear to ripple another. Touch ripples themselves got stuck after
+// tap-navigations: the deferred touch commit never scheduled the exit timer,
+// leaving .MuiTouchRipple-rippleVisible elements behind on controls that were
+// no longer on screen.
 const PULSATE = ".MuiTouchRipple-ripplePulsate";
 const TOUCH =
   ".MuiTouchRipple-rippleVisible:not(.MuiTouchRipple-ripplePulsate)";
@@ -21,39 +24,34 @@ test("a navigation roundtrip never ripples a control that was not tapped", async
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(500);
 
-  // Touch ripple still plays on the control that was actually tapped.
-  await nav.getByRole("link", { name: "Profile" }).tap();
+  // Touch ripple plays on the control that was actually tapped...
+  await nav.getByRole("link", { name: "Profile" }).tap({ timeout: 20_000 });
   await expect.poll(() => nav.locator(TOUCH).count()).toBeGreaterThan(0);
+  // ...and not the pulsating focus variant...
   await expect(nav.locator(`${TOUCH}${PULSATE}`)).toHaveCount(0);
+  // ...and it leaves the DOM once the exit animation is done.
+  await expect
+    .poll(() => page.locator(".MuiTouchRipple-rippleVisible").count(), {
+      timeout: 10_000,
+    })
+    .toBe(0);
 
-  // Leave and come back; the re-focused view must not start a focus ripple.
-  await nav.getByRole("link", { name: "Orders" }).tap();
+  // Leave and come back; no ripple may be left on any other control.
+  await nav.getByRole("link", { name: "Orders" }).tap({ timeout: 20_000 });
   await expect(page).toHaveURL(/\/orders/);
-  await nav.getByRole("link", { name: "Profile" }).tap();
+  await nav.getByRole("link", { name: "Profile" }).tap({ timeout: 20_000 });
   await expect(page).toHaveURL(/\/profile/);
-  await page.waitForTimeout(700);
-  const leftover = await page.evaluate(() => ({
-    reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
-    ripples: [
-      ...document.querySelectorAll(".MuiTouchRipple-rippleVisible"),
-    ].map((el) => {
-      const child = el.querySelector(".MuiTouchRipple-child");
-      return {
-        childCls: child ? child.className : null,
-        childAnim: child ? getComputedStyle(child).animationName : null,
-        parentAnim: getComputedStyle(el).animationName,
-        html: el.outerHTML.slice(0, 400),
-      };
-    }),
-  }));
-  console.log("LEFTOVER RIPPLES:", JSON.stringify(leftover, null, 2));
-  await expect(page.locator(".MuiTouchRipple-rippleVisible")).toHaveCount(0);
+  await expect
+    .poll(() => page.locator(".MuiTouchRipple-rippleVisible").count(), {
+      timeout: 10_000,
+    })
+    .toBe(0);
 
-  // Pulsate (focus) ripples are removed at the source; anything that MUI
-  // still mounts must stay invisible.
+  // Pulsate (focus) ripples are removed at the source; anything that MUI still
+  // mounts must stay invisible.
   expect(
     await page.evaluate(() =>
-      [...document.querySelectorAll(PULSATE)].every(
+      [...document.querySelectorAll(".MuiTouchRipple-ripplePulsate")].every(
         (el) => getComputedStyle(el).display === "none",
       ),
     ),
