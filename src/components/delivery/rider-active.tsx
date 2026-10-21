@@ -17,7 +17,6 @@ import UTurnLeftRounded from "@mui/icons-material/UTurnLeftRounded";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
-import LinearProgress from "@mui/material/LinearProgress";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -25,7 +24,7 @@ import { Icon } from "@/components/delivery/icons";
 import { StopMark, StopRow } from "@/components/delivery/rider-overview";
 import { CodTag } from "@/components/delivery/rider-tools";
 import type { DeliveryStop, DriverRoute } from "@/lib/delivery/driver-route";
-import { formatTime } from "@/lib/delivery/format";
+import { currency, formatTime } from "@/lib/delivery/format";
 import {
   formatDistance,
   resolveTurnSymbol,
@@ -249,9 +248,6 @@ export function ActiveDelivery({
 }) {
   const stage = stop.state;
   const arrived = stage === "ARRIVED" || stage === "HANDOVER_IN_PROGRESS";
-  const done = route.stops.filter(
-    (item) => item.state === "COMPLETED" || item.state === "FAILED",
-  ).length;
   const sheetState = [
     handover ? "is-handover" : expanded ? "is-open" : "",
     arrived ? "is-arrived" : "is-navigating",
@@ -286,22 +282,6 @@ export function ActiveDelivery({
       {map}
 
       <header className="dv-top">
-        <LinearProgress
-          variant="determinate"
-          value={(done / Math.max(1, route.stops.length)) * 100}
-          aria-label="Stops finished"
-          aria-valuemin={0}
-          aria-valuemax={route.stops.length}
-          aria-valuenow={done}
-          sx={{
-            height: 4,
-            bgcolor: "grey.200",
-            "& .MuiLinearProgress-bar": {
-              bgcolor: "primary.main",
-              borderRadius: 999,
-            },
-          }}
-        />
         {!handover && (
           <div className="rf-nav-instruction dv-instruction">
             <span className="rf-turn" aria-hidden="true">
@@ -424,23 +404,31 @@ export function ActiveDelivery({
         ) : (
           <>
             <SheetHandle open={expanded} onToggle={onExpand} />
-            <div className="dv-stop-head">
-              <StopMark stop={stop} />
-              <div className="dv-stop-title">
+            <div className="dv-stage">
+              <div
+                className="dv-route-steps"
+                role="img"
+                aria-label={`Stop ${stop.number} of ${route.stops.length}`}
+              >
+                {route.stops.map((item) => (
+                  <span
+                    key={item.key}
+                    className={`is-${item.state.toLowerCase()}${item === stop ? " is-here" : ""}`}
+                  />
+                ))}
+              </div>
+              <div className="dv-stage-line">
                 <small className={arrived ? "is-arrived" : ""}>
                   {arrived ? "At the stop" : "Next stop"} · {stop.number} of{" "}
                   {route.stops.length}
-                  {headEta && !arrived ? ` · ${headEta}` : ""}
                 </small>
+                {headEta && !arrived && <strong>{headEta}</strong>}
+              </div>
+            </div>
+            <div className="dv-stop-head">
+              <div className="dv-stop-title">
                 <h2>{stop.recipient}</h2>
                 <p>{stop.address}</p>
-                <div className="dv-meta">
-                  <span>
-                    <Icon name="box" size={14} /> {stop.open.length}{" "}
-                    {stop.open.length === 1 ? "parcel" : "parcels"}
-                  </span>
-                  <CodTag amount={stop.codDue} />
-                </div>
               </div>
               {directionsHref && !arrived && (
                 <a
@@ -454,47 +442,91 @@ export function ActiveDelivery({
                 </a>
               )}
             </div>
+            <div className={`dv-pay${stop.codDue > 0 ? " is-due" : ""}`}>
+              <span>
+                <Icon name={stop.codDue > 0 ? "coin" : "check"} size={16} />
+                {stop.codDue > 0 ? "Collect cash" : "No payment to collect"}
+              </span>
+              {stop.codDue > 0 && <strong>{currency.format(stop.codDue)}</strong>}
+            </div>
+            <div className="dv-strip" role="group" aria-label="Stop actions">
+              {stop.phone ? (
+                <>
+                  <a
+                    href={phoneHref(stop.phone, "tel")}
+                    aria-label={`Call ${stop.recipient}`}
+                  >
+                    <Icon name="phone" size={20} />
+                    <span>Call</span>
+                  </a>
+                  <a
+                    href={phoneHref(stop.phone, "sms")}
+                    aria-label={`Message ${stop.recipient}`}
+                  >
+                    <Icon name="message" size={20} />
+                    <span>Message</span>
+                  </a>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void navigator.clipboard?.writeText(stop.address)
+                  }
+                >
+                  <Icon name="copy" size={20} />
+                  <span>Copy address</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onCannotDeliver}
+                aria-label="Problem with this stop"
+              >
+                <Icon name="warning" size={20} />
+                <span>Problem</span>
+              </button>
+            </div>
 
             {expanded && (
               <div className="rf-sheet-body dv-details">
-                <div className="dv-facts">
-                  <div>
-                    {stop.open.length > 1 && (
-                      <h3>{stop.open.length} parcels</h3>
-                    )}
-                    <ul className="dv-parcel-list">
-                      {stop.open.map((order) => (
-                        <li key={order.id}>
-                          <Icon name="box" size={16} />
-                          <span>
-                            <span>
-                              <strong>{order.tracking_code}</strong>
-                              {order.parcel_weight_kg
-                                ? ` · ${order.parcel_weight_kg} kg`
-                                : ""}
-                            </span>
-                            {order.parcel_description && (
-                              <small>{order.parcel_description}</small>
-                            )}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    {stop.notLoaded.length > 0 && (
-                      <p className="rf-muted">
-                        {stop.notLoaded.length} more for this recipient{" "}
-                        {stop.notLoaded.length === 1 ? "is" : "are"} not on your
-                        truck.
-                      </p>
-                    )}
-                  </div>
-                  {!stop.phone && (
-                    <p className="rf-muted">No phone number on this order.</p>
+                <dl className="dv-rows">
+                  {stop.open.map((order) => (
+                    <div key={order.id}>
+                      <dt>Parcel</dt>
+                      <dd>
+                        <strong>{order.tracking_code}</strong>
+                        <small>
+                          {[
+                            order.parcel_description,
+                            order.parcel_weight_kg
+                              ? `${order.parcel_weight_kg} kg`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </small>
+                      </dd>
+                    </div>
+                  ))}
+                  {stop.phone && (
+                    <div>
+                      <dt>Phone</dt>
+                      <dd>{stop.phone}</dd>
+                    </div>
                   )}
-                </div>
+                  {stop.notLoaded.length > 0 && (
+                    <div>
+                      <dt>Not on truck</dt>
+                      <dd>
+                        {stop.notLoaded.length} more for this recipient
+                      </dd>
+                    </div>
+                  )}
+                </dl>
                 {nextStops.length > 0 && (
-                  <div className="rf-detail">
-                    <h3>Then</h3>
+                  <div className="dv-next">
+                    <h3>Next stops</h3>
                     <ol className="dv-stop-list is-compact">
                       {nextStops.map((item, index) => (
                         <StopRow
@@ -517,49 +549,20 @@ export function ActiveDelivery({
                     )}
                   </div>
                 )}
-                <div className="dv-secondary">
-                  <button type="button" onClick={onCannotDeliver}>
-                    <Icon name="warning" size={16} /> Problem with this stop
+                {arrived && (
+                  <button
+                    type="button"
+                    className="dv-text-btn"
+                    onClick={onUndoArrived}
+                  >
+                    Not here yet — back to navigation
                   </button>
-                  {!stop.phone && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void navigator.clipboard?.writeText(stop.address)
-                      }
-                    >
-                      <Icon name="copy" size={16} /> Copy address
-                    </button>
-                  )}
-                  {arrived && (
-                    <button type="button" onClick={onUndoArrived}>
-                      Not here yet
-                    </button>
-                  )}
-                </div>
+                )}
               </div>
             )}
 
             {error}
             <div className="dv-sheet-actions">
-              {stop.phone && !(confirmFar && far && !arrived) && (
-                <>
-                  <a
-                    className="dv-round dv-round-call"
-                    href={phoneHref(stop.phone, "tel")}
-                    aria-label={`Call ${stop.recipient}`}
-                  >
-                    <Icon name="phone" size={20} />
-                  </a>
-                  <a
-                    className="dv-round dv-round-msg"
-                    href={phoneHref(stop.phone, "sms")}
-                    aria-label={`Message ${stop.recipient}`}
-                  >
-                    <Icon name="message" size={20} />
-                  </a>
-                </>
-              )}
               {arrived ? (
                 <Button
                   fullWidth

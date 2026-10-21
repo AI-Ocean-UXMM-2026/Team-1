@@ -208,86 +208,6 @@
   padding: 10px 8px;
 }
 
-/* Dense rows form a timeline: a rail joins the numbered marks, and COD and
-   time sit in a right column so they line up from row to row. */
-.dv-stop-row.is-dense {
-  position: relative;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  border: 0;
-  background: none;
-}
-
-.dv-stop-row.is-dense:not(:last-child)::after {
-  position: absolute;
-  top: calc(50% + 14px);
-  left: 13px;
-  height: calc(100% - 28px);
-  width: 2px;
-  background: var(--color-border-control);
-  content: "";
-  opacity: 0.5;
-}
-
-.dv-stop-row.is-dense .dv-stop-mark {
-  width: 28px;
-  height: 28px;
-  font-size: 13px;
-}
-
-.dv-stop-row.is-dense .dv-stop-copy {
-  gap: 0;
-}
-
-.dv-stop-row.is-dense .dv-stop-copy strong,
-.dv-stop-row.is-dense .dv-stop-address {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dv-stop-row.is-dense .dv-stop-copy strong {
-  font-size: 14px;
-  line-height: 18px;
-}
-
-.dv-stop-row.is-dense .dv-stop-address {
-  font-size: 13px;
-  line-height: 16px;
-}
-
-.dv-dense-end {
-  display: grid;
-  flex: none;
-  justify-items: end;
-  gap: 2px;
-  min-width: 72px;
-  margin-left: auto;
-}
-
-.dv-dense-end .dv-stop-state {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Out-of-order promise: a pill, so it still reads on the dark surface. */
-.dv-dense-end .dv-stop-state.is-warn {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--color-warning-surface);
-  color: var(--color-warning-text);
-}
-
-.dv-dense-cod {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--color-warning-surface);
-  color: var(--color-warning-text);
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 .dv-stop-mark {
   display: inline-grid;
   flex: none;
@@ -372,6 +292,82 @@
 
 .dv-stop-address {
   color: var(--color-text-secondary-subtle);
+}
+
+
+/* Dense rows: number, name and area on the left, time and cash as plain
+   right-aligned text. Nothing is a pill, so the column reads as a list. */
+.dv-stop-row.is-dense {
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+}
+
+.dv-stop-row.is-dense .dv-stop-mark {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy {
+  gap: 0;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy strong,
+.dv-stop-row.is-dense .dv-stop-address {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy strong {
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.dv-stop-row.is-dense .dv-stop-address {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.dv-dense-end {
+  display: grid;
+  flex: none;
+  justify-items: end;
+  min-width: 72px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.dv-dense-end small {
+  font-size: 13px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-dense-end .dv-stop-state {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* A promise earlier than the stop before it: colour only, no box. */
+.dv-dense-end .dv-stop-state.is-warn {
+  color: var(--color-warning-text);
+}
+
+.dv-dense-cod {
+  color: var(--color-warning-text);
+  font-weight: 600;
+}
+
+/* The warning tone is a dark brown; on the dark sheet it needs the light one. */
+@media (prefers-color-scheme: dark) {
+  .dv-dense-end .dv-stop-state.is-warn,
+  .dv-dense-cod {
+    color: #fbbf24;
+  }
 }
 
 /* ---------- checklists ---------- */
@@ -630,8 +626,9 @@
 
 /* ---------- active delivery: sheet ---------- */
 
-/* Collapsed, the sheet is one header row and the action bar (Grab Driver,
-   DoorDash Dasher); details only appear when the rider pulls it up. */
+/* Follows the courier apps on Mobbin: DoorDash's stage stepper, Grab Driver's
+   title + payment + three-way action strip + one big button, and label/value
+   detail rows (Uber Eats, foodpanda). Collapsed it is those four things. */
 .dv-sheet {
   position: absolute;
   left: 50%;
@@ -639,7 +636,7 @@
   z-index: 15;
   width: 100%;
   max-width: 430px;
-  max-height: 40dvh;
+  max-height: 56dvh;
   padding-top: 4px;
   padding-bottom: 0;
   border: 0;
@@ -650,7 +647,7 @@
 
 .dv-sheet.is-open {
   display: flex;
-  max-height: 62dvh;
+  max-height: 78dvh;
   flex-direction: column;
   overflow: hidden;
 }
@@ -684,40 +681,83 @@
 }
 
 /* Dragging the handle must not select the header text. */
+.dv-stage,
 .dv-stop-head,
 .dv-sheet .rf-handle-btn {
   -webkit-user-select: none;
   user-select: none;
 }
 
-.dv-stop-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+/* Stage: a segmented stepper (one segment per stop) and a stop/ETA line. */
+.dv-stage {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
 }
 
-.dv-stop-head .dv-stop-mark {
-  width: 36px;
-  height: 36px;
-  margin-top: 6px;
-  font-size: 16px;
+.dv-route-steps {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-route-steps span {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+.dv-route-steps span.is-completed {
+  background: var(--color-text-primary);
+}
+
+.dv-route-steps span.is-failed {
+  background: var(--color-error-text);
+}
+
+.dv-route-steps span.is-here {
+  background: var(--color-info);
+}
+
+.dv-stage-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dv-stage-line small {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.dv-stage-line small.is-arrived {
+  color: var(--rf-success-fg);
+}
+
+.dv-stage-line strong {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-stop-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
 }
 
 .dv-stop-title {
   display: grid;
   flex: 1;
   min-width: 0;
-}
-
-.dv-stop-title > small {
-  color: var(--rf-info-fg);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 700;
-}
-
-.dv-stop-title > small.is-arrived {
-  color: var(--rf-success-fg);
 }
 
 .dv-stop-title h2,
@@ -728,8 +768,9 @@
 }
 
 .dv-stop-title h2 {
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
 }
 
 .dv-stop-title p {
@@ -738,38 +779,88 @@
   line-height: 20px;
 }
 
-.dv-stop-title .dv-meta {
-  gap: 4px 12px;
-  margin-top: 6px;
-}
-
-.dv-stop-title .dv-meta .rf-cod,
-.dv-stop-title .dv-meta .dv-tag {
-  min-height: 24px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-}
-
 .dv-directions {
   display: grid;
   flex: none;
   width: 48px;
   height: 48px;
-  margin-top: 4px;
   place-items: center;
   border-radius: 999px;
   background: var(--color-info);
   color: #ffffff;
 }
 
+/* Payment: the number a rider must not forget, on its own full-width row. */
+.dv-pay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--color-surface-subtle, var(--rf-info-bg));
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dv-pay > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dv-pay.is-due {
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.dv-pay.is-due strong {
+  font-size: 18px;
+  line-height: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Call / Message / Problem: equal columns with hairlines, as in Grab Driver. */
+.dv-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  margin: 10px 0 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.dv-strip > a,
+.dv-strip > button {
+  display: grid;
+  min-height: 56px;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dv-strip > :first-child {
+  border-left: 0;
+}
+
 .dv-details {
   display: grid;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   align-content: start;
-  gap: 14px;
+  gap: 16px;
   min-height: 0;
-  margin-top: 10px;
+  margin-top: 0;
   padding-top: 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -779,96 +870,73 @@
   min-width: 0;
 }
 
-.dv-details .rf-detail {
-  justify-items: stretch;
-}
-
-.dv-facts {
+/* Detail rows: label left, value right, hairline between. */
+.dv-rows {
   display: grid;
-  gap: 8px;
-}
-
-.dv-facts h3,
-.dv-details .rf-detail h3 {
-  margin: 0 0 4px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.dv-parcel-list {
-  display: grid;
-  gap: 8px;
   margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
-.dv-parcel-list li {
+.dv-rows > div {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.dv-parcel-list li > svg {
-  flex: none;
-  margin-top: 2px;
-  color: var(--color-text-secondary);
-}
-
-.dv-parcel-list li > span {
-  display: grid;
-  min-width: 0;
-  color: var(--color-text-secondary);
-}
-
-.dv-parcel-list strong {
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.dv-parcel-list small {
-  overflow: hidden;
-  color: var(--color-text-secondary-subtle);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dv-more {
-  margin: 2px 0 0 38px;
-  color: var(--color-text-secondary-subtle);
-  font-size: 13px;
-}
-
-.dv-secondary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 20px;
-  padding-top: 4px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
   border-top: 1px solid var(--color-border);
 }
 
-.dv-secondary button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.dv-rows > div:first-child {
+  border-top: 0;
+}
+
+.dv-rows dt {
+  flex: none;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.dv-rows dd {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  justify-items: end;
+  text-align: right;
+  font-size: 14px;
+}
+
+.dv-rows dd strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-rows dd small {
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+}
+
+.dv-next h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 700;
+}
+
+.dv-more {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+}
+
+.dv-text-btn {
   min-height: 44px;
   padding: 0;
   border: 0;
   background: none;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
+  text-align: left;
   cursor: pointer;
-}
-
-.dv-secondary button > svg {
-  color: var(--color-text-secondary);
 }
 
 .dv-sheet-actions {
@@ -876,30 +944,9 @@
   flex: none;
   align-items: center;
   gap: 8px;
-  margin: 10px -16px 0;
+  margin: 0 -16px;
   padding: 8px 16px calc(var(--rf-safe-bottom) + 8px);
-  border-top: 1px solid var(--color-border);
   background: var(--color-surface);
-}
-
-.dv-round {
-  display: grid;
-  flex: none;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border-radius: 999px;
-}
-
-/* Icon colours are the dark semantic text tones so they hold up in sunlight. */
-.dv-round-call {
-  background: var(--rf-success-bg);
-  color: var(--color-success-text);
-}
-
-.dv-round-msg {
-  background: var(--rf-info-bg);
-  color: var(--color-info-text);
 }
 
 .dv-confirm {

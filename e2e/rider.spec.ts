@@ -154,7 +154,7 @@ test("the timeline shows COD amounts and flags promises out of route order", asy
   await expect(rows.nth(0)).toContainText("Thuriya Ye Naing");
   await expect(rows.nth(0).locator(".is-warn")).toHaveCount(0);
   // Stop 3 was promised before stop 2, which comes first on the route.
-  await expect(rows.nth(1)).toContainText("COD 125K");
+  await expect(rows.nth(1)).toContainText("125K cash");
   await expect(rows.nth(1).locator(".dv-stop-state.is-warn")).toBeVisible();
   await expect(sheet.getByText(/\+1 more stop after these/)).toBeVisible();
 });

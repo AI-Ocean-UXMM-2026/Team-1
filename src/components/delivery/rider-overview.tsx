@@ -76,14 +76,6 @@ export function StopRow({
           <span className="dv-stop-address">{stop.address}</span>
         </span>
         <span className="dv-dense-end">
-          {!finished && stop.codDue > 0 && (
-            <span
-              className="dv-dense-cod"
-              title={`Collect COD · ${compactMoney.format(stop.codDue)} MMK`}
-            >
-              COD {compactMoney.format(stop.codDue)}
-            </span>
-          )}
           {!finished && time && (
             <small
               className={`dv-stop-state${time.warn ? " is-warn" : ""}`}
@@ -94,6 +86,14 @@ export function StopRow({
               }
             >
               {time.label}
+            </small>
+          )}
+          {!finished && stop.codDue > 0 && (
+            <small
+              className="dv-dense-cod"
+              title={`Collect COD · ${compactMoney.format(stop.codDue)} MMK`}
+            >
+              {compactMoney.format(stop.codDue)} cash
             </small>
           )}
         </span>
