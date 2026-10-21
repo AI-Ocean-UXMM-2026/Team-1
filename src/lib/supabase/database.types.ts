@@ -451,9 +451,15 @@ export type Database = {
           completed_at: string | null;
           created_at: string;
           created_by: string;
+          depot_id: string | null;
+          dispatch_run_id: string | null;
+          dispatch_run_route_id: string | null;
           driver_id: string;
           id: string;
           planned_at: string;
+          planned_depart_at: string | null;
+          planned_return_at: string | null;
+          service_date: string | null;
           started_at: string | null;
           status: string;
           updated_at: string;
@@ -463,9 +469,15 @@ export type Database = {
           completed_at?: string | null;
           created_at?: string;
           created_by: string;
+          depot_id?: string | null;
+          dispatch_run_id?: string | null;
+          dispatch_run_route_id?: string | null;
           driver_id: string;
           id?: string;
           planned_at?: string;
+          planned_depart_at?: string | null;
+          planned_return_at?: string | null;
+          service_date?: string | null;
           started_at?: string | null;
           status?: string;
           updated_at?: string;
@@ -475,9 +487,15 @@ export type Database = {
           completed_at?: string | null;
           created_at?: string;
           created_by?: string;
+          depot_id?: string | null;
+          dispatch_run_id?: string | null;
+          dispatch_run_route_id?: string | null;
           driver_id?: string;
           id?: string;
           planned_at?: string;
+          planned_depart_at?: string | null;
+          planned_return_at?: string | null;
+          service_date?: string | null;
           started_at?: string | null;
           status?: string;
           updated_at?: string;
@@ -489,6 +507,27 @@ export type Database = {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "delivery_routes_depot_id_fkey";
+            columns: ["depot_id"];
+            isOneToOne: false;
+            referencedRelation: "depots";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "delivery_routes_dispatch_run_id_fkey";
+            columns: ["dispatch_run_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "delivery_routes_dispatch_run_route_id_fkey";
+            columns: ["dispatch_run_route_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_run_routes";
             referencedColumns: ["id"];
           },
           {
@@ -767,44 +806,69 @@ export type Database = {
       route_stops: {
         Row: {
           address: string;
+          arrived_at: string | null;
           completed_at: string | null;
           created_at: string;
+          dispatch_run_stop_id: string | null;
           id: string;
           latitude: number | null;
           longitude: number | null;
           order_id: string;
+          planned_arrival_at: string | null;
+          planned_departure_at: string | null;
           route_id: string;
           sequence_number: number;
           status: string;
           stop_type: string;
+          window_end_at: string | null;
+          window_start_at: string | null;
         };
         Insert: {
           address: string;
+          arrived_at?: string | null;
           completed_at?: string | null;
           created_at?: string;
+          dispatch_run_stop_id?: string | null;
           id?: string;
           latitude?: number | null;
           longitude?: number | null;
           order_id: string;
+          planned_arrival_at?: string | null;
+          planned_departure_at?: string | null;
           route_id: string;
           sequence_number: number;
           status?: string;
           stop_type: string;
+          window_end_at?: string | null;
+          window_start_at?: string | null;
         };
         Update: {
           address?: string;
+          arrived_at?: string | null;
           completed_at?: string | null;
           created_at?: string;
+          dispatch_run_stop_id?: string | null;
           id?: string;
           latitude?: number | null;
           longitude?: number | null;
           order_id?: string;
+          planned_arrival_at?: string | null;
+          planned_departure_at?: string | null;
           route_id?: string;
           sequence_number?: number;
           status?: string;
           stop_type?: string;
+          window_end_at?: string | null;
+          window_start_at?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "route_stops_dispatch_run_stop_id_fkey";
+            columns: ["dispatch_run_stop_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_run_stops";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "route_stops_order_id_fkey";
             columns: ["order_id"];
@@ -1106,6 +1170,954 @@ export type Database = {
         };
         Relationships: [];
       };
+      delivery_order_logistics: {
+        Row: {
+          backfill_source: string | null;
+          backfilled_at: string | null;
+          created_at: string;
+          deadline_hard: boolean;
+          deadline_source: string | null;
+          delivery_deadline_at: string | null;
+          delivery_township_pcode: string | null;
+          depot_id: string | null;
+          fragile: boolean;
+          order_id: string;
+          origin_kind: string;
+          parcel_size: string | null;
+          pickup_township_pcode: string | null;
+          pickup_window_end: string | null;
+          pickup_window_start: string | null;
+          price_basis: Json | null;
+          price_is_estimate: boolean | null;
+          quoted_at: string | null;
+          quoted_price_mmk: number | null;
+          size_source: string | null;
+          township_source: string | null;
+          updated_at: string;
+          volume_m3: number | null;
+          volume_source: string | null;
+          weight_kg: number | null;
+          weight_source: string | null;
+          window_label: string | null;
+          window_source: string | null;
+        };
+        Insert: {
+          backfill_source?: string | null;
+          backfilled_at?: string | null;
+          created_at?: string;
+          deadline_hard?: boolean;
+          deadline_source?: string | null;
+          delivery_deadline_at?: string | null;
+          delivery_township_pcode?: string | null;
+          depot_id?: string | null;
+          fragile?: boolean;
+          order_id: string;
+          origin_kind?: string;
+          parcel_size?: string | null;
+          pickup_township_pcode?: string | null;
+          pickup_window_end?: string | null;
+          pickup_window_start?: string | null;
+          price_basis?: Json | null;
+          price_is_estimate?: boolean | null;
+          quoted_at?: string | null;
+          quoted_price_mmk?: number | null;
+          size_source?: string | null;
+          township_source?: string | null;
+          updated_at?: string;
+          volume_m3?: number | null;
+          volume_source?: string | null;
+          weight_kg?: number | null;
+          weight_source?: string | null;
+          window_label?: string | null;
+          window_source?: string | null;
+        };
+        Update: {
+          backfill_source?: string | null;
+          backfilled_at?: string | null;
+          created_at?: string;
+          deadline_hard?: boolean;
+          deadline_source?: string | null;
+          delivery_deadline_at?: string | null;
+          delivery_township_pcode?: string | null;
+          depot_id?: string | null;
+          fragile?: boolean;
+          order_id?: string;
+          origin_kind?: string;
+          parcel_size?: string | null;
+          pickup_township_pcode?: string | null;
+          pickup_window_end?: string | null;
+          pickup_window_start?: string | null;
+          price_basis?: Json | null;
+          price_is_estimate?: boolean | null;
+          quoted_at?: string | null;
+          quoted_price_mmk?: number | null;
+          size_source?: string | null;
+          township_source?: string | null;
+          updated_at?: string;
+          volume_m3?: number | null;
+          volume_source?: string | null;
+          weight_kg?: number | null;
+          weight_source?: string | null;
+          window_label?: string | null;
+          window_source?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "delivery_order_logistics_delivery_township_pcode_fkey";
+            columns: ["delivery_township_pcode"];
+            isOneToOne: false;
+            referencedRelation: "service_areas";
+            referencedColumns: ["pcode"];
+          },
+          {
+            foreignKeyName: "delivery_order_logistics_depot_id_fkey";
+            columns: ["depot_id"];
+            isOneToOne: false;
+            referencedRelation: "depots";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "delivery_order_logistics_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: true;
+            referencedRelation: "delivery_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "delivery_order_logistics_pickup_township_pcode_fkey";
+            columns: ["pickup_township_pcode"];
+            isOneToOne: false;
+            referencedRelation: "service_areas";
+            referencedColumns: ["pcode"];
+          },
+        ];
+      };
+      depots: {
+        Row: {
+          address: string | null;
+          closes_at: string;
+          code: string;
+          coordinate_source: string | null;
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          latitude: number | null;
+          location_status: string;
+          longitude: number | null;
+          name: string;
+          opens_at: string;
+          timezone: string;
+          township_pcode: string | null;
+          updated_at: string;
+          verification_note: string | null;
+          verified_at: string | null;
+          verified_by: string | null;
+        };
+        Insert: {
+          address?: string | null;
+          closes_at?: string;
+          code: string;
+          coordinate_source?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          latitude?: number | null;
+          location_status?: string;
+          longitude?: number | null;
+          name: string;
+          opens_at?: string;
+          timezone?: string;
+          township_pcode?: string | null;
+          updated_at?: string;
+          verification_note?: string | null;
+          verified_at?: string | null;
+          verified_by?: string | null;
+        };
+        Update: {
+          address?: string | null;
+          closes_at?: string;
+          code?: string;
+          coordinate_source?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          latitude?: number | null;
+          location_status?: string;
+          longitude?: number | null;
+          name?: string;
+          opens_at?: string;
+          timezone?: string;
+          township_pcode?: string | null;
+          updated_at?: string;
+          verification_note?: string | null;
+          verified_at?: string | null;
+          verified_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "depots_verified_by_fkey";
+            columns: ["verified_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dispatch_run_edits: {
+        Row: {
+          actor_id: string;
+          created_at: string;
+          edit_type: string;
+          id: number;
+          next: Json | null;
+          order_id: string | null;
+          previous: Json | null;
+          reason: string;
+          revision_after: number | null;
+          revision_before: number | null;
+          run_id: string;
+          run_route_id: string | null;
+          violations: Json;
+        };
+        Insert: {
+          actor_id: string;
+          created_at?: string;
+          edit_type: string;
+          id?: never;
+          next?: Json | null;
+          order_id?: string | null;
+          previous?: Json | null;
+          reason: string;
+          revision_after?: number | null;
+          revision_before?: number | null;
+          run_id: string;
+          run_route_id?: string | null;
+          violations?: Json;
+        };
+        Update: {
+          actor_id?: string;
+          created_at?: string;
+          edit_type?: string;
+          id?: never;
+          next?: Json | null;
+          order_id?: string | null;
+          previous?: Json | null;
+          reason?: string;
+          revision_after?: number | null;
+          revision_before?: number | null;
+          run_id?: string;
+          run_route_id?: string | null;
+          violations?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_run_edits_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_edits_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_edits_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_edits_run_route_id_fkey";
+            columns: ["run_route_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_run_routes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dispatch_run_matrices: {
+        Row: {
+          created_at: string;
+          distance_m: number[];
+          duration_s: number[];
+          elements_billed: number;
+          nodes: Json;
+          profile: string;
+          provider: string;
+          run_id: string;
+          source_mask: number[] | null;
+        };
+        Insert: {
+          created_at?: string;
+          distance_m: number[];
+          duration_s: number[];
+          elements_billed?: number;
+          nodes: Json;
+          profile: string;
+          provider: string;
+          run_id: string;
+          source_mask?: number[] | null;
+        };
+        Update: {
+          created_at?: string;
+          distance_m?: number[];
+          duration_s?: number[];
+          elements_billed?: number;
+          nodes?: Json;
+          profile?: string;
+          provider?: string;
+          run_id?: string;
+          source_mask?: number[] | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_run_matrices_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: true;
+            referencedRelation: "dispatch_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dispatch_run_orders: {
+        Row: {
+          deadline_at: string | null;
+          deadline_hard: boolean;
+          delivery_township_pcode: string | null;
+          disposition: string;
+          logistics_updated_at: string | null;
+          manual_override: boolean;
+          order_id: string;
+          order_updated_at: string;
+          origin_kind: string;
+          pickup_township_pcode: string | null;
+          run_id: string;
+          run_route_id: string | null;
+          unassigned_detail: Json;
+          unassigned_reason: string | null;
+          volume_m3: number | null;
+          volume_source: string | null;
+          weight_kg: number | null;
+          weight_source: string | null;
+          window_end_at: string | null;
+          window_source: string | null;
+          window_start_at: string | null;
+        };
+        Insert: {
+          deadline_at?: string | null;
+          deadline_hard?: boolean;
+          delivery_township_pcode?: string | null;
+          disposition: string;
+          logistics_updated_at?: string | null;
+          manual_override?: boolean;
+          order_id: string;
+          order_updated_at: string;
+          origin_kind: string;
+          pickup_township_pcode?: string | null;
+          run_id: string;
+          run_route_id?: string | null;
+          unassigned_detail?: Json;
+          unassigned_reason?: string | null;
+          volume_m3?: number | null;
+          volume_source?: string | null;
+          weight_kg?: number | null;
+          weight_source?: string | null;
+          window_end_at?: string | null;
+          window_source?: string | null;
+          window_start_at?: string | null;
+        };
+        Update: {
+          deadline_at?: string | null;
+          deadline_hard?: boolean;
+          delivery_township_pcode?: string | null;
+          disposition?: string;
+          logistics_updated_at?: string | null;
+          manual_override?: boolean;
+          order_id?: string;
+          order_updated_at?: string;
+          origin_kind?: string;
+          pickup_township_pcode?: string | null;
+          run_id?: string;
+          run_route_id?: string | null;
+          unassigned_detail?: Json;
+          unassigned_reason?: string | null;
+          volume_m3?: number | null;
+          volume_source?: string | null;
+          weight_kg?: number | null;
+          weight_source?: string | null;
+          window_end_at?: string | null;
+          window_source?: string | null;
+          window_start_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_run_orders_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_orders_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_orders_run_route_id_fkey";
+            columns: ["run_route_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_run_routes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dispatch_run_routes: {
+        Row: {
+          cap_kg_used: number | null;
+          cap_m3_used: number | null;
+          committed_route_id: string | null;
+          display_order: number;
+          distance_km: number;
+          driver_id: string | null;
+          energy_status: string | null;
+          explanation: Json;
+          flags: string[];
+          id: string;
+          locked: boolean;
+          p90_return_at: string | null;
+          peak_kg: number;
+          peak_m3: number;
+          planned_depart_at: string;
+          planned_return_at: string;
+          run_id: string;
+          score_cohesion: number;
+          score_cost: number;
+          score_flood: number;
+          score_late: number;
+          score_time: number;
+          score_total: number;
+          score_uncertainty: number;
+          service_min: number;
+          travel_min: number;
+          usable_range_km: number | null;
+          vehicle_id: string;
+          wait_min: number;
+        };
+        Insert: {
+          cap_kg_used?: number | null;
+          cap_m3_used?: number | null;
+          committed_route_id?: string | null;
+          display_order?: number;
+          distance_km?: number;
+          driver_id?: string | null;
+          energy_status?: string | null;
+          explanation?: Json;
+          flags?: string[];
+          id?: string;
+          locked?: boolean;
+          p90_return_at?: string | null;
+          peak_kg?: number;
+          peak_m3?: number;
+          planned_depart_at: string;
+          planned_return_at: string;
+          run_id: string;
+          score_cohesion?: number;
+          score_cost?: number;
+          score_flood?: number;
+          score_late?: number;
+          score_time?: number;
+          score_total?: number;
+          score_uncertainty?: number;
+          service_min?: number;
+          travel_min?: number;
+          usable_range_km?: number | null;
+          vehicle_id: string;
+          wait_min?: number;
+        };
+        Update: {
+          cap_kg_used?: number | null;
+          cap_m3_used?: number | null;
+          committed_route_id?: string | null;
+          display_order?: number;
+          distance_km?: number;
+          driver_id?: string | null;
+          energy_status?: string | null;
+          explanation?: Json;
+          flags?: string[];
+          id?: string;
+          locked?: boolean;
+          p90_return_at?: string | null;
+          peak_kg?: number;
+          peak_m3?: number;
+          planned_depart_at?: string;
+          planned_return_at?: string;
+          run_id?: string;
+          score_cohesion?: number;
+          score_cost?: number;
+          score_flood?: number;
+          score_late?: number;
+          score_time?: number;
+          score_total?: number;
+          score_uncertainty?: number;
+          service_min?: number;
+          travel_min?: number;
+          usable_range_km?: number | null;
+          vehicle_id?: string;
+          wait_min?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_run_routes_committed_route_id_fkey";
+            columns: ["committed_route_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_routes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_routes_driver_id_fkey";
+            columns: ["driver_id"];
+            isOneToOne: false;
+            referencedRelation: "driver_profiles";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_routes_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_routes_vehicle_id_fkey";
+            columns: ["vehicle_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dispatch_run_stops: {
+        Row: {
+          address: string;
+          alternatives: Json;
+          committed_stop_id: string | null;
+          id: string;
+          latitude: number;
+          leg_flood_km: number | null;
+          leg_km: number | null;
+          leg_min: number | null;
+          load_after_kg: number | null;
+          load_after_m3: number | null;
+          locked: boolean;
+          longitude: number;
+          manual: boolean;
+          order_id: string;
+          p90_arrival_at: string | null;
+          planned_arrival_at: string;
+          planned_departure_at: string | null;
+          reasons: Json;
+          run_id: string;
+          run_route_id: string;
+          seq: number;
+          slack_min: number | null;
+          stop_type: string;
+          township_pcode: string | null;
+          window_end_at: string | null;
+          window_start_at: string | null;
+        };
+        Insert: {
+          address: string;
+          alternatives?: Json;
+          committed_stop_id?: string | null;
+          id?: string;
+          latitude: number;
+          leg_flood_km?: number | null;
+          leg_km?: number | null;
+          leg_min?: number | null;
+          load_after_kg?: number | null;
+          load_after_m3?: number | null;
+          locked?: boolean;
+          longitude: number;
+          manual?: boolean;
+          order_id: string;
+          p90_arrival_at?: string | null;
+          planned_arrival_at: string;
+          planned_departure_at?: string | null;
+          reasons?: Json;
+          run_id: string;
+          run_route_id: string;
+          seq: number;
+          slack_min?: number | null;
+          stop_type: string;
+          township_pcode?: string | null;
+          window_end_at?: string | null;
+          window_start_at?: string | null;
+        };
+        Update: {
+          address?: string;
+          alternatives?: Json;
+          committed_stop_id?: string | null;
+          id?: string;
+          latitude?: number;
+          leg_flood_km?: number | null;
+          leg_km?: number | null;
+          leg_min?: number | null;
+          load_after_kg?: number | null;
+          load_after_m3?: number | null;
+          locked?: boolean;
+          longitude?: number;
+          manual?: boolean;
+          order_id?: string;
+          p90_arrival_at?: string | null;
+          planned_arrival_at?: string;
+          planned_departure_at?: string | null;
+          reasons?: Json;
+          run_id?: string;
+          run_route_id?: string;
+          seq?: number;
+          slack_min?: number | null;
+          stop_type?: string;
+          township_pcode?: string | null;
+          window_end_at?: string | null;
+          window_start_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_run_stops_committed_stop_id_fkey";
+            columns: ["committed_stop_id"];
+            isOneToOne: false;
+            referencedRelation: "route_stops";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_stops_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_stops_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_run_stops_run_route_id_fkey";
+            columns: ["run_route_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_run_routes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dispatch_runs: {
+        Row: {
+          client_key: string;
+          commit_key: string | null;
+          committed_at: string | null;
+          committed_by: string | null;
+          created_at: string;
+          created_by: string;
+          data_quality: string;
+          data_quality_detail: Json;
+          depot_id: string;
+          discard_reason: string | null;
+          discarded_at: string | null;
+          discarded_by: string | null;
+          engine_version: string;
+          id: string;
+          iterations: number | null;
+          params: Json;
+          parent_run_id: string | null;
+          revision: number;
+          runtime_ms: number | null;
+          score_breakdown: Json;
+          score_total: number | null;
+          seed: number | null;
+          service_date: string;
+          status: string;
+          stop_reason: string | null;
+          synthetic: boolean;
+        };
+        Insert: {
+          client_key: string;
+          commit_key?: string | null;
+          committed_at?: string | null;
+          committed_by?: string | null;
+          created_at?: string;
+          created_by: string;
+          data_quality: string;
+          data_quality_detail?: Json;
+          depot_id: string;
+          discard_reason?: string | null;
+          discarded_at?: string | null;
+          discarded_by?: string | null;
+          engine_version: string;
+          id?: string;
+          iterations?: number | null;
+          params?: Json;
+          parent_run_id?: string | null;
+          revision?: number;
+          runtime_ms?: number | null;
+          score_breakdown?: Json;
+          score_total?: number | null;
+          seed?: number | null;
+          service_date: string;
+          status?: string;
+          stop_reason?: string | null;
+          synthetic?: boolean;
+        };
+        Update: {
+          client_key?: string;
+          commit_key?: string | null;
+          committed_at?: string | null;
+          committed_by?: string | null;
+          created_at?: string;
+          created_by?: string;
+          data_quality?: string;
+          data_quality_detail?: Json;
+          depot_id?: string;
+          discard_reason?: string | null;
+          discarded_at?: string | null;
+          discarded_by?: string | null;
+          engine_version?: string;
+          id?: string;
+          iterations?: number | null;
+          params?: Json;
+          parent_run_id?: string | null;
+          revision?: number;
+          runtime_ms?: number | null;
+          score_breakdown?: Json;
+          score_total?: number | null;
+          seed?: number | null;
+          service_date?: string;
+          status?: string;
+          stop_reason?: string | null;
+          synthetic?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_runs_committed_by_fkey";
+            columns: ["committed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_runs_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_runs_depot_id_fkey";
+            columns: ["depot_id"];
+            isOneToOne: false;
+            referencedRelation: "depots";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_runs_discarded_by_fkey";
+            columns: ["discarded_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dispatch_runs_parent_run_id_fkey";
+            columns: ["parent_run_id"];
+            isOneToOne: false;
+            referencedRelation: "dispatch_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      geo_hazard_layers: {
+        Row: {
+          assumptions: Json;
+          bbox: number[] | null;
+          captured_on: string | null;
+          crs: string;
+          feature_count: number | null;
+          geojson: Json;
+          hazard_classes: Json;
+          id: string;
+          kind: string;
+          license: string | null;
+          loaded_at: string;
+          name: string;
+          simplify_tol_deg: number | null;
+          source_name: string;
+          source_url: string | null;
+          status: string;
+        };
+        Insert: {
+          assumptions?: Json;
+          bbox?: number[] | null;
+          captured_on?: string | null;
+          crs?: string;
+          feature_count?: number | null;
+          geojson: Json;
+          hazard_classes?: Json;
+          id?: string;
+          kind: string;
+          license?: string | null;
+          loaded_at?: string;
+          name: string;
+          simplify_tol_deg?: number | null;
+          source_name: string;
+          source_url?: string | null;
+          status?: string;
+        };
+        Update: {
+          assumptions?: Json;
+          bbox?: number[] | null;
+          captured_on?: string | null;
+          crs?: string;
+          feature_count?: number | null;
+          geojson?: Json;
+          hazard_classes?: Json;
+          id?: string;
+          kind?: string;
+          license?: string | null;
+          loaded_at?: string;
+          name?: string;
+          simplify_tol_deg?: number | null;
+          source_name?: string;
+          source_url?: string | null;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      service_areas: {
+        Row: {
+          boundary: Json | null;
+          centroid_lat: number | null;
+          centroid_lng: number | null;
+          created_at: string;
+          district: string | null;
+          name_en: string;
+          name_my: string | null;
+          pcode: string;
+          source: string;
+          source_version: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          boundary?: Json | null;
+          centroid_lat?: number | null;
+          centroid_lng?: number | null;
+          created_at?: string;
+          district?: string | null;
+          name_en: string;
+          name_my?: string | null;
+          pcode: string;
+          source: string;
+          source_version?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          boundary?: Json | null;
+          centroid_lat?: number | null;
+          centroid_lng?: number | null;
+          created_at?: string;
+          district?: string | null;
+          name_en?: string;
+          name_my?: string | null;
+          pcode?: string;
+          source?: string;
+          source_version?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      vehicle_dispatch_profiles: {
+        Row: {
+          capacity_m3: number | null;
+          cost_per_km_mmk: number | null;
+          cost_source: string;
+          created_at: string;
+          default_driver_id: string | null;
+          depot_id: string | null;
+          fixed_cost_mmk: number | null;
+          shift_end: string | null;
+          shift_start: string | null;
+          speed_factor: number;
+          updated_at: string;
+          updated_by: string | null;
+          vehicle_id: string;
+        };
+        Insert: {
+          capacity_m3?: number | null;
+          cost_per_km_mmk?: number | null;
+          cost_source?: string;
+          created_at?: string;
+          default_driver_id?: string | null;
+          depot_id?: string | null;
+          fixed_cost_mmk?: number | null;
+          shift_end?: string | null;
+          shift_start?: string | null;
+          speed_factor?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          vehicle_id: string;
+        };
+        Update: {
+          capacity_m3?: number | null;
+          cost_per_km_mmk?: number | null;
+          cost_source?: string;
+          created_at?: string;
+          default_driver_id?: string | null;
+          depot_id?: string | null;
+          fixed_cost_mmk?: number | null;
+          shift_end?: string | null;
+          shift_start?: string | null;
+          speed_factor?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          vehicle_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_dispatch_profiles_default_driver_id_fkey";
+            columns: ["default_driver_id"];
+            isOneToOne: false;
+            referencedRelation: "driver_profiles";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "vehicle_dispatch_profiles_depot_id_fkey";
+            columns: ["depot_id"];
+            isOneToOne: false;
+            referencedRelation: "depots";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicle_dispatch_profiles_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicle_dispatch_profiles_vehicle_id_fkey";
+            columns: ["vehicle_id"];
+            isOneToOne: true;
+            referencedRelation: "vehicles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       latest_delivery_locations: {
@@ -1184,6 +2196,101 @@ export type Database = {
       review_road_report: {
         Args: { decision: string; target_report_id: string };
         Returns: string;
+      };
+      commit_dispatch_run: {
+        Args: {
+          p_commit_key: string;
+          p_expected_revision: number;
+          p_on_stale?: string;
+          p_run_id: string;
+        };
+        Returns: Json;
+      };
+      discard_dispatch_run: {
+        Args: { p_reason: string; p_run_id: string };
+        Returns: Json;
+      };
+      save_dispatch_run: {
+        Args: {
+          p_client_key: string;
+          p_payload: Json;
+          p_replace_draft?: boolean;
+        };
+        Returns: Json;
+      };
+      set_depot_location: {
+        Args: {
+          p_depot_id: string;
+          p_latitude: number;
+          p_longitude: number;
+          p_note?: string;
+          p_source: string;
+        };
+        Returns: {
+          address: string | null;
+          closes_at: string;
+          code: string;
+          coordinate_source: string | null;
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          latitude: number | null;
+          location_status: string;
+          longitude: number | null;
+          name: string;
+          opens_at: string;
+          timezone: string;
+          township_pcode: string | null;
+          updated_at: string;
+          verification_note: string | null;
+          verified_at: string | null;
+          verified_by: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "depots";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      set_order_logistics: {
+        Args: { p_order_id: string; p_patch: Json; p_reason: string };
+        Returns: {
+          backfill_source: string | null;
+          backfilled_at: string | null;
+          created_at: string;
+          deadline_hard: boolean;
+          deadline_source: string | null;
+          delivery_deadline_at: string | null;
+          delivery_township_pcode: string | null;
+          depot_id: string | null;
+          fragile: boolean;
+          order_id: string;
+          origin_kind: string;
+          parcel_size: string | null;
+          pickup_township_pcode: string | null;
+          pickup_window_end: string | null;
+          pickup_window_start: string | null;
+          price_basis: Json | null;
+          price_is_estimate: boolean | null;
+          quoted_at: string | null;
+          quoted_price_mmk: number | null;
+          size_source: string | null;
+          township_source: string | null;
+          updated_at: string;
+          volume_m3: number | null;
+          volume_source: string | null;
+          weight_kg: number | null;
+          weight_source: string | null;
+          window_label: string | null;
+          window_source: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "delivery_order_logistics";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
     };
     Enums: {

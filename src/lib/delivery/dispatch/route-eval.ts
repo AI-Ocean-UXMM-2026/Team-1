@@ -116,6 +116,7 @@ export function evaluateRoute(
     if (matrix.blocked?.[arc]) violations.add("blocked");
     const frac = matrix.floodFrac?.[arc] ?? 0;
     const leg = matrix.time[arc] * (1 + p.floodSlowdown * frac);
+    const legKm = matrix.km[arc];
     t += leg;
     km += matrix.km[arc];
     flood += p.floodWeight * frac * matrix.km[arc];
@@ -176,6 +177,9 @@ export function evaluateRoute(
         leave: t,
         slack,
         loadKg,
+        legMin: leg,
+        legKm,
+        floodKm: frac * legKm,
       });
     prev = node;
   }
