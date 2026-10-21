@@ -121,6 +121,52 @@ export async function createDelivery(
   return data;
 }
 
+export type ManualOrderItem = {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+};
+
+export async function createManualDeliveryOrder(
+  supabase: DeliveryActionClient,
+  input: {
+    senderName: string;
+    senderPhone: string;
+    pickupAddress: string;
+    receiverName: string;
+    receiverPhone: string;
+    deliveryAddress: string;
+    items: ManualOrderItem[];
+    codAmount: number;
+    notes?: string;
+  },
+) {
+  const items = input.items
+    .map((item) => ({
+      description: item.description.trim(),
+      quantity: Math.max(1, Math.floor(item.quantity)),
+      unit_price: Math.max(0, item.unitPrice),
+    }))
+    .filter((item) => item.description.length > 0);
+  if (!items.length) throw new Error("Add at least one item to the order.");
+
+  const { data, error } = await supabase
+    .rpc("create_manual_delivery_order", {
+      p_sender_name: input.senderName.trim(),
+      p_sender_phone: input.senderPhone.trim(),
+      p_pickup_address: input.pickupAddress.trim(),
+      p_receiver_name: input.receiverName.trim(),
+      p_receiver_phone: input.receiverPhone.trim(),
+      p_delivery_address: input.deliveryAddress.trim(),
+      p_items: items,
+      p_cod_amount: Math.max(0, input.codAmount),
+      p_notes: input.notes?.trim() || null,
+    })
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function createCustomerPickupOrder(
   supabase: DeliveryActionClient,
   input: {

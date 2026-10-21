@@ -16,6 +16,8 @@ import {
 import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
 import { CodLedgerView } from "@/components/delivery/manager-cod";
+import { ManagerCreateOrder } from "@/components/delivery/manager-create-order";
+import "@/components/delivery/manager-create-order.css";
 import { ManagerHomeView } from "@/components/delivery/manager-home-view";
 import {
   CardHeader,
@@ -62,7 +64,7 @@ const managerNavItems = [
 
 const managerMobileNav = managerNavItems;
 
-export type ManagerView = (typeof managerNavItems)[number]["id"];
+export type ManagerView = (typeof managerNavItems)[number]["id"] | "create";
 
 type OrderFilter = "all" | "unassigned" | "moving" | "cod";
 
@@ -480,6 +482,7 @@ export function ManagerDashboard({
     (request) => request.status !== "resolved",
   );
 
+  const activeNav = view === "create" ? "order" : view;
   const pageCopy = {
     home: {
       title: "Overview",
@@ -499,6 +502,11 @@ export function ManagerDashboard({
       title: "Orders",
       description: "Work through the queue and assign riders in one step.",
     },
+    create: {
+      title: "Create order",
+      description:
+        "Book a delivery for an outside customer. No customer account needed.",
+    },
     profile: {
       title: "Team",
       description: "Rider availability for dispatch.",
@@ -513,9 +521,9 @@ export function ManagerDashboard({
           {managerNavItems.map((item) => (
             <Link
               key={item.id}
-              className={view === item.id ? "side-nav-active" : undefined}
+              className={activeNav === item.id ? "side-nav-active" : undefined}
               href={item.href}
-              aria-current={view === item.id ? "page" : undefined}
+              aria-current={activeNav === item.id ? "page" : undefined}
             >
               <Icon name={item.icon} size={17} />
               {item.label}
@@ -537,7 +545,7 @@ export function ManagerDashboard({
       <MobileNav
         label="Manager workspace"
         items={managerMobileNav}
-        activeId={view}
+        activeId={activeNav}
       />
 
       <div className="manager-main">
@@ -609,8 +617,21 @@ export function ManagerDashboard({
           )}
 
           <header className="dash-page-header">
+            {view === "create" && (
+              <Link className="manual-order-back" href="/manager/order">
+                <Icon name="arrow-left" size={18} /> Back to orders
+              </Link>
+            )}
             <h1>{pageCopy.title}</h1>
             <p>{pageCopy.description}</p>
+            {!signedOut && (view === "order" || view === "home") && (
+              <Link
+                className="button button-primary manual-order-entry"
+                href="/manager/order/create"
+              >
+                <Icon name="plus" size={18} /> Create order
+              </Link>
+            )}
           </header>
 
           {signedOut && (
@@ -656,6 +677,12 @@ export function ManagerDashboard({
             <CodLedgerView
               orders={orders}
               live={workspace.canUseLiveData && !workspace.isDemo}
+            />
+          )}
+
+          {!signedOut && view === "create" && (
+            <ManagerCreateOrder
+              canCreate={workspace.canUseLiveData && !workspace.isDemo}
             />
           )}
 
