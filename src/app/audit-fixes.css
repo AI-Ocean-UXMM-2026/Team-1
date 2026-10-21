@@ -251,10 +251,14 @@
 .customer-app .MuiButton-root,
 .customer-app .MuiChip-clickable,
 .customer-app .orders-filter button,
-.auth-switch button {
+.auth-switch button,
+.auth-switch a {
   min-height: var(--target-min, 48px);
 }
-.auth-switch button {
+.auth-switch button,
+.auth-switch a {
+  display: inline-flex;
+  align-items: center;
   min-width: var(--target-min, 48px);
   padding-inline: 8px;
   font-size: 14px;
@@ -280,9 +284,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 18px;
+  min-height: var(--target-min, 48px);
+  margin-bottom: 10px;
   color: #617066;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 650;
   text-decoration: none;
 }
@@ -291,7 +296,7 @@
 }
 @media (max-width: 600px) {
   .auth-page {
-    align-items: start;
+    align-items: center;
     padding: 18px 12px;
   }
 }

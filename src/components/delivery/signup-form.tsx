@@ -7,6 +7,22 @@ import { type FormEvent, useState } from "react";
 import { Icon } from "@/components/delivery/icons";
 import { createClient } from "@/lib/supabase/client";
 
+function formatSignupError(error: unknown): string {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    if (
+      msg.includes("failed to fetch") ||
+      msg.includes("networkerror") ||
+      msg.includes("load failed") ||
+      msg.includes("quic")
+    ) {
+      return "Network connection issue reaching the authentication server. Please check your connection and try again.";
+    }
+    return error.message;
+  }
+  return "We could not create your account. Please try again.";
+}
+
 export function SignupForm() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
@@ -36,11 +52,7 @@ export function SignupForm() {
           "Check your inbox to confirm your email, then sign in to follow your deliveries.",
         );
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "We could not create your account.",
-      );
+      setError(formatSignupError(cause));
     } finally {
       setBusy(false);
     }

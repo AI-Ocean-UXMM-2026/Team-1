@@ -1,5 +1,6 @@
 "use client";
 
+import { Home, HomeFill } from "@material-symbols-svg/react/rounded/icons/home";
 import {
   Person,
   PersonFill,
@@ -18,6 +19,7 @@ import LocationOnOutlined from "@mui/icons-material/LocationOnOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import PhoneOutlined from "@mui/icons-material/PhoneOutlined";
+import SearchRounded from "@mui/icons-material/SearchRounded";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import Avatar from "@mui/material/Avatar";
 import Badge from "@mui/material/Badge";
@@ -27,15 +29,18 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
+import OutlinedInput from "@mui/material/OutlinedInput";
 import Stack from "@mui/material/Stack";
+import { alpha } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
-import { type ReactNode, useState } from "react";
+import { memo, type ReactNode, useState } from "react";
 
 import { StatusChip, toneSx } from "@/components/delivery/customer-home";
 import { LocationMap } from "@/components/delivery/location-map";
@@ -43,7 +48,6 @@ import { progressPercent } from "@/lib/delivery/customer-home";
 import {
   currency,
   formatDateTime,
-  formatTime,
   relativeUpdatedAt,
   timeUntil,
 } from "@/lib/delivery/format";
@@ -55,6 +59,13 @@ import { STATUS_LABELS, STATUS_STEPS } from "@/lib/delivery/types";
 
 const navItems = [
   {
+    id: "home",
+    label: "Home",
+    href: "/home",
+    icon: Home,
+    activeIcon: HomeFill,
+  },
+  {
     id: "orders",
     label: "Orders",
     href: "/orders",
@@ -63,7 +74,7 @@ const navItems = [
   },
   {
     id: "pickup",
-    label: "Request pickup",
+    label: "Pickup",
     href: "/pickup",
     icon: Inventory2Outlined,
     activeIcon: Inventory2Outlined,
@@ -81,7 +92,11 @@ const navItems = [
  * Material 3 navigation bar: 80dp tall, filled icon inside a pill-shaped
  * active indicator for the current destination, outlined icons otherwise.
  */
-export function CustomerBottomNav({ activeId }: { activeId: string }) {
+export const CustomerBottomNav = memo(function CustomerBottomNav({
+  activeId,
+}: {
+  activeId: string;
+}) {
   return (
     <BottomNavigation
       showLabels
@@ -137,22 +152,11 @@ export function CustomerBottomNav({ activeId }: { activeId: string }) {
                   width: 64,
                   height: 32,
                   borderRadius: "999px",
-                  bgcolor:
-                    item.id === "pickup"
-                      ? active
-                        ? "primary.main"
-                        : "#FFF7ED"
-                      : active
-                        ? "#FFEDD5"
-                        : "transparent",
-                  color:
-                    item.id === "pickup"
-                      ? active
-                        ? "primary.contrastText"
-                        : "primary.dark"
-                      : active
-                        ? "primary.dark"
-                        : "inherit",
+                  bgcolor: (theme) =>
+                    active
+                      ? alpha(theme.palette.primary.main, 0.12)
+                      : "transparent",
+                  color: active ? "primary.dark" : "inherit",
                   transition: "background-color 150ms ease",
                 }}
               >
@@ -164,7 +168,7 @@ export function CustomerBottomNav({ activeId }: { activeId: string }) {
       })}
     </BottomNavigation>
   );
-}
+});
 
 /* ----------------------------------------------------------------- shared */
 
@@ -179,7 +183,7 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <Box component="section" sx={{ mx: 2, mt: 2 }}>
+    <Box component="section" aria-label={title} sx={{ mx: 2, mt: 2 }}>
       {(title || action) && (
         <Stack
           direction="row"
@@ -245,7 +249,9 @@ function etaHeadline(order: DeliveryOrder) {
   if (order.status === "cancelled") return "Delivery cancelled";
   if (!hasCollectedParcel(order.status)) return "Waiting for pickup";
   const until = timeUntil(order.estimated_delivery_at);
-  return until === "Arriving now" ? until : `Arriving in ${until}`;
+  return until === "Arriving now" || until === "Running late"
+    ? until
+    : `Arriving in ${until}`;
 }
 
 function etaDetail(order: DeliveryOrder, deliveredAt: string | null) {
@@ -324,6 +330,12 @@ export function TrackDetail({
     order.status as (typeof STATUS_STEPS)[number],
   );
   const closed = ["delivered", "failed", "cancelled"].includes(order.status);
+  // A stopped delivery keeps the steps it reached and explains why it ended.
+  const stopped = order.status === "failed" || order.status === "cancelled";
+  const stopEvent =
+    orderEvents
+      .filter((event) => event.status === order.status)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
   const codPaid =
     order.cod_status === "collected" || order.cod_status === "settled";
 
@@ -380,10 +392,10 @@ export function TrackDetail({
             mt: 2,
             height: 6,
             borderRadius: "999px",
-            bgcolor: "rgb(255 255 255 / 0.2)",
+            bgcolor: (theme) => alpha(theme.palette.common.white, 0.2),
             "& .MuiLinearProgress-bar": {
               borderRadius: "999px",
-              bgcolor: "var(--color-brand-orange)",
+              bgcolor: "primary.light",
             },
           }}
         />
@@ -411,6 +423,26 @@ export function TrackDetail({
         </Typography>
       </Box>
 
+      <Box
+        sx={{
+          mx: 2,
+          mt: 1.5,
+          borderRadius: "20px",
+          overflow: "hidden",
+          bgcolor: "grey.100",
+        }}
+      >
+        <LocationMap order={order} mode="customer" isDemo={isDemo} tall />
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {locationHeading}
+          </Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {locationDescription}
+          </Typography>
+        </Box>
+      </Box>
+
       <Stack direction="row" spacing={1} sx={{ mx: 2, mt: 1.5 }}>
         {!closed && !isDemo && <ShareTrackingButton order={order} />}
         <Button
@@ -428,26 +460,6 @@ export function TrackDetail({
           Get help
         </Button>
       </Stack>
-
-      <Box
-        sx={{
-          mx: 2,
-          mt: 2,
-          borderRadius: "20px",
-          overflow: "hidden",
-          bgcolor: "grey.100",
-        }}
-      >
-        <LocationMap order={order} mode="customer" isDemo={isDemo} tall />
-        <Box sx={{ px: 2, py: 1.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            {locationHeading}
-          </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {locationDescription}
-          </Typography>
-        </Box>
-      </Box>
 
       <Panel title="Route">
         <Stack spacing={1.5}>
@@ -498,11 +510,12 @@ export function TrackDetail({
       <Panel title="Progress">
         <Box component="ol" sx={{ m: 0, p: 0, listStyle: "none" }}>
           {STATUS_STEPS.map((step, index) => {
-            const done =
-              order.status === "delivered" ||
-              (activeIndex >= 0 && index <= activeIndex);
-            const current = order.status === step;
             const event = orderEvents.find((item) => item.status === step);
+            const done = stopped
+              ? !!event
+              : order.status === "delivered" ||
+                (activeIndex >= 0 && index <= activeIndex);
+            const current = order.status === step;
             const last = index === STATUS_STEPS.length - 1;
             return (
               <Box
@@ -557,12 +570,59 @@ export function TrackDetail({
                       ? formatDateTime(event.created_at)
                       : done
                         ? "Completed"
-                        : "Up next"}
+                        : stopped
+                          ? "Not reached"
+                          : "Up next"}
                   </Typography>
                 </Box>
               </Box>
             );
           })}
+          {stopped && (
+            <Box
+              component="li"
+              aria-current="step"
+              sx={{ display: "flex", gap: 1.5, pt: 1.5 }}
+            >
+              <Box
+                sx={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  display: "grid",
+                  placeItems: "center",
+                  bgcolor: "error.main",
+                  color: "error.contrastText",
+                  fontWeight: 800,
+                  fontSize: 14,
+                }}
+                aria-hidden="true"
+              >
+                !
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 750, lineHeight: "24px" }}
+                >
+                  {STATUS_LABELS[order.status]}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", display: "block" }}
+                >
+                  {stopEvent
+                    ? formatDateTime(stopEvent.created_at)
+                    : "Latest status"}
+                </Typography>
+                {stopEvent?.note && (
+                  <Typography variant="body2" sx={{ mt: 0.25 }}>
+                    {stopEvent.note}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          )}
         </Box>
       </Panel>
 
@@ -678,9 +738,36 @@ export function OrdersPage({
   isAuthenticated: boolean;
   onSignIn: () => void;
 }) {
-  const visible = orders.filter((order) => matchesOrderFilter(order, filter));
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLowerCase();
+  const visible = orders.filter(
+    (order) =>
+      matchesOrderFilter(order, filter) &&
+      (!needle ||
+        [order.tracking_code, order.delivery_address, order.customer_name]
+          .join(" ")
+          .toLowerCase()
+          .includes(needle)),
+  );
   return (
     <Box sx={{ pb: 1 }}>
+      {orders.length > 0 && (
+        <Box sx={{ px: 2, mt: 0.5, mb: 1 }}>
+          <OutlinedInput
+            fullWidth
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by code or address"
+            inputProps={{ "aria-label": "Search deliveries" }}
+            startAdornment={
+              <InputAdornment position="start">
+                <SearchRounded />
+              </InputAdornment>
+            }
+          />
+        </Box>
+      )}
       {orders.length > 0 && (
         <Stack
           direction="row"
@@ -700,6 +787,8 @@ export function OrdersPage({
             const count = orders.filter((order) =>
               matchesOrderFilter(order, item.id),
             ).length;
+            // A group with nothing in it is noise, unless it is the one open.
+            if (item.id === "issues" && count === 0 && !selected) return null;
             return (
               <Chip
                 key={item.id}
@@ -763,7 +852,9 @@ export function OrdersPage({
           variant="body2"
           sx={{ color: "text.secondary", px: 2, py: 4, textAlign: "center" }}
         >
-          No deliveries in this group.
+          {needle
+            ? "No deliveries match that search."
+            : "No deliveries in this group."}
         </Typography>
       ) : (
         <List
@@ -789,26 +880,45 @@ export function OrdersPage({
                   bgcolor: "grey.100",
                 }}
               >
-                <ListItemText
-                  sx={{ m: 0, minWidth: 0 }}
-                  primary={order.delivery_address}
-                  secondary={`${order.tracking_code} · ${
-                    order.status === "in_transit" ||
-                    order.status === "picked_up"
-                      ? `ETA ${timeUntil(order.estimated_delivery_at)}`
-                      : order.estimated_delivery_at
-                        ? formatTime(order.estimated_delivery_at)
-                        : formatDateTime(order.created_at)
-                  }`}
-                  slotProps={{
-                    primary: {
-                      noWrap: true,
-                      sx: { fontWeight: 700, fontSize: 14 },
-                    },
-                    secondary: { noWrap: true, sx: { fontSize: 12 } },
-                  }}
-                />
-                <StatusChip status={order.status} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ fontWeight: 700, overflowWrap: "anywhere" }}
+                  >
+                    {order.delivery_address}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", color: "text.secondary" }}
+                  >
+                    {order.tracking_code} · Ordered{" "}
+                    {formatDateTime(order.created_at)}
+                  </Typography>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ alignItems: "center", flexWrap: "wrap", mt: 0.75 }}
+                  >
+                    <StatusChip status={order.status} />
+                    {(order.status === "in_transit" ||
+                      order.status === "picked_up") && (
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        ETA {timeUntil(order.estimated_delivery_at)}
+                      </Typography>
+                    )}
+                    {order.cod_amount > 0 &&
+                      order.cod_status === "pending" &&
+                      ACTIVE_STATUSES.includes(order.status) && (
+                        <Typography
+                          variant="caption"
+                          sx={{ color: "warning.dark", fontWeight: 600 }}
+                        >
+                          Pay {currency.format(order.cod_amount)}
+                        </Typography>
+                      )}
+                  </Stack>
+                </Box>
+                <ChevronRight color="disabled" />
               </ListItemButton>
             </ListItem>
           ))}
@@ -926,28 +1036,34 @@ export function ProfilePage({
           overflow: "hidden",
         }}
       >
-        {/* Guests would only reach a sign-in prompt, which the card above
-            already offers. */}
-        {isAuthenticated && (
-          <ProfileRow
-            component={Link}
-            href="/notifications"
-            illustration="/icons/notifications.svg"
-            title="Notifications"
-            detail={
-              unreadCount > 0
-                ? `${unreadCount} unread ${unreadCount === 1 ? "update" : "updates"}`
-                : "Delivery updates and alerts"
-            }
-            badge={unreadCount}
-          />
-        )}
-        <ProfileRow
-          onClick={onOpenHelp}
-          illustration="/icons/get-help.svg"
-          title="Help and support"
-          detail="Report a problem with a parcel."
-        />
+        <List disablePadding>
+          {/* Guests would only reach a sign-in prompt, which the card above
+              already offers. */}
+          {isAuthenticated && (
+            <ListItem disablePadding>
+              <ProfileRow
+                component={Link}
+                href="/notifications"
+                illustration="/icons/notifications.svg"
+                title="Notifications"
+                detail={
+                  unreadCount > 0
+                    ? `${unreadCount} unread ${unreadCount === 1 ? "update" : "updates"}`
+                    : "Delivery updates and alerts"
+                }
+                badge={unreadCount}
+              />
+            </ListItem>
+          )}
+          <ListItem disablePadding>
+            <ProfileRow
+              onClick={onOpenHelp}
+              illustration="/icons/get-help.svg"
+              title="Help and support"
+              detail="Report a problem with a parcel."
+            />
+          </ListItem>
+        </List>
       </Box>
 
       {isAuthenticated && (

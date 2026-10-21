@@ -8,7 +8,12 @@ export type Tone = "error" | "warning" | "info" | "success" | "neutral";
 
 export function toneSx(tone: Tone) {
   return tone === "neutral"
-    ? { bgcolor: "grey.100", color: "text.secondary" }
+    ? {
+        bgcolor: "background.paper",
+        color: "text.secondary",
+        border: "1px solid",
+        borderColor: "divider",
+      }
     : { bgcolor: `${tone}.light`, color: `${tone}.dark` };
 }
 

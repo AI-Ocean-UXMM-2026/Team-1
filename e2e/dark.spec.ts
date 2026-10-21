@@ -1,4 +1,5 @@
 import { makeOrder, signInAs } from "./support/supabase-mock";
+import { swipeToConfirm } from "./support/swipe";
 import { expect, test } from "./support/test";
 
 test.use({ colorScheme: "dark" });
@@ -25,22 +26,28 @@ test("rider screens use the dark theme at night (H-13)", async ({
     ],
   });
   await page.goto("/rider/route");
-  await expect(page.getByText(/Stop 1 of 1/)).toBeVisible();
+  const stop = page.getByRole("region", { name: /Stop 1 of 1/ });
+  await expect(stop).toBeVisible();
   const isDark = (color: string) => {
     const [r, g, b] = color.match(/\d+/g)?.map(Number) ?? [255, 255, 255];
     return (r + g + b) / 3 < 80;
   };
-  const surface = await page
-    .locator(".rf-app")
-    .first()
-    .evaluate((node) => getComputedStyle(node).backgroundColor);
-  expect(isDark(surface), `background ${surface} is not dark`).toBe(true);
-  await page.getByRole("button", { name: /i.ve arrived/i }).click();
-  await page.getByRole("button", { name: /report delivery outcome/i }).click();
-  await page.screenshot({ path: "test-results/dark-outcome.png" });
-  const outcome = await page
-    .locator(".rf-app")
-    .first()
-    .evaluate((node) => getComputedStyle(node).backgroundColor);
-  expect(isDark(outcome)).toBe(true);
+  // The first opaque background at or above the sheet is what the rider sees.
+  const surfaceOf = (locator: typeof stop) =>
+    locator.evaluate((node) => {
+      for (let el: Element | null = node; el; el = el.parentElement) {
+        const color = getComputedStyle(el).backgroundColor;
+        if (!/rgba\(.*, 0\)|transparent/.test(color)) return color;
+      }
+      return "rgb(255, 255, 255)";
+    });
+  const surface = await surfaceOf(stop);
+  expect(isDark(surface), `stop sheet ${surface} is not dark`).toBe(true);
+  await swipeToConfirm(page, /i.ve arrived/i);
+  await page.getByRole("button", { name: /yes, i.m here/i }).click();
+  await page.getByRole("button", { name: "Start handover" }).click();
+  const handover = page.getByRole("group", { name: "Verify the parcel" });
+  await expect(handover).toBeVisible();
+  const outcome = await surfaceOf(handover);
+  expect(isDark(outcome), `handover ${outcome} is not dark`).toBe(true);
 });

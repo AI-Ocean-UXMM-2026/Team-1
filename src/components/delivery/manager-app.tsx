@@ -31,7 +31,6 @@ import {
 import {
   attentionSummary,
   codPending,
-  hourlyBuckets,
   isActiveOrder,
   isMovingOrder,
   needsRider,
@@ -129,9 +128,11 @@ export function ManagerDashboard({
   const [selectedId, setSelectedId] = useState(searchParams.get("id") ?? "");
   const [authOpen, setAuthOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [filter, setFilter] = useState<OrderFilter>(
     initialFilter(searchParams.get("filter")),
   );
@@ -140,7 +141,20 @@ export function ManagerDashboard({
     () => prioritiseOrders(workspace.data.orders),
     [workspace.data.orders],
   );
-  const filteredOrders = orders.filter((order) => matchesFilter(order, filter));
+  // Dispatch works the queue from the orders that still need a rider.
+  const queueOrders = useMemo(
+    () =>
+      view === "order"
+        ? [...orders].sort(
+            (left, right) =>
+              Number(needsRider(right)) - Number(needsRider(left)),
+          )
+        : orders,
+    [orders, view],
+  );
+  const filteredOrders = queueOrders.filter((order) =>
+    matchesFilter(order, filter),
+  );
   const selectedOrder =
     filteredOrders.find((order) => order.id === selectedId) ??
     filteredOrders[0] ??
@@ -169,20 +183,22 @@ export function ManagerDashboard({
     ? allRecommendations
     : allRecommendations.slice(0, 3);
   const summary = useMemo(
-    () => attentionSummary(orders, workspace.data.roadReports),
-    [orders, workspace.data.roadReports],
+    () =>
+      attentionSummary(
+        orders,
+        workspace.data.roadReports,
+        nowMs,
+        workspace.data.statusEvents,
+      ),
+    [nowMs, orders, workspace.data.roadReports, workspace.data.statusEvents],
   );
   const recentList = useMemo(() => recentOrders(orders), [orders]);
-  const hourly = useMemo(() => hourlyBuckets(orders), [orders]);
   const movingOrders = orders.filter(isMovingOrder);
   const movingCount = movingOrders.length;
-  const activeCount = orders.filter(isActiveOrder).length;
-  const deliveredCount = orders.filter(
-    (order) => order.status === "delivered",
-  ).length;
+  const deliveredCount = summary.deliveredToday;
   const atRiskCount =
-    orders.filter((order) => ["failed", "cancelled"].includes(order.status))
-      .length + summary.delayed;
+    orders.filter((order) => order.status === "failed").length +
+    summary.delayed;
   const assignedDrivers = new Set(
     orders
       .filter(isActiveOrder)
@@ -221,6 +237,11 @@ export function ManagerDashboard({
   }, [workspace.isLoading, workspace.data]);
 
   useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (notice?.tone !== "success") return;
     const timer = setTimeout(() => setNotice(null), 4000);
     return () => clearTimeout(timer);
@@ -228,6 +249,18 @@ export function ManagerDashboard({
 
   if (workspace.isLoading)
     return <LoadingBlock title="Opening dispatch operations…" />;
+
+  async function refreshWorkspace() {
+    if (refreshing) return;
+    setRefreshing(true);
+    await workspace.refresh().then(
+      () => {
+        setNowMs(Date.now());
+        setRefreshing(false);
+      },
+      () => setRefreshing(false),
+    );
+  }
 
   async function assignRecommendation(
     driverId: string,
@@ -520,9 +553,9 @@ export function ManagerDashboard({
             <button
               type="button"
               className="icon-button manager-refresh"
-              aria-label="Refresh data"
-              onClick={() => void workspace.refresh()}
-              disabled={saving || signedOut}
+              aria-label={refreshing ? "Refreshing data" : "Refresh data"}
+              onClick={() => void refreshWorkspace()}
+              disabled={saving || refreshing || signedOut}
             >
               <Icon name="refresh" size={16} />
             </button>
@@ -553,6 +586,24 @@ export function ManagerDashboard({
               {workspace.error}
               <button type="button" onClick={() => void workspace.refresh()}>
                 Retry
+              </button>
+            </div>
+          )}
+          {workspace.isStale && !workspace.error && (
+            <div className="manager-stale-warning" role="alert">
+              <Icon name="warning" size={18} />
+              <span>
+                <strong>Live updates are unavailable.</strong>
+                Showing the last successful workspace data.
+              </span>
+              <button
+                type="button"
+                className="button button-outline"
+                onClick={() => void refreshWorkspace()}
+                disabled={refreshing}
+              >
+                <Icon name="refresh" size={15} />
+                {refreshing ? "Refreshing…" : "Refresh"}
               </button>
             </div>
           )}
@@ -587,10 +638,11 @@ export function ManagerDashboard({
             <ManagerHomeView
               workspace={workspace}
               movingCount={movingCount}
-              activeCount={activeCount}
               deliveredCount={deliveredCount}
               atRiskCount={atRiskCount}
-              hourly={hourly}
+              nowMs={nowMs}
+              refreshing={refreshing}
+              onRefresh={refreshWorkspace}
               movingOrders={movingOrders}
               recentList={recentList}
               summary={summary}

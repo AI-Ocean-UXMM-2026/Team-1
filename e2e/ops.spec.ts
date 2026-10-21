@@ -13,8 +13,9 @@ test("signed-out ops workspaces ask for sign-in instead of showing forms (O-05)"
     "/manager/profile",
   ]) {
     await page.goto(route);
+    // Each workspace words its own prompt; all of them offer a Sign in button.
     await expect(
-      page.getByRole("region", { name: "Sign in required" }),
+      page.getByRole("button", { name: /^sign in/i }).first(),
       route,
     ).toBeVisible();
     await expect(page.locator("form"), route).toHaveCount(0);
@@ -48,6 +49,109 @@ test("dispatch opens on an order that still needs a rider (O-04)", async ({
   });
   await page.goto("/manager/order");
   await expect(page.getByText("Suggested riders")).toBeVisible();
+});
+
+test("manager overview prioritises stale GPS and unsettled cash across widths", async ({
+  page,
+  context,
+}) => {
+  await signInAs(context, "manager", {
+    delivery_orders: [
+      makeOrder({
+        id: "moving-fresh",
+        tracking_code: "OR-LIVE",
+        status: "in_transit",
+      }),
+      makeOrder({
+        id: "moving-stale",
+        tracking_code: "OR-STALE",
+        status: "in_transit",
+        traffic_delay_minutes: 25,
+      }),
+      makeOrder({
+        id: "cash",
+        tracking_code: "OR-CASH",
+        status: "delivered",
+        cod_amount: 42000,
+        cod_status: "collected",
+      }),
+      makeOrder({
+        id: "unassigned",
+        tracking_code: "OR-NEW",
+        status: "pending",
+        cod_amount: 0,
+        cod_status: "not_required",
+      }),
+    ],
+    delivery_assignments: [
+      {
+        id: "a1",
+        order_id: "moving-fresh",
+        driver_id: "driver-1",
+        vehicle_id: null,
+        route_id: null,
+        assigned_at: minutesAgo(30),
+        ended_at: null,
+      },
+      {
+        id: "a2",
+        order_id: "moving-stale",
+        driver_id: "driver-1",
+        vehicle_id: null,
+        route_id: null,
+        assigned_at: minutesAgo(30),
+        ended_at: null,
+      },
+    ],
+    latest_delivery_locations: [
+      {
+        order_id: "moving-fresh",
+        latitude: 16.8,
+        longitude: 96.15,
+        accuracy_meters: 8,
+        recorded_at: minutesAgo(0),
+      },
+      {
+        order_id: "moving-stale",
+        latitude: 16.79,
+        longitude: 96.14,
+        accuracy_meters: 12,
+        recorded_at: minutesAgo(10),
+      },
+    ],
+    delivery_status_events: [
+      {
+        id: 1,
+        order_id: "cash",
+        status: "delivered",
+        note: null,
+        created_at: minutesAgo(20),
+      },
+    ],
+  });
+
+  await page.goto("/manager/home");
+  await expect(page.getByRole("heading", { name: "Act now" })).toBeVisible();
+  await expect(page.getByText("OR-STALE location is stale")).toBeVisible();
+  await expect(page.getByText("OR-CASH cash needs settlement")).toBeVisible();
+  await expect(page.getByText("42,000 MMK collected")).toBeVisible();
+  await expect(page.getByText("1 GPS live · 1 stale")).toBeVisible();
+
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect(page.locator(".dash-delivery-list")).toBeVisible();
+  await expect(
+    page.locator(".dash-delivery-list").getByText("Rider").first(),
+  ).toBeVisible();
+  await expect(
+    page.locator(".dash-delivery-list").getByText("ETA").first(),
+  ).toBeVisible();
+  await expect(page.locator(".manager-app .mobile-bottom-nav")).toBeVisible();
+  await expect(page.locator(".manager-sidebar")).toBeHidden();
+
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await expect(page.locator(".dash-table")).toBeVisible();
+  await expect(page.locator(".manager-sidebar")).toBeVisible();
+  await expect(page.locator(".manager-app .mobile-bottom-nav")).toBeHidden();
 });
 
 test("support resolution notes do not leak between cases (O-08)", async ({

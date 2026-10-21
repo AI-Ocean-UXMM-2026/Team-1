@@ -3,15 +3,12 @@
 import "./rider-flow.css";
 import "./rider-delivery.css";
 
+import Button from "@mui/material/Button";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
-import {
-  BrandMark,
-  LoadingBlock,
-  signOut,
-} from "@/components/delivery/common";
+import { BrandMark, LoadingBlock, signOut } from "@/components/delivery/common";
 import { Icon } from "@/components/delivery/icons";
 import {
   ActiveDelivery,
@@ -70,7 +67,7 @@ import {
   snapshotRoute,
 } from "@/lib/delivery/driver-route";
 import { currency } from "@/lib/delivery/format";
-import { formatDriveMinutes } from "@/lib/delivery/mapbox";
+import { formatDriveMinutes, speedLimitAt } from "@/lib/delivery/mapbox";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
 import {
   isPreviewScenario,
@@ -94,6 +91,7 @@ import {
   formatDistance,
   type GeoPoint,
   hasParcelOnBoard,
+  resolveTurnSymbol,
 } from "@/lib/delivery/rider-route";
 import type {
   DeliveryOrder,
@@ -110,6 +108,8 @@ import { createClient } from "@/lib/supabase/client";
 
 type DevicePosition = GeoPoint & {
   heading: number | null;
+  /** Ground speed in km/h from the device, when it reports one. */
+  speedKmh: number | null;
   accuracy: number | null;
   at: number;
 };
@@ -208,6 +208,7 @@ export function RiderApp() {
   const [now, setNow] = useState(0);
   const [deviceOnline, setDeviceOnline] = useState(true);
   const [viewHeight, setViewHeight] = useState(844);
+  const [sheetPx, setSheetPx] = useState(0);
   useEffect(() => {
     setNow(Date.now());
     const measure = () => setViewHeight(window.innerHeight);
@@ -334,6 +335,10 @@ export function RiderApp() {
             fix.coords.heading != null && Number.isFinite(fix.coords.heading)
               ? fix.coords.heading
               : null,
+          speedKmh:
+            fix.coords.speed != null && Number.isFinite(fix.coords.speed)
+              ? Math.max(0, Math.round(fix.coords.speed * 3.6))
+              : null,
           accuracy: fix.coords.accuracy ?? null,
           at: fix.timestamp || Date.now(),
         });
@@ -398,7 +403,7 @@ export function RiderApp() {
   const onBoardKey = JSON.stringify(
     route.onBoard.map((order) => order.id).sort(),
   );
-  const [sharing, setSharing] = useState<number | null>(null);
+  const [, setSharing] = useState<number | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: gpsAttempt re-triggers watchRiderLocations on retry
   useEffect(() => {
     const orderIds = JSON.parse(onBoardKey) as string[];
@@ -1137,12 +1142,14 @@ export function RiderApp() {
           title: "No map pin for this address",
           sub: "Use the address below, or call the recipient",
           arrow: null,
+          turnSymbol: "location",
         }
       : arrivedHere
         ? {
             title: `At stop ${stop.number}`,
             sub: "Park safely, then start the handover",
             arrow: null,
+            turnSymbol: "arrive",
           }
         : !riderPoint
           ? {
@@ -1152,33 +1159,47 @@ export function RiderApp() {
                   : "Finding your location…",
               sub: "Route shown from stop pins. Use Directions to navigate.",
               arrow: null,
+              turnSymbol: "straight",
             }
           : atTarget
             ? {
                 title: "You’re at the stop",
                 sub: "Park safely, then tap I’ve arrived",
                 arrow: null,
+                turnSymbol: "arrive",
               }
             : legRoute?.firstStep
               ? {
                   title: legRoute.firstStep.instruction,
                   sub: `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} by road to stop ${stop.number}`,
                   arrow: null,
+                  turnSymbol: resolveTurnSymbol(
+                    legRoute.firstStep.instruction,
+                    legRoute.firstStep.maneuverModifier,
+                    legRoute.firstStep.maneuverType,
+                  ),
                 }
               : {
                   title: `Head ${compassDirection(legBearing ?? 0)}`,
                   sub: `${formatDistance(legDistance)} straight-line to stop ${stop.number}`,
                   arrow: 0,
+                  turnSymbol: "straight",
                 };
     const heading = isPreview ? legBearing : (position?.heading ?? legBearing);
     if (instruction.arrow != null)
       instruction.arrow = (legBearing ?? 0) - (heading ?? 0);
     const nextCaution = legCautions[0] ?? null;
-    const sheetHeight = handoverKey
-      ? Math.round(viewHeight * 0.88)
-      : expanded
-        ? Math.round(viewHeight * 0.72)
-        : 330;
+    const sheetHeight =
+      sheetPx ||
+      (handoverKey
+        ? Math.round(viewHeight * 0.88)
+        : expanded
+          ? Math.round(viewHeight * 0.62)
+          : 330);
+    const liveEtaAt =
+      riderPoint && legRoute && now
+        ? new Date(now + legRoute.durationMin * 60_000).toISOString()
+        : null;
 
     return (
       <>
@@ -1211,7 +1232,6 @@ export function RiderApp() {
           gps={gpsState}
           online={online}
           syncing={busy != null}
-          sharingCount={sharing}
           revision={
             <>
               {flash && (
@@ -1263,6 +1283,19 @@ export function RiderApp() {
           onMenu={() => openPanel("menu")}
           onCautions={() => openPanel("cautions")}
           onLocationHelp={() => openPanel("location")}
+          liveEtaAt={liveEtaAt}
+          speed={
+            riderPoint && !arrivedHere
+              ? {
+                  currentKmh: position?.speedKmh ?? null,
+                  limitKmh: legRoute
+                    ? speedLimitAt(legRoute, riderPoint)
+                    : null,
+                }
+              : null
+          }
+          distanceKm={atTarget ? 0 : legDistance}
+          onSheetHeight={setSheetPx}
           cautionBanner={
             nextCaution ? (
               <button
@@ -1607,13 +1640,16 @@ function SignInGate() {
       </div>
       <h1>Sign in to see today’s route</h1>
       <p>Driver accounts are set up by your operations team.</p>
-      <button
-        type="button"
-        className="rf-btn rf-btn-primary"
+      <Button
+        variant="contained"
+        color="primary"
+        size="large"
         onClick={() => setOpen(true)}
+        endIcon={<Icon name="arrow-right" size={18} />}
+        sx={{ minHeight: 48, borderRadius: 999, px: 3 }}
       >
-        Sign in <Icon name="arrow-right" size={18} />
-      </button>
+        Sign in
+      </Button>
       <AuthDialog open={open} audience="team" onClose={() => setOpen(false)} />
     </main>
   );

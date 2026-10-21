@@ -1,5 +1,8 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
@@ -27,7 +30,10 @@ const STOP_STATE_LABELS: Record<DeliveryStop["state"], string> = {
 
 export function StopMark({ stop }: { stop: DeliveryStop }) {
   return (
-    <span className={`dv-stop-mark is-${stop.state.toLowerCase()}`} aria-hidden="true">
+    <span
+      className={`dv-stop-mark is-${stop.state.toLowerCase()}`}
+      aria-hidden="true"
+    >
       {stop.state === "COMPLETED" ? (
         <Icon name="check" size={16} strokeWidth={2.6} />
       ) : stop.state === "FAILED" ? (
@@ -40,15 +46,59 @@ export function StopMark({ stop }: { stop: DeliveryStop }) {
 }
 
 /** One stop in a route list: number, recipient, place, parcels, COD, state. */
+const compactMoney = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 export function StopRow({
   stop,
   showState = true,
+  dense = false,
+  time,
 }: {
   stop: DeliveryStop;
   showState?: boolean;
+  /** One line: number, name and area on the left; COD and time pinned right. */
+  dense?: boolean;
+  /** Dense rows only: the time to show, and whether it is out of route order. */
+  time?: { label: string; warn: boolean } | null;
 }) {
   const finished = stop.state === "COMPLETED" || stop.state === "FAILED";
   const parcelCount = stop.parcels.length;
+  if (dense) {
+    return (
+      <li className={`dv-stop-row is-dense is-${stop.state.toLowerCase()}`}>
+        <StopMark stop={stop} />
+        <span className="dv-stop-copy">
+          <strong>{stop.recipient}</strong>
+          <span className="dv-stop-address">{stop.address}</span>
+        </span>
+        <span className="dv-dense-end">
+          {!finished && time && (
+            <small
+              className={`dv-stop-state${time.warn ? " is-warn" : ""}`}
+              title={
+                time.warn
+                  ? "Promised earlier than the stop before it"
+                  : undefined
+              }
+            >
+              {time.label}
+            </small>
+          )}
+          {!finished && stop.codDue > 0 && (
+            <small
+              className="dv-dense-cod"
+              title={`Collect COD · ${compactMoney.format(stop.codDue)} MMK`}
+            >
+              {compactMoney.format(stop.codDue)} cash
+            </small>
+          )}
+        </span>
+      </li>
+    );
+  }
   return (
     <li className={`dv-stop-row is-${stop.state.toLowerCase()}`}>
       <StopMark stop={stop} />
@@ -114,10 +164,7 @@ function MetricGrid({
         <dt>Parcels</dt>
         <dd>
           {route.parcels.length}
-          <small>
-            {" "}
-            · {route.onBoard.length} on truck
-          </small>
+          <small> · {route.onBoard.length} on truck</small>
         </dd>
       </div>
       <div className="dv-metric-cod">
@@ -228,30 +275,40 @@ function LoadCheck({
         </fieldset>
       ))}
       <div className="rf-dock">
-        <button
-          type="button"
-          className="rf-btn rf-btn-primary"
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          size="large"
           disabled={!checked.length || busy || !online}
           onClick={() => onConfirm(checked)}
+          sx={{ minHeight: 52, borderRadius: 999 }}
         >
           {busy
             ? "Saving…"
             : !online
               ? "Waiting for connection"
               : checked.length === route.toLoad.length
-                ? `Confirm ${checked.length} parcels loaded`
+                ? `Confirm ${checked.length} ${checked.length === 1 ? "parcel" : "parcels"} loaded`
                 : `Confirm ${checked.length} of ${route.toLoad.length} loaded`}
-        </button>
+        </Button>
         {checked.length > 0 && missing.length > 0 && (
-          <button
-            type="button"
-            className="rf-btn rf-btn-quiet"
+          <Button
+            fullWidth
+            variant="text"
+            color="inherit"
             disabled={busy || !online}
             onClick={() => onReportMissing(missing)}
+            sx={{
+              minHeight: 44,
+              borderRadius: 999,
+              mt: 1,
+              color: "text.secondary",
+            }}
           >
             Tell operations {missing.length}{" "}
             {missing.length === 1 ? "parcel is" : "parcels are"} missing
-          </button>
+          </Button>
         )}
       </div>
     </section>
@@ -278,7 +335,8 @@ function RouteClose({
   const awaiting = route.parcels
     .filter((order) => order.cod_status === "collected")
     .reduce((sum, order) => sum + order.cod_amount, 0);
-  const valid = cash.trim() !== "" && Number.isFinite(declared) && declared >= 0;
+  const valid =
+    cash.trim() !== "" && Number.isFinite(declared) && declared >= 0;
   return (
     <>
       <section className="dv-summary">
@@ -329,7 +387,11 @@ function RouteClose({
           </div>
           <div>
             <dt>Not collected</dt>
-            <dd className={route.codExpected - route.codCollected ? "is-warning" : ""}>
+            <dd
+              className={
+                route.codExpected - route.codCollected ? "is-warning" : ""
+              }
+            >
               {currency.format(route.codExpected - route.codCollected)}
             </dd>
           </div>
@@ -360,18 +422,21 @@ function RouteClose({
       )}
       {error}
       <div className="rf-dock">
-        <button
-          type="button"
-          className="rf-btn rf-btn-primary"
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          size="large"
           disabled={!valid || busy || !online || !sessionSaved}
           onClick={() => onClose(declared)}
+          sx={{ minHeight: 52, borderRadius: 999 }}
         >
           {busy
             ? "Closing…"
             : !online
               ? "Waiting for connection"
               : `Close route · hand in ${currency.format(valid ? declared : 0)}`}
-        </button>
+        </Button>
       </div>
     </>
   );
@@ -430,7 +495,7 @@ export function RouteOverview({
   const status: Record<typeof state, string> = {
     NONE: "No route",
     ASSIGNED: "New route",
-    MANIFEST_VERIFICATION: "Loading",
+    MANIFEST_VERIFICATION: "Load check",
     READY: "Ready to start",
     IN_PROGRESS: "In progress",
     PAUSED: "Paused",
@@ -442,17 +507,27 @@ export function RouteOverview({
   return (
     <main className="rf-app dv-overview">
       <header className="rf-overview-head">
-        <span className={`dv-status is-${state.toLowerCase()}`}>
-          {status[state]}
-        </span>
-        <button
-          type="button"
-          className="rf-icon-btn"
+        <Chip
+          label={status[state]}
+          color={
+            state === "IN_PROGRESS"
+              ? "info"
+              : state === "COMPLETED" || state === "CLOSED"
+                ? "success"
+                : state === "PAUSED"
+                  ? "warning"
+                  : "default"
+          }
+          size="small"
+          sx={{ fontWeight: 700, borderRadius: 999 }}
+        />
+        <IconButton
           onClick={onMenu}
           aria-label="Shift tools"
+          sx={{ width: 44, height: 44, color: "text.primary" }}
         >
           <Icon name="menu" size={20} />
-        </button>
+        </IconButton>
       </header>
       <h1>{title}</h1>
       <p className="rf-muted rf-subtitle">
@@ -471,8 +546,8 @@ export function RouteOverview({
           </span>
           <h2>No route assigned yet</h2>
           <p>
-            When operations assigns you a route it appears here with its
-            parcels and stops. You don’t need to refresh.
+            When operations assigns you a route it appears here with its parcels
+            and stops. You don’t need to refresh.
           </p>
         </section>
       ) : (
@@ -495,8 +570,8 @@ export function RouteOverview({
           {state === "PAUSED" && route.current && (
             <Notice tone="warning" icon="history">
               <strong>Paused at stop {route.current.number}.</strong> Customers
-              still see their parcels as on the way. Resume when you’re back
-              on the road.
+              still see their parcels as on the way. Resume when you’re back on
+              the road.
             </Notice>
           )}
           {state === "CLOSED" && (
@@ -554,9 +629,11 @@ export function RouteOverview({
 
       {(state === "ASSIGNED" || state === "READY" || state === "PAUSED") && (
         <div className="rf-dock">
-          <button
-            type="button"
-            className="rf-btn rf-btn-primary"
+          <Button
+            fullWidth
+            variant="contained"
+            color="primary"
+            size="large"
             disabled={busy != null || !online}
             onClick={
               state === "ASSIGNED"
@@ -565,6 +642,12 @@ export function RouteOverview({
                   ? onStart
                   : onResume
             }
+            endIcon={
+              busy == null && online ? (
+                <Icon name="arrow-right" size={18} />
+              ) : undefined
+            }
+            sx={{ minHeight: 52, borderRadius: 999 }}
           >
             {busy
               ? "Saving…"
@@ -575,8 +658,7 @@ export function RouteOverview({
                   : state === "READY"
                     ? `Start route · ${route.stops.length} stops`
                     : `Resume at stop ${route.current?.number ?? ""}`}
-            {busy == null && online && <Icon name="arrow-right" size={18} />}
-          </button>
+          </Button>
         </div>
       )}
     </main>

@@ -1,0 +1,248 @@
+diff --git a/node_modules/@mui/material/.bun-tag-66717aea38f269b8 b/.bun-tag-66717aea38f269b8
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/@mui/material/.bun-tag-832316521809d56c b/.bun-tag-832316521809d56c
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/ButtonBase/ButtonBase.js b/ButtonBase/ButtonBase.js
+index 9d71fad39ddbf49e9b168b5da220716c6d831029..de63036235cd0c0308af94005856ef8b7c22b349 100644
+--- a/ButtonBase/ButtonBase.js
++++ b/ButtonBase/ButtonBase.js
+@@ -141,6 +141,7 @@ const ButtonBase = /*#__PURE__*/React.forwardRef(function ButtonBase(inProps, re
+     onMouseDown,
+     onMouseLeave,
+     onMouseUp,
++    onTouchCancel,
+     onTouchEnd,
+     onTouchMove,
+     onTouchStart,
+@@ -233,6 +234,7 @@ const ButtonBase = /*#__PURE__*/React.forwardRef(function ButtonBase(inProps, re
+   const handleTouchStart = useRippleHandler(ripple, 'start', onTouchStart, disableTouchRipple);
+   const handleTouchEnd = useRippleHandler(ripple, 'stop', onTouchEnd, disableTouchRipple);
+   const handleTouchMove = useRippleHandler(ripple, 'stop', onTouchMove, disableTouchRipple);
++  const handleTouchCancel = useRippleHandler(ripple, 'stop', onTouchCancel, disableTouchRipple);
+   const handleBlur = useRippleHandler(ripple, 'stop', event => {
+     if (!(0, _isFocusVisible.default)(event.target)) {
+       setFocusVisible(false);
+@@ -293,6 +295,7 @@ const ButtonBase = /*#__PURE__*/React.forwardRef(function ButtonBase(inProps, re
+     onMouseLeave: handleMouseLeave,
+     onMouseUp: handleMouseUp,
+     onDragLeave: handleDragLeave,
++    onTouchCancel: handleTouchCancel,
+     onTouchEnd: handleTouchEnd,
+     onTouchMove: handleTouchMove,
+     onTouchStart: handleTouchStart,
+diff --git a/ButtonBase/ButtonBase.mjs b/ButtonBase/ButtonBase.mjs
+index 7674a8a42d4baed6d65b08f19814ca8e3700fef4..30cd3772e479ceafaf5cc5f805ff72417f0c62bd 100644
+--- a/ButtonBase/ButtonBase.mjs
++++ b/ButtonBase/ButtonBase.mjs
+@@ -134,6 +134,7 @@ const ButtonBase = /*#__PURE__*/React.forwardRef(function ButtonBase(inProps, re
+     onMouseDown,
+     onMouseLeave,
+     onMouseUp,
++    onTouchCancel,
+     onTouchEnd,
+     onTouchMove,
+     onTouchStart,
+@@ -226,6 +227,7 @@ const ButtonBase = /*#__PURE__*/React.forwardRef(function ButtonBase(inProps, re
+   const handleTouchStart = useRippleHandler(ripple, 'start', onTouchStart, disableTouchRipple);
+   const handleTouchEnd = useRippleHandler(ripple, 'stop', onTouchEnd, disableTouchRipple);
+   const handleTouchMove = useRippleHandler(ripple, 'stop', onTouchMove, disableTouchRipple);
++  const handleTouchCancel = useRippleHandler(ripple, 'stop', onTouchCancel, disableTouchRipple);
+   const handleBlur = useRippleHandler(ripple, 'stop', event => {
+     if (!isFocusVisible(event.target)) {
+       setFocusVisible(false);
+@@ -286,6 +288,7 @@ const ButtonBase = /*#__PURE__*/React.forwardRef(function ButtonBase(inProps, re
+     onMouseLeave: handleMouseLeave,
+     onMouseUp: handleMouseUp,
+     onDragLeave: handleDragLeave,
++    onTouchCancel: handleTouchCancel,
+     onTouchEnd: handleTouchEnd,
+     onTouchMove: handleTouchMove,
+     onTouchStart: handleTouchStart,
+diff --git a/ButtonBase/TouchRipple.js b/ButtonBase/TouchRipple.js
+index 345b7721f41f9361c446626ae4ebe6e9bc1f7a1c..740df840b0cfdcfc1f4e984a160739c9f5afbbfb 100644
+--- a/ButtonBase/TouchRipple.js
++++ b/ButtonBase/TouchRipple.js
+@@ -284,6 +284,21 @@ const TouchRipple = /*#__PURE__*/React.forwardRef(function TouchRipple(inProps,
+     }
+   }, [ripples]);
+ 
++  // Oern patch: Next.js (cacheComponents) hides routes with React <Activity>
++  // instead of unmounting them; effect cleanups run while the DOM stays
++  // mounted, which cancels the pending exit timer and freezes the ripple
++  // in the DOM (ghost ripples on the preserved route when it reappears).
++  // Reset the transient ripple state when this component is hidden — the same
++  // documented useLayoutEffect-cleanup pattern for transient UI (see Next.js
++  // "Preserving UI state" guide).
++  React.useLayoutEffect(() => {
++    return () => {
++      startTimer.clear();
++      startTimerCommit.current = null;
++      setRippleState({ items: EMPTY_ARRAY, order: EMPTY_ARRAY });
++    };
++  }, []);
++
+   // Used to filter out mouse emulated events on mobile.
+   const ignoringMouseDown = React.useRef(false);
+   // We use a timer in order to only show the ripples for touch "click" like events.
+@@ -356,36 +371,17 @@ const TouchRipple = /*#__PURE__*/React.forwardRef(function TouchRipple(inProps,
+       center
+     });
+ 
+-    // Delay touch ripples so scroll gestures do not flash a ripple.
+-    if (event?.touches) {
+-      // Ignore extra touchstart events from multi-touch. There is only one
+-      // delayed start callback to clear on unmount.
+-      if (startTimerCommit.current === null) {
+-        startTimerCommit.current = () => {
+-          startCommit({
+-            pulsate,
+-            rippleX,
+-            rippleY,
+-            rippleSize,
+-            cb
+-          });
+-        };
+-        startTimer.start(DELAY_RIPPLE, () => {
+-          if (startTimerCommit.current) {
+-            startTimerCommit.current();
+-            startTimerCommit.current = null;
+-          }
+-        });
+-      }
+-    } else {
+-      startCommit({
+-        pulsate,
+-        rippleX,
+-        rippleY,
+-        rippleSize,
+-        cb
+-      });
+-    }
++    // Oern patch: commit immediately for touches too. The 80ms deferred
++    // commit left ripples permanently stuck after fast tap-navigations
++    // (no exit timer was ever scheduled). Scroll gestures still clear the
++    // ripple via touchmove/touchcancel.
++    startCommit({
++      pulsate,
++      rippleX,
++      rippleY,
++      rippleSize,
++      cb
++    });
+   });
+   const pulsate = (0, _useEventCallback.default)(() => {
+     start(EMPTY_OBJ, {
+@@ -395,16 +391,8 @@ const TouchRipple = /*#__PURE__*/React.forwardRef(function TouchRipple(inProps,
+   const stop = (0, _useEventCallback.default)((event, cb) => {
+     startTimer.clear();
+ 
+-    // If touch ends before the delay finishes, show the ripple now and stop it
+-    // on the next tick so the user still gets feedback.
+-    if (event?.type === 'touchend' && startTimerCommit.current) {
+-      startTimerCommit.current();
+-      startTimerCommit.current = null;
+-      startTimer.start(0, () => {
+-        stop(event, cb);
+-      });
+-      return;
+-    }
++    // Oern patch: touchend deferral removed together with the deferred
++    // touch commit (see start above).
+     startTimerCommit.current = null;
+     setRippleState(prevState => {
+       const firstActiveIndex = prevState.items.findIndex(ripple => !ripple.exiting);
+diff --git a/ButtonBase/TouchRipple.mjs b/ButtonBase/TouchRipple.mjs
+index f9a76b4aff5416470082754bc08b6f50d6501c71..7219a597865d136831879eeac7c0c69d3285bbf5 100644
+--- a/ButtonBase/TouchRipple.mjs
++++ b/ButtonBase/TouchRipple.mjs
+@@ -277,6 +277,21 @@ const TouchRipple = /*#__PURE__*/React.forwardRef(function TouchRipple(inProps,
+     }
+   }, [ripples]);
+ 
++  // Oern patch: Next.js (cacheComponents) hides routes with React <Activity>
++  // instead of unmounting them; effect cleanups run while the DOM stays
++  // mounted, which cancels the pending exit timer and freezes the ripple
++  // in the DOM (ghost ripples on the preserved route when it reappears).
++  // Reset the transient ripple state when this component is hidden — the same
++  // documented useLayoutEffect-cleanup pattern for transient UI (see Next.js
++  // "Preserving UI state" guide).
++  React.useLayoutEffect(() => {
++    return () => {
++      startTimer.clear();
++      startTimerCommit.current = null;
++      setRippleState({ items: EMPTY_ARRAY, order: EMPTY_ARRAY });
++    };
++  }, []);
++
+   // Used to filter out mouse emulated events on mobile.
+   const ignoringMouseDown = React.useRef(false);
+   // We use a timer in order to only show the ripples for touch "click" like events.
+@@ -349,36 +364,17 @@ const TouchRipple = /*#__PURE__*/React.forwardRef(function TouchRipple(inProps,
+       center
+     });
+ 
+-    // Delay touch ripples so scroll gestures do not flash a ripple.
+-    if (event?.touches) {
+-      // Ignore extra touchstart events from multi-touch. There is only one
+-      // delayed start callback to clear on unmount.
+-      if (startTimerCommit.current === null) {
+-        startTimerCommit.current = () => {
+-          startCommit({
+-            pulsate,
+-            rippleX,
+-            rippleY,
+-            rippleSize,
+-            cb
+-          });
+-        };
+-        startTimer.start(DELAY_RIPPLE, () => {
+-          if (startTimerCommit.current) {
+-            startTimerCommit.current();
+-            startTimerCommit.current = null;
+-          }
+-        });
+-      }
+-    } else {
+-      startCommit({
+-        pulsate,
+-        rippleX,
+-        rippleY,
+-        rippleSize,
+-        cb
+-      });
+-    }
++    // Oern patch: commit immediately for touches too. The 80ms deferred
++    // commit left ripples permanently stuck after fast tap-navigations
++    // (no exit timer was ever scheduled). Scroll gestures still clear the
++    // ripple via touchmove/touchcancel.
++    startCommit({
++      pulsate,
++      rippleX,
++      rippleY,
++      rippleSize,
++      cb
++    });
+   });
+   const pulsate = useEventCallback(() => {
+     start(EMPTY_OBJ, {
+@@ -388,16 +384,8 @@ const TouchRipple = /*#__PURE__*/React.forwardRef(function TouchRipple(inProps,
+   const stop = useEventCallback((event, cb) => {
+     startTimer.clear();
+ 
+-    // If touch ends before the delay finishes, show the ripple now and stop it
+-    // on the next tick so the user still gets feedback.
+-    if (event?.type === 'touchend' && startTimerCommit.current) {
+-      startTimerCommit.current();
+-      startTimerCommit.current = null;
+-      startTimer.start(0, () => {
+-        stop(event, cb);
+-      });
+-      return;
+-    }
++    // Oern patch: touchend deferral removed together with the deferred
++    // touch commit (see start above).
+     startTimerCommit.current = null;
+     setRippleState(prevState => {
+       const firstActiveIndex = prevState.items.findIndex(ripple => !ripple.exiting);

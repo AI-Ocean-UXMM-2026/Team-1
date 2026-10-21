@@ -116,7 +116,8 @@ export function WelcomeScreen() {
           variant="caption"
           sx={{ textAlign: "center", color: "text.secondary", pt: 0.5 }}
         >
-          Rider or Oern staff? Sign in with your team account above.
+          Riders and Oern staff: use “I already have an account” with your team
+          login.
         </Typography>
       </Stack>
     </Box>

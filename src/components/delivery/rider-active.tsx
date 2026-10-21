@@ -1,13 +1,40 @@
 "use client";
 
-import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
-import { useEffect, useRef } from "react";
+import ForkLeftRounded from "@mui/icons-material/ForkLeftRounded";
+import ForkRightRounded from "@mui/icons-material/ForkRightRounded";
+import MergeRounded from "@mui/icons-material/MergeRounded";
+import NavigationRounded from "@mui/icons-material/NavigationRounded";
+import PlaceRounded from "@mui/icons-material/PlaceRounded";
+import RoundaboutRightRounded from "@mui/icons-material/RoundaboutRightRounded";
+import StraightRounded from "@mui/icons-material/StraightRounded";
+import TurnLeftRounded from "@mui/icons-material/TurnLeftRounded";
+import TurnRightRounded from "@mui/icons-material/TurnRightRounded";
+import TurnSharpLeftRounded from "@mui/icons-material/TurnSharpLeftRounded";
+import TurnSharpRightRounded from "@mui/icons-material/TurnSharpRightRounded";
+import TurnSlightLeftRounded from "@mui/icons-material/TurnSlightLeftRounded";
+import TurnSlightRightRounded from "@mui/icons-material/TurnSlightRightRounded";
+import UTurnLeftRounded from "@mui/icons-material/UTurnLeftRounded";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import type {
+  CSSProperties,
+  ReactNode,
+  PointerEvent as ReactPointerEvent,
+} from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { StopMark, StopRow } from "@/components/delivery/rider-overview";
+import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import { CodTag } from "@/components/delivery/rider-tools";
 import type { DeliveryStop, DriverRoute } from "@/lib/delivery/driver-route";
-import { formatTime } from "@/lib/delivery/format";
+import { currency, formatTime } from "@/lib/delivery/format";
+import {
+  formatDistance,
+  resolveTurnSymbol,
+  type TurnSymbol,
+} from "@/lib/delivery/rider-route";
 
 export type GpsState =
   | "off"
@@ -17,7 +44,67 @@ export type GpsState =
   | "denied"
   | "unavailable";
 
-export type Instruction = { title: string; sub: string; arrow: number | null };
+export type Instruction = {
+  title: string;
+  sub: string;
+  arrow: number | null;
+  turnSymbol?: TurnSymbol | null;
+};
+
+export function TurnSymbolIcon({
+  instruction,
+  arrived,
+}: {
+  instruction: Instruction;
+  arrived?: boolean;
+}) {
+  if (instruction.arrow != null) {
+    return (
+      <NavigationRounded
+        sx={{
+          fontSize: 28,
+          transform: `rotate(${instruction.arrow}deg)`,
+          transition: "transform 400ms ease",
+        }}
+      />
+    );
+  }
+
+  const symbol =
+    instruction.turnSymbol ??
+    (arrived ? "arrive" : resolveTurnSymbol(instruction.title));
+
+  if (arrived || symbol === "arrive") {
+    return <PlaceRounded sx={{ fontSize: 28 }} />;
+  }
+
+  switch (symbol) {
+    case "turn-right":
+      return <TurnRightRounded sx={{ fontSize: 28 }} />;
+    case "turn-left":
+      return <TurnLeftRounded sx={{ fontSize: 28 }} />;
+    case "slight-right":
+      return <TurnSlightRightRounded sx={{ fontSize: 28 }} />;
+    case "slight-left":
+      return <TurnSlightLeftRounded sx={{ fontSize: 28 }} />;
+    case "sharp-right":
+      return <TurnSharpRightRounded sx={{ fontSize: 28 }} />;
+    case "sharp-left":
+      return <TurnSharpLeftRounded sx={{ fontSize: 28 }} />;
+    case "u-turn":
+      return <UTurnLeftRounded sx={{ fontSize: 28 }} />;
+    case "roundabout":
+      return <RoundaboutRightRounded sx={{ fontSize: 28 }} />;
+    case "fork-left":
+      return <ForkLeftRounded sx={{ fontSize: 28 }} />;
+    case "fork-right":
+      return <ForkRightRounded sx={{ fontSize: 28 }} />;
+    case "merge":
+      return <MergeRounded sx={{ fontSize: 28 }} />;
+    default:
+      return <StraightRounded sx={{ fontSize: 28 }} />;
+  }
+}
 
 function SheetHandle({
   open,
@@ -75,6 +162,107 @@ function SheetHandle({
   );
 }
 
+/**
+ * One line of text that slides back and forth when it is wider than its box,
+ * so a long address stays whole without taking extra rows. With reduced
+ * motion it wraps instead (see rider-delivery.css).
+ */
+function MarqueeText({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLSpanElement>(null);
+  const text = useRef<HTMLSpanElement>(null);
+  const [shift, setShift] = useState(0);
+  useEffect(() => {
+    const outer = box.current;
+    const inner = text.current;
+    if (!outer || !inner) return;
+    const measure = () =>
+      setShift(Math.max(0, inner.scrollWidth - outer.clientWidth));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(outer);
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <span ref={box} className="dv-marquee">
+      <span
+        ref={text}
+        className={shift > 0 ? "is-moving" : undefined}
+        style={
+          shift > 0
+            ? ({
+                "--shift": `-${shift}px`,
+                "--dur": `${Math.max(6, shift / 24 + 4)}s`,
+              } as CSSProperties)
+            : undefined
+        }
+      >
+        {children}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Posted limit with the rider's live speed beside it, as in Google Maps and
+ * Waze. The limit only shows when the road has one; the speed turns red while
+ * the rider is over it. Nothing renders until there is something to show.
+ */
+function SpeedSign({
+  currentKmh,
+  limitKmh,
+}: {
+  currentKmh: number | null;
+  limitKmh: number | null;
+}) {
+  if (currentKmh == null && limitKmh == null) return null;
+  const over = currentKmh != null && limitKmh != null && currentKmh > limitKmh;
+  return (
+    <div
+      className="dv-speed"
+      role="group"
+      aria-label={
+        limitKmh != null
+          ? `Speed limit ${limitKmh} kilometres per hour`
+          : "Speed"
+      }
+    >
+      {limitKmh != null && (
+        <span className="dv-limit" aria-hidden="true">
+          {limitKmh}
+        </span>
+      )}
+      {currentKmh != null && (
+        <span className={`dv-now${over ? " is-over" : ""}`}>
+          <strong>{currentKmh}</strong>
+          <small>km/h</small>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Beyond this, "I've arrived" asks first: a mis-tap would tell the customer the rider is there. */
+const FAR_FROM_STOP_KM = 0.3;
+
+/**
+ * Times for the next stops in the timeline. They are the seller's promised
+ * times, not road ETAs, so one that is earlier than the stop before it is
+ * flagged rather than shown as if the rider would get there first.
+ */
+function timelineTimes(
+  previous: string | null,
+  stops: DeliveryStop[],
+): ({ label: string; warn: boolean } | null)[] {
+  let floor = previous;
+  return stops.map((item) => {
+    if (!item.etaAt) return null;
+    const warn = floor != null && Date.parse(item.etaAt) < Date.parse(floor);
+    if (!warn) floor = item.etaAt;
+    return { label: `by ${formatTime(item.etaAt)}`, warn };
+  });
+}
+
 function phoneHref(phone: string, scheme: "tel" | "sms") {
   return `${scheme}:${phone.replace(/\s+/g, "")}`;
 }
@@ -92,7 +280,6 @@ export function ActiveDelivery({
   gps,
   online,
   syncing,
-  sharingCount,
   revision,
   expanded,
   onExpand,
@@ -109,6 +296,10 @@ export function ActiveDelivery({
   onCautions,
   onLocationHelp,
   cautionBanner,
+  liveEtaAt,
+  speed,
+  distanceKm,
+  onSheetHeight,
 }: {
   route: DriverRoute;
   stop: DeliveryStop;
@@ -117,7 +308,6 @@ export function ActiveDelivery({
   gps: GpsState;
   online: boolean;
   syncing: boolean;
-  sharingCount: number | null;
   revision: ReactNode;
   expanded: boolean;
   onExpand: (open: boolean) => void;
@@ -135,56 +325,54 @@ export function ActiveDelivery({
   onCautions: () => void;
   onLocationHelp: () => void;
   cautionBanner: ReactNode;
+  /** Arrival time from the live road route, when there is one. */
+  liveEtaAt: string | null;
+  /** Live speed and the posted limit (km/h); null when there is no GPS fix. */
+  speed: { currentKmh: number | null; limitKmh: number | null } | null;
+  /** Straight-line distance from the rider to this stop, when GPS is live. */
+  distanceKm: number | null;
+  /** Reports the sheet's rendered height so the map can keep the route clear of it. */
+  onSheetHeight: (px: number) => void;
 }) {
   const stage = stop.state;
   const arrived = stage === "ARRIVED" || stage === "HANDOVER_IN_PROGRESS";
-  const done = route.stops.filter(
-    (item) => item.state === "COMPLETED" || item.state === "FAILED",
-  ).length;
   const sheetState = [
     handover ? "is-handover" : expanded ? "is-open" : "",
     arrived ? "is-arrived" : "is-navigating",
   ]
     .filter(Boolean)
     .join(" ");
+  const [confirmFar, setConfirmFar] = useState(false);
+  const sheetRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const node = sheetRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const height = Math.round(entry.borderBoxSize[0]?.blockSize ?? 0);
+      node.parentElement?.style.setProperty("--dv-sheet-h", `${height}px`);
+      onSheetHeight(height);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [onSheetHeight]);
+  const far = distanceKm != null && distanceKm > FAR_FROM_STOP_KM;
+  const headEta = liveEtaAt
+    ? `ETA ${formatTime(liveEtaAt)}`
+    : stop.etaAt
+      ? `Due by ${formatTime(stop.etaAt)}`
+      : null;
+  const nextStops = route.upcoming.slice(0, 2);
+  const upcomingTimes = timelineTimes(liveEtaAt ?? stop.etaAt, nextStops);
 
   return (
     <main className="rf-app rf-nav dv-active">
       {map}
 
       <header className="dv-top">
-        <div
-          className="rf-route-progress"
-          role="progressbar"
-          aria-label="Stops finished"
-          aria-valuemin={0}
-          aria-valuemax={route.stops.length}
-          aria-valuenow={done}
-        >
-          <span
-            style={{
-              width: `${(done / Math.max(1, route.stops.length)) * 100}%`,
-            }}
-          />
-        </div>
         {!handover && (
           <div className="rf-nav-instruction dv-instruction">
             <span className="rf-turn" aria-hidden="true">
-              {instruction.arrow != null ? (
-                <svg
-                  viewBox="0 0 32 32"
-                  aria-hidden="true"
-                  style={{ transform: `rotate(${instruction.arrow}deg)` }}
-                >
-                  <path d="M16 3 26 27l-10-6-10 6Z" />
-                </svg>
-              ) : (
-                <Icon
-                  name={arrived ? "location" : "compass"}
-                  size={26}
-                  strokeWidth={2.2}
-                />
-              )}
+              <TurnSymbolIcon instruction={instruction} arrived={arrived} />
             </span>
             <div>
               <strong>{instruction.title}</strong>
@@ -196,73 +384,109 @@ export function ActiveDelivery({
         <div className="dv-top-row">
           <div className="dv-chips">
             {gps === "denied" || gps === "unavailable" ? (
-              <button
-                type="button"
-                className="rf-chip is-error dv-chip-btn"
+              <Chip
+                size="small"
+                color="error"
+                icon={<Icon name="location" size={14} />}
+                label={gps === "denied" ? "Location off · Fix" : "No GPS · Fix"}
                 onClick={onLocationHelp}
-              >
-                <Icon name="location" size={14} />
-                {gps === "denied" ? "Location off" : "No GPS"} · Fix
-              </button>
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : gps === "stale" ? (
-              <button
-                type="button"
-                className="rf-chip is-warning dv-chip-btn"
+              <Chip
+                size="small"
+                color="warning"
+                icon={<Icon name="warning" size={14} />}
+                label="GPS signal old"
                 onClick={onLocationHelp}
-              >
-                <Icon name="warning" size={14} /> GPS signal old
-              </button>
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : gps === "waiting" ? (
-              <span className="rf-chip">Finding GPS…</span>
-            ) : sharingCount ? (
-              <span className="rf-chip is-live">
-                <span className="rf-live-dot" /> Live to {sharingCount}{" "}
-                {sharingCount === 1 ? "customer" : "customers"}
-              </span>
+              <Chip
+                size="small"
+                label="Finding GPS…"
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : null}
             {!online ? (
-              <span className="rf-chip is-warning">
-                <Icon name="warning" size={14} /> Offline
-              </span>
+              <Chip
+                size="small"
+                color="warning"
+                icon={<Icon name="warning" size={14} />}
+                label="Offline"
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : syncing ? (
-              <span className="rf-chip">
-                <Icon name="refresh" size={14} /> Saving…
-              </span>
+              <Chip
+                size="small"
+                icon={<Icon name="refresh" size={14} />}
+                label="Saving…"
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : null}
           </div>
-          <button
-            type="button"
-            className="rf-icon-btn dv-float-btn"
-            onClick={onMenu}
-            aria-label="Shift tools"
-          >
-            <Icon name="menu" size={20} />
-          </button>
+          <div className="dv-float-col">
+            <IconButton
+              className="dv-float-btn"
+              onClick={onMenu}
+              aria-label="Shift tools"
+              sx={{
+                width: 48,
+                height: 48,
+                bgcolor: "background.paper",
+                color: "text.primary",
+                boxShadow: 2,
+                "&:hover": { bgcolor: "grey.100" },
+              }}
+            >
+              <Icon name="menu" size={20} />
+            </IconButton>
+            {!handover && (
+              <IconButton
+                className="dv-float-btn"
+                onClick={onCautions}
+                aria-label="Road conditions"
+                sx={{
+                  width: 48,
+                  height: 48,
+                  bgcolor: "background.paper",
+                  color: "text.primary",
+                  boxShadow: 2,
+                  "&:hover": { bgcolor: "grey.100" },
+                }}
+              >
+                <Icon name="warning" size={20} />
+              </IconButton>
+            )}
+          </div>
         </div>
         {!handover && revision}
       </header>
 
+      {speed && !handover && <SpeedSign {...speed} />}
+
       <section
+        ref={sheetRef}
         className={`rf-sheet dv-sheet ${sheetState}`}
         aria-label={`Stop ${stop.number} of ${route.stops.length}`}
       >
         {handover ? (
           <>
             <div className="dv-sheet-head">
-              <button
-                type="button"
-                className="rf-icon-btn"
+              <IconButton
                 onClick={onCloseHandover}
                 aria-label="Back to stop"
                 disabled={busy}
+                sx={{ width: 48, height: 48, color: "text.primary" }}
               >
                 <Icon name="arrow-left" size={20} />
-              </button>
+              </IconButton>
               <div>
                 <small>
                   Stop {stop.number} of {route.stops.length} · Handover
                 </small>
                 <h2>{stop.recipient}</h2>
+                <p>{stop.address}</p>
               </div>
             </div>
             {handover}
@@ -270,193 +494,195 @@ export function ActiveDelivery({
         ) : (
           <>
             <SheetHandle open={expanded} onToggle={onExpand} />
-            <div className="dv-stop-head">
-              <div className="dv-stop-count">
-                <StopMark stop={stop} />
-                <small>of {route.stops.length}</small>
-              </div>
-              <div className="dv-stop-title">
+            <div className="dv-stage">
+              <div className="dv-stage-line">
                 <small className={arrived ? "is-arrived" : ""}>
-                  {arrived ? "At the stop" : "Next stop"}
+                  {arrived ? "At the stop" : "Next stop"} · {stop.number} of{" "}
+                  {route.stops.length}
                 </small>
-                <h2>{stop.recipient}</h2>
-                <p>{stop.address}</p>
+                {headEta && !arrived && <strong>{headEta}</strong>}
+              </div>
+            </div>
+            <div className="dv-stop-head">
+              <div className="dv-stop-title">
+                <h2>
+                  <MarqueeText>{stop.address}</MarqueeText>
+                </h2>
+                <p>
+                  <Icon name="user" size={14} />
+                  <MarqueeText>
+                    {stop.recipient} · {stop.open.length}{" "}
+                    {stop.open.length === 1 ? "parcel" : "parcels"}
+                  </MarqueeText>
+                </p>
               </div>
               {directionsHref && !arrived && (
                 <a
-                  className="rg-navigate"
+                  className="dv-directions"
                   href={directionsHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Open turn-by-turn directions in Google Maps"
                 >
-                  <Icon name="navigation" size={22} />
-                  <span>Directions</span>
+                  <Icon name="navigation" size={20} />
                 </a>
               )}
             </div>
-            <div className="dv-meta">
-              <span>
-                <Icon name="box" size={14} /> {stop.open.length}{" "}
-                {stop.open.length === 1 ? "parcel" : "parcels"}
-              </span>
-              {stop.etaAt && (
-                <span>
-                  <Icon name="history" size={14} /> ETA {formatTime(stop.etaAt)}
-                </span>
+            <div className="dv-strip" role="group" aria-label="Stop actions">
+              {stop.phone ? (
+                <>
+                  <a
+                    href={phoneHref(stop.phone, "tel")}
+                    aria-label={`Call ${stop.recipient}`}
+                  >
+                    <Icon name="phone" size={20} />
+                    <span>Call</span>
+                  </a>
+                  <a
+                    href={phoneHref(stop.phone, "sms")}
+                    aria-label={`Message ${stop.recipient}`}
+                  >
+                    <Icon name="message" size={20} />
+                    <span>Message</span>
+                  </a>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void navigator.clipboard?.writeText(stop.address)
+                  }
+                >
+                  <Icon name="copy" size={20} />
+                  <span>Copy address</span>
+                </button>
               )}
-              <CodTag amount={stop.codDue} />
+              <button
+                type="button"
+                onClick={onCannotDeliver}
+                aria-label="Problem with this stop"
+              >
+                <Icon name="warning" size={20} />
+                <span>Problem</span>
+              </button>
             </div>
 
             {expanded && (
               <div className="rf-sheet-body dv-details">
-                <fieldset className="rg-actions dv-quick">
-                  <legend className="rf-sr-only">Recipient actions</legend>
-                  {stop.phone ? (
-                    <>
-                      <a href={phoneHref(stop.phone, "tel")}>
-                        <Icon name="phone" size={20} />
-                        <span>Call</span>
-                      </a>
-                      <a href={phoneHref(stop.phone, "sms")}>
-                        <Icon name="message" size={20} />
-                        <span>Message</span>
-                      </a>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void navigator.clipboard?.writeText(stop.address)
-                      }
-                    >
-                      <Icon name="copy" size={20} />
-                      <span>Copy address</span>
-                    </button>
-                  )}
-                  <button type="button" onClick={() => onExpand(false)}>
-                    <Icon name="chevron-down" size={20} />
-                    <span>Show less</span>
-                  </button>
-                </fieldset>
-                {!stop.phone && (
-                  <p className="rf-muted">
-                    No phone number on this order. Use “Can’t deliver” if you
-                    can’t find the recipient.
-                  </p>
-                )}
-                <div className="rf-detail">
-                  <h3>
-                    {stop.open.length > 1
-                      ? `${stop.open.length} parcels to hand over`
-                      : "Parcel to hand over"}
-                  </h3>
-                  <ul className="dv-parcel-list">
-                    {stop.open.map((order) => (
-                      <li key={order.id}>
+                <dl className="dv-rows">
+                  {stop.open.map((order) => (
+                    <div key={order.id}>
+                      <dt>Parcel</dt>
+                      <dd>
                         <strong>{order.tracking_code}</strong>
-                        <span>
-                          {order.parcel_description ?? "No description"}
-                          {order.parcel_weight_kg
-                            ? ` · ${order.parcel_weight_kg} kg`
-                            : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  {stop.notLoaded.length > 0 && (
-                    <p className="rf-muted">
-                      {stop.notLoaded.length} more for this recipient{" "}
-                      {stop.notLoaded.length === 1 ? "is" : "are"} not on your
-                      truck.
-                    </p>
+                        <small>
+                          {[
+                            order.parcel_description,
+                            order.parcel_weight_kg
+                              ? `${order.parcel_weight_kg} kg`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </small>
+                      </dd>
+                    </div>
+                  ))}
+                  {stop.phone && (
+                    <div>
+                      <dt>Phone</dt>
+                      <dd>{stop.phone}</dd>
+                    </div>
                   )}
-                </div>
-                <div className="rf-detail">
-                  <h3>Delivery instructions</h3>
-                  <p className="rf-muted">
-                    No instructions from the sender. Call the recipient if the
-                    address is hard to find.
-                  </p>
-                </div>
-                {route.upcoming.length > 0 && (
-                  <div className="rf-detail">
-                    <h3>Then · {route.upcoming.length} more stops</h3>
+                  {stop.notLoaded.length > 0 && (
+                    <div>
+                      <dt>Not on truck</dt>
+                      <dd>{stop.notLoaded.length} more for this recipient</dd>
+                    </div>
+                  )}
+                </dl>
+                {nextStops.length > 0 && (
+                  <div className="dv-next">
+                    <h3>Next stops</h3>
                     <ol className="dv-stop-list is-compact">
-                      {route.upcoming.map((item) => (
-                        <StopRow key={item.key} stop={item} showState={false} />
+                      {nextStops.map((item, index) => (
+                        <StopRow
+                          key={item.key}
+                          stop={item}
+                          showState={false}
+                          dense
+                          time={upcomingTimes[index]}
+                        />
                       ))}
                     </ol>
+                    {route.upcoming.length > nextStops.length && (
+                      <p className="dv-more">
+                        +{route.upcoming.length - nextStops.length} more{" "}
+                        {route.upcoming.length - nextStops.length === 1
+                          ? "stop"
+                          : "stops"}{" "}
+                        after these
+                      </p>
+                    )}
                   </div>
                 )}
-                {route.stops.some(
-                  (item) =>
-                    item.state === "COMPLETED" || item.state === "FAILED",
-                ) && (
-                  <details className="dv-done">
-                    <summary>
-                      {done} {done === 1 ? "stop" : "stops"} finished
-                    </summary>
-                    <ol className="dv-stop-list is-compact">
-                      {route.stops
-                        .filter(
-                          (item) =>
-                            item.state === "COMPLETED" ||
-                            item.state === "FAILED",
-                        )
-                        .map((item) => (
-                          <StopRow key={item.key} stop={item} />
-                        ))}
-                    </ol>
-                  </details>
+                {arrived && (
+                  <button
+                    type="button"
+                    className="dv-text-btn"
+                    onClick={onUndoArrived}
+                  >
+                    Not here yet — back to navigation
+                  </button>
                 )}
-                <div className="dv-secondary">
-                  <button
-                    type="button"
-                    className="rf-btn rf-btn-secondary"
-                    onClick={onCannotDeliver}
-                  >
-                    Can’t deliver this stop
-                  </button>
-                  <button
-                    type="button"
-                    className="rf-btn rf-btn-secondary"
-                    onClick={onCautions}
-                  >
-                    <Icon name="warning" size={18} /> Road conditions
-                  </button>
-                  {arrived && (
-                    <button
-                      type="button"
-                      className="rf-btn rf-btn-quiet"
-                      onClick={onUndoArrived}
-                    >
-                      Not here yet — back to navigation
-                    </button>
-                  )}
-                </div>
               </div>
             )}
 
             {error}
             <div className="dv-sheet-actions">
               {arrived ? (
-                <button
-                  type="button"
-                  className="rf-btn rf-btn-primary"
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  size="large"
                   onClick={onStartHandover}
+                  endIcon={<Icon name="arrow-right" size={18} />}
+                  sx={{ minHeight: 56, borderRadius: 999 }}
                 >
                   Start handover
-                  <Icon name="arrow-right" size={18} />
-                </button>
+                </Button>
+              ) : confirmFar && far ? (
+                <div className="dv-confirm" role="alert">
+                  <span>
+                    You’re {formatDistance(distanceKm)} away. Arrived anyway?
+                  </span>
+                  <Button
+                    variant="text"
+                    color="inherit"
+                    onClick={() => setConfirmFar(false)}
+                    sx={{ minHeight: 48, borderRadius: 999 }}
+                  >
+                    Not yet
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => {
+                      setConfirmFar(false);
+                      onArrived();
+                    }}
+                    sx={{ minHeight: 48, borderRadius: 999 }}
+                  >
+                    Yes, I’m here
+                  </Button>
+                </div>
               ) : (
-                <button
-                  type="button"
-                  className="rf-btn rf-btn-primary"
-                  onClick={onArrived}
-                >
-                  I’ve arrived
-                </button>
+                <SwipeConfirm
+                  label="I’ve arrived"
+                  hint="Swipe to confirm arrival"
+                  onConfirm={() => (far ? setConfirmFar(true) : onArrived())}
+                />
               )}
             </div>
           </>

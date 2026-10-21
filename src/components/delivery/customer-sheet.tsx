@@ -5,6 +5,7 @@ import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
+import { alpha } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
 
@@ -107,8 +108,8 @@ export function CustomerSheet({
             px: 2,
             pt: 1.5,
             pb: "calc(16px + env(safe-area-inset-bottom))",
-            background:
-              "linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 28%)",
+            background: (theme) =>
+              `linear-gradient(to bottom, ${alpha(theme.palette.background.paper, 0)}, ${theme.palette.background.paper} 28%)`,
           }}
         >
           {dock}

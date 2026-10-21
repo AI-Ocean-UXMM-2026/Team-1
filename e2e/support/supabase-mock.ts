@@ -48,6 +48,52 @@ export function makeOrder(overrides: Row = {}): Row {
   };
 }
 
+/**
+ * A four-stop in-transit route for driver-1, in route order. Stop 3's promised
+ * time is earlier than stop 2's, as happens when sellers promise independently
+ * of the planned sequence. Stops 1 and 3 collect COD.
+ */
+export function makeRoute(): Tables {
+  const stops = [
+    { name: "Su Myat", area: "Sanchaung", lat: 16.8023, lng: 96.1312, cod: 20000, eta: 25 },
+    { name: "Thuriya Ye Naing", area: "Tamwe", lat: 16.8065, lng: 96.1771, cod: 0, eta: 70 },
+    { name: "Hnin Thiri", area: "Kamayut", lat: 16.8267, lng: 96.1322, cod: 125000, eta: 40 },
+    { name: "Kyaw Zin", area: "Insein", lat: 16.8891, lng: 96.1046, cod: 0, eta: 110 },
+  ];
+  const orders = stops.map((stop, index) =>
+    makeOrder({
+      id: `order-${index + 1}`,
+      tracking_code: `YGN-R-00${index + 1}`,
+      status: "in_transit",
+      recipient_name: stop.name,
+      delivery_address: `${stop.area} delivery`,
+      delivery_latitude: stop.lat,
+      delivery_longitude: stop.lng,
+      cod_amount: stop.cod,
+      estimated_delivery_at: minutesFromNow(stop.eta),
+    }),
+  );
+  return {
+    delivery_orders: orders,
+    delivery_assignments: orders.map((order, index) => ({
+      id: `assignment-${index + 1}`,
+      order_id: order.id,
+      driver_id: "driver-1",
+      vehicle_id: null,
+      route_id: "route-1",
+      assigned_at: minutesAgo(30),
+      ended_at: null,
+    })),
+    route_stops: orders.map((order, index) => ({
+      id: `stop-${index + 1}`,
+      route_id: "route-1",
+      order_id: order.id,
+      stop_type: "delivery",
+      sequence_number: index + 1,
+    })),
+  };
+}
+
 export function baseTables(role: Role, userId: string): Tables {
   return {
     profiles: [
@@ -115,7 +161,7 @@ export async function signInAs(
     {
       name: `sb-${REF}-auth-token`,
       value: `base64-${b64(session)}`,
-      url: "http://localhost:3100",
+      url: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3100",
     },
   ]);
 

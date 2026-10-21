@@ -117,6 +117,18 @@
   border-top: 1px solid var(--color-border);
 }
 
+.dv-metrics > div:nth-child(2) {
+  background: var(--rf-info-bg);
+}
+
+.dv-metrics > div:nth-child(2) dt {
+  color: var(--rf-info-fg);
+}
+
+.dv-metrics > div:nth-child(2) dd {
+  color: var(--rf-info-fg);
+}
+
 .dv-metrics dt {
   display: inline-flex;
   align-items: center;
@@ -145,8 +157,21 @@
   display: block;
 }
 
+.dv-metric-cod {
+  background: var(--rf-warn-bg);
+}
+
 .dv-metric-cod dt {
-  color: var(--color-warning-text);
+  color: var(--rf-warn-fg);
+}
+
+.dv-metric-cod dt svg {
+  color: #d97706;
+}
+
+.dv-metric-cod dd {
+  color: var(--rf-warn-fg);
+  font-weight: 750;
 }
 
 /* ---------- stop lists ---------- */
@@ -161,16 +186,26 @@
 .dv-stop-row {
   display: flex;
   gap: 12px;
-  padding: 14px 0;
+  padding: 14px 8px;
   border-top: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: background-color 140ms ease;
 }
 
 .dv-stop-row:first-child {
   border-top: 0;
 }
 
+.dv-stop-row.is-navigating,
+.dv-stop-row.is-arrived,
+.dv-stop-row.is-handover_in_progress {
+  background: var(--rf-info-bg);
+  border-left: 4px solid var(--color-info);
+  padding-left: 10px;
+}
+
 .dv-stop-list.is-compact .dv-stop-row {
-  padding: 10px 0;
+  padding: 10px 8px;
 }
 
 .dv-stop-mark {
@@ -185,26 +220,30 @@
   color: var(--color-text-primary);
   font-size: 14px;
   font-weight: 700;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .dv-stop-mark.is-navigating,
 .dv-stop-mark.is-arrived,
 .dv-stop-mark.is-handover_in_progress {
-  border-color: var(--color-brand-navy);
-  background: var(--color-brand-navy);
-  color: var(--color-text-inverse);
+  border-color: #1d4ed8;
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
 }
 
 .dv-stop-mark.is-completed {
-  border-color: var(--color-success);
-  background: var(--color-success-surface);
-  color: var(--color-success-text);
+  border-color: #16a34a;
+  background: var(--rf-success-bg);
+  color: var(--rf-success-fg);
 }
 
 .dv-stop-mark.is-failed {
-  border-color: var(--color-error);
-  background: var(--color-error-surface);
-  color: var(--color-error-text);
+  border-color: #dc2626;
+  background: var(--rf-error-bg);
+  color: var(--rf-error-fg);
 }
 
 .dv-stop-copy {
@@ -253,6 +292,88 @@
 
 .dv-stop-address {
   color: var(--color-text-secondary-subtle);
+}
+
+
+/* Dense rows: number, name and area on the left, time and cash as plain
+   right-aligned text. Nothing is a pill, so the column reads as a list. */
+.dv-stop-row.is-dense {
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+}
+
+.dv-stop-row.is-dense .dv-stop-mark {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy {
+  gap: 0;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy strong,
+.dv-stop-row.is-dense .dv-stop-address {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy strong {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.dv-stop-row.is-dense .dv-stop-address {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.dv-dense-end {
+  display: grid;
+  flex: none;
+  justify-items: end;
+  min-width: 72px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.dv-dense-end small {
+  font-size: 14px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-dense-end .dv-stop-state {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.dv-dense-end .dv-dense-cod {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* A promise earlier than the stop before it: colour only, no box. */
+.dv-dense-end .dv-stop-state.is-warn {
+  color: var(--color-warning-text);
+}
+
+.dv-dense-cod {
+  color: var(--color-warning-text);
+  font-weight: 600;
+}
+
+/* The warning tone is a dark brown; on the dark sheet it needs the light one. */
+@media (prefers-color-scheme: dark) {
+  .dv-dense-end .dv-stop-state.is-warn,
+  .dv-dense-cod {
+    color: #fbbf24;
+  }
 }
 
 /* ---------- checklists ---------- */
@@ -439,7 +560,7 @@
   display: grid;
   gap: 10px;
   width: calc(100% - 24px);
-  max-width: 456px;
+  max-width: calc(430px - 24px);
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -456,13 +577,23 @@
 .dv-active .dv-instruction {
   border: 0;
   border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 8px 24px -8px rgb(23 43 77 / 0.28);
+  background: var(--color-surface);
+  box-shadow: var(--rf-shadow-float);
 }
 
 .dv-active .dv-instruction .rf-turn {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--rf-info-bg);
+  color: var(--rf-info-fg);
+}
+
+.dark .dv-active .dv-instruction {
+  background: var(--color-surface, #1e293b);
+  color: #f8fafc;
+}
+
+.dark .dv-active .dv-instruction .rf-turn {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
 }
 
 .dv-top-row {
@@ -501,34 +632,50 @@
 
 /* ---------- active delivery: sheet ---------- */
 
+/* Follows the courier apps on Mobbin: DoorDash's stage stepper, Grab Driver's
+   title + payment + three-way action strip + one big button, and label/value
+   detail rows (Uber Eats, foodpanda). Collapsed it is those four things. */
 .dv-sheet {
   position: absolute;
   left: 50%;
   bottom: 0;
   z-index: 15;
-  max-height: 46dvh;
+  width: 100%;
+  max-width: 430px;
+  max-height: 56dvh;
+  padding-top: 4px;
   padding-bottom: 0;
   border: 0;
-  background: #ffffff;
+  background: var(--color-surface);
   transform: translateX(-50%);
   transition: max-height 240ms var(--rf-ease);
 }
 
 .dv-sheet.is-open {
   display: flex;
-  height: 76dvh;
-  max-height: 76dvh;
+  max-height: 78dvh;
   flex-direction: column;
   overflow: hidden;
 }
 
+/* The handover is its own full-screen page: cash, checks and proof get the
+   whole screen, and the map is out of the way. */
 .dv-sheet.is-handover {
-  max-height: 90dvh;
-  padding-top: 12px;
+  top: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding-top: calc(var(--rf-safe-top) + 12px);
+  overflow-y: auto;
+  border-radius: 0;
 }
 
-.dv-sheet.is-arrived:not(.is-open, .is-handover) {
-  max-height: 50dvh;
+.dv-sheet .rf-handle-btn {
+  height: 20px;
+  margin: 0;
+}
+
+.dv-sheet .rf-handle-btn .rf-handle {
+  margin: 6px auto 0;
 }
 
 .dv-sheet-head {
@@ -545,131 +692,256 @@
   font-weight: 600;
 }
 
-.dv-stop-head {
+/* Dragging the handle must not select the header text. */
+.dv-stage,
+.dv-stop-head,
+.dv-sheet .rf-handle-btn {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Stage: the stop count and ETA. */
+.dv-stage {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.dv-stage-line {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 12px;
 }
 
-.dv-stop-count {
-  display: grid;
-  flex: none;
-  justify-items: center;
-  gap: 2px;
-}
-
-.dv-stop-count .dv-stop-mark {
-  width: 44px;
-  height: 44px;
-  font-size: 18px;
-}
-
-.dv-stop-count small {
+.dv-stage-line small {
   color: var(--color-text-secondary);
   font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.dv-stage-line small.is-arrived {
+  color: var(--rf-success-fg);
+}
+
+.dv-stage-line strong {
+  color: var(--color-text-primary);
+  font-size: 16px;
+  line-height: 22px;
   font-weight: 600;
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-stop-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
 }
 
 .dv-stop-title {
   display: grid;
   flex: 1;
-  gap: 2px;
   min-width: 0;
 }
 
-.dv-stop-title > small {
-  color: var(--color-info-text);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.dv-stop-title > small.is-arrived {
-  color: var(--color-success-text);
+.dv-stop-title {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .dv-stop-title h2 {
   font-size: 20px;
   line-height: 26px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .dv-stop-title p {
-  color: var(--color-text-secondary-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
 }
 
-.dv-sheet > .dv-meta {
-  margin: 10px 0 0 56px;
+.dv-stop-title p > svg {
+  flex: none;
 }
 
-.dv-sheet > .dv-meta .rf-cod {
-  flex-basis: 100%;
-  width: fit-content;
-  min-height: 32px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 13px;
+.dv-directions {
+  display: grid;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-info);
+  color: #ffffff;
 }
 
-.dv-quick {
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  margin-top: 0;
+/* Call / Message / Problem: equal columns with hairlines, as in Grab Driver. */
+.dv-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  margin: 10px 0 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.dv-strip > a,
+.dv-strip > button {
+  display: grid;
+  min-height: 56px;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dv-strip > :first-child {
+  border-left: 0;
 }
 
 .dv-details {
   display: grid;
-  flex: 1;
+  flex: 1 1 auto;
+  align-content: start;
   gap: 16px;
   min-height: 0;
+  margin-top: 0;
+  padding-top: 12px;
   overflow-y: auto;
-  padding-top: 16px;
   overscroll-behavior: contain;
 }
 
-.dv-details > .dv-quick {
-  margin-inline: -16px;
+.dv-details > * {
+  min-width: 0;
 }
 
-.dv-parcel-list {
+/* Detail rows: label left, value right, hairline between. */
+.dv-rows {
   display: grid;
-  gap: 6px;
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
+  margin: 0;
 }
 
-.dv-parcel-list li {
+.dv-rows > div {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
 }
 
-.dv-parcel-list span {
-  color: var(--color-text-secondary-subtle);
+.dv-rows > div:first-child {
+  border-top: 0;
 }
 
-.dv-done summary {
-  min-height: 44px;
-  padding: 12px 0;
-  color: var(--color-text-secondary-subtle);
+.dv-rows dt {
+  flex: none;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dv-rows dd {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  justify-items: end;
+  text-align: right;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dv-rows dd strong {
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-rows dd small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.dv-next h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.dv-more {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.dv-text-btn {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  text-align: left;
   cursor: pointer;
 }
 
-.dv-secondary {
-  display: grid;
-  gap: 8px;
+.dv-sheet-actions .MuiButton-root {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .dv-sheet-actions {
-  display: grid;
+  display: flex;
   flex: none;
+  align-items: center;
   gap: 8px;
-  margin: 12px -16px 0;
-  padding: 12px 16px calc(var(--rf-safe-bottom) + 12px);
-  border-top: 1px solid var(--color-border);
+  margin: 0 -16px;
+  padding: 8px 16px calc(var(--rf-safe-bottom) + 8px);
   background: var(--color-surface);
+}
+
+.dv-confirm {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 8px;
+}
+
+.dv-confirm > span {
+  flex: 1 1 100%;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 /* ---------- handover ---------- */
@@ -694,15 +966,19 @@
   min-height: 48px;
   place-items: center;
   gap: 4px;
-  padding: 4px;
-  border: 0;
+  padding: 6px 4px;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: transparent;
-  color: var(--color-text-secondary-subtle);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
 }
 
 .dv-handover-steps button > span {
@@ -712,17 +988,32 @@
   place-items: center;
   border: 1px solid var(--color-border-control);
   border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .dv-handover-steps .is-current button {
-  background: var(--color-info-surface);
-  color: var(--color-info-text);
+  border-color: var(--rf-border-info);
+  background: var(--rf-info-bg);
+  color: var(--rf-info-fg);
+}
+
+.dv-handover-steps .is-current button > span {
+  border-color: #1d4ed8;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.dv-handover-steps .is-met button {
+  border-color: var(--rf-border-success);
+  background: var(--rf-success-bg);
+  color: var(--rf-success-fg);
 }
 
 .dv-handover-steps .is-met button > span {
-  border-color: var(--color-success);
-  background: var(--color-success-surface);
-  color: var(--color-success-text);
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #ffffff;
 }
 
 .dv-handover-stage {
@@ -892,7 +1183,7 @@
 
 .dv-preview-bar {
   position: fixed;
-  right: 8px;
+  right: max(16px, calc((100vw - 430px) / 2 + 16px));
   top: 72px;
   z-index: 60;
   max-width: 240px;
@@ -924,4 +1215,536 @@
   background: var(--color-surface);
   color: var(--color-text-primary);
   font: inherit;
+}
+
+
+.dv-float-col {
+  display: grid;
+  flex: none;
+  gap: 8px;
+}
+
+/* ---------- speed limit ---------- */
+
+/* Sits on the map just above the sheet, wherever the sheet currently ends. */
+.dv-speed {
+  position: absolute;
+  bottom: calc(var(--dv-sheet-h, 300px) + 12px);
+  left: max(12px, calc(50% - 215px + 12px));
+  z-index: 12;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.dv-limit {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 5px solid #dc2626;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: var(--rf-shadow-float);
+  color: #111827;
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-now {
+  display: grid;
+  min-width: 52px;
+  padding: 4px 8px;
+  justify-items: center;
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: var(--rf-shadow-float);
+  color: var(--color-text-primary);
+}
+
+.dv-now strong {
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-now small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 14px;
+  font-weight: 500;
+}
+
+.dv-now.is-over {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.dv-now.is-over small {
+  color: #ffffff;
+}
+
+/* ---------- marquee text ---------- */
+
+.dv-marquee {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.dv-stop-title p .dv-marquee {
+  flex: 1;
+}
+
+.dv-marquee > span {
+  display: inline-block;
+}
+
+.dv-marquee > .is-moving {
+  animation: dv-marquee var(--dur, 8s) ease-in-out infinite alternate;
+}
+
+@keyframes dv-marquee {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+  85%,
+  100% {
+    transform: translateX(var(--shift));
+  }
+}
+
+/* Reduced motion: no sliding text, the full address wraps instead. */
+@media (prefers-reduced-motion: reduce) {
+  .dv-marquee {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .dv-marquee > .is-moving {
+    animation: none;
+  }
+}
+
+/* ---------- cash + swipe to confirm ---------- */
+
+.dv-sheet-actions {
+  flex-wrap: wrap;
+}
+
+.dv-swipe {
+  position: relative;
+  flex: 1 1 100%;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-brand-orange-action);
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* The trail behind the knob darkens as it travels. */
+.dv-swipe::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--x, 0px) + 56px);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.16);
+  content: "";
+}
+
+.dv-swipe[data-phase="idle"]::before,
+.dv-swipe[data-phase="nudge"]::before,
+.dv-swipe[data-phase="done"]::before {
+  transition: width 220ms var(--rf-ease);
+}
+
+.dv-swipe-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-left: 40px;
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  opacity: calc(1 - var(--p, 0) * 1.6);
+  /* Shimmer: the highlight runs through the text itself, as in Grab. */
+  background: linear-gradient(
+      100deg,
+      rgba(255, 255, 255, 0.72) 0%,
+      rgba(255, 255, 255, 0.72) 40%,
+      #ffffff 50%,
+      rgba(255, 255, 255, 0.72) 60%,
+      rgba(255, 255, 255, 0.72) 100%
+    )
+    100% 0 / 300% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: dv-shimmer 2.4s linear infinite;
+}
+
+.dv-swipe[data-phase="drag"] .dv-swipe-label,
+.dv-swipe[data-phase="done"] .dv-swipe-label {
+  animation: none;
+  background: none;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.dv-swipe-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  color: var(--color-brand-orange-action);
+  cursor: grab;
+  touch-action: none;
+  transform: translateX(var(--x, 0px));
+}
+
+.dv-swipe[data-phase="idle"] .dv-swipe-knob,
+.dv-swipe[data-phase="nudge"] .dv-swipe-knob,
+.dv-swipe[data-phase="done"] .dv-swipe-knob {
+  transition: transform 220ms var(--rf-ease);
+}
+
+.dv-swipe[data-phase="nudge"] .dv-swipe-knob {
+  animation: dv-nudge 600ms var(--rf-ease);
+}
+
+.dv-swipe[data-phase="done"] .dv-swipe-knob {
+  animation: dv-pop 320ms var(--rf-ease);
+}
+
+.dv-swipe-knob:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+@keyframes dv-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+
+@keyframes dv-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(44px);
+  }
+}
+
+@keyframes dv-pop {
+  0% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.14;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-swipe-label {
+    background: none;
+    -webkit-text-fill-color: #ffffff;
+  }
+
+  .dv-swipe-label,
+  .dv-swipe[data-phase="nudge"] .dv-swipe-knob,
+  .dv-swipe[data-phase="done"] .dv-swipe-knob {
+    animation: none;
+  }
+
+  .dv-swipe::before,
+  .dv-swipe-knob {
+    transition: none !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .dv-swipe-knob {
+    color: #0f172a;
+  }
+}
+
+/* ---------- one-page handover ---------- */
+
+.dv-sheet.is-handover .dv-sheet-head {
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.dv-sheet.is-handover .dv-sheet-head h2 {
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 700;
+}
+
+.dv-sheet.is-handover .dv-sheet-head p {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dv-handover {
+  display: grid;
+  gap: 20px;
+  padding-bottom: 8px;
+}
+
+.dv-progress {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.dv-progress strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+/* Each part of the handover is a numbered step that becomes a check when done. */
+.dv-step {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dv-step > legend {
+  display: flex;
+  float: left;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.dv-step > legend + * {
+  clear: both;
+}
+
+.dv-badge {
+  display: inline-grid;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 2px solid var(--color-border-control);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  transition:
+    background-color 160ms var(--rf-ease),
+    border-color 160ms var(--rf-ease);
+}
+
+.dv-badge.is-done {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: #ffffff;
+}
+
+.dv-step .dv-check {
+  min-height: 56px;
+}
+
+/* The checked card keeps its light green in dark mode, so its text must stay dark. */
+.dv-step .dv-check.is-checked .dv-parcel-copy strong,
+.dv-step .dv-check.is-checked .dv-parcel-copy small {
+  color: var(--color-success-text);
+}
+
+.dv-parcel-copy small {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Segmented choice: tall enough for a thumb, no stacked radio rows. */
+.dv-seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+
+.dv-seg > label {
+  position: relative;
+  display: grid;
+  min-height: 52px;
+  place-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--rf-ease),
+    border-color 160ms var(--rf-ease);
+}
+
+.dv-seg > label > input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dv-seg > label.is-on {
+  border-color: var(--color-success);
+  background: var(--color-success-surface);
+  box-shadow: inset 0 0 0 1px var(--color-success);
+  color: var(--color-success-text);
+}
+
+.dv-seg > label:has(input:focus-visible) {
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+/* Cash: the amount leads, the choices sit under it. */
+.dv-cash-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.dv-cash-due {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.dv-cash-due strong {
+  color: var(--color-warning-text);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-cash-card .rf-link {
+  justify-self: center;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dv-cash-card .rf-field {
+  color: var(--color-warning-text);
+}
+
+.dv-handover .dv-sheet-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  margin: 0 -16px;
+  padding: 12px 16px calc(var(--rf-safe-bottom) + 4px);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.dv-handover .dv-text-btn {
+  justify-self: center;
+  text-align: center;
+}
+
+.dv-note summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dv-note textarea {
+  width: 100%;
+  min-height: 72px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 16px;
+}
+
+/* Locked: quiet and obviously inactive, with the missing step as its label. */
+.dv-swipe.is-disabled {
+  border: 1px solid var(--color-border-control);
+  background: var(--color-surface-subtle);
+}
+
+.dv-swipe.is-disabled::before {
+  display: none;
+}
+
+.dv-swipe.is-disabled .dv-swipe-knob {
+  top: 3px;
+  left: 3px;
+  background: var(--color-border);
+  box-shadow: none;
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+
+.dv-swipe.is-disabled .dv-swipe-label {
+  animation: none;
+  background: none;
+  opacity: 1;
+  -webkit-text-fill-color: var(--color-text-secondary);
 }

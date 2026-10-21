@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canShowParcelLocation,
+  isRecentLocation,
   parcelLocationState,
 } from "../src/lib/delivery/location-state.ts";
 import { watchRiderLocations } from "../src/lib/delivery/rider-location.ts";
@@ -175,4 +176,20 @@ test("a failed parcel write does not hide successful updates for other parcels",
   stop();
   assert.deepEqual(updates, [["parcel-b"]]);
   assert.deepEqual(errors, ["Assignment changed"]);
+});
+
+test("a point past live but under three minutes old is recent, not a lost connection", () => {
+  const at = (seconds) => ({
+    status: "in_transit",
+    latest_location: {
+      recorded_at: new Date(timestamp - seconds * 1000).toISOString(),
+    },
+  });
+  assert.equal(parcelLocationState(at(30), timestamp), "live");
+  assert.equal(isRecentLocation(at(30), timestamp), false);
+  assert.equal(parcelLocationState(at(90), timestamp), "stale");
+  assert.equal(isRecentLocation(at(90), timestamp), true);
+  assert.equal(parcelLocationState(at(400), timestamp), "stale");
+  assert.equal(isRecentLocation(at(400), timestamp), false);
+  assert.equal(isRecentLocation(null, timestamp), false);
 });

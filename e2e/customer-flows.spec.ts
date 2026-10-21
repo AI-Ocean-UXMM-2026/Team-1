@@ -30,8 +30,11 @@ test("a parcel past its estimate reads as running late (H-04)", async ({
     ],
     delivery_assignments: [assignment("order-1")],
   });
-  await page.goto("/track");
-  await expect(page.locator(".eta-time")).toHaveText("Running late");
+  await page.goto("/track?order=order-1");
+  const delivery = page.getByRole("region", { name: "Selected delivery" });
+  await expect(delivery.getByText("Running late").first()).toBeVisible();
+  // The headline once read "Arriving in Running late".
+  await expect(delivery.getByText(/Arriving in/)).toHaveCount(0);
 });
 
 test("a failed delivery explains itself in the timeline (H-05)", async ({
@@ -58,9 +61,8 @@ test("a failed delivery explains itself in the timeline (H-05)", async ({
       },
     ],
   });
-  await page.goto("/track");
-  const timeline = page.locator(".tracking-timeline-card");
-  await expect(timeline.getByText("Latest status")).toBeVisible();
+  await page.goto("/track?order=order-1");
+  const timeline = page.getByRole("region", { name: "Progress" });
   await expect(timeline.getByText("Delivery issue")).toBeVisible();
   await expect(timeline.getByText(/Recipient unavailable/)).toBeVisible();
   await expect(timeline.getByText("Not reached").first()).toBeVisible();
@@ -105,11 +107,15 @@ test("orders can be searched and show dates (H-07)", async ({
   });
   await page.goto("/orders");
   // All four are listed; the old view hid everything past the third card.
-  await expect(page.locator(".delivery-order-card")).toHaveCount(4);
+  await expect(page.getByRole("list").getByRole("listitem")).toHaveCount(4);
   await page.getByLabel("Search deliveries").fill("kamayut");
-  await expect(page.locator(".delivery-order-card")).toHaveCount(1);
-  await expect(page.locator(".delivery-order-card")).toContainText("OR-1002");
-  await expect(page.locator(".delivery-order-card")).toContainText(/Ordered/);
+  await expect(page.getByRole("list").getByRole("listitem")).toHaveCount(1);
+  await expect(page.getByRole("list").getByRole("listitem")).toContainText(
+    "OR-1002",
+  );
+  await expect(page.getByRole("list").getByRole("listitem")).toContainText(
+    /Ordered/,
+  );
   await page.getByLabel("Search deliveries").fill("zzz");
   await expect(
     page.getByText("No deliveries match that search."),
@@ -131,19 +137,19 @@ test("Help sends a support case with the order attached (H-03)", async ({
     delivery_assignments: [assignment("order-1")],
   });
   await page.goto("/home");
-  await page
-    .getByRole("link", { name: /report a problem/i })
-    .or(page.getByRole("button", { name: /report a problem/i }))
-    .first()
-    .click();
-  await page.getByLabel("What is the problem?").selectOption("Parcel is late");
-  await page.getByRole("button", { name: "Send report" }).click();
-  await expect(page.getByText(/Support has your report/)).toBeVisible();
+  await page.getByRole("button", { name: /help and support/i }).click();
+  const sheet = page.getByRole("dialog", { name: "Get help" });
+  await sheet.getByRole("radio", { name: "Late or missing parcel" }).check();
+  await sheet
+    .getByLabel("Describe the problem")
+    .fill("Estimated time passed an hour ago");
+  await sheet.getByRole("button", { name: "Send to support" }).click();
+  await expect(page.getByText(/Request sent/)).toBeVisible();
   const created = backend.mutations.find((m) => m.table === "support_cases");
   expect(created?.body).toMatchObject({
     requester_id: "user-1",
     order_id: "order-1",
-    priority: "normal",
+    priority: "high",
   });
 });
 
@@ -176,18 +182,40 @@ test("opening another parcel from Notifications while on Track switches to it (H
       },
     ],
   });
-  await page.goto("/track");
-  const selected = page.locator(".selected-order-kicker strong");
-  await expect(selected).toHaveText("OR-2001");
-  await page
-    .getByRole("button", { name: /notifications/i })
-    .first()
-    .click();
-  await page
-    .getByRole("dialog")
-    .getByRole("link")
-    .filter({ hasText: /OR-2002|assigned|rider/i })
-    .first()
-    .click();
-  await expect(selected).toHaveText("OR-2002");
+  await page.goto("/track?order=order-1");
+  const delivery = page.getByRole("region", { name: "Selected delivery" });
+  await expect(delivery.getByText("OR-2001").first()).toBeVisible();
+
+  // Client-side navigation from Notifications must replace the selection.
+  await page.goto("/notifications");
+  await page.getByRole("link", { name: /OR-2002/ }).click();
+  await expect(page).toHaveURL(/order=order-2/);
+  await expect(delivery.getByText("OR-2002").first()).toBeVisible();
+  await expect(delivery.getByText("OR-2001")).toHaveCount(0);
+});
+
+test("home leads with the parcel on the way, and the tab bar has one current tab", async ({
+  page,
+  context,
+}) => {
+  await signInAs(context, "customer", {
+    delivery_orders: [
+      makeOrder({ customer_id: "user-1", status: "in_transit" }),
+    ],
+  });
+  await page.goto("/home");
+  const live = page.getByRole("link", { name: /track live/i });
+  const pickup = page.getByRole("link", { name: /request a pickup/i });
+  await expect(live).toBeVisible();
+  const liveY = (await live.boundingBox())?.y ?? 0;
+  const pickupY = (await pickup.boundingBox())?.y ?? 0;
+  expect(liveY).toBeLessThan(pickupY);
+
+  const nav = page.getByRole("navigation", { name: "Customer app" });
+  await expect(nav.getByRole("link")).toHaveCount(4);
+  await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
+  await expect(nav.getByRole("link", { name: "Home" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 });

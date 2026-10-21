@@ -2,41 +2,30 @@ import AxeBuilder from "@axe-core/playwright";
 import { makeOrder, minutesAgo, signInAs } from "./support/supabase-mock";
 import { expect, test } from "./support/test";
 
-test("sign-in dialog covers the app chrome (C-01)", async ({ page }) => {
+test("signed-out customers get a standalone sign-in page without app chrome (C-01)", async ({
+  page,
+}) => {
   await page.goto("/home?signin=1");
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: /create an account/i }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your parcel, in view." }),
+  ).toBeVisible();
+  // The app chrome may stay mounted behind the page, but it must be hidden
+  // from assistive tech and unreachable, not sit beside the form.
+  await expect(page.getByRole("navigation")).toHaveCount(0);
+  await expect(page.getByRole("banner")).toHaveCount(0);
 
-  const covered = await page.evaluate(() => {
-    const underneath = [
-      document.querySelector("nav a"),
-      document.querySelector("header button, header a"),
-    ];
-    return underneath.map((node) => {
-      if (!node) return "missing";
-      const box = node.getBoundingClientRect();
-      const hit = document.elementFromPoint(
-        box.x + box.width / 2,
-        box.y + box.height / 2,
-      );
-      return hit?.closest(".dialog-backdrop") ? "covered" : "exposed";
-    });
-  });
-  expect(covered, "nav and header must sit beneath the modal").toEqual([
-    "covered",
-    "covered",
-  ]);
-
-  const submit = dialog.locator('button[type="submit"]');
+  const submit = page.getByRole("button", { name: "Sign in to your account" });
   await submit.scrollIntoViewIfNeeded();
   const box = await submit.boundingBox();
   if (!box) throw new Error("submit button has no box");
   const submitReachable = await page.evaluate(
-    ({ x, y }) => !!document.elementFromPoint(x, y)?.closest('[role="dialog"]'),
+    ({ x, y }) => document.elementFromPoint(x, y)?.closest("button") !== null,
     { x: box.x + box.width / 2, y: box.y + box.height / 2 },
   );
   expect(submitReachable).toBe(true);
+
+  await page.getByRole("link", { name: /create an account/i }).click();
+  await expect(page).toHaveURL(/\/signup/);
 });
 
 test("ETA panel text meets contrast on Track (C-02)", async ({
@@ -68,10 +57,11 @@ test("ETA panel text meets contrast on Track (C-02)", async ({
       },
     ],
   });
-  await page.goto("/track");
-  await expect(page.locator(".tracking-freshness-row")).toBeVisible();
+  await page.goto("/track?order=order-1");
+  const delivery = page.getByRole("region", { name: "Selected delivery" });
+  await expect(delivery.getByText(/Updated 9 min ago/)).toBeVisible();
   const results = await new AxeBuilder({ page: page as never })
-    .include(".eta-panel")
+    .include('[aria-label="Selected delivery"]')
     .withRules(["color-contrast"])
     .analyze();
   expect(results.violations.map((v) => v.nodes.map((n) => n.html))).toEqual([]);
@@ -86,9 +76,10 @@ test("COD amount on Track is at least 12px (H-06)", async ({
       makeOrder({ customer_id: "user-1", status: "in_transit" }),
     ],
   });
-  await page.goto("/track");
+  await page.goto("/track?order=order-1");
   const size = await page
-    .locator(".cod-card strong")
+    .getByRole("region", { name: "Selected delivery" })
+    .getByText("MMK 68,000")
     .first()
     .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
   expect(size).toBeGreaterThanOrEqual(12);
