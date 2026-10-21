@@ -18,6 +18,12 @@
 .dispatch-app h2,
 .dispatch-app h3 {
   margin: 0;
+  font-weight: 700;
+}
+
+.dispatch-app h2 {
+  font-size: 18px;
+  line-height: 24px;
 }
 
 .dispatch-hint {
@@ -226,11 +232,11 @@
   }
 }
 
-.dispatch-check {
+.dispatch-setup label.dispatch-check {
   flex-direction: row;
-  display: flex !important;
+  display: flex;
   align-items: center;
-  gap: var(--space-3) !important;
+  gap: var(--space-3);
   min-height: var(--target-min);
 }
 
@@ -446,8 +452,8 @@
   background: var(--color-brand-navy);
 }
 
-.dispatch-flood {
-  color: var(--color-warning-text) !important;
+.dispatch-stops small.dispatch-flood {
+  color: var(--color-warning-text);
 }
 
 /* ------------------------------------------------------------------- sketch */
@@ -462,7 +468,7 @@
   background: var(--color-surface);
 }
 
-.dispatch-sketch svg {
+.dispatch-sketch > svg {
   width: 100%;
   height: auto;
   background: var(--color-surface-subtle);
@@ -693,4 +699,10 @@
   margin: 0;
   padding: 0;
   border: 0;
+}
+
+.dispatch-legend-item svg {
+  flex: none;
+  width: 28px;
+  height: 8px;
 }
