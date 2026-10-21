@@ -1,0 +1,102 @@
+import type { Insertion } from "./insert.ts";
+import { bestInsertion } from "./insert.ts";
+import { evaluateRoute } from "./route-eval.ts";
+import type { Instance, Matrix, RouteEval, Stop } from "./types.ts";
+
+export type State = {
+  routes: Stop[][];
+  evals: RouteEval[];
+  unassigned: number[];
+};
+
+export function emptyState(inst: Instance, matrix: Matrix): State {
+  return {
+    routes: inst.trucks.map(() => []),
+    evals: inst.trucks.map((truck) => evaluateRoute(inst, matrix, truck, [])),
+    unassigned: [],
+  };
+}
+
+export function totalScore(state: State) {
+  return state.evals.reduce((sum, e) => sum + e.score, 0);
+}
+
+/**
+ * Parallel regret-2 insertion. A request feasible on exactly one truck has
+ * infinite regret, so it is placed before it loses its only option. Ties go to
+ * heavier orders, then the earlier window end, then the lower index.
+ */
+export function construct(inst: Instance, matrix: Matrix): State {
+  const state = emptyState(inst, matrix);
+  const options = new Map<number, (Insertion | null)[]>();
+  const pending = new Set(inst.requests.map((_, r) => r));
+
+  const compute = (r: number, truckIndex: number) =>
+    bestInsertion(
+      inst,
+      matrix,
+      inst.trucks[truckIndex],
+      state.routes[truckIndex],
+      state.evals[truckIndex].score,
+      r,
+    );
+
+  while (pending.size > 0) {
+    let chosen = -1;
+    let chosenRegret = -Infinity;
+    let chosenTruck = -1;
+    for (const r of [...pending].sort((a, b) => a - b)) {
+      let row = options.get(r);
+      if (!row) {
+        row = inst.trucks.map((_, k) => compute(r, k));
+        options.set(r, row);
+      }
+      const feasible = row
+        .map((option, k) => ({ option, k }))
+        .filter(
+          (entry): entry is { option: Insertion; k: number } =>
+            entry.option != null,
+        )
+        .sort((a, b) => a.option.delta - b.option.delta || a.k - b.k);
+      if (feasible.length === 0) {
+        pending.delete(r);
+        options.delete(r);
+        state.unassigned.push(r);
+        continue;
+      }
+      const regret =
+        feasible.length === 1
+          ? Number.POSITIVE_INFINITY
+          : feasible[1].option.delta - feasible[0].option.delta;
+      const better =
+        chosen < 0 ||
+        regret > chosenRegret ||
+        (regret === chosenRegret && tieBefore(inst, r, chosen));
+      if (better) {
+        chosen = r;
+        chosenRegret = regret;
+        chosenTruck = feasible[0].k;
+      }
+    }
+    if (chosen < 0) break;
+    const row = options.get(chosen);
+    const pick = row?.[chosenTruck];
+    if (!pick) break;
+    state.routes[chosenTruck] = pick.seq;
+    state.evals[chosenTruck] = pick.eval;
+    pending.delete(chosen);
+    options.delete(chosen);
+    for (const [r, entries] of options)
+      entries[chosenTruck] = compute(r, chosenTruck);
+  }
+  state.unassigned.sort((a, b) => a - b);
+  return state;
+}
+
+function tieBefore(inst: Instance, a: number, b: number) {
+  const ra = inst.requests[a];
+  const rb = inst.requests[b];
+  if (ra.weightKg !== rb.weightKg) return ra.weightKg > rb.weightKg;
+  if (ra.windowEnd !== rb.windowEnd) return ra.windowEnd < rb.windowEnd;
+  return a < b;
+}

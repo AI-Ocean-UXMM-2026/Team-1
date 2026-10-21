@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function PickupPage() {
-  return <PickupRequestPage />;
+  return <PickupRequestPage step="route" />;
 }
