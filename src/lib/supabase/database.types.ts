@@ -242,7 +242,7 @@ export type Database = {
           cod_status: string;
           created_at: string;
           created_by: string;
-          customer_id: string;
+          customer_id: string | null;
           delivered_at: string | null;
           delivery_address: string;
           delivery_latitude: number | null;
@@ -253,6 +253,7 @@ export type Database = {
           id: string;
           parcel_description: string | null;
           parcel_weight_kg: number | null;
+          notes: string | null;
           pickup_address: string;
           pickup_contact_name: string | null;
           pickup_contact_phone: string | null;
@@ -271,7 +272,7 @@ export type Database = {
           cod_status?: string;
           created_at?: string;
           created_by: string;
-          customer_id: string;
+          customer_id?: string | null;
           delivered_at?: string | null;
           delivery_address: string;
           delivery_latitude?: number | null;
@@ -282,6 +283,7 @@ export type Database = {
           id?: string;
           parcel_description?: string | null;
           parcel_weight_kg?: number | null;
+          notes?: string | null;
           pickup_address: string;
           pickup_contact_name?: string | null;
           pickup_contact_phone?: string | null;
@@ -300,7 +302,7 @@ export type Database = {
           cod_status?: string;
           created_at?: string;
           created_by?: string;
-          customer_id?: string;
+          customer_id?: string | null;
           delivered_at?: string | null;
           delivery_address?: string;
           delivery_latitude?: number | null;
@@ -311,6 +313,7 @@ export type Database = {
           id?: string;
           parcel_description?: string | null;
           parcel_weight_kg?: number | null;
+          notes?: string | null;
           pickup_address?: string;
           pickup_contact_name?: string | null;
           pickup_contact_phone?: string | null;
@@ -337,6 +340,41 @@ export type Database = {
             columns: ["customer_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      delivery_order_items: {
+        Row: {
+          created_at: string;
+          description: string;
+          id: string;
+          order_id: string;
+          quantity: number;
+          unit_price: number;
+        };
+        Insert: {
+          created_at?: string;
+          description: string;
+          id?: string;
+          order_id: string;
+          quantity?: number;
+          unit_price?: number;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          id?: string;
+          order_id?: string;
+          quantity?: number;
+          unit_price?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "delivery_order_items_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_orders";
             referencedColumns: ["id"];
           },
         ];
@@ -1155,6 +1193,26 @@ export type Database = {
           id: string;
           tracking_code: string;
           created_at: string;
+        }[];
+      };
+      create_manual_delivery_order: {
+        Args: {
+          p_cod_amount?: number;
+          p_delivery_address: string;
+          p_items: Json;
+          p_notes?: string | null;
+          p_pickup_address: string;
+          p_receiver_name: string;
+          p_receiver_phone: string;
+          p_sender_name: string;
+          p_sender_phone: string;
+        };
+        Returns: {
+          id: string;
+          tracking_code: string;
+          status: string;
+          assigned_driver_id: string | null;
+          assigned_vehicle_id: string | null;
         }[];
       };
       set_driver_route_state: {

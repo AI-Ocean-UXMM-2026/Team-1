@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/delivery/icons";
 
 export type ManagerNotice = {
-  scope: "assign" | "reports" | "riders" | "requests";
+  scope: "assign" | "create" | "reports" | "riders" | "requests";
   tone: "success" | "error";
   text: string;
 };

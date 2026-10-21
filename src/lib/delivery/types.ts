@@ -18,7 +18,7 @@ export type DeliveryLocation = {
 export type DeliveryOrder = {
   id: string;
   tracking_code: string;
-  customer_id: string;
+  customer_id: string | null;
   customer_name: string;
   status: DeliveryStatus;
   pickup_address: string;
