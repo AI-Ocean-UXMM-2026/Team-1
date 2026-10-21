@@ -19,14 +19,20 @@ import {
 import { currency } from "@/lib/delivery/format";
 import type { DeliveryOrder } from "@/lib/delivery/types";
 
-function ParcelLine({ order }: { order: DeliveryOrder }) {
+function ParcelLine({
+  order,
+  showCod = true,
+}: {
+  order: DeliveryOrder;
+  showCod?: boolean;
+}) {
   return (
     <span className="dv-parcel-copy">
       <strong>{order.tracking_code}</strong>
       <small>
         {order.parcel_description ?? "No description"}
         {order.parcel_weight_kg ? ` · ${order.parcel_weight_kg} kg` : ""}
-        {order.cod_amount > 0 && order.cod_status === "pending"
+        {showCod && order.cod_amount > 0 && order.cod_status === "pending"
           ? ` · COD ${currency.format(order.cod_amount)}`
           : ""}
       </small>
@@ -73,10 +79,25 @@ export function HandoverPanel({
         : [...draft.verified, id],
     });
   const locked = !!missing || busy || !online;
+  const parcelDone = stop.open.every((order) => verifiedIds.has(order.id));
+  const receiverDone = draft.receivedBy.trim().length > 0;
+  const cashDone = requirements.find((item) => item.key === "cod")?.met ?? true;
+  const total = stop.codDue > 0 ? 3 : 2;
+  const done = [parcelDone, receiverDone, stop.codDue > 0 && cashDone].filter(
+    Boolean,
+  ).length;
   return (
     <div className="dv-handover">
-      <fieldset className="dv-group">
+      <p className="dv-progress" role="status">
+        <strong>
+          {done} of {total}
+        </strong>{" "}
+        {done === total ? "ready to complete" : "done"}
+      </p>
+
+      <fieldset className="dv-step">
         <legend>
+          <StepBadge n={1} done={parcelDone} />
           {stop.open.length > 1
             ? `Verify ${stop.open.length} parcels`
             : "Verify the parcel"}
@@ -94,7 +115,7 @@ export function HandoverPanel({
             <span className="dv-check-box" aria-hidden="true">
               <Icon name="check" size={16} strokeWidth={2.6} />
             </span>
-            <ParcelLine order={order} />
+            <ParcelLine order={order} showCod={false} />
           </label>
         ))}
         {stop.notLoaded.length > 0 && (
@@ -107,11 +128,18 @@ export function HandoverPanel({
         )}
       </fieldset>
 
-      <fieldset className="dv-group">
-        <legend>Who received it?</legend>
-        <div className="rf-reasons">
+      <fieldset className="dv-step">
+        <legend>
+          <StepBadge n={2} done={receiverDone} />
+          Who received it?
+        </legend>
+        <div className="dv-seg">
           <label
-            className={`rf-reason is-positive ${!someoneElse && draft.receivedBy === stop.recipient ? "is-selected" : ""}`}
+            className={
+              !someoneElse && draft.receivedBy === stop.recipient
+                ? "is-on"
+                : undefined
+            }
           >
             <input
               type="radio"
@@ -122,11 +150,9 @@ export function HandoverPanel({
                 onChange({ receivedBy: stop.recipient });
               }}
             />
-            {stop.recipient}
+            <span>{stop.recipient}</span>
           </label>
-          <label
-            className={`rf-reason is-positive ${someoneElse ? "is-selected" : ""}`}
-          >
+          <label className={someoneElse ? "is-on" : undefined}>
             <input
               type="radio"
               name="receiver"
@@ -137,15 +163,16 @@ export function HandoverPanel({
                   onChange({ receivedBy: "" });
               }}
             />
-            Someone else
+            <span>Someone else</span>
           </label>
         </div>
         {someoneElse && (
           <label className="rf-field">
-            <span>Actual receiver</span>
+            <span className="rf-sr-only">Actual receiver</span>
             <input
               value={draft.receivedBy}
               autoComplete="off"
+              aria-label="Actual receiver"
               placeholder="Name of the person taking the parcels"
               onChange={(event) => onChange({ receivedBy: event.target.value })}
             />
@@ -154,80 +181,83 @@ export function HandoverPanel({
       </fieldset>
 
       {stop.codDue > 0 && (
-        <fieldset className="rf-cod-panel">
+        <fieldset className="dv-step dv-cash-step">
           <legend>
-            <Icon name="coin" size={17} /> Collect cash
+            <StepBadge n={3} done={cashDone} />
+            Collect cash
           </legend>
-          <div className="rf-cod-due">
-            <span>COD due</span>
-            <strong>{currency.format(stop.codDue)}</strong>
-          </div>
-          <div className="rf-reasons">
-            <label
-              className={`rf-reason is-positive ${draft.codMode === "full" ? "is-selected" : ""}`}
-            >
-              <input
-                type="radio"
-                name="cod-mode"
-                checked={draft.codMode === "full"}
-                onChange={() => onChange({ codMode: "full" })}
-              />
-              I received the full amount in cash
-            </label>
-            <label
-              className={`rf-reason ${draft.codMode === "different" ? "is-selected" : ""}`}
-            >
-              <input
-                type="radio"
-                name="cod-mode"
-                checked={draft.codMode === "different"}
-                onChange={() => onChange({ codMode: "different" })}
-              />
-              I received a different amount
-            </label>
-          </div>
-          {draft.codMode === "different" && (
-            <>
-              <label className="rf-field">
-                <span>Amount received (MMK)</span>
+          <div className="dv-cash-card">
+            <div className="dv-cash-due">
+              <span>COD due</span>
+              <strong>{currency.format(stop.codDue)}</strong>
+            </div>
+            <div className="dv-seg">
+              <label className={draft.codMode === "full" ? "is-on" : undefined}>
                 <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={draft.codAmount}
-                  onChange={(event) =>
-                    onChange({ codAmount: event.target.value })
-                  }
+                  type="radio"
+                  name="cod-mode"
+                  checked={draft.codMode === "full"}
+                  onChange={() => onChange({ codMode: "full" })}
                 />
+                <span>I received the full amount in cash</span>
               </label>
-              <label className="rf-field">
-                <span>Why is it different?</span>
-                <textarea
-                  value={draft.codReason}
-                  maxLength={240}
-                  placeholder="Explain what happened for operations"
-                  onChange={(event) =>
-                    onChange({ codReason: event.target.value })
-                  }
+              <label
+                className={draft.codMode === "different" ? "is-on" : undefined}
+              >
+                <input
+                  type="radio"
+                  name="cod-mode"
+                  checked={draft.codMode === "different"}
+                  onChange={() => onChange({ codMode: "different" })}
                 />
+                <span>I received a different amount</span>
               </label>
-              {draft.codAmount !== "" && Number.isFinite(amount) && (
-                <p className="rf-field-warn">
-                  <Icon name="warning" size={15} /> {currency.format(amount)} of{" "}
-                  {currency.format(stop.codDue)}. COD stays open for operations
-                  to review.
-                </p>
-              )}
-            </>
-          )}
-          <button type="button" className="rf-link" onClick={onCannotDeliver}>
-            Recipient can’t pay? Record the exception
-          </button>
+            </div>
+            {draft.codMode === "different" && (
+              <>
+                <label className="rf-field">
+                  <span>Amount received (MMK)</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={draft.codAmount}
+                    onChange={(event) =>
+                      onChange({ codAmount: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="rf-field">
+                  <span>Why is it different?</span>
+                  <textarea
+                    value={draft.codReason}
+                    maxLength={240}
+                    placeholder="Explain what happened for operations"
+                    onChange={(event) =>
+                      onChange({ codReason: event.target.value })
+                    }
+                  />
+                </label>
+                {draft.codAmount !== "" && Number.isFinite(amount) && (
+                  <p className="rf-field-warn">
+                    <Icon name="warning" size={15} /> {currency.format(amount)}{" "}
+                    of {currency.format(stop.codDue)}. COD stays open for
+                    operations to review.
+                  </p>
+                )}
+              </>
+            )}
+            <button type="button" className="rf-link" onClick={onCannotDeliver}>
+              Recipient can’t pay? Record the exception
+            </button>
+          </div>
         </fieldset>
       )}
 
       <details className="dv-note">
-        <summary>Add a note</summary>
+        <summary>
+          <Icon name="message" size={16} /> Add a note
+        </summary>
         <textarea
           aria-label="Handover note"
           value={draft.note}
@@ -266,6 +296,15 @@ export function HandoverPanel({
         </button>
       </div>
     </div>
+  );
+}
+
+/** A numbered step that turns into a check once its part of the handover is done. */
+function StepBadge({ n, done }: { n: number; done: boolean }) {
+  return (
+    <span className={`dv-badge${done ? " is-done" : ""}`} aria-hidden="true">
+      {done ? <Icon name="check" size={14} strokeWidth={2.8} /> : n}
+    </span>
   );
 }
 

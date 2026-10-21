@@ -1495,10 +1495,190 @@
 
 /* ---------- one-page handover ---------- */
 
+.dv-sheet.is-handover .dv-sheet-head {
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.dv-sheet.is-handover .dv-sheet-head h2 {
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 700;
+}
+
+.dv-sheet.is-handover .dv-sheet-head p {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
 .dv-handover {
   display: grid;
-  gap: 16px;
+  gap: 20px;
   padding-bottom: 8px;
+}
+
+.dv-progress {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.dv-progress strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+/* Each part of the handover is a numbered step that becomes a check when done. */
+.dv-step {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dv-step > legend {
+  display: flex;
+  float: left;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.dv-step > legend + * {
+  clear: both;
+}
+
+.dv-badge {
+  display: inline-grid;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 2px solid var(--color-border-control);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  transition:
+    background-color 160ms var(--rf-ease),
+    border-color 160ms var(--rf-ease);
+}
+
+.dv-badge.is-done {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: #ffffff;
+}
+
+.dv-step .dv-check {
+  min-height: 56px;
+}
+
+/* The checked card keeps its light green in dark mode, so its text must stay dark. */
+.dv-step .dv-check.is-checked .dv-parcel-copy strong,
+.dv-step .dv-check.is-checked .dv-parcel-copy small {
+  color: var(--color-success-text);
+}
+
+.dv-parcel-copy small {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Segmented choice: tall enough for a thumb, no stacked radio rows. */
+.dv-seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+
+.dv-seg > label {
+  position: relative;
+  display: grid;
+  min-height: 52px;
+  place-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--rf-ease),
+    border-color 160ms var(--rf-ease);
+}
+
+.dv-seg > label > input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dv-seg > label.is-on {
+  border-color: var(--color-success);
+  background: var(--color-success-surface);
+  box-shadow: inset 0 0 0 1px var(--color-success);
+  color: var(--color-success-text);
+}
+
+.dv-seg > label:has(input:focus-visible) {
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+/* Cash: the amount leads, the choices sit under it. */
+.dv-cash-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}
+
+.dv-cash-due {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.dv-cash-due strong {
+  color: var(--color-warning-text);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-cash-card .rf-link {
+  justify-self: center;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dv-cash-card .rf-field {
+  color: var(--color-warning-text);
 }
 
 .dv-handover .dv-sheet-actions {
@@ -1506,10 +1686,11 @@
   bottom: 0;
   z-index: 2;
   display: grid;
-  gap: 8px;
+  gap: 4px;
   margin: 0 -16px;
-  padding: 12px 16px calc(var(--rf-safe-bottom) + 8px);
+  padding: 12px 16px calc(var(--rf-safe-bottom) + 4px);
   border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 .dv-handover .dv-text-btn {
@@ -1518,8 +1699,10 @@
 }
 
 .dv-note summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-height: 44px;
-  padding: 10px 0;
   color: var(--color-text-secondary);
   font-size: 14px;
   line-height: 20px;
@@ -1530,14 +1713,30 @@
 .dv-note textarea {
   width: 100%;
   min-height: 72px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 16px;
 }
 
-/* Locked until the handover is complete: the label names what is missing. */
+/* Locked: quiet and obviously inactive, with the missing step as its label. */
 .dv-swipe.is-disabled {
-  background: var(--color-border-control);
+  border: 1px solid var(--color-border-control);
+  background: var(--color-surface-subtle);
+}
+
+.dv-swipe.is-disabled::before {
+  display: none;
 }
 
 .dv-swipe.is-disabled .dv-swipe-knob {
+  top: 3px;
+  left: 3px;
+  background: var(--color-border);
   box-shadow: none;
   color: var(--color-text-secondary);
   cursor: not-allowed;
@@ -1546,5 +1745,6 @@
 .dv-swipe.is-disabled .dv-swipe-label {
   animation: none;
   background: none;
-  -webkit-text-fill-color: var(--color-text-primary);
+  opacity: 1;
+  -webkit-text-fill-color: var(--color-text-secondary);
 }

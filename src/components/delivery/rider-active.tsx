@@ -486,6 +486,7 @@ export function ActiveDelivery({
                   Stop {stop.number} of {route.stops.length} · Handover
                 </small>
                 <h2>{stop.recipient}</h2>
+                <p>{stop.address}</p>
               </div>
             </div>
             {handover}

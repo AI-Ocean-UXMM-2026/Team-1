@@ -55,7 +55,7 @@ test("the handover is one page and the swipe unlocks when it is complete (C-06)"
   // The checkbox is a custom control; the label is what a finger taps.
   await page.getByText("OR-9001").click();
   await expect(page.getByText("Record who received it")).toBeVisible();
-  await page.locator("label.rf-reason", { hasText: "May Thazin" }).click();
+  await page.locator(".dv-seg > label", { hasText: "May Thazin" }).click();
   await expect(page.getByText("Record the cash received")).toBeVisible();
   await page.getByText("I received the full amount in cash").click();
   await expect(page.getByText("Swipe to complete delivery")).toBeVisible();
@@ -279,5 +279,5 @@ test("cash due is not in the overview; the one-page handover has it", async ({
     .toBe(height);
   expect((await sheet.boundingBox())?.y).toBe(0);
   await expect(page.getByText("Collect cash")).toBeVisible();
-  await expect(page.locator(".rf-cod-due")).toContainText("68,000");
+  await expect(page.locator(".dv-cash-due")).toContainText("68,000");
 });
