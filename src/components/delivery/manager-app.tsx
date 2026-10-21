@@ -10,6 +10,7 @@ import {
   Brand,
   DemoBadge,
   LoadingBlock,
+  MobileNav,
   StatusBadge,
   signOut,
   UserActions,
@@ -40,6 +41,16 @@ const managerNavItems = [
   { id: "track", label: "Track", href: "/manager/track", icon: "track" },
   { id: "order", label: "Orders", href: "/manager/order", icon: "box" },
   { id: "profile", label: "Team", href: "/manager/profile", icon: "user" },
+] as const;
+
+const managerMobileNav = [
+  ...managerNavItems,
+  {
+    id: "insights",
+    label: "Fleet",
+    href: "/manager/insights",
+    icon: "truck",
+  },
 ] as const;
 
 export type ManagerView = (typeof managerNavItems)[number]["id"];
@@ -408,6 +419,12 @@ export function ManagerDashboard({
           <Icon name="more" size={16} />
         </div>
       </aside>
+
+      <MobileNav
+        label="Manager workspace"
+        items={managerMobileNav}
+        activeId={view}
+      />
 
       <div className="manager-main">
         <header className="manager-topbar">

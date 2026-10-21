@@ -25,11 +25,13 @@ export function useWorkspace(role: WorkspaceProfile["role"]) {
   const [isDemo, setIsDemo] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStale, setIsStale] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestVersion = useRef(0);
   const authVersion = useRef(0);
   const accountId = useRef<string | null>(null);
   const mounted = useRef(false);
+  const hasLoaded = useRef(false);
 
   const loadSession = useCallback(
     async (session: Session | null, background = false) => {
@@ -52,6 +54,8 @@ export function useWorkspace(role: WorkspaceProfile["role"]) {
       setIsAuthenticated(true);
       setError(null);
       if (changedAccount) {
+        hasLoaded.current = false;
+        setIsStale(false);
         setData(emptyWorkspace());
         setProfile(null);
         setIsDemo(false);
@@ -72,8 +76,16 @@ export function useWorkspace(role: WorkspaceProfile["role"]) {
         setProfile(loaded.profile);
         setData(loaded.data);
         setIsDemo(loaded.isDemo);
+        setIsStale(false);
+        hasLoaded.current = true;
       } catch (cause) {
         if (!current()) return;
+        // A failed background refresh must not wipe what the user is working
+        // on (a rider's active stop): keep the last good data and flag it.
+        if (background && !changedAccount && hasLoaded.current) {
+          setIsStale(true);
+          return;
+        }
         setProfile(null);
         setData(emptyWorkspace());
         setIsDemo(false);
@@ -195,6 +207,7 @@ export function useWorkspace(role: WorkspaceProfile["role"]) {
     isAuthenticated,
     isDemo,
     isLoading,
+    isStale,
     profile,
     canUseLiveData: isAuthenticated && profile?.role === role && !error,
     refresh,

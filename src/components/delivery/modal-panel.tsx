@@ -1,6 +1,7 @@
 "use client";
 
 import { type KeyboardEvent, type ReactNode, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 const focusableSelector =
   'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]';
@@ -60,7 +61,8 @@ export function ModalPanel({
     }
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className="dialog-backdrop">
       <section
         ref={panel}
@@ -73,6 +75,7 @@ export function ModalPanel({
       >
         {children}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,0 +1,110 @@
+/*
+ * Audit fixes (docs/ui-ux-audit). Loaded last so it can correct legacy rules
+ * without touching them. Each block names the finding it closes.
+ */
+
+/* C-01: dialogs sit above the MUI app bar and bottom navigation (z-index 1100). */
+.dialog-backdrop {
+  z-index: 1400;
+}
+
+/* C-02, H-06: ETA freshness row and COD amount were styled for a dark panel. */
+.tracking-freshness-row {
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+  line-height: 16px;
+}
+.tracking-freshness-row strong {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.eta-meter {
+  background: var(--color-surface-subtle);
+}
+.eta-meter-labels {
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+}
+.eta-panel p {
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+}
+.cod-card strong {
+  font-size: 24px;
+  line-height: 30px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* H-02: never truncate the only copy of an address. */
+.route-address-row strong,
+.delivery-order-card > strong,
+.map-underbar span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* M-04: meaningful text is never below 12px. */
+.loading-screen p,
+.empty-state p,
+.map-marker-label {
+  font-size: 12px;
+}
+
+/* M-01: customer touch targets. */
+.customer-app .button,
+.customer-app .chip,
+.customer-app .error-banner button,
+.customer-app .filter-chip {
+  min-height: var(--target-min, 48px);
+}
+
+/*
+ * C-03 / O-01: the manager workspace is a phone-first layout with a bottom
+ * navigation; the desktop sidebar shell starts at 1024px.
+ */
+@media (max-width: 1023px) {
+  .manager-app {
+    min-width: 0;
+    display: block;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+  .manager-sidebar {
+    display: none;
+  }
+  .manager-main {
+    width: 100%;
+  }
+  .manager-topbar {
+    height: 56px;
+    justify-content: space-between;
+    padding: 0 12px;
+  }
+  .manager-topbar > .brand-lockup {
+    display: flex;
+  }
+  .manager-date {
+    display: none;
+  }
+  .manager-content {
+    width: 100%;
+    padding: 16px 16px 24px;
+  }
+  .manager-operations-grid,
+  .manager-track-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .manager-live-orders .manager-order-list {
+    max-height: none;
+  }
+  .manager-app .mobile-bottom-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .manager-app .mobile-bottom-nav {
+    display: none;
+  }
+}

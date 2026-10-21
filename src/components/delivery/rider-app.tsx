@@ -525,7 +525,7 @@ export function RiderApp() {
       setActionError(message(cause, "That update did not save. Try again."));
     } finally {
       setBusy(null);
-      if (!workspace.isDemo) void workspace.refresh(true);
+      if (!workspace.isDemo && navigator.onLine) void workspace.refresh(true);
     }
   }
 
@@ -740,6 +740,11 @@ export function RiderApp() {
     <Notice tone="warning" icon="warning">
       <strong>You’re offline.</strong> Nothing new will save until the
       connection returns. What you enter stays on this phone.
+    </Notice>
+  ) : workspace.isStale ? (
+    <Notice tone="warning" icon="warning">
+      <strong>Showing your saved route.</strong> We couldn’t reach the server.
+      It will refresh when the connection returns.
     </Notice>
   ) : null;
 
@@ -1195,6 +1200,12 @@ export function RiderApp() {
                     updateDraft({ outcome: "delivered" });
                     setOutcomeStep(2);
                   }}
+                  onClick={() => {
+                    // onChange never fires for the choice that is already
+                    // selected (after going back or a reload).
+                    updateDraft({ outcome: "delivered" });
+                    setOutcomeStep(2);
+                  }}
                 />
                 <span className="rf-choice-mark">
                   <Icon name="check" size={22} strokeWidth={2.4} />
@@ -1209,6 +1220,12 @@ export function RiderApp() {
                   name="delivery-outcome"
                   checked={draft.outcome === "failed"}
                   onChange={() => {
+                    updateDraft({ outcome: "failed" });
+                    setOutcomeStep(2);
+                  }}
+                  onClick={() => {
+                    // onChange never fires for the choice that is already
+                    // selected (after going back or a reload).
                     updateDraft({ outcome: "failed" });
                     setOutcomeStep(2);
                   }}
@@ -2282,11 +2299,10 @@ function SlideToConfirm({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        onKeyDown={(event) => {
-          if (!locked && (event.key === "Enter" || event.key === " ")) {
-            event.preventDefault();
-            onConfirm();
-          }
+        onClick={(event) => {
+          // Pointer taps (detail > 0) must not confirm; keyboard and screen
+          // reader activation report detail 0.
+          if (!locked && event.detail === 0) onConfirm();
         }}
       >
         <Icon
