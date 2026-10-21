@@ -18,6 +18,12 @@
 .dispatch-app h2,
 .dispatch-app h3 {
   margin: 0;
+  font-weight: 700;
+}
+
+.dispatch-app h2 {
+  font-size: 18px;
+  line-height: 24px;
 }
 
 .dispatch-hint {
@@ -465,7 +471,7 @@
   background: var(--color-surface);
 }
 
-.dispatch-sketch svg {
+.dispatch-sketch > svg {
   width: 100%;
   height: auto;
   background: var(--color-surface-subtle);
@@ -697,4 +703,10 @@
   margin: 0;
   padding: 0;
   border: 0;
+}
+
+.dispatch-legend-item svg {
+  flex: none;
+  width: 28px;
+  height: 8px;
 }

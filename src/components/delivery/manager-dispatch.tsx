@@ -66,7 +66,15 @@ export function DispatchApp() {
 
   /* ---- setup form ---- */
   const [depotId, setDepotId] = useState("");
-  const [serviceDate, setServiceDate] = useState(yangonToday);
+  // The clock is read in an effect: this app prerenders, and a current time
+  // read during render is not allowed under Cache Components.
+  const [serviceDate, setServiceDate] = useState("");
+  const [today, setToday] = useState("");
+  useEffect(() => {
+    const now = yangonToday();
+    setToday(now);
+    setServiceDate((current) => current || now);
+  }, []);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
   const [drivers, setDrivers] = useState<Record<string, string>>({});
   const seeded = useRef(false);
@@ -159,12 +167,13 @@ export function DispatchApp() {
     if (outcome.ok) {
       setPlan(outcome.data);
       setSelected(null);
-      commitKey.current = crypto.randomUUID();
+      commitKey.current = null;
     } else setBuildError(outcome.error);
   }
 
   /* ---- commit / discard ---- */
-  const commitKey = useRef(crypto.randomUUID());
+  // Created at the first commit attempt and reused for retries, so a retry cannot commit twice.
+  const commitKey = useRef<string | null>(null);
   const [dialog, setDialog] = useState<"commit" | "discard" | null>(null);
   const [working, setWorking] = useState(false);
   const [stale, setStale] = useState<StaleItem[]>([]);
@@ -178,6 +187,7 @@ export function DispatchApp() {
   async function commit(onStale: "abort" | "skip") {
     if (!plan?.run.id || plan.run.revision == null) return;
     setWorking(true);
+    if (!commitKey.current) commitKey.current = crypto.randomUUID();
     const { data, error } = await createClient().rpc("commit_dispatch_run", {
       p_run_id: plan.run.id,
       p_expected_revision: plan.run.revision,
@@ -394,7 +404,7 @@ export function DispatchApp() {
                 />
               </label>
             </div>
-            {serviceDate !== yangonToday() && (
+            {serviceDate && today && serviceDate !== today && (
               <p className="dispatch-hint">
                 You can plan ahead, but a plan can only be committed on its
                 service day.
