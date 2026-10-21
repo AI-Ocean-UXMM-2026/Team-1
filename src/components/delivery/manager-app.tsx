@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { ReactNode } from "react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
@@ -17,6 +16,12 @@ import {
 import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
 import { CodLedgerView } from "@/components/delivery/manager-cod";
+import { ManagerHomeView } from "@/components/delivery/manager-home-view";
+import {
+  CardHeader,
+  type ManagerNotice as Notice,
+  NoticeStrip,
+} from "@/components/delivery/manager-ui-components";
 import {
   assignDelivery,
   reviewRoadReport,
@@ -82,11 +87,6 @@ function initialFilter(value: string | null): OrderFilter {
     : "all";
 }
 type Workspace = ReturnType<typeof useWorkspace>;
-type Notice = {
-  scope: "assign" | "reports" | "riders" | "requests";
-  tone: "success" | "error";
-  text: string;
-};
 
 const RIDER_REQUEST_LABELS: Record<RiderRequest["category"], string> = {
   refuel: "Needs fuel",
@@ -446,12 +446,6 @@ export function ManagerDashboard({
   const openRequests = workspace.data.riderRequests.filter(
     (request) => request.status !== "resolved",
   );
-  const attentionTotal =
-    summary.needsRider +
-    summary.delayed +
-    summary.codPending +
-    summary.pendingReports +
-    openRequests.length;
 
   const pageCopy = {
     home: {
@@ -590,198 +584,20 @@ export function ManagerDashboard({
           )}
 
           {view === "home" && !signedOut && (
-            <div className="dash-overview">
-              <div className="dash-main">
-                <section className="dash-card" aria-label="Delivery metrics">
-                  <div className="dash-kpi-grid">
-                    <KpiCell
-                      label="Live now"
-                      value={movingCount}
-                      hint="On the road"
-                      tone="live"
-                    />
-                    <KpiCell
-                      label="Active"
-                      value={activeCount}
-                      hint="Assigned or moving"
-                    />
-                    <KpiCell
-                      label="Delivered"
-                      value={deliveredCount}
-                      hint="All time"
-                    />
-                    <KpiCell
-                      label="At risk"
-                      value={atRiskCount}
-                      hint="Delayed or failed"
-                      tone="warning"
-                    />
-                  </div>
-                  <div className="dash-trend">
-                    <span>Orders created · last 12 h</span>
-                    {hourly.some((count) => count > 0) ? (
-                      <Sparkline values={hourly} />
-                    ) : (
-                      <span className="dash-trend-empty">
-                        None in the last 12 h
-                      </span>
-                    )}
-                  </div>
-                </section>
-
-                <section className="dash-card" aria-label="Live map">
-                  <CardHeader title="Live map" meta={`${movingCount} live`} />
-                  <div className="dash-map">
-                    <LocationMap
-                      order={null}
-                      orders={movingOrders}
-                      mode="manager"
-                      isDemo={workspace.isDemo}
-                      compact
-                    />
-                    {movingCount === 0 && (
-                      <p className="dash-map-empty">No parcels on the move</p>
-                    )}
-                  </div>
-                </section>
-
-                <section className="dash-card" aria-label="Recent deliveries">
-                  <CardHeader title="Recent deliveries">
-                    <Link className="dash-link" href="/manager/order">
-                      View queue
-                    </Link>
-                  </CardHeader>
-                  <table className="dash-table">
-                    <caption className="visually-hidden">
-                      Recent deliveries
-                    </caption>
-                    <thead>
-                      <tr>
-                        <th scope="col">Delivery</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Rider</th>
-                        <th scope="col">ETA</th>
-                        <th scope="col">COD</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentList.map((order) => (
-                        <tr key={order.id} className="dash-table-row">
-                          <td className="dash-cell-main">
-                            <Link href={`/manager/order?id=${order.id}`}>
-                              <strong>{order.tracking_code}</strong>
-                            </Link>
-                            <small>{order.customer_name}</small>
-                          </td>
-                          <td>
-                            <StatusBadge status={order.status} />
-                          </td>
-                          <td className="dash-cell-truncate">
-                            {order.driver_name || "Unassigned"}
-                          </td>
-                          <td>{formatTime(order.estimated_delivery_at)}</td>
-                          <td>
-                            {order.cod_amount > 0
-                              ? currency.format(order.cod_amount)
-                              : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {!recentList.length && (
-                    <p className="dash-empty">No deliveries yet.</p>
-                  )}
-                </section>
-              </div>
-
-              <aside className="dash-rail">
-                <section className="dash-card" aria-label="Needs attention">
-                  <CardHeader
-                    title="Needs attention"
-                    meta={
-                      attentionTotal ? `${attentionTotal} open` : "All clear"
-                    }
-                  />
-                  <ul className="dash-list">
-                    {(
-                      [
-                        [
-                          "Needs rider",
-                          summary.needsRider,
-                          "/manager/order?filter=unassigned",
-                        ],
-                        ["Delayed on route", summary.delayed, "/manager/track"],
-                        [
-                          "COD to settle",
-                          summary.codPending,
-                          "/manager/order?filter=cod",
-                        ],
-                        [
-                          "Rider requests",
-                          openRequests.length,
-                          "/manager/track#rider-requests",
-                        ],
-                        [
-                          "Road reports",
-                          summary.pendingReports,
-                          "/manager/track#road-knowledge",
-                        ],
-                      ] as const
-                    ).map(([label, value, href]) => (
-                      <li
-                        key={label}
-                        className={value > 0 ? "is-alert" : "is-clear"}
-                      >
-                        <Link href={href}>
-                          <span>{label}</span>
-                          <strong>{value}</strong>
-                          <Icon name="arrow-right" size={14} />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-
-                <section className="dash-card" aria-label="Fleet status">
-                  <CardHeader title="Fleet" />
-                  <ul className="dash-list">
-                    <li>
-                      <Link href="/manager/profile">
-                        <span>Riders free</span>
-                        <strong>
-                          {workspace.data.drivers.length ? (
-                            <>
-                              {freeRiders}
-                              <small> / {workspace.data.drivers.length}</small>
-                            </>
-                          ) : (
-                            "—"
-                          )}
-                        </strong>
-                        <Icon name="arrow-right" size={14} />
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/manager/profile">
-                        <span>Vehicles ready</span>
-                        <strong>
-                          {workspace.data.vehicles.length ? (
-                            <>
-                              {availableVehicles.length}
-                              <small> / {workspace.data.vehicles.length}</small>
-                            </>
-                          ) : (
-                            "—"
-                          )}
-                        </strong>
-                        <Icon name="arrow-right" size={14} />
-                      </Link>
-                    </li>
-                  </ul>
-                </section>
-              </aside>
-            </div>
+            <ManagerHomeView
+              workspace={workspace}
+              movingCount={movingCount}
+              activeCount={activeCount}
+              deliveredCount={deliveredCount}
+              atRiskCount={atRiskCount}
+              hourly={hourly}
+              movingOrders={movingOrders}
+              recentList={recentList}
+              summary={summary}
+              openRequests={openRequests}
+              freeRiders={freeRiders}
+              availableVehicles={availableVehicles}
+            />
           )}
 
           {!signedOut && view === "cod" && (
@@ -1345,98 +1161,5 @@ export function ManagerDashboard({
         onClose={() => setAuthOpen(false)}
       />
     </main>
-  );
-}
-
-function KpiCell({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: number;
-  hint: string;
-  tone?: "live" | "warning";
-}) {
-  return (
-    <div className={`dash-kpi ${tone ? `is-${tone}` : ""}`}>
-      <span className="dash-kpi-label">{label}</span>
-      <strong className="dash-kpi-value">{value}</strong>
-      <span className="dash-kpi-hint">{hint}</span>
-    </div>
-  );
-}
-
-function CardHeader({
-  title,
-  meta,
-  children,
-}: {
-  title: string;
-  meta?: string;
-  children?: ReactNode;
-}) {
-  return (
-    <header className="dash-card-header">
-      <h2>{title}</h2>
-      <div>
-        {meta && <span className="dash-meta">{meta}</span>}
-        {children}
-      </div>
-    </header>
-  );
-}
-
-function NoticeStrip({
-  notice,
-  scope,
-}: {
-  notice: Notice | null;
-  scope: Notice["scope"];
-}) {
-  const active = notice?.scope === scope ? notice : null;
-  return (
-    <div className="dash-notice-slot" aria-live="polite">
-      {active && (
-        <p className={`dash-notice is-${active.tone}`}>
-          <Icon
-            name={active.tone === "success" ? "check" : "warning"}
-            size={15}
-          />
-          {active.text}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function Sparkline({ values }: { values: number[] }) {
-  const max = Math.max(1, ...values);
-  const total = values.reduce((sum, value) => sum + value, 0);
-  const step = values.length > 1 ? 100 / (values.length - 1) : 100;
-  const points = values
-    .map((value, index) => {
-      const x = (index * step).toFixed(2);
-      const y = (23 - (value / max) * 21).toFixed(2);
-      return `${x},${y}`;
-    })
-    .join(" ");
-  return (
-    <svg
-      className="dash-sparkline"
-      viewBox="0 0 100 24"
-      preserveAspectRatio="none"
-      role="img"
-      aria-label={`${total} orders created in the last ${values.length} hours, at most ${max} in one hour`}
-    >
-      <polyline
-        points={points}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
   );
 }

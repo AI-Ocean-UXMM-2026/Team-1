@@ -3,6 +3,7 @@
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import MyLocationOutlined from "@mui/icons-material/MyLocationOutlined";
+import RefreshOutlined from "@mui/icons-material/RefreshOutlined";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -24,6 +25,7 @@ import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import { createCustomerPickupOrder } from "@/lib/delivery/actions";
 import type { MapPoint } from "@/lib/delivery/map-projection";
 import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
+import { usePermissionRecovery } from "@/lib/delivery/use-permission-recovery";
 import { createClient } from "@/lib/supabase/client";
 
 const pickupWindows = ["Morning", "Afternoon", "Evening"] as const;
@@ -119,7 +121,7 @@ export function PickupRequestPage() {
   const [parcelDescription, setParcelDescription] = useState("");
   const [codAmount, setCodAmount] = useState("0");
   const [notes, setNotes] = useState("");
-  const [window, setWindow] = useState<PickupWindow>("Morning");
+  const [pickupWindow, setPickupWindow] = useState<PickupWindow>("Morning");
   const [state, setState] = useState<"editing" | "sending" | "sent">("editing");
   const [error, setError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
@@ -165,6 +167,12 @@ export function PickupRequestPage() {
       { enableHighAccuracy: true, timeout: 15_000 },
     );
   }
+
+  usePermissionRecovery({
+    permission: "geolocation",
+    enabled: gpsState === "denied",
+    onGranted: locate,
+  });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -250,9 +258,9 @@ export function PickupRequestPage() {
           <Typography sx={{ color: "text.secondary" }}>
             Your order {trackingCode ? `${trackingCode} ` : ""}is now waiting
             for assignment. We will confirm{" "}
-            {/^[aeiou]/i.test(window) ? "an" : "a"} {window.toLowerCase()}{" "}
-            pickup from {address.trim()} and reach you at{" "}
-            {phone.trim() || "the number on your account"}.
+            {/^[aeiou]/i.test(pickupWindow) ? "an" : "a"}{" "}
+            {pickupWindow.toLowerCase()} pickup from {address.trim()} and reach
+            you at {phone.trim() || "the number on your account"}.
           </Typography>
           <Button
             fullWidth
@@ -306,13 +314,42 @@ export function PickupRequestPage() {
               {gpsState === "locating" ? "Finding you…" : "Use my location"}
             </Button>
             {gpsState === "denied" && (
-              <Typography
-                variant="caption"
-                sx={{ display: "block", mb: 1, color: "error.main" }}
-              >
-                Location access is blocked. Allow it in your browser settings,
-                or enter the address below.
-              </Typography>
+              <Box sx={{ mb: 1.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ display: "block", mb: 0.5, color: "error.main" }}
+                >
+                  Location access was blocked. Allow it in your browser
+                  settings, or enter the address below:
+                </Typography>
+                <Box
+                  component="ul"
+                  sx={{
+                    m: 0,
+                    pl: 2.5,
+                    typography: "caption",
+                    color: "text.secondary",
+                  }}
+                >
+                  <li>
+                    <strong>Safari (iPhone):</strong> Tap <em>aA</em> in the
+                    address bar → Website Settings → Location → Allow.
+                  </li>
+                  <li>
+                    <strong>Chrome / Android:</strong> Tap the lock or tune icon
+                    in the address bar → Permissions → Location → Allow.
+                  </li>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<RefreshOutlined />}
+                  onClick={locate}
+                  sx={{ mt: 1 }}
+                >
+                  Try again
+                </Button>
+              </Box>
             )}
             {gpsState === "unavailable" && (
               <Typography
@@ -418,9 +455,9 @@ export function PickupRequestPage() {
             <ToggleButtonGroup
               exclusive
               fullWidth
-              value={window}
+              value={pickupWindow}
               onChange={(_, value: PickupWindow | null) => {
-                if (value) setWindow(value);
+                if (value) setPickupWindow(value);
               }}
               aria-label="Preferred pickup time"
               sx={{ p: 0.5, borderRadius: "999px", bgcolor: "grey.100" }}

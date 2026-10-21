@@ -185,7 +185,7 @@ export function summariseRoute(
   events: StatusEvent[],
 ): RouteSummary {
   const delivered = route.closedToday.filter((o) => o.status === "delivered");
-  const codOrders = [...route.active, ...route.closedToday].filter(
+  const codOrders = [...route.active, ...delivered].filter(
     (order) => order.cod_amount > 0,
   );
   const collected = codOrders.filter(

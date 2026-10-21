@@ -17,6 +17,7 @@ const inter = localFont({
   ],
   variable: "--font-inter",
   display: "swap",
+  preload: false,
 });
 const notoSansMyanmar = localFont({
   src: [
@@ -35,6 +36,7 @@ const notoSansMyanmar = localFont({
   ],
   variable: "--font-myanmar",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
