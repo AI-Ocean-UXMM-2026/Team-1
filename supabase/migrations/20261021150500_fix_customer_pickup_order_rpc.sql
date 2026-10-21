@@ -1,4 +1,4 @@
--- Fix create_customer_pickup_order, which fails for every customer on a database
+-- Fixes create_customer_pickup_order, which fails for every customer on a database
 -- built from these migrations. Two defects, both reproducible on a fresh
 -- Postgres 17 by running supabase/tests/delivery_workflows.sql:
 --

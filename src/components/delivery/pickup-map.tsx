@@ -53,7 +53,10 @@ export function PickupMapPage({
   // The spot restored from the draft; its first move must not clear the saved address.
   const restored = useRef<MapPoint | null>(null);
   const pointRef = useRef<MapPoint | null>(null);
-  pointRef.current = point;
+
+  useEffect(() => {
+    pointRef.current = point;
+  }, [point]);
 
   const flyTo = useCallback(
     (target: MapPoint, zoom = 17) => {
