@@ -117,6 +117,18 @@
   border-top: 1px solid var(--color-border);
 }
 
+.dv-metrics > div:nth-child(2) {
+  background: var(--rf-info-bg);
+}
+
+.dv-metrics > div:nth-child(2) dt {
+  color: var(--rf-info-fg);
+}
+
+.dv-metrics > div:nth-child(2) dd {
+  color: var(--rf-info-fg);
+}
+
 .dv-metrics dt {
   display: inline-flex;
   align-items: center;
@@ -145,8 +157,21 @@
   display: block;
 }
 
+.dv-metric-cod {
+  background: var(--rf-warn-bg);
+}
+
 .dv-metric-cod dt {
-  color: var(--color-warning-text);
+  color: var(--rf-warn-fg);
+}
+
+.dv-metric-cod dt svg {
+  color: #d97706;
+}
+
+.dv-metric-cod dd {
+  color: var(--rf-warn-fg);
+  font-weight: 750;
 }
 
 /* ---------- stop lists ---------- */
@@ -161,16 +186,26 @@
 .dv-stop-row {
   display: flex;
   gap: 12px;
-  padding: 14px 0;
+  padding: 14px 8px;
   border-top: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: background-color 140ms ease;
 }
 
 .dv-stop-row:first-child {
   border-top: 0;
 }
 
+.dv-stop-row.is-navigating,
+.dv-stop-row.is-arrived,
+.dv-stop-row.is-handover_in_progress {
+  background: var(--rf-info-bg);
+  border-left: 4px solid var(--color-info);
+  padding-left: 10px;
+}
+
 .dv-stop-list.is-compact .dv-stop-row {
-  padding: 10px 0;
+  padding: 10px 8px;
 }
 
 .dv-stop-mark {
@@ -185,26 +220,30 @@
   color: var(--color-text-primary);
   font-size: 14px;
   font-weight: 700;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .dv-stop-mark.is-navigating,
 .dv-stop-mark.is-arrived,
 .dv-stop-mark.is-handover_in_progress {
-  border-color: var(--color-brand-navy);
-  background: var(--color-brand-navy);
-  color: var(--color-text-inverse);
+  border-color: #1d4ed8;
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
 }
 
 .dv-stop-mark.is-completed {
-  border-color: var(--color-success);
-  background: var(--color-success-surface);
-  color: var(--color-success-text);
+  border-color: #16a34a;
+  background: var(--rf-success-bg);
+  color: var(--rf-success-fg);
 }
 
 .dv-stop-mark.is-failed {
-  border-color: var(--color-error);
-  background: var(--color-error-surface);
-  color: var(--color-error-text);
+  border-color: #dc2626;
+  background: var(--rf-error-bg);
+  color: var(--rf-error-fg);
 }
 
 .dv-stop-copy {
@@ -439,7 +478,7 @@
   display: grid;
   gap: 10px;
   width: calc(100% - 24px);
-  max-width: 456px;
+  max-width: calc(430px - 24px);
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -456,13 +495,23 @@
 .dv-active .dv-instruction {
   border: 0;
   border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 8px 24px -8px rgb(23 43 77 / 0.28);
+  background: var(--color-surface);
+  box-shadow: var(--rf-shadow-float);
 }
 
 .dv-active .dv-instruction .rf-turn {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--rf-info-bg);
+  color: var(--rf-info-fg);
+}
+
+.dark .dv-active .dv-instruction {
+  background: var(--color-surface, #1e293b);
+  color: #f8fafc;
+}
+
+.dark .dv-active .dv-instruction .rf-turn {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
 }
 
 .dv-top-row {
@@ -506,10 +555,12 @@
   left: 50%;
   bottom: 0;
   z-index: 15;
+  width: 100%;
+  max-width: 430px;
   max-height: 46dvh;
   padding-bottom: 0;
   border: 0;
-  background: #ffffff;
+  background: var(--color-surface);
   transform: translateX(-50%);
   transition: max-height 240ms var(--rf-ease);
 }
@@ -579,15 +630,25 @@
 }
 
 .dv-stop-title > small {
-  color: var(--color-info-text);
-  font-size: 12px;
-  line-height: 16px;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--rf-info-bg-strong);
+  border: 1px solid var(--rf-border-info);
+  color: var(--rf-info-fg);
+  font-size: 11px;
+  line-height: 14px;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
 }
 
 .dv-stop-title > small.is-arrived {
-  color: var(--color-success-text);
+  background: var(--rf-success-bg);
+  border-color: var(--rf-border-success);
+  color: var(--rf-success-fg);
 }
 
 .dv-stop-title h2 {
@@ -615,6 +676,28 @@
 .dv-quick {
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   margin-top: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.dv-quick > a[href^="tel"] {
+  color: var(--rf-success-fg);
+  background: var(--rf-success-bg);
+}
+
+.dv-quick > a[href^="tel"]:hover,
+.dv-quick > a[href^="tel"]:active {
+  background: var(--rf-success-bg);
+}
+
+.dv-quick > a[href^="sms"] {
+  color: var(--rf-info-fg);
+  background: var(--rf-info-bg);
+}
+
+.dv-quick > a[href^="sms"]:hover,
+.dv-quick > a[href^="sms"]:active {
+  background: var(--rf-info-bg-strong);
 }
 
 .dv-details {
@@ -694,15 +777,19 @@
   min-height: 48px;
   place-items: center;
   gap: 4px;
-  padding: 4px;
-  border: 0;
+  padding: 6px 4px;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: transparent;
-  color: var(--color-text-secondary-subtle);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
 }
 
 .dv-handover-steps button > span {
@@ -712,17 +799,32 @@
   place-items: center;
   border: 1px solid var(--color-border-control);
   border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .dv-handover-steps .is-current button {
-  background: var(--color-info-surface);
-  color: var(--color-info-text);
+  border-color: var(--rf-border-info);
+  background: var(--rf-info-bg);
+  color: var(--rf-info-fg);
+}
+
+.dv-handover-steps .is-current button > span {
+  border-color: #1d4ed8;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.dv-handover-steps .is-met button {
+  border-color: var(--rf-border-success);
+  background: var(--rf-success-bg);
+  color: var(--rf-success-fg);
 }
 
 .dv-handover-steps .is-met button > span {
-  border-color: var(--color-success);
-  background: var(--color-success-surface);
-  color: var(--color-success-text);
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #ffffff;
 }
 
 .dv-handover-stage {
@@ -892,7 +994,7 @@
 
 .dv-preview-bar {
   position: fixed;
-  right: 8px;
+  right: max(16px, calc((100vw - 430px) / 2 + 16px));
   top: 72px;
   z-index: 60;
   max-width: 240px;
@@ -924,4 +1026,288 @@
   background: var(--color-surface);
   color: var(--color-text-primary);
   font: inherit;
+}
+
+/* ---------- active delivery: compact sheet ---------- */
+
+.dv-sheet {
+  max-height: 40dvh;
+  padding-top: 4px;
+}
+
+.dv-sheet.is-arrived:not(.is-open, .is-handover) {
+  max-height: 40dvh;
+}
+
+.dv-sheet .rf-handle-btn {
+  height: 20px;
+  margin: 0;
+}
+
+.dv-sheet .rf-handle-btn .rf-handle {
+  margin: 6px auto 0;
+}
+
+.dv-stop-head {
+  align-items: center;
+  gap: 10px;
+}
+
+.dv-stop-head .dv-stop-mark {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
+
+.dv-stop-title {
+  gap: 0;
+}
+
+.dv-stop-title > small {
+  padding: 0;
+  border: 0;
+  background: none;
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.dv-stop-title h2 {
+  overflow: hidden;
+  font-size: 18px;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-stop-title p {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-directions {
+  display: grid;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-info);
+  color: #ffffff;
+}
+
+.dv-sheet > .dv-meta {
+  gap: 4px 12px;
+  margin: 6px 0 0 46px;
+}
+
+.dv-sheet > .dv-meta .rf-cod,
+.dv-sheet > .dv-meta .dv-tag {
+  flex-basis: auto;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.dv-sheet-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px -16px 0;
+  padding: 8px 16px calc(var(--rf-safe-bottom) + 8px);
+}
+
+.dv-round {
+  display: grid;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 999px;
+}
+
+.dv-round-call {
+  background: var(--rf-success-bg);
+  color: var(--rf-success-fg);
+}
+
+.dv-round-msg {
+  background: var(--rf-info-bg);
+  color: var(--rf-info-fg);
+}
+
+.dv-details {
+  gap: 12px;
+  padding-top: 12px;
+  margin-top: 8px;
+}
+
+.dv-facts {
+  display: grid;
+  gap: 10px;
+}
+
+.dv-facts h3,
+.dv-details .rf-detail h3 {
+  margin: 0 0 2px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dv-parcel-list {
+  gap: 2px;
+  margin: 0;
+}
+
+.dv-stop-row.is-dense {
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+}
+
+.dv-stop-row.is-dense .dv-stop-mark {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy strong {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-stop-row.is-dense .dv-stop-address {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-dense-cod {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--rf-warning-bg, #fef3c7);
+  color: var(--rf-warning-fg, #92400e);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dv-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.dv-secondary button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dv-secondary button:first-child {
+  color: var(--color-error-text);
+}
+
+/* ---------- compact sheet, round 2 (Grab / DoorDash pattern) ---------- */
+
+.dv-sheet.is-open {
+  height: auto;
+  max-height: 62dvh;
+}
+
+.dv-details {
+  flex: 0 1 auto;
+  align-content: start;
+  gap: 14px;
+  margin-top: 8px;
+  padding-top: 10px;
+}
+
+.dv-details > * {
+  min-width: 0;
+}
+
+.dv-sheet > .dv-meta {
+  margin-left: 46px;
+}
+
+/* Upcoming stops as a timeline: a rail joins the numbered marks. */
+.dv-stop-list.is-compact {
+  position: relative;
+}
+
+.dv-stop-row.is-dense {
+  position: relative;
+  border-top: 0;
+  border-left: 0;
+  background: none;
+  padding: 7px 0;
+}
+
+.dv-stop-row.is-dense:not(:last-child)::after {
+  position: absolute;
+  top: calc(50% + 14px);
+  bottom: calc(-50% + 14px);
+  left: 13px;
+  width: 2px;
+  background: var(--color-border);
+  content: "";
+}
+
+.dv-stop-row.is-dense .dv-stop-copy {
+  display: grid;
+  gap: 0;
+}
+
+.dv-stop-row.is-dense .dv-stop-copy strong {
+  max-width: none;
+  line-height: 18px;
+}
+
+.dv-stop-row.is-dense .dv-stop-address {
+  line-height: 16px;
+}
+
+.dv-stop-row.is-dense .dv-stop-state {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-done summary {
+  min-height: 32px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.dv-secondary {
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
 }

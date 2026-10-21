@@ -16,7 +16,13 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import { Icon } from "@/components/delivery/icons";
@@ -32,9 +38,29 @@ const pickupWindows = ["Morning", "Afternoon", "Evening"] as const;
 type PickupWindow = (typeof pickupWindows)[number];
 type GpsState = "idle" | "locating" | "ready" | "denied" | "unavailable";
 
-function FieldLabel({ children }: { children: string }) {
+function FieldLabel({
+  htmlFor,
+  id,
+  children,
+}: {
+  htmlFor?: string;
+  id?: string;
+  children: ReactNode;
+}) {
   return (
-    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+    <Typography
+      component={htmlFor ? "label" : "span"}
+      htmlFor={htmlFor}
+      id={id}
+      variant="subtitle2"
+      sx={{
+        display: "block",
+        fontWeight: 700,
+        mb: 0.5,
+        color: "text.primary",
+        cursor: htmlFor ? "pointer" : "default",
+      }}
+    >
       {children}
     </Typography>
   );
@@ -281,177 +307,262 @@ export function PickupRequestPage() {
             pt: 2,
             pb: "calc(96px + env(safe-area-inset-bottom))",
             display: "grid",
-            gap: 2,
+            gap: 3,
           }}
         >
-          <Box>
-            <FieldLabel>Pickup location</FieldLabel>
-            {hasMapbox && (
-              <Box sx={{ mb: 1 }}>
-                <MapPointPicker point={point} onChange={setPoint} />
-                <Typography
-                  variant="caption"
-                  sx={{ display: "block", mt: 0.5, color: "text.secondary" }}
-                >
-                  Drag the map so the pin sits on your pickup spot.
-                </Typography>
-              </Box>
-            )}
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={locate}
-              disabled={gpsState === "locating"}
-              startIcon={
-                gpsState === "locating" ? (
-                  <CircularProgress size={16} />
-                ) : (
-                  <MyLocationOutlined fontSize="small" />
-                )
-              }
-              sx={{ mb: 1 }}
+          <Box
+            component="section"
+            aria-labelledby="heading-locations"
+            sx={{ display: "grid", gap: 2 }}
+          >
+            <Typography
+              id="heading-locations"
+              variant="subtitle1"
+              component="h2"
+              sx={{ fontWeight: 750, color: "text.primary" }}
             >
-              {gpsState === "locating" ? "Finding you…" : "Use my location"}
-            </Button>
-            {gpsState === "denied" && (
-              <Box sx={{ mb: 1.5 }}>
+              Pickup and destination
+            </Typography>
+
+            <Box>
+              <FieldLabel htmlFor="pickup-address">Pickup address</FieldLabel>
+              {hasMapbox && (
+                <Box sx={{ mb: 1 }}>
+                  <MapPointPicker point={point} onChange={setPoint} />
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", mt: 0.5, color: "text.secondary" }}
+                  >
+                    Drag the map so the pin sits on your pickup spot.
+                  </Typography>
+                </Box>
+              )}
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={locate}
+                disabled={gpsState === "locating"}
+                startIcon={
+                  gpsState === "locating" ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <MyLocationOutlined fontSize="small" />
+                  )
+                }
+                sx={{ mb: 1 }}
+              >
+                {gpsState === "locating" ? "Finding you…" : "Use my location"}
+              </Button>
+              {gpsState === "denied" && (
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", mb: 0.5, color: "error.main" }}
+                  >
+                    Location access was blocked. Allow it in your browser
+                    settings, or enter the address below:
+                  </Typography>
+                  <Box
+                    component="ul"
+                    sx={{
+                      m: 0,
+                      pl: 2.5,
+                      typography: "caption",
+                      color: "text.secondary",
+                    }}
+                  >
+                    <li>
+                      <strong>Safari (iPhone):</strong> Tap <em>aA</em> in the
+                      address bar → Website Settings → Location → Allow.
+                    </li>
+                    <li>
+                      <strong>Chrome / Android:</strong> Tap the lock or tune
+                      icon in the address bar → Permissions → Location → Allow.
+                    </li>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<RefreshOutlined />}
+                    onClick={locate}
+                    sx={{ mt: 1 }}
+                  >
+                    Try again
+                  </Button>
+                </Box>
+              )}
+              {gpsState === "unavailable" && (
                 <Typography
                   variant="caption"
-                  sx={{ display: "block", mb: 0.5, color: "error.main" }}
+                  sx={{ display: "block", mb: 1, color: "error.main" }}
                 >
-                  Location access was blocked. Allow it in your browser
-                  settings, or enter the address below:
+                  GPS isn't available on this device. Enter the address below.
                 </Typography>
-                <Box
-                  component="ul"
-                  sx={{
-                    m: 0,
-                    pl: 2.5,
-                    typography: "caption",
-                    color: "text.secondary",
-                  }}
+              )}
+              {placeName && (
+                <Typography
+                  variant="caption"
+                  sx={{ display: "block", mb: 1, color: "text.secondary" }}
                 >
-                  <li>
-                    <strong>Safari (iPhone):</strong> Tap <em>aA</em> in the
-                    address bar → Website Settings → Location → Allow.
-                  </li>
-                  <li>
-                    <strong>Chrome / Android:</strong> Tap the lock or tune icon
-                    in the address bar → Permissions → Location → Allow.
-                  </li>
-                </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<RefreshOutlined />}
-                  onClick={locate}
-                  sx={{ mt: 1 }}
-                >
-                  Try again
-                </Button>
-              </Box>
-            )}
-            {gpsState === "unavailable" && (
-              <Typography
-                variant="caption"
-                sx={{ display: "block", mb: 1, color: "error.main" }}
-              >
-                GPS isn't available on this device. Enter the address below.
-              </Typography>
-            )}
-            {placeName && (
-              <Typography
-                variant="caption"
-                sx={{ display: "block", mb: 1, color: "text.secondary" }}
-              >
-                Matched: {placeName}
-              </Typography>
-            )}
-            <OutlinedInput
-              fullWidth
-              required
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
-              placeholder="House, street, township"
-              inputProps={{ "aria-label": "Pickup address" }}
-            />
+                  Matched: {placeName}
+                </Typography>
+              )}
+              <OutlinedInput
+                id="pickup-address"
+                fullWidth
+                required
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                placeholder="House, street, township"
+              />
+            </Box>
+
+            <Box>
+              <FieldLabel htmlFor="delivery-address">
+                Delivery address
+              </FieldLabel>
+              <OutlinedInput
+                id="delivery-address"
+                fullWidth
+                required
+                value={dropoff}
+                onChange={(event) => setDropoff(event.target.value)}
+                placeholder="Recipient’s address and township"
+              />
+            </Box>
+
+            <Box>
+              <FieldLabel htmlFor="pickup-phone">
+                Your phone number (optional)
+              </FieldLabel>
+              <OutlinedInput
+                id="pickup-phone"
+                fullWidth
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="09xxxxxxxxx"
+              />
+            </Box>
           </Box>
 
-          <Box>
-            <FieldLabel>Deliver to</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              required
-              value={dropoff}
-              onChange={(event) => setDropoff(event.target.value)}
-              placeholder="Recipient’s address and township"
-              inputProps={{ "aria-label": "Delivery address" }}
-            />
+          <Box
+            component="section"
+            aria-labelledby="heading-recipient"
+            sx={{ display: "grid", gap: 2 }}
+          >
+            <Typography
+              id="heading-recipient"
+              variant="subtitle1"
+              component="h2"
+              sx={{ fontWeight: 750, color: "text.primary" }}
+            >
+              Recipient
+            </Typography>
+
+            <Box>
+              <FieldLabel htmlFor="recipient-name">Recipient name</FieldLabel>
+              <OutlinedInput
+                id="recipient-name"
+                fullWidth
+                required
+                value={recipientName}
+                onChange={(event) => setRecipientName(event.target.value)}
+                placeholder="Who should receive it?"
+              />
+            </Box>
+
+            <Box>
+              <FieldLabel htmlFor="recipient-phone">
+                Recipient phone number
+              </FieldLabel>
+              <OutlinedInput
+                id="recipient-phone"
+                fullWidth
+                type="tel"
+                required
+                value={recipientPhone}
+                onChange={(event) => setRecipientPhone(event.target.value)}
+                placeholder="09xxxxxxxxx"
+              />
+            </Box>
           </Box>
 
-          <Box>
-            <FieldLabel>Contact phone (optional)</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              placeholder="09xxxxxxxxx"
-              inputProps={{ "aria-label": "Contact phone" }}
-            />
+          <Box
+            component="section"
+            aria-labelledby="heading-parcel"
+            sx={{ display: "grid", gap: 2 }}
+          >
+            <Typography
+              id="heading-parcel"
+              variant="subtitle1"
+              component="h2"
+              sx={{ fontWeight: 750, color: "text.primary" }}
+            >
+              Parcel and payment
+            </Typography>
+
+            <Box>
+              <FieldLabel htmlFor="parcel-description">
+                Parcel description
+              </FieldLabel>
+              <OutlinedInput
+                id="parcel-description"
+                fullWidth
+                required
+                multiline
+                minRows={2}
+                value={parcelDescription}
+                onChange={(event) => setParcelDescription(event.target.value)}
+                placeholder="Documents, clothing, fragile items…"
+              />
+            </Box>
+
+            <Box>
+              <FieldLabel htmlFor="cod-amount">
+                Cash on delivery (MMK)
+              </FieldLabel>
+              <OutlinedInput
+                id="cod-amount"
+                fullWidth
+                type="number"
+                value={codAmount}
+                onChange={(event) => setCodAmount(event.target.value)}
+                inputProps={{ min: 0, step: 1 }}
+                placeholder="0"
+              />
+            </Box>
+
+            <Box>
+              <FieldLabel htmlFor="pickup-notes">
+                Pickup instructions (optional)
+              </FieldLabel>
+              <OutlinedInput
+                id="pickup-notes"
+                fullWidth
+                multiline
+                minRows={3}
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Landmarks, gate code, special handling…"
+              />
+            </Box>
           </Box>
 
-          <Box>
-            <FieldLabel>Recipient name</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              required
-              value={recipientName}
-              onChange={(event) => setRecipientName(event.target.value)}
-              placeholder="Who should receive it?"
-              inputProps={{ "aria-label": "Recipient name" }}
-            />
-          </Box>
+          <Box
+            component="section"
+            aria-labelledby="heading-schedule"
+            sx={{ display: "grid", gap: 1.5 }}
+          >
+            <Typography
+              id="heading-schedule"
+              variant="subtitle1"
+              component="h2"
+              sx={{ fontWeight: 750, color: "text.primary" }}
+            >
+              Preferred pickup time
+            </Typography>
 
-          <Box>
-            <FieldLabel>Recipient phone</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              required
-              value={recipientPhone}
-              onChange={(event) => setRecipientPhone(event.target.value)}
-              placeholder="09xxxxxxxxx"
-              inputProps={{ "aria-label": "Recipient phone" }}
-            />
-          </Box>
-
-          <Box>
-            <FieldLabel>Parcel details</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              required
-              multiline
-              minRows={2}
-              value={parcelDescription}
-              onChange={(event) => setParcelDescription(event.target.value)}
-              placeholder="Documents, clothing, fragile items…"
-              inputProps={{ "aria-label": "Parcel details" }}
-            />
-          </Box>
-
-          <Box>
-            <FieldLabel>COD amount · MMK</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              type="number"
-              value={codAmount}
-              onChange={(event) => setCodAmount(event.target.value)}
-              inputProps={{ min: 0, step: 1, "aria-label": "COD amount" }}
-            />
-          </Box>
-
-          <Box>
-            <FieldLabel>Preferred time</FieldLabel>
             <ToggleButtonGroup
               exclusive
               fullWidth
@@ -459,7 +570,7 @@ export function PickupRequestPage() {
               onChange={(_, value: PickupWindow | null) => {
                 if (value) setPickupWindow(value);
               }}
-              aria-label="Preferred pickup time"
+              aria-labelledby="heading-schedule"
               sx={{ p: 0.5, borderRadius: "999px", bgcolor: "grey.100" }}
             >
               {pickupWindows.map((value) => (
@@ -480,19 +591,6 @@ export function PickupRequestPage() {
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
-          </Box>
-
-          <Box>
-            <FieldLabel>What are we picking up? (optional)</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              multiline
-              minRows={3}
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="Parcel size, fragile items, landmark…"
-              inputProps={{ "aria-label": "Pickup notes" }}
-            />
           </Box>
 
           <Box

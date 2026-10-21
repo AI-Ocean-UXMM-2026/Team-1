@@ -3,6 +3,7 @@
 import "./rider-flow.css";
 import "./rider-delivery.css";
 
+import Button from "@mui/material/Button";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -90,6 +91,7 @@ import {
   formatDistance,
   type GeoPoint,
   hasParcelOnBoard,
+  resolveTurnSymbol,
 } from "@/lib/delivery/rider-route";
 import type {
   DeliveryOrder,
@@ -394,7 +396,7 @@ export function RiderApp() {
   const onBoardKey = JSON.stringify(
     route.onBoard.map((order) => order.id).sort(),
   );
-  const [sharing, setSharing] = useState<number | null>(null);
+  const [, setSharing] = useState<number | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: gpsAttempt re-triggers watchRiderLocations on retry
   useEffect(() => {
     const orderIds = JSON.parse(onBoardKey) as string[];
@@ -1133,12 +1135,14 @@ export function RiderApp() {
           title: "No map pin for this address",
           sub: "Use the address below, or call the recipient",
           arrow: null,
+          turnSymbol: "location",
         }
       : arrivedHere
         ? {
             title: `At stop ${stop.number}`,
             sub: "Park safely, then start the handover",
             arrow: null,
+            turnSymbol: "arrive",
           }
         : !riderPoint
           ? {
@@ -1148,23 +1152,31 @@ export function RiderApp() {
                   : "Finding your location…",
               sub: "Route shown from stop pins. Use Directions to navigate.",
               arrow: null,
+              turnSymbol: "straight",
             }
           : atTarget
             ? {
                 title: "You’re at the stop",
                 sub: "Park safely, then tap I’ve arrived",
                 arrow: null,
+                turnSymbol: "arrive",
               }
             : legRoute?.firstStep
               ? {
                   title: legRoute.firstStep.instruction,
                   sub: `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} by road to stop ${stop.number}`,
                   arrow: null,
+                  turnSymbol: resolveTurnSymbol(
+                    legRoute.firstStep.instruction,
+                    legRoute.firstStep.maneuverModifier,
+                    legRoute.firstStep.maneuverType,
+                  ),
                 }
               : {
                   title: `Head ${compassDirection(legBearing ?? 0)}`,
                   sub: `${formatDistance(legDistance)} straight-line to stop ${stop.number}`,
                   arrow: 0,
+                  turnSymbol: "straight",
                 };
     const heading = isPreview ? legBearing : (position?.heading ?? legBearing);
     if (instruction.arrow != null)
@@ -1207,7 +1219,6 @@ export function RiderApp() {
           gps={gpsState}
           online={online}
           syncing={busy != null}
-          sharingCount={sharing}
           revision={
             <>
               {flash && (
@@ -1600,13 +1611,16 @@ function SignInGate() {
       </div>
       <h1>Sign in to see today’s route</h1>
       <p>Driver accounts are set up by your operations team.</p>
-      <button
-        type="button"
-        className="rf-btn rf-btn-primary"
+      <Button
+        variant="contained"
+        color="primary"
+        size="large"
         onClick={() => setOpen(true)}
+        endIcon={<Icon name="arrow-right" size={18} />}
+        sx={{ minHeight: 48, borderRadius: 999, px: 3 }}
       >
-        Sign in <Icon name="arrow-right" size={18} />
-      </button>
+        Sign in
+      </Button>
       <AuthDialog open={open} audience="team" onClose={() => setOpen(false)} />
     </main>
   );

@@ -20,12 +20,17 @@ import {
   type NavStop,
   type RiderNavMapProps,
 } from "@/components/delivery/rider-nav-map";
+import { haversineKilometers } from "@/lib/delivery/intelligence";
 import type { MapPoint } from "@/lib/delivery/map-projection";
 
 const MAX_ZOOM = 17;
 /** Navigation view: close enough to read the next turn, tilted ahead. */
 const FOLLOW_ZOOM = 16.6;
 const FOLLOW_PITCH = 55;
+/** Driver auto-recenter timeout: resets to turn guidance if untouched for 7s. */
+const AUTO_RECENTER_TIMEOUT_MS = 7000;
+/** Vehicle movement threshold: if driver moves > 35m while browsing, auto-recenter immediately. */
+const AUTO_RECENTER_MOVEMENT_KM = 0.035;
 
 function stopMarker(stop: NavStop) {
   const inner =
@@ -103,6 +108,9 @@ export function MapboxRiderNavMap({
   const [moved, setMoved] = useState(false);
   const driverMarkerRef = useRef<MapboxMarker | null>(null);
   const followedOnce = useRef(false);
+  const recenteringRef = useRef(false);
+  const panStartDriverPos = useRef<MapPoint | null>(null);
+  const lastInteractionTime = useRef<number>(0);
   const map = mapState?.map ?? null;
   const gl: MapboxGl | null = mapState?.gl ?? null;
   const following = follow && driver != null;
@@ -126,24 +134,67 @@ export function MapboxRiderNavMap({
     ? road.coordinates
     : straightPath.map((point) => lngLat(point));
 
-  // Taking over the map (drag, rotate, tilt) stops the camera following.
+  // Taking over the map (drag, rotate, tilt, zoom) stops the camera following.
   useEffect(() => {
     if (!map) return;
     // Only gestures carry an originalEvent; the camera's own easing does not.
     const onUser = (event: object) => {
-      if ("originalEvent" in event && event.originalEvent) setMoved(true);
+      if ("originalEvent" in event && event.originalEvent) {
+        lastInteractionTime.current = Date.now();
+        setMoved(true);
+      }
     };
     map.on("dragstart", onUser);
     map.on("rotatestart", onUser);
     map.on("pitchstart", onUser);
     map.on("zoomstart", onUser);
+    map.on("drag", onUser);
     return () => {
       map.off("dragstart", onUser);
       map.off("rotatestart", onUser);
       map.off("pitchstart", onUser);
       map.off("zoomstart", onUser);
+      map.off("drag", onUser);
     };
   }, [map]);
+
+  // Auto-recenter timer: if the rider leaves the map alone while in follow
+  // mode, smoothly restore turn guidance after 7 seconds of inactivity.
+  useEffect(() => {
+    if (!following || !moved) return;
+    const interval = setInterval(() => {
+      if (Date.now() - lastInteractionTime.current >= AUTO_RECENTER_TIMEOUT_MS) {
+        recenteringRef.current = true;
+        setMoved(false);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [following, moved]);
+
+  // Record driver location when manual map panning begins.
+  useEffect(() => {
+    if (moved) {
+      if (!panStartDriverPos.current && driver) {
+        panStartDriverPos.current = {
+          latitude: driver.latitude,
+          longitude: driver.longitude,
+        };
+      }
+    } else {
+      panStartDriverPos.current = null;
+    }
+  }, [moved, driver]);
+
+  // Vehicle movement threshold: if the rider starts traveling again while
+  // browsing, immediately snap back to navigation guidance so they don't ride unguided.
+  useEffect(() => {
+    if (!following || !moved || !driver || !panStartDriverPos.current) return;
+    const distKm = haversineKilometers(panStartDriverPos.current, driver);
+    if (distKm >= AUTO_RECENTER_MOVEMENT_KM) {
+      recenteringRef.current = true;
+      setMoved(false);
+    }
+  }, [following, moved, driver]);
 
   // Overview: north-up, flat, everything in view.
   // biome-ignore lint/correctness/useExhaustiveDependencies: focusKey tracks focus
@@ -175,21 +226,23 @@ export function MapboxRiderNavMap({
   useEffect(() => {
     if (!map || !following || moved) return;
     if (driverLng == null || driverLat == null) return;
+    const isRecentering = recenteringRef.current;
     map.easeTo({
       center: [driverLng, driverLat],
       bearing: turn ?? map.getBearing(),
       pitch: FOLLOW_PITCH,
-      ...(followedOnce.current ? {} : { zoom: FOLLOW_ZOOM }),
+      ...(!followedOnce.current || isRecentering ? { zoom: FOLLOW_ZOOM } : {}),
       padding: {
         top: padding.top,
         bottom: padding.bottom,
         left: padding.x,
         right: padding.x,
       },
-      duration: followedOnce.current ? 900 : 1400,
+      duration: isRecentering ? 1000 : followedOnce.current ? 900 : 1400,
       essential: true,
     });
     followedOnce.current = true;
+    recenteringRef.current = false;
   }, [
     map,
     following,
@@ -204,7 +257,11 @@ export function MapboxRiderNavMap({
 
   // Back to the overview (or off to another screen) clears manual control.
   useEffect(() => {
-    if (!follow) setMoved(false);
+    if (!follow) {
+      setMoved(false);
+      recenteringRef.current = false;
+      panStartDriverPos.current = null;
+    }
   }, [follow]);
 
   useEffect(() => {
@@ -299,6 +356,18 @@ export function MapboxRiderNavMap({
     );
   }, [map, routeCoordinates, upcomingCoordinates, road]);
 
+  const handleRecenter = () => {
+    try {
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate(12);
+      }
+    } catch {
+      // Haptics optional on unsupported hardware
+    }
+    recenteringRef.current = true;
+    setMoved(false);
+  };
+
   return (
     <div className="rnav-map" aria-label={label} role="img">
       <div
@@ -309,8 +378,8 @@ export function MapboxRiderNavMap({
         <button
           type="button"
           className="rnav-recenter"
-          onClick={() => setMoved(false)}
-          aria-label="Re-centre the map on you"
+          onClick={handleRecenter}
+          aria-label="Re-centre navigation on your location"
         >
           <Icon name="navigation" size={18} /> Re-centre
         </button>

@@ -3651,6 +3651,7 @@ summary:focus-visible {
 
 .customer-app,
 .rider-app,
+.rf-app,
 .manager-app {
   width: min(100%, 430px);
   min-height: 100dvh;
@@ -3663,6 +3664,7 @@ summary:focus-visible {
 
 .customer-app,
 .rider-app,
+.rf-app,
 .manager-app {
   overflow-x: clip;
 }

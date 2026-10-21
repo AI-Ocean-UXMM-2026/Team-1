@@ -35,15 +35,19 @@ import OutlinedInput from "@mui/material/OutlinedInput";
 import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
+import { alpha } from "@mui/material/styles";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
+import { visuallyHidden } from "@mui/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type FormEvent,
+  memo,
   type ReactElement,
   type ReactNode,
   useEffect,
+  useId,
   useState,
 } from "react";
 
@@ -65,10 +69,7 @@ import {
   nextCustomerAction,
   timeUntil,
 } from "@/lib/delivery/format";
-import type {
-  DeliveryOrder,
-  StatusEvent,
-} from "@/lib/delivery/types";
+import type { DeliveryOrder, StatusEvent } from "@/lib/delivery/types";
 
 /* ----------------------------------------------------------------- shared */
 
@@ -91,7 +92,7 @@ const pageGutter = { px: 2 } as const;
  * back button instead of the bell. Sign-in lives in each page body, next to
  * what it unlocks, so the header never repeats it.
  */
-export function CustomerHeader({
+export const CustomerHeader = memo(function CustomerHeader({
   title,
   subtitle,
   isAuthenticated,
@@ -176,7 +177,7 @@ export function CustomerHeader({
       </Toolbar>
     </AppBar>
   );
-}
+});
 
 export function DemoChip({ onDismiss }: { onDismiss: () => void }) {
   return (
@@ -291,7 +292,7 @@ function ShortcutRow({
 }
 
 /** Home's primary action: the whole surface opens /pickup. */
-function PickupHero() {
+const PickupHero = memo(function PickupHero() {
   return (
     <Card
       elevation={0}
@@ -299,9 +300,15 @@ function PickupHero() {
         mx: 2,
         mt: 1,
         borderRadius: "24px",
-        bgcolor: "#FFF7ED",
+        bgcolor: (theme) =>
+          theme.palette.mode === "dark"
+            ? alpha(theme.palette.primary.main, 0.16)
+            : alpha(theme.palette.primary.main, 0.08),
         border: 1,
-        borderColor: "#FED7AA",
+        borderColor: (theme) =>
+          theme.palette.mode === "dark"
+            ? alpha(theme.palette.primary.main, 0.32)
+            : alpha(theme.palette.primary.main, 0.2),
       }}
     >
       <CardActionArea component={Link} href="/pickup" sx={{ p: 2.5 }}>
@@ -325,15 +332,24 @@ function PickupHero() {
             component="img"
             src="/icons/pickup.svg"
             alt=""
-            sx={{ display: "block", width: 88, height: 88, flex: "none" }}
+            sx={{
+              display: "block",
+              width: { xs: 72, sm: 88 },
+              height: { xs: 72, sm: 88 },
+              flex: "none",
+            }}
           />
         </Stack>
       </CardActionArea>
     </Card>
   );
-}
+});
 
-function MoreShortcuts({ onOpenHelp }: { onOpenHelp: () => void }) {
+const MoreShortcuts = memo(function MoreShortcuts({
+  onOpenHelp,
+}: {
+  onOpenHelp: () => void;
+}) {
   return (
     <Box
       component="nav"
@@ -346,22 +362,28 @@ function MoreShortcuts({ onOpenHelp }: { onOpenHelp: () => void }) {
         overflow: "hidden",
       }}
     >
-      <ShortcutRow
-        component={Link}
-        href="/track"
-        illustration="/icons/track-parcel.svg"
-        title="Track a parcel"
-        detail="Enter a tracking code or scan it."
-      />
-      <ShortcutRow
-        onClick={onOpenHelp}
-        illustration="/icons/get-help.svg"
-        title="Help and support"
-        detail="Delivery questions and issues."
-      />
+      <List disablePadding>
+        <ListItem disablePadding>
+          <ShortcutRow
+            component={Link}
+            href="/track"
+            illustration="/icons/track-parcel.svg"
+            title="Track a parcel"
+            detail="Enter a tracking code or scan it."
+          />
+        </ListItem>
+        <ListItem disablePadding>
+          <ShortcutRow
+            onClick={onOpenHelp}
+            illustration="/icons/get-help.svg"
+            title="Help and support"
+            detail="Delivery questions and issues."
+          />
+        </ListItem>
+      </List>
     </Box>
   );
-}
+});
 
 function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
   const copy = heroCopy(order, now);
@@ -449,10 +471,10 @@ function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
             mt: 2,
             height: 6,
             borderRadius: "999px",
-            bgcolor: "rgb(255 255 255 / 0.2)",
+            bgcolor: (theme) => alpha(theme.palette.common.white, 0.2),
             "& .MuiLinearProgress-bar": {
               borderRadius: "999px",
-              bgcolor: "var(--color-brand-orange)",
+              bgcolor: "primary.light",
             },
           }}
         />
@@ -578,72 +600,83 @@ function TrackingField({
   placeholder: string;
   ariaLabel: string;
 }) {
+  const inputId = useId();
   return (
-    <OutlinedInput
-      fullWidth
-      value={value}
-      placeholder={placeholder}
-      onChange={(event) => onChange(event.target.value)}
-      inputProps={{
-        "aria-label": ariaLabel,
-        autoCapitalize: "characters",
-        autoComplete: "off",
-        spellCheck: false,
-        style: { fontSize: 16, fontWeight: 560 },
-      }}
-      startAdornment={
-        <InputAdornment position="start">
-          <Search />
-        </InputAdornment>
-      }
-      endAdornment={
-        <InputAdornment position="end" sx={{ gap: 0.25 }}>
-          {value && onClear && (
-            <IconButton size="small" aria-label="Clear" onClick={onClear}>
-              <Close fontSize="small" />
-            </IconButton>
-          )}
-          {!value && onPaste && (
-            <IconButton
-              size="small"
-              aria-label="Paste tracking code"
-              onClick={onPaste}
+    <>
+      <Box component="label" htmlFor={inputId} sx={visuallyHidden}>
+        {ariaLabel}
+      </Box>
+      <OutlinedInput
+        id={inputId}
+        fullWidth
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        inputProps={{
+          "aria-label": ariaLabel,
+          autoCapitalize: "characters",
+          autoComplete: "off",
+          spellCheck: false,
+          style: { fontSize: 16, fontWeight: 560 },
+        }}
+        startAdornment={
+          <InputAdornment position="start">
+            <Search />
+          </InputAdornment>
+        }
+        endAdornment={
+          <InputAdornment position="end" sx={{ gap: 0.25 }}>
+            {value && onClear && (
+              <IconButton
+                aria-label="Clear"
+                onClick={onClear}
+                sx={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            )}
+            {!value && onPaste && (
+              <IconButton
+                aria-label="Paste tracking code"
+                onClick={onPaste}
+                sx={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+              >
+                <ContentPasteOutlined fontSize="small" />
+              </IconButton>
+            )}
+            {!value && onScan && (
+              <IconButton
+                aria-label="Scan tracking code"
+                onClick={onScan}
+                sx={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+              >
+                <QrCodeScannerOutlined fontSize="small" />
+              </IconButton>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{
+                px: 2,
+                height: 44,
+                minHeight: 44,
+                minWidth: 0,
+                ml: 0.5,
+                flex: "none",
+                borderRadius: "999px",
+              }}
             >
-              <ContentPasteOutlined fontSize="small" />
-            </IconButton>
-          )}
-          {!value && onScan && (
-            <IconButton
-              size="small"
-              aria-label="Scan tracking code"
-              onClick={onScan}
-            >
-              <QrCodeScannerOutlined fontSize="small" />
-            </IconButton>
-          )}
-          <Button
-            type="submit"
-            variant="contained"
-            sx={{
-              px: 2,
-              height: 40,
-              minHeight: 40,
-              minWidth: 0,
-              ml: 0.5,
-              flex: "none",
-              borderRadius: "999px",
-            }}
-          >
-            Track
-          </Button>
-        </InputAdornment>
-      }
-      sx={{
-        bgcolor: "background.paper",
-        pr: 0.5,
-        pl: 1.5,
-      }}
-    />
+              Track
+            </Button>
+          </InputAdornment>
+        }
+        sx={{
+          bgcolor: "background.paper",
+          pr: 0.5,
+          pl: 1.5,
+        }}
+      />
+    </>
   );
 }
 

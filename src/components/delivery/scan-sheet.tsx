@@ -34,7 +34,11 @@ export function codeFromScan(raw: string) {
   }
 }
 
-export function ScanView({ onDetected }: { onDetected: (code: string) => void }) {
+export function ScanView({
+  onDetected,
+}: {
+  onDetected: (code: string) => void;
+}) {
   const video = useRef<HTMLVideoElement>(null);
   const handleDetected = useEffectEvent(onDetected);
   const [status, setStatus] = useState<
@@ -215,6 +219,9 @@ export function ScanView({ onDetected }: { onDetected: (code: string) => void })
       </Box>
       <Typography
         variant="body2"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
         sx={{ mt: 1.5, textAlign: "center", color: "text.secondary" }}
       >
         {status === "starting"
@@ -231,11 +238,7 @@ export type ScanSheetProps = {
   onDetected: (code: string) => void;
 };
 
-export function ScanSheet({
-  open,
-  onClose,
-  onDetected,
-}: ScanSheetProps) {
+export function ScanSheet({ open, onClose, onDetected }: ScanSheetProps) {
   // The camera stays off until the person asks for it.
   const [cameraOn, setCameraOn] = useState(false);
 

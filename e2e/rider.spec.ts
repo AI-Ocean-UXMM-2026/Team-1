@@ -23,65 +23,76 @@ async function openRider(
     delivery_assignments: [assignment],
   });
   await page.goto("/rider/route");
-  await expect(page.getByText(/Stop 1 of 1/)).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: /Stop 1 of 1|Check your load/ }),
+  ).toBeVisible();
   return backend;
 }
 
-test("outcome: tapping the already-selected result still advances (C-06)", async ({
+test("handover steps move forward and back (C-06)", async ({
   page,
   context,
 }) => {
   await openRider(page, context, "in_transit");
   await page.getByRole("button", { name: /i.ve arrived/i }).click();
-  await page.getByRole("button", { name: /report delivery outcome/i }).click();
-  await page.getByText("Delivered successfully").click();
-  await expect(
-    page.getByRole("heading", { name: "Delivery details" }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Start handover" }).click();
+  const next = page.getByRole("button", { name: "Continue to recipient" });
+  await expect(next).toBeDisabled();
 
-  await page.getByRole("button", { name: "Previous step" }).click();
-  await expect(
-    page.getByRole("heading", { name: "How did this delivery go?" }),
-  ).toBeVisible();
+  // The checkbox is a custom control; the label is what a finger taps.
+  await page.getByText("OR-9001").click();
+  await expect(next).toBeEnabled();
+  await next.click();
+  await expect(next).toHaveCount(0);
 
-  // The radio is still checked, so no change event fires on this tap.
-  await page.getByText("Delivered successfully").click();
-  await expect(
-    page.getByRole("heading", { name: "Delivery details" }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(next).toBeEnabled();
 });
 
-test("a failed write keeps the active stop on screen (C-05)", async ({
+test("a failed write keeps the load check on screen (C-05)", async ({
   page,
   context,
 }) => {
   await openRider(page, context, "accepted");
-  await page.getByRole("button", { name: /i.ve arrived/i }).click();
-  const collect = page.getByRole("button", { name: /parcel collected/i });
-  await expect(collect).toBeVisible();
+  await page.getByRole("button", { name: "Tick all" }).click();
+  const confirm = page.getByRole("button", {
+    name: /confirm 1 parcel loaded/i,
+  });
+  await expect(confirm).toBeVisible();
 
   await failSupabase(context);
-  await collect.click();
+  await confirm.click();
 
-  // supabase-js retries failed reads for several seconds before giving up; the
-  // old behavior then emptied the route.
-  await expect(page.getByText("Showing your saved route")).toBeVisible({
+  // supabase-js retries failed requests for several seconds before giving up.
+  await expect(page.getByRole("button", { name: "Dismiss" })).toBeVisible({
     timeout: 25_000,
   });
-  // The failure is reported, and the stop stays available to retry.
-  await expect(page.getByRole("button", { name: "Dismiss" })).toBeVisible();
+  await expect(page.getByText(/your entries are kept/i)).toBeVisible();
   await expect(page.getByText("No deliveries assigned")).toHaveCount(0);
-  await expect(collect).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Check your load" }),
+  ).toBeVisible();
 });
 
 test("a problem can be reported before arriving, without faking arrival (H-09)", async ({
   page,
   context,
 }) => {
-  await openRider(page, context, "accepted");
-  await page.getByRole("button", { name: "Report a problem" }).click();
-  await expect(page.getByLabel("Recipient unavailable")).toBeVisible();
-  await expect(page.getByLabel("Incorrect address")).toBeVisible();
+  await openRider(page, context, "in_transit");
+  await page
+    .getByRole("button", { name: "Show stop details and full route" })
+    .click();
+  await page.getByRole("button", { name: /can.t deliver this stop/i }).click();
+  await expect(
+    page.getByRole("button", { name: /recipient not there/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /wrong or incomplete address/i }),
+  ).toBeVisible();
+  // Reporting is not arriving: the stop must not have advanced.
+  await expect(
+    page.getByRole("button", { name: "Start handover" }),
+  ).toHaveCount(0);
 });
 
 test("shift tools show their own errors (H-11)", async ({ page, context }) => {
@@ -91,12 +102,13 @@ test("shift tools show their own errors (H-11)", async ({ page, context }) => {
     delivery_assignments: [assignment],
   });
   await page.goto("/rider/route");
-  await page
-    .getByRole("button", { name: "Help and shift tools" })
-    .first()
-    .click();
+  await page.getByRole("button", { name: "Shift tools" }).first().click();
+  await page.getByRole("button", { name: /^Road conditions/ }).click();
+  await page.getByRole("button", { name: "Report a road condition" }).click();
   const menu = page.getByRole("dialog");
   await menu.getByLabel("What did you see?").fill("Left lane closed");
-  await menu.getByRole("button", { name: "Send with my location" }).click();
   await expect(menu.getByText(/location is needed/i)).toBeVisible();
+  await expect(
+    menu.getByRole("button", { name: "Send with my location" }),
+  ).toBeDisabled();
 });

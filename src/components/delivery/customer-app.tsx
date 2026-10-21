@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@mui/material/Button";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -15,10 +16,15 @@ import {
   HomeSkeleton,
   NotificationsPage,
   ParcelSwitcher,
-  ScanSheet,
   TrackingLookup,
   TrackLookupNotice,
 } from "@/components/delivery/customer-home";
+
+const ScanSheet = dynamic(
+  () => import("@/components/delivery/scan-sheet").then((mod) => mod.ScanSheet),
+  { ssr: false },
+);
+
 import {
   CustomerBottomNav,
   EmptyState,
@@ -249,9 +255,10 @@ export function CustomerApp({ view }: { view: CustomerView }) {
 
   useEffect(() => {
     setNow(Date.now());
+    if (view !== "home" && view !== "track") return;
     const timer = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [view]);
 
   const locationState = parcelLocationState(selectedOrder, now);
   const showsDemo = workspace.isDemo && !publicHit;

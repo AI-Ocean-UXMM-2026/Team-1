@@ -1,5 +1,23 @@
 "use client";
 
+import ForkLeftRounded from "@mui/icons-material/ForkLeftRounded";
+import ForkRightRounded from "@mui/icons-material/ForkRightRounded";
+import MergeRounded from "@mui/icons-material/MergeRounded";
+import NavigationRounded from "@mui/icons-material/NavigationRounded";
+import PlaceRounded from "@mui/icons-material/PlaceRounded";
+import RoundaboutRightRounded from "@mui/icons-material/RoundaboutRightRounded";
+import StraightRounded from "@mui/icons-material/StraightRounded";
+import TurnLeftRounded from "@mui/icons-material/TurnLeftRounded";
+import TurnRightRounded from "@mui/icons-material/TurnRightRounded";
+import TurnSharpLeftRounded from "@mui/icons-material/TurnSharpLeftRounded";
+import TurnSharpRightRounded from "@mui/icons-material/TurnSharpRightRounded";
+import TurnSlightLeftRounded from "@mui/icons-material/TurnSlightLeftRounded";
+import TurnSlightRightRounded from "@mui/icons-material/TurnSlightRightRounded";
+import UTurnLeftRounded from "@mui/icons-material/UTurnLeftRounded";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import LinearProgress from "@mui/material/LinearProgress";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef } from "react";
 
@@ -8,6 +26,7 @@ import { StopMark, StopRow } from "@/components/delivery/rider-overview";
 import { CodTag } from "@/components/delivery/rider-tools";
 import type { DeliveryStop, DriverRoute } from "@/lib/delivery/driver-route";
 import { formatTime } from "@/lib/delivery/format";
+import { resolveTurnSymbol, type TurnSymbol } from "@/lib/delivery/rider-route";
 
 export type GpsState =
   | "off"
@@ -17,7 +36,67 @@ export type GpsState =
   | "denied"
   | "unavailable";
 
-export type Instruction = { title: string; sub: string; arrow: number | null };
+export type Instruction = {
+  title: string;
+  sub: string;
+  arrow: number | null;
+  turnSymbol?: TurnSymbol | null;
+};
+
+export function TurnSymbolIcon({
+  instruction,
+  arrived,
+}: {
+  instruction: Instruction;
+  arrived?: boolean;
+}) {
+  if (instruction.arrow != null) {
+    return (
+      <NavigationRounded
+        sx={{
+          fontSize: 28,
+          transform: `rotate(${instruction.arrow}deg)`,
+          transition: "transform 400ms ease",
+        }}
+      />
+    );
+  }
+
+  const symbol =
+    instruction.turnSymbol ??
+    (arrived ? "arrive" : resolveTurnSymbol(instruction.title));
+
+  if (arrived || symbol === "arrive") {
+    return <PlaceRounded sx={{ fontSize: 28 }} />;
+  }
+
+  switch (symbol) {
+    case "turn-right":
+      return <TurnRightRounded sx={{ fontSize: 28 }} />;
+    case "turn-left":
+      return <TurnLeftRounded sx={{ fontSize: 28 }} />;
+    case "slight-right":
+      return <TurnSlightRightRounded sx={{ fontSize: 28 }} />;
+    case "slight-left":
+      return <TurnSlightLeftRounded sx={{ fontSize: 28 }} />;
+    case "sharp-right":
+      return <TurnSharpRightRounded sx={{ fontSize: 28 }} />;
+    case "sharp-left":
+      return <TurnSharpLeftRounded sx={{ fontSize: 28 }} />;
+    case "u-turn":
+      return <UTurnLeftRounded sx={{ fontSize: 28 }} />;
+    case "roundabout":
+      return <RoundaboutRightRounded sx={{ fontSize: 28 }} />;
+    case "fork-left":
+      return <ForkLeftRounded sx={{ fontSize: 28 }} />;
+    case "fork-right":
+      return <ForkRightRounded sx={{ fontSize: 28 }} />;
+    case "merge":
+      return <MergeRounded sx={{ fontSize: 28 }} />;
+    default:
+      return <StraightRounded sx={{ fontSize: 28 }} />;
+  }
+}
 
 function SheetHandle({
   open,
@@ -92,7 +171,6 @@ export function ActiveDelivery({
   gps,
   online,
   syncing,
-  sharingCount,
   revision,
   expanded,
   onExpand,
@@ -117,7 +195,6 @@ export function ActiveDelivery({
   gps: GpsState;
   online: boolean;
   syncing: boolean;
-  sharingCount: number | null;
   revision: ReactNode;
   expanded: boolean;
   onExpand: (open: boolean) => void;
@@ -153,38 +230,26 @@ export function ActiveDelivery({
       {map}
 
       <header className="dv-top">
-        <div
-          className="rf-route-progress"
-          role="progressbar"
+        <LinearProgress
+          variant="determinate"
+          value={(done / Math.max(1, route.stops.length)) * 100}
           aria-label="Stops finished"
           aria-valuemin={0}
           aria-valuemax={route.stops.length}
           aria-valuenow={done}
-        >
-          <span
-            style={{
-              width: `${(done / Math.max(1, route.stops.length)) * 100}%`,
-            }}
-          />
-        </div>
+          sx={{
+            height: 4,
+            bgcolor: "grey.200",
+            "& .MuiLinearProgress-bar": {
+              bgcolor: "primary.main",
+              borderRadius: 999,
+            },
+          }}
+        />
         {!handover && (
           <div className="rf-nav-instruction dv-instruction">
             <span className="rf-turn" aria-hidden="true">
-              {instruction.arrow != null ? (
-                <svg
-                  viewBox="0 0 32 32"
-                  aria-hidden="true"
-                  style={{ transform: `rotate(${instruction.arrow}deg)` }}
-                >
-                  <path d="M16 3 26 27l-10-6-10 6Z" />
-                </svg>
-              ) : (
-                <Icon
-                  name={arrived ? "location" : "compass"}
-                  size={26}
-                  strokeWidth={2.2}
-                />
-              )}
+              <TurnSymbolIcon instruction={instruction} arrived={arrived} />
             </span>
             <div>
               <strong>{instruction.title}</strong>
@@ -196,48 +261,62 @@ export function ActiveDelivery({
         <div className="dv-top-row">
           <div className="dv-chips">
             {gps === "denied" || gps === "unavailable" ? (
-              <button
-                type="button"
-                className="rf-chip is-error dv-chip-btn"
+              <Chip
+                size="small"
+                color="error"
+                icon={<Icon name="location" size={14} />}
+                label={gps === "denied" ? "Location off · Fix" : "No GPS · Fix"}
                 onClick={onLocationHelp}
-              >
-                <Icon name="location" size={14} />
-                {gps === "denied" ? "Location off" : "No GPS"} · Fix
-              </button>
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : gps === "stale" ? (
-              <button
-                type="button"
-                className="rf-chip is-warning dv-chip-btn"
+              <Chip
+                size="small"
+                color="warning"
+                icon={<Icon name="warning" size={14} />}
+                label="GPS signal old"
                 onClick={onLocationHelp}
-              >
-                <Icon name="warning" size={14} /> GPS signal old
-              </button>
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : gps === "waiting" ? (
-              <span className="rf-chip">Finding GPS…</span>
-            ) : sharingCount ? (
-              <span className="rf-chip is-live">
-                <span className="rf-live-dot" /> Live to {sharingCount}{" "}
-                {sharingCount === 1 ? "customer" : "customers"}
-              </span>
+              <Chip
+                size="small"
+                label="Finding GPS…"
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : null}
             {!online ? (
-              <span className="rf-chip is-warning">
-                <Icon name="warning" size={14} /> Offline
-              </span>
+              <Chip
+                size="small"
+                color="warning"
+                icon={<Icon name="warning" size={14} />}
+                label="Offline"
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : syncing ? (
-              <span className="rf-chip">
-                <Icon name="refresh" size={14} /> Saving…
-              </span>
+              <Chip
+                size="small"
+                icon={<Icon name="refresh" size={14} />}
+                label="Saving…"
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
             ) : null}
           </div>
-          <button
-            type="button"
-            className="rf-icon-btn dv-float-btn"
+          <IconButton
+            className="dv-float-btn"
             onClick={onMenu}
             aria-label="Shift tools"
+            sx={{
+              width: 48,
+              height: 48,
+              bgcolor: "background.paper",
+              color: "text.primary",
+              boxShadow: 2,
+              "&:hover": { bgcolor: "grey.100" },
+            }}
           >
             <Icon name="menu" size={20} />
-          </button>
+          </IconButton>
         </div>
         {!handover && revision}
       </header>
@@ -249,15 +328,14 @@ export function ActiveDelivery({
         {handover ? (
           <>
             <div className="dv-sheet-head">
-              <button
-                type="button"
-                className="rf-icon-btn"
+              <IconButton
                 onClick={onCloseHandover}
                 aria-label="Back to stop"
                 disabled={busy}
+                sx={{ width: 48, height: 48, color: "text.primary" }}
               >
                 <Icon name="arrow-left" size={20} />
-              </button>
+              </IconButton>
               <div>
                 <small>
                   Stop {stop.number} of {route.stops.length} · Handover
@@ -271,27 +349,27 @@ export function ActiveDelivery({
           <>
             <SheetHandle open={expanded} onToggle={onExpand} />
             <div className="dv-stop-head">
-              <div className="dv-stop-count">
-                <StopMark stop={stop} />
-                <small>of {route.stops.length}</small>
-              </div>
+              <StopMark stop={stop} />
               <div className="dv-stop-title">
                 <small className={arrived ? "is-arrived" : ""}>
-                  {arrived ? "At the stop" : "Next stop"}
+                  {arrived ? "At the stop" : "Next stop"} · {stop.number} of{" "}
+                  {route.stops.length}
+                  {stop.etaAt && !arrived
+                    ? ` · ETA ${formatTime(stop.etaAt)}`
+                    : ""}
                 </small>
                 <h2>{stop.recipient}</h2>
                 <p>{stop.address}</p>
               </div>
               {directionsHref && !arrived && (
                 <a
-                  className="rg-navigate"
+                  className="dv-directions"
                   href={directionsHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Open turn-by-turn directions in Google Maps"
                 >
-                  <Icon name="navigation" size={22} />
-                  <span>Directions</span>
+                  <Icon name="navigation" size={20} />
                 </a>
               )}
             </div>
@@ -300,91 +378,57 @@ export function ActiveDelivery({
                 <Icon name="box" size={14} /> {stop.open.length}{" "}
                 {stop.open.length === 1 ? "parcel" : "parcels"}
               </span>
-              {stop.etaAt && (
-                <span>
-                  <Icon name="history" size={14} /> ETA {formatTime(stop.etaAt)}
-                </span>
-              )}
               <CodTag amount={stop.codDue} />
             </div>
 
             {expanded && (
               <div className="rf-sheet-body dv-details">
-                <fieldset className="rg-actions dv-quick">
-                  <legend className="rf-sr-only">Recipient actions</legend>
-                  {stop.phone ? (
-                    <>
-                      <a href={phoneHref(stop.phone, "tel")}>
-                        <Icon name="phone" size={20} />
-                        <span>Call</span>
-                      </a>
-                      <a href={phoneHref(stop.phone, "sms")}>
-                        <Icon name="message" size={20} />
-                        <span>Message</span>
-                      </a>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void navigator.clipboard?.writeText(stop.address)
-                      }
-                    >
-                      <Icon name="copy" size={20} />
-                      <span>Copy address</span>
-                    </button>
+                <div className="dv-facts">
+                  <div>
+                    <h3>
+                      {stop.open.length > 1
+                        ? `${stop.open.length} parcels`
+                        : "Parcel"}
+                    </h3>
+                    <ul className="dv-parcel-list">
+                      {stop.open.map((order) => (
+                        <li key={order.id}>
+                          <strong>{order.tracking_code}</strong>
+                          <span>
+                            {order.parcel_description ?? "No description"}
+                            {order.parcel_weight_kg
+                              ? ` · ${order.parcel_weight_kg} kg`
+                              : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {stop.notLoaded.length > 0 && (
+                      <p className="rf-muted">
+                        {stop.notLoaded.length} more for this recipient{" "}
+                        {stop.notLoaded.length === 1 ? "is" : "are"} not on your
+                        truck.
+                      </p>
+                    )}
+                  </div>
+                  {!stop.phone && (
+                    <div>
+                      <h3>Contact</h3>
+                      <p className="rf-muted">No phone number on this order.</p>
+                    </div>
                   )}
-                  <button type="button" onClick={() => onExpand(false)}>
-                    <Icon name="chevron-down" size={20} />
-                    <span>Show less</span>
-                  </button>
-                </fieldset>
-                {!stop.phone && (
-                  <p className="rf-muted">
-                    No phone number on this order. Use “Can’t deliver” if you
-                    can’t find the recipient.
-                  </p>
-                )}
-                <div className="rf-detail">
-                  <h3>
-                    {stop.open.length > 1
-                      ? `${stop.open.length} parcels to hand over`
-                      : "Parcel to hand over"}
-                  </h3>
-                  <ul className="dv-parcel-list">
-                    {stop.open.map((order) => (
-                      <li key={order.id}>
-                        <strong>{order.tracking_code}</strong>
-                        <span>
-                          {order.parcel_description ?? "No description"}
-                          {order.parcel_weight_kg
-                            ? ` · ${order.parcel_weight_kg} kg`
-                            : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  {stop.notLoaded.length > 0 && (
-                    <p className="rf-muted">
-                      {stop.notLoaded.length} more for this recipient{" "}
-                      {stop.notLoaded.length === 1 ? "is" : "are"} not on your
-                      truck.
-                    </p>
-                  )}
-                </div>
-                <div className="rf-detail">
-                  <h3>Delivery instructions</h3>
-                  <p className="rf-muted">
-                    No instructions from the sender. Call the recipient if the
-                    address is hard to find.
-                  </p>
                 </div>
                 {route.upcoming.length > 0 && (
                   <div className="rf-detail">
-                    <h3>Then · {route.upcoming.length} more stops</h3>
+                    <h3>Then · {route.upcoming.length} more</h3>
                     <ol className="dv-stop-list is-compact">
                       {route.upcoming.map((item) => (
-                        <StopRow key={item.key} stop={item} showState={false} />
+                        <StopRow
+                          key={item.key}
+                          stop={item}
+                          showState={false}
+                          dense
+                        />
                       ))}
                     </ol>
                   </div>
@@ -405,33 +449,31 @@ export function ActiveDelivery({
                             item.state === "FAILED",
                         )
                         .map((item) => (
-                          <StopRow key={item.key} stop={item} />
+                          <StopRow key={item.key} stop={item} dense />
                         ))}
                     </ol>
                   </details>
                 )}
                 <div className="dv-secondary">
-                  <button
-                    type="button"
-                    className="rf-btn rf-btn-secondary"
-                    onClick={onCannotDeliver}
-                  >
+                  <button type="button" onClick={onCannotDeliver}>
                     Can’t deliver this stop
                   </button>
-                  <button
-                    type="button"
-                    className="rf-btn rf-btn-secondary"
-                    onClick={onCautions}
-                  >
-                    <Icon name="warning" size={18} /> Road conditions
+                  <button type="button" onClick={onCautions}>
+                    <Icon name="warning" size={16} /> Road conditions
                   </button>
-                  {arrived && (
+                  {!stop.phone && (
                     <button
                       type="button"
-                      className="rf-btn rf-btn-quiet"
-                      onClick={onUndoArrived}
+                      onClick={() =>
+                        void navigator.clipboard?.writeText(stop.address)
+                      }
                     >
-                      Not here yet — back to navigation
+                      <Icon name="copy" size={16} /> Copy address
+                    </button>
+                  )}
+                  {arrived && (
+                    <button type="button" onClick={onUndoArrived}>
+                      Not here yet
                     </button>
                   )}
                 </div>
@@ -440,23 +482,47 @@ export function ActiveDelivery({
 
             {error}
             <div className="dv-sheet-actions">
+              {stop.phone && (
+                <>
+                  <a
+                    className="dv-round dv-round-call"
+                    href={phoneHref(stop.phone, "tel")}
+                    aria-label={`Call ${stop.recipient}`}
+                  >
+                    <Icon name="phone" size={20} />
+                  </a>
+                  <a
+                    className="dv-round dv-round-msg"
+                    href={phoneHref(stop.phone, "sms")}
+                    aria-label={`Message ${stop.recipient}`}
+                  >
+                    <Icon name="message" size={20} />
+                  </a>
+                </>
+              )}
               {arrived ? (
-                <button
-                  type="button"
-                  className="rf-btn rf-btn-primary"
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  size="large"
                   onClick={onStartHandover}
+                  endIcon={<Icon name="arrow-right" size={18} />}
+                  sx={{ minHeight: 48, borderRadius: 999, flex: 1 }}
                 >
                   Start handover
-                  <Icon name="arrow-right" size={18} />
-                </button>
+                </Button>
               ) : (
-                <button
-                  type="button"
-                  className="rf-btn rf-btn-primary"
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  size="large"
                   onClick={onArrived}
+                  sx={{ minHeight: 48, borderRadius: 999, flex: 1 }}
                 >
                   I’ve arrived
-                </button>
+                </Button>
               )}
             </div>
           </>

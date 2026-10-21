@@ -115,7 +115,7 @@ export async function signInAs(
     {
       name: `sb-${REF}-auth-token`,
       value: `base64-${b64(session)}`,
-      url: "http://localhost:3100",
+      url: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3100",
     },
   ]);
 

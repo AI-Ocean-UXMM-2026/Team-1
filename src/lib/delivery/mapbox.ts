@@ -14,7 +14,12 @@ export type RoadRoute = {
   distanceKm: number;
   durationMin: number;
   /** The first manoeuvre from the origin, when Mapbox provides one. */
-  firstStep: { instruction: string; distanceKm: number } | null;
+  firstStep: {
+    instruction: string;
+    distanceKm: number;
+    maneuverType?: string;
+    maneuverModifier?: string;
+  } | null;
 };
 
 export type DirectionsBody = {
@@ -23,7 +28,14 @@ export type DirectionsBody = {
     duration: number;
     geometry: { coordinates: [number, number][] };
     legs?: {
-      steps?: { distance: number; maneuver?: { instruction?: string } }[];
+      steps?: {
+        distance: number;
+        maneuver?: {
+          instruction?: string;
+          type?: string;
+          modifier?: string;
+        };
+      }[];
     }[];
   }[];
 };
@@ -46,16 +58,32 @@ export function parseRoadRoute(body: DirectionsBody): RoadRoute | null {
   const route = body.routes?.[0];
   if (!route || route.geometry.coordinates.length < 2) return null;
   const step = route.legs?.[0]?.steps?.[0];
+  const maneuver = step?.maneuver;
+  if (!maneuver?.instruction) {
+    return {
+      coordinates: route.geometry.coordinates,
+      distanceKm: route.distance / 1000,
+      durationMin: route.duration / 60,
+      firstStep: null,
+    };
+  }
+  const firstStep: {
+    instruction: string;
+    distanceKm: number;
+    maneuverType?: string;
+    maneuverModifier?: string;
+  } = {
+    instruction: maneuver.instruction,
+    distanceKm: (step?.distance ?? 0) / 1000,
+  };
+  if (maneuver.type) firstStep.maneuverType = maneuver.type;
+  if (maneuver.modifier) firstStep.maneuverModifier = maneuver.modifier;
+
   return {
     coordinates: route.geometry.coordinates,
     distanceKm: route.distance / 1000,
     durationMin: route.duration / 60,
-    firstStep: step?.maneuver?.instruction
-      ? {
-          instruction: step.maneuver.instruction,
-          distanceKm: step.distance / 1000,
-        }
-      : null,
+    firstStep,
   };
 }
 

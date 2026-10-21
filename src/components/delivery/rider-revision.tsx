@@ -1,6 +1,9 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import type { ReactNode } from "react";
+
 import { Icon } from "@/components/delivery/icons";
 import type {
   DeliveryStop,
@@ -93,9 +96,7 @@ export function RouteRevisionNotice({
           <strong>Route updated by dispatch</strong>
           <small>{summary}</small>
         </span>
-        <span className="dv-revision-cta">
-          {needsAck ? "Review" : "View"}
-        </span>
+        <span className="dv-revision-cta">{needsAck ? "Review" : "View"}</span>
       </button>
     );
   }
@@ -105,14 +106,13 @@ export function RouteRevisionNotice({
       <div className="dv-revision-head">
         <Icon name="bell" size={18} />
         <strong>Route updated by dispatch</strong>
-        <button
-          type="button"
-          className="rf-icon-btn"
-          aria-label="Hide route update"
+        <IconButton
           onClick={() => onOpenChange(false)}
+          aria-label="Hide route update"
+          sx={{ width: 36, height: 36, color: "inherit", ml: "auto" }}
         >
           <Icon name="close" size={18} />
-        </button>
+        </IconButton>
       </div>
       <ul>
         {addedStops.map((item: DeliveryStop) => (
@@ -140,9 +140,7 @@ export function RouteRevisionNotice({
               {revision.removedParcels.length === 1 ? "parcel" : "parcels"}{" "}
               taken off your route
             </strong>
-            <span>
-              Keep them on the truck until operations says otherwise.
-            </span>
+            <span>Keep them on the truck until operations says otherwise.</span>
           </li>
         ) : null}
         <li>
@@ -165,43 +163,53 @@ export function RouteRevisionNotice({
           <li>
             <strong>
               {waitingToLoad.length}{" "}
-              {waitingToLoad.length === 1 ? "parcel isn’t" : "parcels aren’t"} on
-              your truck yet
+              {waitingToLoad.length === 1 ? "parcel isn’t" : "parcels aren’t"}{" "}
+              on your truck yet
             </strong>
             <span>
-              Collect from {waitingToLoad[0].pickup_address} as dispatch arranges,
-              then mark it loaded.
+              Collect from {waitingToLoad[0].pickup_address} as dispatch
+              arranges, then mark it loaded.
             </span>
           </li>
         )}
       </ul>
       {errorBanner}
       {needsAck ? (
-        <button
-          type="button"
-          className="rf-btn rf-btn-primary"
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          size="large"
           disabled={busy != null || !online}
           onClick={onAcknowledge}
+          sx={{ minHeight: 48, borderRadius: 999 }}
         >
           {busy === "acknowledge" ? "Saving…" : "Acknowledge changes"}
-        </button>
+        </Button>
       ) : waitingToLoad.length ? (
-        <button
-          type="button"
-          className="rf-btn rf-btn-primary"
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          size="large"
           disabled={busy != null || !online}
-          onClick={() => onLoadParcels(waitingToLoad.map((order: DeliveryOrder) => order.id))}
+          onClick={() =>
+            onLoadParcels(waitingToLoad.map((order: DeliveryOrder) => order.id))
+          }
+          sx={{ minHeight: 48, borderRadius: 999 }}
         >
           {busy === "load" ? "Saving…" : `Mark ${waitingToLoad.length} loaded`}
-        </button>
+        </Button>
       ) : (
-        <button
-          type="button"
-          className="rf-btn rf-btn-secondary"
+        <Button
+          fullWidth
+          variant="outlined"
+          color="secondary"
           onClick={onDismiss}
+          sx={{ minHeight: 48, borderRadius: 999 }}
         >
           Got it
-        </button>
+        </Button>
       )}
     </section>
   );

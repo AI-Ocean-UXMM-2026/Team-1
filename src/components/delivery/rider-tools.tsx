@@ -1,5 +1,8 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -33,15 +36,35 @@ export function Notice({
   children: ReactNode;
   action?: ReactNode;
 }) {
+  const severity = tone === "neutral" ? "info" : tone;
   return (
-    <div
-      className={`rf-notice rf-notice-${tone}`}
+    <Alert
+      severity={severity}
       role={tone === "error" ? "alert" : "status"}
+      icon={<Icon name={icon} size={20} strokeWidth={2.1} />}
+      action={action}
+      sx={{
+        borderRadius: "12px",
+        alignItems: "center",
+        my: 1,
+        "& .MuiAlert-message": {
+          width: "100%",
+          fontSize: "14px",
+          lineHeight: 1.45,
+        },
+        ...(tone === "neutral" && {
+          bgcolor: "grey.100",
+          color: "text.primary",
+          border: 1,
+          borderColor: "divider",
+          "& .MuiAlert-icon": {
+            color: "text.secondary",
+          },
+        }),
+      }}
     >
-      <Icon name={icon} size={18} strokeWidth={2.1} />
-      <div className="rf-notice-copy">{children}</div>
-      {action}
-    </div>
+      {children}
+    </Alert>
   );
 }
 
@@ -151,14 +174,13 @@ export function Sheet({
             <h2 id={titleId}>{title}</h2>
             {subtitle && <p className="rf-muted">{subtitle}</p>}
           </div>
-          <button
-            type="button"
-            className="rf-icon-btn"
+          <IconButton
             onClick={onClose}
             aria-label={`Close ${title.toLowerCase()}`}
+            sx={{ width: 44, height: 44, color: "text.primary" }}
           >
             <Icon name="close" size={20} />
-          </button>
+          </IconButton>
         </div>
         <div className="rf-panel-body">{children}</div>
       </section>
@@ -274,21 +296,25 @@ export function ShiftMenu({
         ))}
       </ul>
       {paused ? (
-        <button
-          type="button"
-          className="rf-btn rf-btn-secondary"
+        <Button
+          fullWidth
+          variant="outlined"
+          color="secondary"
           onClick={onResume}
+          sx={{ minHeight: 48, borderRadius: 999, mt: 1 }}
         >
           Resume route
-        </button>
+        </Button>
       ) : canPause ? (
-        <button
-          type="button"
-          className="rf-btn rf-btn-secondary"
+        <Button
+          fullWidth
+          variant="outlined"
+          color="secondary"
           onClick={onPause}
+          sx={{ minHeight: 48, borderRadius: 999, mt: 1 }}
         >
           Pause route
-        </button>
+        </Button>
       ) : null}
       <div className="rf-menu-block">
         <h3>Your requests to operations</h3>
@@ -310,9 +336,20 @@ export function ShiftMenu({
           </p>
         )}
       </div>
-      <button type="button" className="rf-btn rf-btn-quiet" onClick={onSignOut}>
+      <Button
+        fullWidth
+        variant="text"
+        color="inherit"
+        onClick={onSignOut}
+        sx={{
+          minHeight: 44,
+          borderRadius: 999,
+          mt: 1.5,
+          color: "text.secondary",
+        }}
+      >
         Sign out
-      </button>
+      </Button>
     </Sheet>
   );
 }
@@ -408,18 +445,19 @@ export function EnergyPanel({
               onChange={(event) => setLevel(event.target.value)}
             />
           </label>
-          <button
-            type="button"
-            className="rf-btn rf-btn-secondary"
+          <Button
+            variant="outlined"
+            color="secondary"
             disabled={level === "" || busy}
             onClick={() =>
               void onSaveLevel(Number(level)).then((saved) => {
                 if (saved) setLevel("");
               })
             }
+            sx={{ minHeight: 48, borderRadius: 999, px: 3 }}
           >
             Save
-          </button>
+          </Button>
         </div>
       )}
       {done && (
@@ -452,22 +490,26 @@ export function EnergyPanel({
               />
             </label>
             {error}
-            <button
-              type="button"
-              className="rf-btn rf-btn-primary"
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
               disabled={busy}
               onClick={() => onRequest(note)}
+              startIcon={
+                <Icon
+                  name={energy.source === "battery" ? "battery" : "fuel"}
+                  size={18}
+                />
+              }
+              sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
             >
-              <Icon
-                name={energy.source === "battery" ? "battery" : "fuel"}
-                size={18}
-              />
               {busy
                 ? "Sending…"
                 : energy.source === "battery"
                   ? "Request a charging stop"
                   : "Request a fuel stop"}
-            </button>
+            </Button>
           </>
         )
       )}
@@ -566,13 +608,15 @@ export function CautionsPanel({
         <Notice tone="success" icon="check">
           {done}
         </Notice>
-        <button
-          type="button"
-          className="rf-btn rf-btn-primary"
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
           onClick={onClose}
+          sx={{ minHeight: 48, borderRadius: 999, mt: 2 }}
         >
           Back to the route
-        </button>
+        </Button>
       </Sheet>
     );
   if (reporting)
@@ -655,21 +699,26 @@ export function CautionsPanel({
             </Notice>
           )}
           {error}
-          <button
+          <Button
+            fullWidth
             type="submit"
-            className="rf-btn rf-btn-primary"
+            variant="contained"
+            color="primary"
             disabled={draft.description.trim().length < 3 || busy || !canLocate}
+            startIcon={<Icon name="location" size={18} />}
+            sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
           >
-            <Icon name="location" size={18} />
             {busy ? "Sending…" : "Send with my location"}
-          </button>
-          <button
-            type="button"
-            className="rf-btn rf-btn-quiet"
+          </Button>
+          <Button
+            fullWidth
+            variant="text"
+            color="inherit"
             onClick={() => setReporting(false)}
+            sx={{ minHeight: 44, borderRadius: 999, mt: 1 }}
           >
             Back to road conditions
-          </button>
+          </Button>
         </form>
       </Sheet>
     );
@@ -698,13 +747,16 @@ export function CautionsPanel({
       {!legCautions.length && !laterCautions.length && (
         <p className="rf-muted">No road reports near your route right now.</p>
       )}
-      <button
-        type="button"
-        className="rf-btn rf-btn-secondary"
+      <Button
+        fullWidth
+        variant="outlined"
+        color="secondary"
+        startIcon={<Icon name="warning" size={18} />}
         onClick={() => setReporting(true)}
+        sx={{ minHeight: 48, borderRadius: 999, mt: 2 }}
       >
-        <Icon name="warning" size={18} /> Report a road condition
-      </button>
+        Report a road condition
+      </Button>
     </Sheet>
   );
 }
@@ -769,21 +821,25 @@ export function ProblemPanel({
             {done}
           </Notice>
           {canPause && choice === "vehicle_problem" && (
-            <button
-              type="button"
-              className="rf-btn rf-btn-secondary"
+            <Button
+              fullWidth
+              variant="outlined"
+              color="secondary"
               onClick={onPause}
+              sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
             >
               Pause route while it’s fixed
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="rf-btn rf-btn-primary"
+          <Button
+            fullWidth
+            variant="contained"
+            color="primary"
             onClick={onClose}
+            sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
           >
             Back to the route
-          </button>
+          </Button>
         </>
       ) : !choice ? (
         <ul className="rf-issue-list">
@@ -836,20 +892,25 @@ export function ProblemPanel({
             />
           </label>
           {error}
-          <button
+          <Button
+            fullWidth
             type="submit"
-            className="rf-btn rf-btn-primary"
+            variant="contained"
+            color="primary"
             disabled={busy || (choice === "other" && note.trim().length < 3)}
+            sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
           >
             {busy ? "Sending…" : "Send to operations"}
-          </button>
-          <button
-            type="button"
-            className="rf-btn rf-btn-quiet"
+          </Button>
+          <Button
+            fullWidth
+            variant="text"
+            color="inherit"
             onClick={() => setChoice(null)}
+            sx={{ minHeight: 44, borderRadius: 999, mt: 1 }}
           >
             Choose a different problem
-          </button>
+          </Button>
         </form>
       )}
     </Sheet>
@@ -877,33 +938,39 @@ export function LocationHelpSheet({
       </p>
       <ol className="dv-steps">
         <li>
-          <strong>Safari (iOS):</strong> Tap <em>aA</em> or the settings icon in the address bar → Website Settings → Location → Allow.
+          <strong>Safari (iOS):</strong> Tap <em>aA</em> or the settings icon in
+          the address bar → Website Settings → Location → Allow.
         </li>
         <li>
-          <strong>Chrome / Android:</strong> Tap the lock or tune icon in the address bar → Permissions → Location → Allow.
+          <strong>Chrome / Android:</strong> Tap the lock or tune icon in the
+          address bar → Permissions → Location → Allow.
         </li>
         <li>Come back and tap Try again.</li>
       </ol>
       <p className="rf-muted">
         Deliveries, COD and proof still work without location.
       </p>
-      <button
-        type="button"
-        className="rf-btn rf-btn-primary"
+      <Button
+        fullWidth
+        variant="contained"
+        color="primary"
         onClick={() => {
           onRetry();
           onClose();
         }}
+        sx={{ minHeight: 48, borderRadius: 999, mt: 2 }}
       >
         Try again
-      </button>
-      <button
-        type="button"
-        className="rf-btn rf-btn-quiet"
+      </Button>
+      <Button
+        fullWidth
+        variant="text"
+        color="inherit"
         onClick={onClose}
+        sx={{ minHeight: 44, borderRadius: 999, mt: 1 }}
       >
         Continue without live location
-      </button>
+      </Button>
     </Sheet>
   );
 }

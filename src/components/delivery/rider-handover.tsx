@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
@@ -266,34 +267,47 @@ export function HandoverPanel({
 
       {stage < 2 && (
         <div className="dv-sheet-actions">
-          <button
-            type="button"
-            className="rf-btn rf-btn-primary"
+          <Button
+            fullWidth
+            variant="contained"
+            color="primary"
+            size="large"
             disabled={!stageReady[stage]}
             onClick={() => setStage(stage + 1)}
+            endIcon={<Icon name="arrow-right" size={18} />}
+            sx={{ minHeight: 52, borderRadius: 999 }}
           >
             {stage === 0 ? "Continue to recipient" : "Continue to payment"}
-            <Icon name="arrow-right" size={18} />
-          </button>
-          <button
-            type="button"
-            className="rf-btn rf-btn-quiet"
+          </Button>
+          <Button
+            fullWidth
+            variant="text"
+            color="inherit"
             onClick={() => setStage(Math.max(0, stage - 1))}
             disabled={stage === 0}
+            sx={{
+              minHeight: 44,
+              borderRadius: 999,
+              mt: 1,
+              color: "text.secondary",
+            }}
           >
             Back
-          </button>
+          </Button>
         </div>
       )}
 
       {error}
       {stage === 2 && (
         <div className="dv-sheet-actions">
-          <button
-            type="button"
-            className="rf-btn rf-btn-primary"
+          <Button
+            fullWidth
+            variant="contained"
+            color="primary"
+            size="large"
             disabled={!!missing || busy || !online}
             onClick={onComplete}
+            sx={{ minHeight: 52, borderRadius: 999 }}
           >
             {busy
               ? "Saving…"
@@ -304,21 +318,23 @@ export function HandoverPanel({
                   : stop.open.length > 1
                     ? `Complete delivery · ${stop.open.length} parcels`
                     : "Complete delivery"}
-          </button>
+          </Button>
           {!online && (
             <p className="rf-dock-note">
               Your entries are kept on this phone. Completion is sent when
               you’re back online.
             </p>
           )}
-          <button
-            type="button"
-            className="rf-btn rf-btn-secondary"
+          <Button
+            fullWidth
+            variant="outlined"
+            color="secondary"
             onClick={() => setStage(1)}
             disabled={busy}
+            sx={{ minHeight: 48, borderRadius: 999, mt: 1 }}
           >
             Review recipient
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -484,10 +500,14 @@ export function ExceptionPanel({
             </Notice>
           )}
           {error}
-          <button
+          <Button
+            fullWidth
             type="submit"
-            className="rf-btn rf-btn-primary"
+            variant="contained"
+            color="primary"
+            size="large"
             disabled={!ready || busy}
+            sx={{ minHeight: 52, borderRadius: 999 }}
           >
             {busy
               ? "Saving…"
@@ -496,14 +516,21 @@ export function ExceptionPanel({
                 : parcelIds.length > 1
                   ? `Record ${parcelIds.length} parcels not delivered`
                   : "Record not delivered"}
-          </button>
-          <button
-            type="button"
-            className="rf-btn rf-btn-quiet"
+          </Button>
+          <Button
+            fullWidth
+            variant="text"
+            color="inherit"
             onClick={() => setReason(null)}
+            sx={{
+              minHeight: 44,
+              borderRadius: 999,
+              mt: 1,
+              color: "text.secondary",
+            }}
           >
             Choose a different reason
-          </button>
+          </Button>
         </form>
       )}
     </Sheet>
