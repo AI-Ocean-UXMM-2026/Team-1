@@ -8,7 +8,7 @@ create temporary table workflow_fixture_ids (
 ) on commit drop;
 insert into workflow_fixture_ids (name)
 values ('manager'), ('driver'), ('off_duty_driver'), ('customer'), ('other_customer'),
-  ('vehicle'), ('other_vehicle'), ('order'), ('other_order'), ('pickup_order'), ('road_report');
+  ('vehicle'), ('other_vehicle'), ('order'), ('other_order'), ('pickup_order'), ('packed_order'), ('road_report');
 grant select on workflow_fixture_ids to authenticated;
 
 create temporary table workflow_checks (name text primary key) on commit drop;
@@ -325,6 +325,199 @@ select pg_temp.assert_check('customer can read complete delivery status history'
 select pg_temp.assert_check('customer cannot read another delivery status history', (
   select count(*) = 0 from public.delivery_status_events where order_id = pg_temp.fixture_id('other_order')
 ));
+
+-- ---------------------------------------------------------------------------
+-- Dispatch reference data and order logistics (multi-truck planning, M1)
+-- ---------------------------------------------------------------------------
+
+-- Parser vectors (trusted role). Keep identical to tests/dispatch-parcel-description.test.mjs.
+reset role;
+select pg_temp.assert_check('parser: medium size, afternoon today', (
+  select parsed.parcel_size = 'medium' and not parsed.fragile
+    and parsed.window_label = 'Afternoon'
+    and parsed.window_start = '2026-10-21T05:30:00Z'::timestamptz
+    and parsed.window_end = '2026-10-21T10:30:00Z'::timestamptz
+  from private.parse_parcel_description(
+    'Electronics, medium size · Pickup today, afternoon', '2026-10-21T04:00:00Z'::timestamptz
+  ) as parsed
+));
+select pg_temp.assert_check('parser: fragile large tomorrow morning', (
+  select parsed.parcel_size = 'large' and parsed.fragile
+    and parsed.window_label = 'Morning'
+    and parsed.window_start = '2026-10-22T01:30:00Z'::timestamptz
+    and parsed.window_end = '2026-10-22T05:30:00Z'::timestamptz
+  from private.parse_parcel_description(
+    'Other, large size, fragile · glass shelf · Pickup tomorrow, morning · Note: gate code 12',
+    '2026-10-21T04:00:00Z'::timestamptz
+  ) as parsed
+));
+select pg_temp.assert_check('parser: day is relative to Asia/Yangon, not UTC', (
+  select parsed.parcel_size = 'small' and parsed.window_label = 'Evening'
+    and parsed.window_start = '2026-10-22T10:30:00Z'::timestamptz
+    and parsed.window_end = '2026-10-22T13:30:00Z'::timestamptz
+  from private.parse_parcel_description(
+    'Food, small size · Pickup today, evening', '2026-10-21T23:00:00Z'::timestamptz
+  ) as parsed
+));
+select pg_temp.assert_check('parser: free text yields nothing', (
+  select parsed.parcel_size is null and not parsed.fragile and parsed.window_start is null
+  from private.parse_parcel_description('two boxes of tea', '2026-10-21T04:00:00Z'::timestamptz) as parsed
+));
+
+select pg_temp.assert_check('the Mingalardone depot ships unverified with no coordinates', (
+  select location_status = 'unverified' and latitude is null and longitude is null
+  from public.depots where code = 'MGD'
+));
+set local role authenticated;
+
+select pg_temp.as_user('manager');
+select pg_temp.assert_check('orders get a logistics row from the insert trigger', (
+  select count(*) = 1 from public.delivery_order_logistics where order_id = pg_temp.fixture_id('order')
+));
+select pg_temp.assert_check('a plain description leaves size, window and weight unset', (
+  select parcel_size is null and pickup_window_start is null and weight_kg is null
+    and origin_kind = 'door'
+  from public.delivery_order_logistics where order_id = pg_temp.fixture_id('order')
+));
+
+-- Inserted directly (not through create_customer_pickup_order) so these checks
+-- do not depend on that RPC; the trigger sees the same packed description.
+select pg_temp.as_user('manager');
+insert into public.delivery_orders (
+  id, customer_id, created_by, pickup_address, delivery_address,
+  pickup_latitude, pickup_longitude, delivery_latitude, delivery_longitude,
+  recipient_name, parcel_description
+)
+values (
+  pg_temp.fixture_id('packed_order'), pg_temp.fixture_id('customer'), pg_temp.fixture_id('manager'),
+  'Logistics pickup', 'Logistics destination', 16.7810, 96.1450, 16.8210, 96.1580,
+  'Logistics recipient', 'Electronics, medium size, fragile · Pickup tomorrow, morning'
+);
+select pg_temp.assert_check('a packed pickup description is parsed into logistics', (
+  select logistics.parcel_size = 'medium' and logistics.size_source = 'parsed_description'
+    and logistics.fragile and logistics.window_label = 'Morning'
+    and logistics.window_source = 'parsed_description'
+    and logistics.pickup_window_start =
+      ((((now() at time zone 'Asia/Yangon')::date + 1) + interval '8 hours') at time zone 'Asia/Yangon')
+    and logistics.pickup_window_end =
+      ((((now() at time zone 'Asia/Yangon')::date + 1) + interval '12 hours') at time zone 'Asia/Yangon')
+  from public.delivery_order_logistics as logistics
+  where logistics.order_id = pg_temp.fixture_id('packed_order')
+));
+
+select pg_temp.as_user('customer');
+select pg_temp.assert_check('customer reads logistics for own packed order', (
+  select count(*) = 1 from public.delivery_order_logistics
+  where order_id = pg_temp.fixture_id('packed_order')
+));
+select pg_temp.assert_check('customer reads logistics for own orders only', (
+  select count(*) >= 1 from public.delivery_order_logistics
+  where order_id = pg_temp.fixture_id('order')
+) and (
+  select count(*) = 0 from public.delivery_order_logistics
+  where order_id = pg_temp.fixture_id('other_order')
+));
+select pg_temp.expect_error('customer cannot update logistics', format(
+  'update public.delivery_order_logistics set weight_kg = 1, weight_source = %L where order_id = %L',
+  'declared', pg_temp.fixture_id('order')
+), 'permission denied');
+select pg_temp.expect_error('customer cannot insert logistics', format(
+  'insert into public.delivery_order_logistics (order_id) values (%L)', pg_temp.fixture_id('other_order')
+), 'permission denied');
+select pg_temp.assert_check('customer cannot read depots', (select count(*) = 0 from public.depots));
+select pg_temp.expect_error('customer cannot set a depot location',
+  format('select public.set_depot_location(%L, 16.9, 96.1, %L)', (select id from public.depots where code = 'MGD'), 'test source'),
+  'Only managers');
+
+select pg_temp.as_user('driver');
+select pg_temp.assert_check('driver can read depots', (select count(*) >= 1 from public.depots));
+select pg_temp.expect_error('driver cannot update logistics', format(
+  'update public.delivery_order_logistics set weight_kg = 1, weight_source = %L where order_id = %L',
+  'declared', pg_temp.fixture_id('order')
+), 'permission denied');
+select pg_temp.assert_check('driver sees no dispatch profiles', (select count(*) = 0 from public.vehicle_dispatch_profiles));
+select pg_temp.assert_check('driver sees no hazard layers', (select count(*) = 0 from public.geo_hazard_layers));
+select pg_temp.expect_error('driver cannot write dispatch profiles', format(
+  'insert into public.vehicle_dispatch_profiles (vehicle_id) values (%L)', pg_temp.fixture_id('vehicle')
+), 'row-level security');
+select pg_temp.expect_error('driver cannot change order logistics through the RPC', format(
+  'select public.set_order_logistics(%L, %L::jsonb, %L)', pg_temp.fixture_id('order'), '{"weight_kg": 3}', 'driver attempt'
+), 'Only managers');
+
+select pg_temp.as_user('manager');
+select pg_temp.expect_error('depot cannot be verified without coordinates', format(
+  'update public.depots set location_status = %L where code = %L', 'verified', 'MGD'
+), 'permission denied|depots_verified_has_location');
+select pg_temp.expect_error('depot location rejects invalid latitude',
+  format('select public.set_depot_location(%L, 95, 96.1, %L)', (select id from public.depots where code = 'MGD'), 'test source'),
+  'valid');
+select pg_temp.expect_error('depot location requires a source',
+  format('select public.set_depot_location(%L, 16.9, 96.1, %L)', (select id from public.depots where code = 'MGD'), ''),
+  'source is required');
+-- Fixture coordinates only; this transaction is rolled back.
+select pg_temp.assert_check('manager can verify the depot pin', (
+  select location_status = 'verified' and latitude = 16.9 and longitude = 96.15
+    and verified_by = pg_temp.fixture_id('manager') and verified_at is not null
+  from public.set_depot_location(
+    (select id from public.depots where code = 'MGD'), 16.9, 96.15, 'workflow test fixture', null
+  )
+));
+insert into public.delivery_orders (
+  id, customer_id, created_by, pickup_address, delivery_address,
+  pickup_latitude, pickup_longitude, delivery_latitude, delivery_longitude,
+  recipient_name, parcel_weight_kg
+)
+values (
+  pg_temp.fixture_id('pickup_order'), pg_temp.fixture_id('customer'), pg_temp.fixture_id('manager'),
+  'At the depot', 'Somewhere else', 16.9005, 96.1503, 16.8178, 96.1566, 'Depot recipient', 4.5
+);
+select pg_temp.assert_check('a pickup within 150 m of a verified depot is a depot order', (
+  select origin_kind = 'depot' and depot_id = (select id from public.depots where code = 'MGD')
+  from public.delivery_order_logistics where order_id = pg_temp.fixture_id('pickup_order')
+));
+select pg_temp.assert_check('a legacy parcel weight is kept as declared', (
+  select weight_kg = 4.5 and weight_source = 'declared'
+  from public.delivery_order_logistics where order_id = pg_temp.fixture_id('pickup_order')
+));
+select pg_temp.assert_check('manager can correct logistics with a reason, recorded as declared', (
+  select weight_kg = 12.5 and weight_source = 'declared' and parcel_size = 'large'
+    and size_source = 'declared' and deadline_hard
+  from public.set_order_logistics(
+    pg_temp.fixture_id('pickup_order'),
+    '{"weight_kg": 12.5, "parcel_size": "large", "deadline_hard": true}'::jsonb,
+    'weighed at the counter'
+  )
+));
+select pg_temp.expect_error('logistics patch rejects unknown fields', format(
+  'select public.set_order_logistics(%L, %L::jsonb, %L)', pg_temp.fixture_id('order'), '{"quoted_price_mmk": 1}', 'try price'
+), 'Unknown logistics field');
+select pg_temp.expect_error('logistics patch requires a reason', format(
+  'select public.set_order_logistics(%L, %L::jsonb, %L)', pg_temp.fixture_id('order'), '{"weight_kg": 3}', ''
+), 'reason is required');
+select pg_temp.expect_error('logistics rejects a window that ends before it starts', format(
+  'select public.set_order_logistics(%L, %L::jsonb, %L)', pg_temp.fixture_id('order'),
+  '{"pickup_window_start": "2026-10-22T10:00:00Z", "pickup_window_end": "2026-10-22T09:00:00Z"}', 'bad window'
+), 'logistics_window_ordered');
+
+insert into public.vehicle_dispatch_profiles (vehicle_id, capacity_m3, cost_per_km_mmk)
+values (pg_temp.fixture_id('vehicle'), 2.5, 1000);
+select pg_temp.assert_check('manager can manage dispatch profiles; cost defaults to assumed', (
+  select cost_source = 'assumed' and speed_factor = 1
+  from public.vehicle_dispatch_profiles where vehicle_id = pg_temp.fixture_id('vehicle')
+));
+
+reset role;
+insert into public.geo_hazard_layers (kind, name, status, source_name, geojson)
+values ('flood', 'fixture layer', 'active', 'workflow test fixture', '{"type":"FeatureCollection","features":[]}'::jsonb);
+select pg_temp.expect_error('only one flood layer can be active', $sql$
+  insert into public.geo_hazard_layers (kind, name, status, source_name, geojson)
+  values ('flood', 'second', 'active', 'workflow test fixture', '{"type":"FeatureCollection","features":[]}'::jsonb)
+$sql$, 'geo_hazard_layers_one_active_idx');
+set local role authenticated;
+select pg_temp.as_user('manager');
+select pg_temp.assert_check('manager can read hazard layers', (select count(*) = 1 from public.geo_hazard_layers));
+select pg_temp.as_user('customer');
+select pg_temp.assert_check('customer cannot read hazard layers', (select count(*) = 0 from public.geo_hazard_layers));
 
 select count(*) as checks_passed, array_agg(name order by name) as verified_checks
 from workflow_checks;
