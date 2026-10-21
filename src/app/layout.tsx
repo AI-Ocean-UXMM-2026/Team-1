@@ -41,6 +41,7 @@ export const metadata: Metadata = {
   title: "Oern — Delivery, in full view",
   description:
     "Follow your parcel from rider pickup to arrival with live location, delivery updates, and clear handoffs.",
+  icons: { icon: "/brand/oern-logo.png", apple: "/brand/oern-logo.png" },
 };
 
 export const viewport: Viewport = {

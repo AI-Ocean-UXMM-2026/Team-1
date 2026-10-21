@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
   ActionToast,
-  Brand,
   DemoBadge,
   LoadingBlock,
   MobileNav,
@@ -144,7 +143,6 @@ export function SupportApp() {
     <main className="operations-app support-app">
       <header className="workspace-header">
         <div className="workspace-header-inner">
-          <Brand href="/support" />
           <span className="workspace-role-label">Customer support</span>
           {/* Signed out, the page body already offers sign-in. */}
           {!signedOut && (
