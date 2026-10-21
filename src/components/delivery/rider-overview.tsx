@@ -71,7 +71,10 @@ export function StopRow({
       <li className={`dv-stop-row is-dense is-${stop.state.toLowerCase()}`}>
         <StopMark stop={stop} />
         <span className="dv-stop-copy">
-          <strong>{stop.recipient}</strong>
+          <strong>
+            {stop.kind === "pickup" ? "Pick up · " : ""}
+            {stop.recipient}
+          </strong>
           <span className="dv-stop-address">{stop.address}</span>
         </span>
         <span className="dv-dense-end">
@@ -104,7 +107,10 @@ export function StopRow({
       <StopMark stop={stop} />
       <div className="dv-stop-copy">
         <span className="dv-stop-top">
-          <strong>{stop.recipient}</strong>
+          <strong>
+            {stop.kind === "pickup" ? "Pick up · " : ""}
+            {stop.recipient}
+          </strong>
           {showState && (
             <small className="dv-stop-state">
               {STOP_STATE_LABELS[stop.state]}
@@ -117,10 +123,20 @@ export function StopRow({
             <Icon name="box" size={14} /> {parcelCount}{" "}
             {parcelCount === 1 ? "parcel" : "parcels"}
           </span>
-          {!finished && stop.etaAt && (
+          {!finished && stop.kind === "pickup" && stop.windowEnd && (
+            <span>
+              <Icon name="history" size={14} /> Window{" "}
+              {stop.windowStart ? `${formatTime(stop.windowStart)}–` : "until "}
+              {formatTime(stop.windowEnd)}
+            </span>
+          )}
+          {!finished && stop.kind === "delivery" && stop.etaAt && (
             <span>
               <Icon name="history" size={14} /> ETA {formatTime(stop.etaAt)}
             </span>
+          )}
+          {stop.awaitingPickup.length > 0 && !finished && (
+            <span className="dv-tag">after pickup</span>
           )}
           {!finished && <CodTag amount={stop.codDue} />}
           {stop.notLoaded.length > 0 && (
@@ -567,6 +583,18 @@ export function RouteOverview({
               you’ve seen it.
             </Notice>
           )}
+          {state === "READY" && route.toCollect.length > 0 && (
+            <Notice tone="info" icon="box">
+              <strong>
+                {route.toCollect.length}{" "}
+                {route.toCollect.length === 1 ? "parcel" : "parcels"} to collect
+                from customers on the way.
+              </strong>{" "}
+              {route.onBoard.length === 0
+                ? "Nothing to load at the depot, so you can set off empty."
+                : "Check your depot load, then collect the rest at the stops."}
+            </Notice>
+          )}
           {state === "PAUSED" && route.current && (
             <Notice tone="warning" icon="history">
               <strong>Paused at stop {route.current.number}.</strong> Customers
@@ -611,7 +639,9 @@ export function RouteOverview({
                 <h2 id="dv-stops-title">
                   {state === "COMPLETED" || state === "CLOSED"
                     ? "Stops today"
-                    : "Delivery order"}
+                    : route.stops.some((stop) => stop.kind === "pickup")
+                      ? "Stop order"
+                      : "Delivery order"}
                 </h2>
                 <span className="dv-count">
                   {route.stops.length} stops · {route.parcels.length} parcels

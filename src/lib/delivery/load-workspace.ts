@@ -318,6 +318,8 @@ export async function loadWorkspace(
       delivery_longitude: order.delivery_longitude,
       recipient_name: order.recipient_name,
       recipient_phone: order.recipient_phone,
+      pickup_contact_name: order.pickup_contact_name,
+      pickup_contact_phone: order.pickup_contact_phone,
       parcel_description: order.parcel_description,
       parcel_weight_kg: order.parcel_weight_kg,
       cod_amount: order.cod_amount,

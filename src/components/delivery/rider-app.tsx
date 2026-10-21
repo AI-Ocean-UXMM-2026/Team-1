@@ -25,6 +25,7 @@ import {
   type RouteMetrics,
   RouteOverview,
 } from "@/components/delivery/rider-overview";
+import { PickupPanel } from "@/components/delivery/rider-pickup";
 import { RouteRevisionNotice } from "@/components/delivery/rider-revision";
 import {
   CautionsPanel,
@@ -39,10 +40,13 @@ import {
 } from "@/components/delivery/rider-tools";
 import {
   completeDelivery,
+  completePickup,
   type DeliveryOutcomeInput,
   type DeliveryOutcomeResult,
   loadRouteSession,
   markStopArrived,
+  type PickupInput,
+  type PickupResult,
   RouteSessionUnavailable,
   requestRiderAssistance,
   sendDriverLocation,
@@ -62,9 +66,11 @@ import {
   type ExceptionReason,
   finishEstimate,
   type HandoverDraft,
+  type PickupReasonOption,
   type RouteSession,
   type RouteSnapshot,
   snapshotRoute,
+  stopParcels,
 } from "@/lib/delivery/driver-route";
 import { currency } from "@/lib/delivery/format";
 import { formatDriveMinutes, speedLimitAt } from "@/lib/delivery/mapbox";
@@ -77,6 +83,7 @@ import {
   type PreviewScenario,
   type PreviewState,
   previewAddStop,
+  previewCollect,
   previewReorder,
   previewSetStatus,
   previewState,
@@ -449,9 +456,11 @@ export function RiderApp() {
 
   const openPoints = useMemo(
     () =>
-      [stop, ...route.upcoming].flatMap((item) =>
-        item?.point ? [item.point] : [],
-      ),
+      // Mapbox Directions takes at most 25 coordinates, so the road route
+      // covers the next 24 stops; later ones join as the route advances.
+      [stop, ...route.upcoming]
+        .flatMap((item) => (item?.point ? [item.point] : []))
+        .slice(0, 24),
     [stop, route.upcoming],
   );
   const legRoute = useRoadRoute(
@@ -691,6 +700,37 @@ export function RiderApp() {
     return result;
   }
 
+  const previewPickups = useRef(new Map<string, PickupResult>());
+
+  /** Records one door pickup; the preview applies the same rules as the database. */
+  async function sendPickup(input: PickupInput): Promise<PickupResult> {
+    if (!isPreview) return completePickup(createClient(), input);
+    const seen = previewPickups.current.get(input.requestId);
+    if (seen) return { ...seen, duplicate: true };
+    if (input.outcome === "collected" && !input.parcelChecked)
+      throw new Error("Check the parcel before taking it");
+    if (input.outcome === "failed" && !input.reason)
+      throw new Error("Choose why the parcel was not collected");
+    const next = previewCollect(previewData.data, input.orderId, {
+      outcome: input.outcome,
+      weighedKg: input.weighedKg,
+      routeStarted: started,
+    });
+    setPreviewData((previous) =>
+      previous ? { ...previous, data: next } : previous,
+    );
+    const order = next.orders.find((item) => item.id === input.orderId);
+    const result: PickupResult = {
+      status: (order?.status ?? "picked_up") as DeliveryStatus,
+      duplicate: false,
+      weightKg: input.outcome === "collected" ? input.weighedKg : null,
+      variancePct: null,
+      warnings: [],
+    };
+    previewPickups.current.set(input.requestId, result);
+    return result;
+  }
+
   async function saveSession(
     state: "in_progress" | "paused" | "closed",
     extra: { reason?: string; declaredCod?: number } = {},
@@ -786,7 +826,10 @@ export function RiderApp() {
       // Best effort: only routes created by dispatch have stop rows to mark.
       void markStopArrived(
         createClient(),
-        target.open.map((order) => order.id),
+        (target.kind === "pickup" ? target.collect : target.open).map(
+          (order) => order.id,
+        ),
+        target.kind,
       ).catch(() => undefined);
   };
 
@@ -855,6 +898,81 @@ export function RiderApp() {
       finishStop(target);
       setFlash(
         `Stop ${target.number} delivered · ${target.open.length} ${target.open.length === 1 ? "parcel" : "parcels"}${target.codDue > 0 ? ` · ${currency.format(collected)} COD recorded` : ""}${duplicates ? " · already saved on the first try" : ""}.`,
+      );
+    });
+
+  /** Collects every parcel at the current pickup stop. */
+  const collectStop = () =>
+    run("collect", async () => {
+      if (!stop || stop.kind !== "pickup") return;
+      const target = stop;
+      // Request ids are saved before sending so a retry repeats, not duplicates.
+      const requestIds = { ...draft.requestIds };
+      for (const order of target.collect)
+        requestIds[`pickup:${order.id}`] ??= newRequestId();
+      setDrafts((previous) => ({
+        ...previous,
+        [target.key]: { ...draft, requestIds },
+      }));
+      let duplicates = 0;
+      let overweight: string | null = null;
+      for (const order of target.collect) {
+        const typed = (draft.weights?.[order.id] ?? "").trim();
+        const result = await sendPickup({
+          orderId: order.id,
+          requestId: requestIds[`pickup:${order.id}`],
+          outcome: "collected",
+          parcelChecked: draft.verified.includes(order.id),
+          weighedKg: typed === "" ? null : Number(typed),
+          reason: null,
+          note: draft.note.trim() || null,
+        });
+        if (result.duplicate) duplicates += 1;
+        applyStatus(
+          order.id,
+          result.status,
+          result.weightKg != null ? { parcel_weight_kg: result.weightKg } : {},
+        );
+        const warning = result.warnings.find(
+          (item) => item.code === "overweight",
+        );
+        if (warning)
+          overweight = `The truck now carries ${warning.onBoardKg} kg, over its ${warning.capacityKg} kg capacity. Tell operations.`;
+      }
+      finishStop(target);
+      const count = target.collect.length;
+      setFlash(
+        `Pickup ${target.number} collected · ${count} ${count === 1 ? "parcel" : "parcels"}${overweight ? ` · ${overweight}` : ""}${duplicates ? " · already saved on the first try" : ""}.`,
+      );
+    });
+
+  /** Records that the parcels at the current pickup could not be collected. */
+  const cannotCollect = (reason: PickupReasonOption["id"], note: string) =>
+    run("collect", async () => {
+      if (!stop || stop.kind !== "pickup") return;
+      const target = stop;
+      const requestIds = { ...draft.requestIds };
+      for (const order of target.collect)
+        requestIds[`pickup-fail:${order.id}`] ??= newRequestId();
+      setDrafts((previous) => ({
+        ...previous,
+        [target.key]: { ...draft, requestIds },
+      }));
+      for (const order of target.collect) {
+        const result = await sendPickup({
+          orderId: order.id,
+          requestId: requestIds[`pickup-fail:${order.id}`],
+          outcome: "failed",
+          parcelChecked: false,
+          weighedKg: null,
+          reason,
+          note: note.trim() || null,
+        });
+        applyStatus(order.id, result.status);
+      }
+      finishStop(target);
+      setFlash(
+        `Pickup ${target.number} recorded as not collected. Those parcels come off your route; operations will rebook them.`,
       );
     });
 
@@ -936,7 +1054,7 @@ export function RiderApp() {
         id: `local-${Date.now()}`,
         driver_id: driverId,
         driver_name: profileName,
-        order_id: stop?.open[0]?.id ?? null,
+        order_id: (stop ? stopParcels(stop)[0]?.id : undefined) ?? null,
         vehicle_id: vehicle?.id ?? null,
         kind:
           category === "refuel" || category === "recharge" ? "energy" : "issue",
@@ -1032,7 +1150,7 @@ export function RiderApp() {
       if (!isPreview)
         await submitRoadReport(createClient(), {
           driverId,
-          orderId: stop?.open[0]?.id ?? null,
+          orderId: (stop ? stopParcels(stop)[0]?.id : undefined) ?? null,
           category: report.category,
           severity: report.severity,
           description: report.description,
@@ -1090,7 +1208,10 @@ export function RiderApp() {
           {
             id: item.key,
             number: item.number,
-            kind: "dropoff" as const,
+            kind:
+              item.kind === "pickup"
+                ? ("pickup" as const)
+                : ("dropoff" as const),
             point: item.point,
             state:
               item.state === "COMPLETED"
@@ -1211,7 +1332,14 @@ export function RiderApp() {
               driver={riderPoint}
               heading={riderPoint ? heading : null}
               follow={riderPoint != null}
-              target={stop.point ? { ...stop.point, kind: "dropoff" } : null}
+              target={
+                stop.point
+                  ? {
+                      ...stop.point,
+                      kind: stop.kind === "pickup" ? "pickup" : "dropoff",
+                    }
+                  : null
+              }
               targetId={stop.key}
               stops={navStops}
               upcoming={route.upcoming.flatMap((item) =>
@@ -1245,7 +1373,20 @@ export function RiderApp() {
           expanded={expanded}
           onExpand={setExpanded}
           handover={
-            handoverKey === stop.key ? (
+            handoverKey === stop.key && stop.kind === "pickup" ? (
+              <PickupPanel
+                stop={stop}
+                draft={draft}
+                onChange={updateDraft}
+                busy={busy === "collect"}
+                online={online}
+                error={errorBanner}
+                onCollect={() => void collectStop()}
+                onCannotCollect={(reason, note) =>
+                  void cannotCollect(reason, note)
+                }
+              />
+            ) : handoverKey === stop.key ? (
               <HandoverPanel
                 stop={stop}
                 draft={draft}
@@ -1277,6 +1418,11 @@ export function RiderApp() {
           }}
           onCloseHandover={() => setHandoverKey(null)}
           onCannotDeliver={() => {
+            if (stop.kind === "pickup") {
+              setActionError(null);
+              setHandoverKey(stop.key);
+              return;
+            }
             setExceptionReason(null);
             openPanel("exception");
           }}

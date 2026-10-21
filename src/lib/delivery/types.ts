@@ -29,6 +29,9 @@ export type DeliveryOrder = {
   delivery_longitude: number | null;
   recipient_name: string | null;
   recipient_phone: string | null;
+  /** Who to meet at the pickup address (door pickups). */
+  pickup_contact_name?: string | null;
+  pickup_contact_phone?: string | null;
   parcel_description: string | null;
   parcel_weight_kg: number | null;
   cod_amount: number;
@@ -146,6 +149,12 @@ export type DeliveryRoute = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Set when the route was committed from a dispatch plan. */
+  dispatch_run_id?: string | null;
+  depot_id?: string | null;
+  service_date?: string | null;
+  planned_depart_at?: string | null;
+  planned_return_at?: string | null;
 };
 
 export type RouteStop = {
@@ -160,6 +169,13 @@ export type RouteStop = {
   status: string;
   completed_at: string | null;
   created_at: string;
+  /** Present on stops that came from a committed dispatch plan. */
+  dispatch_run_stop_id?: string | null;
+  planned_arrival_at?: string | null;
+  planned_departure_at?: string | null;
+  window_start_at?: string | null;
+  window_end_at?: string | null;
+  arrived_at?: string | null;
 };
 
 export type WorkspaceData = {
