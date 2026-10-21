@@ -5,6 +5,7 @@ import {
   buildTodayItems,
   codDue,
   contextualActions,
+  homeSummary,
   matchOrders,
   pickNextParcel,
   pushRecent,
@@ -194,4 +195,17 @@ test("recent tracking codes stay unique, newest first, and capped", () => {
   }
   assert.deepEqual(list, ["OE-6", "OE-5", "OE-4", "OE-3", "oe 1"]);
   assert.deepEqual(pushRecent(["OE-1"], "   "), ["OE-1"]);
+});
+
+test("homeSummary describes the delivery state", () => {
+  assert.equal(homeSummary([]), "No deliveries on the way");
+  assert.equal(
+    homeSummary([order({ status: "delivered" })]),
+    "No deliveries on the way",
+  );
+  assert.equal(homeSummary([order()]), "1 delivery on the way");
+  assert.equal(
+    homeSummary([order(), order({ id: "o2", status: "assigned" })]),
+    "2 deliveries on the way",
+  );
 });

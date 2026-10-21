@@ -37,6 +37,7 @@ import { LocationMap } from "@/components/delivery/location-map";
 import {
   buildNotifications,
   codDue,
+  homeSummary,
   matchOrders,
   normaliseCode,
   pickNextParcel,
@@ -338,6 +339,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
           profile={workspace.profile}
           isAuthenticated={workspace.isAuthenticated}
           unreadCount={0}
+          summary={null}
           onSignIn={() => setAuthOpen(true)}
           onOpenNotifications={() => undefined}
         />
@@ -353,6 +355,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         profile={workspace.profile}
         isAuthenticated={workspace.isAuthenticated}
         unreadCount={unreadCount}
+        summary={homeSummary(realOrders)}
         onSignIn={() => setAuthOpen(true)}
         onOpenNotifications={openNotifications}
       />
