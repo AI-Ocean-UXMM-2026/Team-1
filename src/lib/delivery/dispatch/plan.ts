@@ -414,6 +414,8 @@ function buildSavePayload(
     const m = x.meta;
     orders.push({
       order_id: x.orderId,
+      pickup_address: m.pickupAddress,
+      delivery_address: m.deliveryAddress,
       disposition: "unassigned",
       unassigned_reason: x.reason,
       unassigned_detail: x.detail,
@@ -483,6 +485,8 @@ function orderEntry(
 ): Json {
   return {
     order_id: m.orderId,
+    pickup_address: m.pickupAddress,
+    delivery_address: m.deliveryAddress,
     origin_kind: m.originKind,
     order_updated_at: m.orderUpdatedAt,
     logistics_updated_at: m.logisticsUpdatedAt,
