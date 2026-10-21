@@ -535,6 +535,10 @@ export function ManagerDashboard({
               )}
             </Link>
           ))}
+          <Link href="/manager/jobs">
+            <Icon name="box" size={17} />
+            Job board
+          </Link>
           <Link href="/manager/dispatch">
             <Icon name="navigation" size={17} />
             Plan routes

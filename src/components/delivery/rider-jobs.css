@@ -1,0 +1,78 @@
+.rj-board {
+  display: grid;
+  gap: 12px;
+  padding-block: 8px;
+}
+
+.rj-board h2 {
+  margin: 0;
+}
+
+.rj-vehicle {
+  display: grid;
+  gap: 4px;
+  font-size: 0.875rem;
+}
+
+.rj-vehicle select {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border, #d6dae1);
+  border-radius: 12px;
+  background: var(--color-surface, #fff);
+  font: inherit;
+}
+
+.rj-error {
+  margin: 0;
+  color: var(--color-error, #b42318);
+}
+
+.rj-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rj-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border, #d6dae1);
+  border-radius: 16px;
+  background: var(--color-surface, #fff);
+}
+
+.rj-card div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rj-card span {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.rj-take {
+  flex: none;
+  min-width: 96px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-primary, #f26a1b);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rj-take:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}

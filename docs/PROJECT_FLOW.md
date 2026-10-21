@@ -43,6 +43,15 @@ GPS writes are accepted only for the assigned rider after pickup and before the 
 
 Customer pickup orders use the same lifecycle as manager-created door-to-door orders. The customer supplies the pickup and destination details; a guarded database function creates the order as `pending`, the manager sees it in the unassigned queue, and the rider completes the normal pickup, GPS, COD, and delivery steps.
 
+## Order queue and job board
+
+1. A manager accepts pending orders into the queue (`/manager/jobs`).
+2. Every 9 hours (`pg_cron` checks hourly) the queue is grouped into jobs by delivery township, at most 8 parcels or 150 kg each. A manager can also create jobs on demand; that does not reset the 9-hour schedule.
+3. Drivers with no route see open jobs on the rider home screen and take one (`claim_delivery_job`). The job's parcels become that driver's assignments, route and stops. Drivers only see counts, weight, COD total and area before taking a job.
+4. The job starts when the driver starts the route, and completes when every parcel has an outcome. `release_delivery_job` returns an unstarted job to the board.
+
+A driver holds one unfinished job at a time, and cannot take a job after closing the day's route.
+
 ## Assignment flow
 
 1. A manager or seller creates a delivery request.

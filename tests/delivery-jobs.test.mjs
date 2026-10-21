@@ -24,5 +24,8 @@ test("countdown reads in hours and minutes", () => {
   assert.equal(countdownText(new Date("2026-10-23T08:15:00Z"), now), "2h 15m");
   assert.equal(countdownText(new Date("2026-10-23T09:00:00Z"), now), "3h");
   assert.equal(countdownText(new Date("2026-10-23T06:40:00Z"), now), "40m");
-  assert.equal(countdownText(new Date("2026-10-23T05:00:00Z"), now), "any minute now");
+  assert.equal(
+    countdownText(new Date("2026-10-23T05:00:00Z"), now),
+    "any minute now",
+  );
 });

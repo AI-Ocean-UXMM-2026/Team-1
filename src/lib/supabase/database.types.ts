@@ -445,6 +445,114 @@ export type Database = {
           },
         ];
       };
+      job_batches: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          job_count: number;
+          order_count: number;
+          trigger: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          job_count?: number;
+          order_count?: number;
+          trigger: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          job_count?: number;
+          order_count?: number;
+          trigger?: string;
+        };
+        Relationships: [];
+      };
+      delivery_jobs: {
+        Row: {
+          area_label: string | null;
+          batch_id: string;
+          center_latitude: number | null;
+          center_longitude: number | null;
+          claimed_at: string | null;
+          claimed_by: string | null;
+          cod_total: number;
+          completed_at: string | null;
+          created_at: string;
+          id: string;
+          label: string;
+          order_count: number;
+          route_id: string | null;
+          started_at: string | null;
+          status: string;
+          total_weight_kg: number;
+          vehicle_id: string | null;
+        };
+        Insert: {
+          area_label?: string | null;
+          batch_id: string;
+          center_latitude?: number | null;
+          center_longitude?: number | null;
+          claimed_at?: string | null;
+          claimed_by?: string | null;
+          cod_total?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          label: string;
+          order_count: number;
+          route_id?: string | null;
+          started_at?: string | null;
+          status?: string;
+          total_weight_kg?: number;
+          vehicle_id?: string | null;
+        };
+        Update: {
+          area_label?: string | null;
+          batch_id?: string;
+          center_latitude?: number | null;
+          center_longitude?: number | null;
+          claimed_at?: string | null;
+          claimed_by?: string | null;
+          cod_total?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          label?: string;
+          order_count?: number;
+          route_id?: string | null;
+          started_at?: string | null;
+          status?: string;
+          total_weight_kg?: number;
+          vehicle_id?: string | null;
+        };
+        Relationships: [];
+      };
+      delivery_queue: {
+        Row: {
+          job_id: string | null;
+          order_id: string;
+          queued_at: string;
+          queued_by: string;
+        };
+        Insert: {
+          job_id?: string | null;
+          order_id: string;
+          queued_at?: string;
+          queued_by: string;
+        };
+        Update: {
+          job_id?: string | null;
+          order_id?: string;
+          queued_at?: string;
+          queued_by?: string;
+        };
+        Relationships: [];
+      };
       driver_route_sessions: {
         Row: {
           closed_at: string | null;
@@ -2172,6 +2280,26 @@ export type Database = {
       };
     };
     Functions: {
+      queue_orders: {
+        Args: { p_order_ids: string[] };
+        Returns: number;
+      };
+      unqueue_orders: {
+        Args: { p_order_ids: string[] };
+        Returns: number;
+      };
+      create_job_batch: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      claim_delivery_job: {
+        Args: { p_job_id: string; p_vehicle_id?: string | null };
+        Returns: string;
+      };
+      release_delivery_job: {
+        Args: { p_job_id: string };
+        Returns: undefined;
+      };
       complete_delivery: {
         Args: {
           target_order_id: string;

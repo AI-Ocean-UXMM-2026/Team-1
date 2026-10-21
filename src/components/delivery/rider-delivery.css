@@ -292,7 +292,6 @@
   color: var(--color-text-secondary-subtle);
 }
 
-
 /* Dense rows: number, name and area on the left, time and cash as plain
    right-aligned text. Nothing is a pill, so the column reads as a list. */
 .dv-stop-row.is-dense {
@@ -758,7 +757,10 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
+  min-width: 0;
   margin: 10px 0 0;
+  padding: 0;
+  border: 0;
   border-top: 1px solid var(--color-border);
 }
 
@@ -1186,7 +1188,6 @@
   font: inherit;
 }
 
-
 .dv-float-col {
   display: grid;
   flex: none;
@@ -1204,6 +1205,10 @@
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
   pointer-events: none;
 }
 
@@ -1347,7 +1352,8 @@
   font-weight: 600;
   opacity: calc(1 - var(--p, 0) * 1.6);
   /* Shimmer: the highlight runs through the text itself, as in Grab. */
-  background: linear-gradient(
+  background:
+    linear-gradient(
       100deg,
       rgba(255, 255, 255, 0.72) 0%,
       rgba(255, 255, 255, 0.72) 40%,
@@ -1452,7 +1458,7 @@
 
   .dv-swipe::before,
   .dv-swipe-knob {
-    transition: none !important;
+    transition: none;
   }
 }
 

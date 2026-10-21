@@ -25,11 +25,10 @@ import type {
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
-import { StopMark, StopRow } from "@/components/delivery/rider-overview";
+import { StopRow } from "@/components/delivery/rider-overview";
 import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
-import { CodTag } from "@/components/delivery/rider-tools";
 import type { DeliveryStop, DriverRoute } from "@/lib/delivery/driver-route";
-import { currency, formatTime } from "@/lib/delivery/format";
+import { formatTime } from "@/lib/delivery/format";
 import {
   formatDistance,
   resolveTurnSymbol,
@@ -218,15 +217,12 @@ function SpeedSign({
   if (currentKmh == null && limitKmh == null) return null;
   const over = currentKmh != null && limitKmh != null && currentKmh > limitKmh;
   return (
-    <div
-      className="dv-speed"
-      role="group"
-      aria-label={
-        limitKmh != null
+    <fieldset className="dv-speed">
+      <legend className="sr-only">
+        {limitKmh != null
           ? `Speed limit ${limitKmh} kilometres per hour`
-          : "Speed"
-      }
-    >
+          : "Speed"}
+      </legend>
       {limitKmh != null && (
         <span className="dv-limit" aria-hidden="true">
           {limitKmh}
@@ -238,7 +234,7 @@ function SpeedSign({
           <small>km/h</small>
         </span>
       )}
-    </div>
+    </fieldset>
   );
 }
 
@@ -515,7 +511,8 @@ export function ActiveDelivery({
                 </p>
               </div>
             </div>
-            <div className="dv-strip" role="group" aria-label="Stop actions">
+            <fieldset className="dv-strip">
+              <legend className="sr-only">Stop actions</legend>
               {stop.phone ? (
                 <>
                   <a
@@ -552,7 +549,7 @@ export function ActiveDelivery({
                 <Icon name="warning" size={20} />
                 <span>Problem</span>
               </button>
-            </div>
+            </fieldset>
 
             {expanded && (
               <div className="rf-sheet-body dv-details">
@@ -669,9 +666,7 @@ export function ActiveDelivery({
                   <SwipeConfirm
                     label="I’ve arrived"
                     hint="Swipe to confirm arrival"
-                    onConfirm={() =>
-                      far ? setConfirmFar(true) : onArrived()
-                    }
+                    onConfirm={() => (far ? setConfirmFar(true) : onArrived())}
                   />
                 )}
               </div>

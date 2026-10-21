@@ -20,6 +20,7 @@ import {
   ExceptionPanel,
   HandoverPanel,
 } from "@/components/delivery/rider-handover";
+import { RiderJobBoard } from "@/components/delivery/rider-job-board";
 import { type NavStop, RiderNavMap } from "@/components/delivery/rider-nav-map";
 import {
   type RouteMetrics,
@@ -1375,6 +1376,14 @@ export function RiderApp() {
             )}
             {route.state === "PAUSED" && revisionNotice}
           </>
+        }
+        emptyState={
+          isPreview || !live.canUseLiveData || !driverId ? undefined : (
+            <RiderJobBoard
+              vehicles={data.vehicles}
+              onClaimed={() => void live.refresh()}
+            />
+          )
         }
         online={online}
         busy={busy}

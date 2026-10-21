@@ -163,7 +163,10 @@ export function MapboxRiderNavMap({
   useEffect(() => {
     if (!following || !moved) return;
     const interval = setInterval(() => {
-      if (Date.now() - lastInteractionTime.current >= AUTO_RECENTER_TIMEOUT_MS) {
+      if (
+        Date.now() - lastInteractionTime.current >=
+        AUTO_RECENTER_TIMEOUT_MS
+      ) {
         recenteringRef.current = true;
         setMoved(false);
       }

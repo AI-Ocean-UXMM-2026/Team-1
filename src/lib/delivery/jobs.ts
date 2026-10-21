@@ -1,9 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
-// deno-lint-ignore no-explicit-any
-// biome-ignore lint/suspicious/noExplicitAny: jobs tables are created by migrations not yet regenerated into database.types.ts
-type JobsClient = SupabaseClient<any>;
+type JobsClient = SupabaseClient<Database>;
 
 /** Hours between scheduled batches. Mirrors private.run_scheduled_job_batch. */
 export const BATCH_INTERVAL_HOURS = 9;

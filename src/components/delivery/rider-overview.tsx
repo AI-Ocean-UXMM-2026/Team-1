@@ -449,6 +449,7 @@ export function RouteOverview({
   metrics,
   map,
   notices,
+  emptyState,
   online,
   busy,
   error,
@@ -469,6 +470,8 @@ export function RouteOverview({
   metrics: RouteMetrics;
   map: ReactNode;
   notices: ReactNode;
+  /** Replaces the "no route" message, for example with the job board. */
+  emptyState?: ReactNode;
   online: boolean;
   busy: string | null;
   error: ReactNode;
@@ -539,7 +542,9 @@ export function RouteOverview({
       {notices}
       {error}
 
-      {state === "NONE" ? (
+      {state === "NONE" && emptyState ? (
+        emptyState
+      ) : state === "NONE" ? (
         <section className="rf-empty">
           <span className="rf-result-mark is-neutral">
             <Icon name="truck" size={26} />

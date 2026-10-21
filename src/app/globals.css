@@ -6321,3 +6321,9 @@ summary:focus-visible {
 .customer-app .mobile-bottom-nav .mobile-nav-icon {
   height: 22px;
 }
+
+.jobs-status {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
