@@ -50,9 +50,11 @@ export function CodLedgerView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [confirmingRider, setConfirmingRider] = useState<string | null>(null);
   const [settling, setSettling] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [viewMode, setViewMode] = useState<"orders" | "riders">("orders");
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reload when orders or the key change
   useEffect(() => {
@@ -88,6 +90,63 @@ export function CodLedgerView({
   );
   const summary = useMemo(() => summariseCodLedger(rows), [rows]);
 
+  const riderGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        driverId: string;
+        driverName: string;
+        rows: CodRow[];
+        toSettleCount: number;
+        toSettleTotal: number;
+        awaitingCount: number;
+        awaitingTotal: number;
+        settledCount: number;
+        settledTotal: number;
+        hasDiscrepancy: boolean;
+      }
+    >();
+
+    for (const row of rows) {
+      const driverId = row.order.driver_id || "unassigned";
+      const driverName = row.order.driver_name || "Unassigned rider";
+      let group = map.get(driverId);
+      if (!group) {
+        group = {
+          driverId,
+          driverName,
+          rows: [],
+          toSettleCount: 0,
+          toSettleTotal: 0,
+          awaitingCount: 0,
+          awaitingTotal: 0,
+          settledCount: 0,
+          settledTotal: 0,
+          hasDiscrepancy: false,
+        };
+        map.set(driverId, group);
+      }
+      group.rows.push(row);
+      if (row.state === "to_settle") {
+        group.toSettleCount += 1;
+        group.toSettleTotal += row.collected ?? 0;
+      } else if (row.state === "awaiting") {
+        group.awaitingCount += 1;
+        group.awaitingTotal += row.expected;
+      } else if (row.state === "settled") {
+        group.settledCount += 1;
+        group.settledTotal += row.collected ?? row.expected;
+      }
+      if (row.difference !== 0) {
+        group.hasDiscrepancy = true;
+      }
+    }
+    return Array.from(map.values()).sort(
+      (a, b) =>
+        b.toSettleTotal - a.toSettleTotal || b.toSettleCount - a.toSettleCount,
+    );
+  }, [rows]);
+
   async function settle(row: CodRow) {
     if (settling) return;
     setSettling(row.order.id);
@@ -103,6 +162,34 @@ export function CodLedgerView({
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not settle this cash.",
+      );
+    } finally {
+      setSettling(null);
+    }
+  }
+
+  async function settleRiderShift(group: (typeof riderGroups)[number]) {
+    if (settling) return;
+    const toSettleRows = group.rows.filter((r) => r.state === "to_settle");
+    if (!toSettleRows.length) return;
+    setSettling(group.driverId);
+    setNotice(null);
+    setError(null);
+    try {
+      const client = createClient();
+      for (const r of toSettleRows) {
+        await settleCodPayment(client, r.order.id);
+      }
+      setConfirmingRider(null);
+      setNotice(
+        `Shift settled: ${currency.format(group.toSettleTotal)} from ${group.driverName} (${toSettleRows.length} parcels) marked as handed over.`,
+      );
+      setReloadKey((key) => key + 1);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not settle shift for this rider.",
       );
     } finally {
       setSettling(null);
@@ -162,8 +249,32 @@ export function CodLedgerView({
       </div>
 
       <section className="dash-card" aria-label="Cash on delivery by order">
-        <header className="dash-card-header">
+        <header className="dash-card-header cod-ledger-header">
           <h2>Cash by delivery</h2>
+          <div
+            className="order-filter-tabs cod-view-toggle"
+            role="tablist"
+            aria-label="COD view modes"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === "orders"}
+              className={viewMode === "orders" ? "is-active" : ""}
+              onClick={() => setViewMode("orders")}
+            >
+              All deliveries <span>{rows.length}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === "riders"}
+              className={viewMode === "riders" ? "is-active" : ""}
+              onClick={() => setViewMode("riders")}
+            >
+              Group by rider <span>{riderGroups.length}</span>
+            </button>
+          </div>
         </header>
         {loading && !rows.length ? (
           <p className="dash-empty">Loading cash on delivery…</p>
@@ -172,6 +283,139 @@ export function CodLedgerView({
             No deliveries with cash on delivery yet. Collected cash appears here
             for you to reconcile.
           </p>
+        ) : viewMode === "riders" ? (
+          <div className="cod-rider-groups">
+            {riderGroups.map((group) => (
+              <article key={group.driverId} className="cod-rider-card">
+                <div className="cod-rider-header">
+                  <div>
+                    <span className="section-kicker">Rider custody</span>
+                    <h3>{group.driverName}</h3>
+                  </div>
+                  {group.hasDiscrepancy && (
+                    <span className="cod-discrepancy-badge is-warning">
+                      <Icon name="warning" size={13} /> Discrepancy noted
+                    </span>
+                  )}
+                </div>
+
+                <div className="cod-rider-metrics">
+                  <div
+                    className={`cod-metric-cell ${group.toSettleCount > 0 ? "is-highlight" : ""}`}
+                  >
+                    <span className="cod-metric-label">To settle</span>
+                    <strong className="cod-metric-val">
+                      {currency.format(group.toSettleTotal)}
+                    </strong>
+                    <small>
+                      {group.toSettleCount}{" "}
+                      {group.toSettleCount === 1 ? "parcel" : "parcels"}
+                    </small>
+                  </div>
+                  <div className="cod-metric-cell">
+                    <span className="cod-metric-label">On road</span>
+                    <strong className="cod-metric-val">
+                      {currency.format(group.awaitingTotal)}
+                    </strong>
+                    <small>
+                      {group.awaitingCount}{" "}
+                      {group.awaitingCount === 1 ? "parcel" : "parcels"}
+                    </small>
+                  </div>
+                  <div className="cod-metric-cell">
+                    <span className="cod-metric-label">Settled</span>
+                    <strong className="cod-metric-val">
+                      {currency.format(group.settledTotal)}
+                    </strong>
+                    <small>
+                      {group.settledCount}{" "}
+                      {group.settledCount === 1 ? "parcel" : "parcels"}
+                    </small>
+                  </div>
+                </div>
+
+                {group.toSettleCount > 0 && (
+                  <div className="cod-rider-batch-action">
+                    {confirmingRider === group.driverId ? (
+                      <div className="cod-ledger-confirm">
+                        <span>
+                          Confirm receiving{" "}
+                          {currency.format(group.toSettleTotal)} from{" "}
+                          {group.driverName} for all {group.toSettleCount}{" "}
+                          parcels?
+                        </span>
+                        <button
+                          type="button"
+                          className="button button-primary button-small"
+                          disabled={settling != null}
+                          onClick={() => void settleRiderShift(group)}
+                        >
+                          {settling === group.driverId
+                            ? "Settling shift…"
+                            : "Confirm shift handover"}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-outline button-small"
+                          disabled={settling != null}
+                          onClick={() => setConfirmingRider(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button button-dark button-small"
+                        onClick={() => setConfirmingRider(group.driverId)}
+                      >
+                        <Icon name="coin" size={14} /> Settle shift (
+                        {group.toSettleCount}{" "}
+                        {group.toSettleCount === 1 ? "parcel" : "parcels"} ·{" "}
+                        {currency.format(group.toSettleTotal)})
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="cod-rider-orders">
+                  <h4>Assigned parcels ({group.rows.length})</h4>
+                  <ul className="cod-rider-order-list">
+                    {group.rows.map((r) => (
+                      <li key={r.order.id} className="cod-rider-order-item">
+                        <div className="cod-rider-order-info">
+                          <strong>{r.order.tracking_code}</strong>
+                          <small>{r.order.customer_name}</small>
+                        </div>
+                        <span
+                          className={`cod-ledger-state ${STATE_TONE[r.state]}`}
+                        >
+                          COD · {STATE_LABEL[r.state]}
+                        </span>
+                        <div className="cod-rider-order-amt">
+                          <span>Exp: {currency.format(r.expected)}</span>
+                          <span>
+                            Col:{" "}
+                            {r.collected != null
+                              ? currency.format(r.collected)
+                              : "—"}
+                          </span>
+                          {r.difference !== 0 && (
+                            <span className="cod-difference-alert">
+                              {differenceText(r)}
+                            </span>
+                          )}
+                        </div>
+                        {r.reason && (
+                          <p className="cod-ledger-reason">Note: {r.reason}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </article>
+            ))}
+          </div>
         ) : (
           <ul className="cod-ledger-list">
             {rows.map((row) => (
@@ -205,7 +449,14 @@ export function CodLedgerView({
                   </div>
                   <div className={row.difference !== 0 ? "is-off" : undefined}>
                     <dt>Difference</dt>
-                    <dd>{differenceText(row)}</dd>
+                    <dd>
+                      {differenceText(row)}
+                      {row.difference !== 0 && (
+                        <span className="cod-discrepancy-pill">
+                          {row.difference < 0 ? "Short" : "Over"}
+                        </span>
+                      )}
+                    </dd>
                   </div>
                 </dl>
                 {row.reason && (

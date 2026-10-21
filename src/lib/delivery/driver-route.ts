@@ -5,6 +5,10 @@ import type {
   RouteStop,
   StatusEvent,
 } from "@/lib/delivery/types";
+import {
+  countInterceptionPointsBetween,
+  countTrafficSignalsBetween,
+} from "./energy-routing.ts";
 
 // Type-only imports keep this module runnable by the Node test runner.
 const isClosed = (status: DeliveryStatus) =>
@@ -175,7 +179,7 @@ function sequenceKey(order: DeliveryOrder, sequence: Map<string, number>) {
   return [
     sequence.get(order.id) ?? Number.MAX_SAFE_INTEGER,
     order.estimated_delivery_at ?? "~",
-    order.created_at,
+    order.created_at ?? "",
   ] as const;
 }
 
@@ -221,6 +225,8 @@ export type DriverRoute = {
   codToCollect: number;
   delivered: number;
   failed: number;
+  signalsOnRoute?: number;
+  interceptionsOnRoute?: number;
 };
 
 const ACTIVE = new Set(["assigned", "accepted", "picked_up", "in_transit"]);
@@ -276,14 +282,29 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
     const pCand = groupPoint(cand);
     if (!pPrev || !pCand) return Number.POSITIVE_INFINITY;
     if (!next) {
-      return distanceKm(pPrev, pCand);
+      const legKm = distanceKm(pPrev, pCand);
+      const sigs = countTrafficSignalsBetween(pPrev, pCand).count;
+      const ints = countInterceptionPointsBetween(pPrev, pCand).count;
+      return legKm + sigs * 0.45 + ints * 0.18;
     }
     const pNext = groupPoint(next);
     if (!pNext) return Number.POSITIVE_INFINITY;
-    return (
+    const directKm =
       distanceKm(pPrev, pCand) +
       distanceKm(pCand, pNext) -
-      distanceKm(pPrev, pNext)
+      distanceKm(pPrev, pNext);
+    const addedSigs =
+      countTrafficSignalsBetween(pPrev, pCand).count +
+      countTrafficSignalsBetween(pCand, pNext).count -
+      countTrafficSignalsBetween(pPrev, pNext).count;
+    const addedInts =
+      countInterceptionPointsBetween(pPrev, pCand).count +
+      countInterceptionPointsBetween(pCand, pNext).count -
+      countInterceptionPointsBetween(pPrev, pNext).count;
+    return (
+      directKm +
+      Math.max(0, addedSigs) * 0.45 +
+      Math.max(0, addedInts) * 0.18
     );
   }
 
@@ -405,6 +426,17 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
     )
     .reduce((sum, order) => sum + order.cod_amount, 0);
 
+  let signalsOnRoute = 0;
+  let interceptionsOnRoute = 0;
+  for (let s = 0; s < stops.length - 1; s++) {
+    const pA = stops[s].point;
+    const pB = stops[s + 1].point;
+    if (pA && pB) {
+      signalsOnRoute += countTrafficSignalsBetween(pA, pB).count;
+      interceptionsOnRoute += countInterceptionPointsBetween(pA, pB).count;
+    }
+  }
+
   return {
     state,
     stops,
@@ -420,6 +452,8 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
     codToCollect: parcels.reduce((sum, order) => sum + codDue(order), 0),
     delivered: parcels.filter((order) => order.status === "delivered").length,
     failed: parcels.filter((order) => order.status === "failed").length,
+    signalsOnRoute,
+    interceptionsOnRoute,
   };
 }
 

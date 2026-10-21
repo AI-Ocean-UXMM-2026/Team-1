@@ -27,11 +27,25 @@ import {
 } from "@/lib/delivery/location-state";
 import type { MapPoint } from "@/lib/delivery/map-projection";
 import { formatDriveMinutes } from "@/lib/delivery/mapbox";
+import type { DeliveryOrder, RoadReport } from "@/lib/delivery/types";
 import { useRoadRoute } from "@/lib/delivery/use-road-route";
 
 type Palette = ReturnType<typeof mapPalette>;
 
-function riderMarker(selected: boolean, palette: Palette) {
+function formatTime(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function riderMarker(
+  selected: boolean,
+  palette: Palette,
+  trackingCode: string,
+  driverName?: string | null,
+) {
   const halo = selected
     ? `<circle r="20" fill="${palette.route}" fill-opacity="0.2"/>`
     : "";
@@ -39,7 +53,28 @@ function riderMarker(selected: boolean, palette: Palette) {
     `${halo}<circle r="13" fill="${palette.driver}" stroke="${palette.driverCasing}" stroke-width="2"/><path fill="${palette.driverCasing}" d="M-6-2h8l3 4h2v4h-2a2.2 2.2 0 0 1-4.4 0h-4.2a2.2 2.2 0 0 1-4.4 0H-10V0h4l2-2Z"/>`,
     selected ? 44 : 34,
     "-22 -22 44 44",
+    true,
+    `Rider: ${driverName || "Assigned rider"} (${trackingCode})`,
   );
+}
+
+function hazardMarker(report: RoadReport) {
+  const isSevere = report.severity === "high" || report.severity === "blocked";
+  const color = isSevere ? "#DC2626" : "#D97706";
+  const bg = isSevere ? "#FEF2F2" : "#FFFBEB";
+  const icon =
+    report.category === "flooding"
+      ? `<path d="M-5 1 C-3 -1 -1 3 1 1 C3 -1 5 3 7 1" stroke="${color}" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M-5 -2 C-3 -4 -1 0 1 -2 C3 -4 5 0 7 -2" stroke="${color}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
+      : `<path d="M0 -6 L6 5 L-6 5 Z" fill="${color}"/><circle cx="0" cy="2.5" r="0.8" fill="#FFFFFF"/>`;
+  const el = svgMarker(
+    `<circle r="12" fill="${bg}" stroke="${color}" stroke-width="1.5"/>${icon}`,
+    28,
+    "-14 -14 28 28",
+    true,
+    `Road report: ${report.category} (${report.severity}) - ${report.description}`,
+  );
+  el.classList.add("mapbox-hazard-marker");
+  return el;
 }
 
 function destinationMarker(palette: Palette, label: string | null) {
@@ -76,6 +111,8 @@ export function MapboxLocationMap({
   tall = false,
   compact = false,
   onSelectOrder,
+  roadReports,
+  focusPoint,
 }: LocationMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapState = useMapboxMap(container, true);
@@ -83,6 +120,13 @@ export function MapboxLocationMap({
   const gl = mapState?.gl ?? null;
   const [moved, setMoved] = useState(false);
   const [now, setNow] = useState(0);
+  const [activeRiderPopup, setActiveRiderPopup] = useState<{
+    order: DeliveryOrder;
+    point: MapPoint;
+  } | null>(null);
+  const [activeHazardPopup, setActiveHazardPopup] = useState<RoadReport | null>(
+    null,
+  );
   const flownTo = useRef<string | null>(null);
 
   useEffect(() => {
@@ -90,6 +134,15 @@ export function MapboxLocationMap({
     const timer = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!map || !focusPoint) return;
+    map.easeTo({
+      center: lngLat(focusPoint),
+      zoom: 15.5,
+      duration: 800,
+    });
+  }, [map, focusPoint]);
 
   const livePoint =
     order?.latest_location && canShowParcelLocation(order.status)
@@ -186,9 +239,18 @@ export function MapboxLocationMap({
 
     for (const row of markerRows) {
       const selected = row.order.id === order?.id;
-      const rider = riderMarker(selected, palette);
-      rider.title = row.order.tracking_code;
-      rider.addEventListener("click", () => onSelectOrder?.(row.order.id));
+      const rider = riderMarker(
+        selected,
+        palette,
+        row.order.tracking_code,
+        row.order.driver_name,
+      );
+      rider.title = `${row.order.driver_name || "Rider"} · ${row.order.tracking_code}`;
+      rider.addEventListener("click", () => {
+        onSelectOrder?.(row.order.id);
+        setActiveRiderPopup({ order: row.order, point: row.rider });
+        setActiveHazardPopup(null);
+      });
       place(rider, row.rider, "center");
       if (row.destination)
         place(
@@ -201,6 +263,22 @@ export function MapboxLocationMap({
       place(pickupMarker(palette), pickupPoint, "center");
     if (destinationPoint && !markerRows.length)
       place(destinationMarker(palette, "DROP-OFF"), destinationPoint, "bottom");
+
+    if (roadReports?.length) {
+      for (const report of roadReports) {
+        if (report.status === "rejected") continue;
+        const hazard = hazardMarker(report);
+        hazard.addEventListener("click", () => {
+          setActiveHazardPopup(report);
+          setActiveRiderPopup(null);
+        });
+        place(
+          hazard,
+          { latitude: report.latitude, longitude: report.longitude },
+          "center",
+        );
+      }
+    }
 
     return () => {
       for (const marker of markers) marker.remove();
@@ -215,6 +293,7 @@ export function MapboxLocationMap({
     pickupPoint,
     destinationPoint,
     onSelectOrder,
+    roadReports,
   ]);
 
   useEffect(() => {
@@ -244,6 +323,19 @@ export function MapboxLocationMap({
       width: 5,
     });
   }, [map, markerRows, order?.id, road, selectedRow]);
+
+  const handleRecenter = () => {
+    if (!map || !fitPoints.length) return;
+    setMoved(false);
+    setActiveRiderPopup(null);
+    setActiveHazardPopup(null);
+    fitToPoints(
+      map,
+      fitPoints,
+      { x: 56, top: 92, bottom: 92 },
+      mode === "customer" ? 14 : 15,
+    );
+  };
 
   const latestTimestamp = latestRecordedAt(
     trackedOrders,
@@ -295,6 +387,129 @@ export function MapboxLocationMap({
 
       <div className="map-viewport mapbox-viewport">
         <div ref={container} className="mapbox-canvas" />
+
+        {mode === "manager" && (
+          <div className="map-actions-cluster">
+            <button
+              type="button"
+              className="map-action-btn"
+              onClick={handleRecenter}
+              aria-label="Recenter all vehicles"
+              title="Recenter fleet"
+            >
+              <Icon name="navigation" size={14} />
+              <span>Recenter</span>
+            </button>
+            <div className="map-zoom-group">
+              <button
+                type="button"
+                className="map-action-btn map-zoom-btn"
+                onClick={() => map?.zoomIn()}
+                aria-label="Zoom in"
+                title="Zoom in"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                className="map-action-btn map-zoom-btn"
+                onClick={() => map?.zoomOut()}
+                aria-label="Zoom out"
+                title="Zoom out"
+              >
+                −
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeRiderPopup && (
+          <div
+            className="map-popover-card"
+            role="dialog"
+            aria-label="Rider details"
+          >
+            <div className="map-popover-header">
+              <span className="map-popover-badge">
+                <span className="live-dot" />
+                {activeRiderPopup.order.status === "in_transit"
+                  ? "In transit"
+                  : activeRiderPopup.order.status}
+              </span>
+              <button
+                type="button"
+                className="map-popover-close"
+                onClick={() => setActiveRiderPopup(null)}
+                aria-label="Close rider details"
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <div className="map-popover-body">
+              <strong>
+                {activeRiderPopup.order.driver_name || "Assigned Rider"}
+              </strong>
+              {activeRiderPopup.order.vehicle_label && (
+                <span className="map-popover-meta">
+                  {activeRiderPopup.order.vehicle_label}
+                </span>
+              )}
+              {activeRiderPopup.order.driver_phone && (
+                <a
+                  href={`tel:${activeRiderPopup.order.driver_phone}`}
+                  className="map-popover-phone"
+                >
+                  <Icon name="phone" size={13} />
+                  {activeRiderPopup.order.driver_phone}
+                </a>
+              )}
+              <div className="map-popover-tracking">
+                <span>
+                  Parcel:{" "}
+                  <strong>{activeRiderPopup.order.tracking_code}</strong>
+                </span>
+                <span>To: {activeRiderPopup.order.delivery_address}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeHazardPopup && (
+          <div
+            className="map-popover-card hazard-popover"
+            role="dialog"
+            aria-label="Road hazard details"
+          >
+            <div className="map-popover-header">
+              <span
+                className={`road-severity road-severity-${activeHazardPopup.severity}`}
+              >
+                {activeHazardPopup.category.toUpperCase()} ·{" "}
+                {activeHazardPopup.severity}
+              </span>
+              <button
+                type="button"
+                className="map-popover-close"
+                onClick={() => setActiveHazardPopup(null)}
+                aria-label="Close hazard details"
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <div className="map-popover-body">
+              <p className="hazard-description">
+                {activeHazardPopup.description}
+              </p>
+              <span className="map-popover-meta">
+                Reported by {activeHazardPopup.driver_name} ·{" "}
+                {formatTime(activeHazardPopup.reported_at)}
+              </span>
+              <span className="hazard-status-tag">
+                Status: {activeHazardPopup.status}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="map-location-chip">
           <span className="map-location-icon">

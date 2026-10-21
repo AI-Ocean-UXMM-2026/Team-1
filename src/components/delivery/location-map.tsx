@@ -15,7 +15,7 @@ import {
   isRecentLocation,
 } from "@/lib/delivery/location-state";
 import { hasMapbox } from "@/lib/delivery/mapbox";
-import type { DeliveryOrder } from "@/lib/delivery/types";
+import type { DeliveryOrder, RoadReport } from "@/lib/delivery/types";
 
 type Point = { latitude: number; longitude: number };
 type Tile = { x: number; y: number; src: string; left: number; top: number };
@@ -50,14 +50,31 @@ function pointAt(
 export type LocationMapProps = Parameters<typeof OsmLocationMap>[0] & {
   /** Selects a rider's order from the Mapbox dispatch markers. */
   onSelectOrder?: (orderId: string) => void;
+  roadReports?: RoadReport[];
+  focusPoint?: Point | null;
 };
 
 /** Mapbox when a token is configured; the OSM tile map otherwise. */
-export function LocationMap({ onSelectOrder, ...props }: LocationMapProps) {
+export function LocationMap({
+  onSelectOrder,
+  roadReports,
+  focusPoint,
+  ...props
+}: LocationMapProps) {
   return hasMapbox ? (
-    <MapboxLocationMap {...props} onSelectOrder={onSelectOrder} />
+    <MapboxLocationMap
+      {...props}
+      onSelectOrder={onSelectOrder}
+      roadReports={roadReports}
+      focusPoint={focusPoint}
+    />
   ) : (
-    <OsmLocationMap {...props} />
+    <OsmLocationMap
+      {...props}
+      onSelectOrder={onSelectOrder}
+      roadReports={roadReports}
+      focusPoint={focusPoint}
+    />
   );
 }
 
@@ -68,6 +85,9 @@ function OsmLocationMap({
   isDemo,
   tall = false,
   compact = false,
+  onSelectOrder,
+  roadReports,
+  focusPoint,
 }: {
   order: DeliveryOrder | null;
   orders?: DeliveryOrder[];
@@ -75,9 +95,17 @@ function OsmLocationMap({
   isDemo: boolean;
   tall?: boolean;
   compact?: boolean;
+  onSelectOrder?: (orderId: string) => void;
+  roadReports?: RoadReport[];
+  focusPoint?: Point | null;
 }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [now, setNow] = useState(0);
+  const [manualCenter, setManualCenter] = useState<Point | null>(null);
+
+  useEffect(() => {
+    if (focusPoint) setManualCenter(focusPoint);
+  }, [focusPoint]);
 
   useEffect(() => {
     const node = document.querySelector<HTMLElement>(`[data-map-id="${mode}"]`);
@@ -144,7 +172,8 @@ function OsmLocationMap({
       : null;
   const livePointWeight = mode === "customer" ? 0.82 : 0.65;
   const center =
-    mode === "manager" && averagePoint
+    manualCenter ??
+    (mode === "manager" && averagePoint
       ? averagePoint
       : livePoint && destinationPoint
         ? {
@@ -157,7 +186,7 @@ function OsmLocationMap({
           }
         : (livePoint ??
           pickupPoint ??
-          destinationPoint ?? { latitude: 16.8007, longitude: 96.15 });
+          destinationPoint ?? { latitude: 16.8007, longitude: 96.15 }));
   const zoom = useMemo(() => {
     if (!size.width || !size.height || pointsForView.length < 2) return ZOOM;
     const projected = pointsForView.map((point) => toWorldPixel(point));
@@ -282,6 +311,21 @@ function OsmLocationMap({
         )}
         <div className="map-wash" />
 
+        {mode === "manager" && (
+          <div className="map-actions-cluster">
+            <button
+              type="button"
+              className="map-action-btn"
+              onClick={() => setManualCenter(null)}
+              aria-label="Recenter all vehicles"
+              title="Recenter fleet"
+            >
+              <Icon name="navigation" size={14} />
+              <span>Recenter</span>
+            </button>
+          </div>
+        )}
+
         {size.width > 0 && size.height > 0 && (
           <svg
             className="map-overlay"
@@ -319,7 +363,14 @@ function OsmLocationMap({
                       </g>
                     </>
                   )}
-                  <g transform={`translate(${rider.x} ${rider.y})`}>
+                  <g
+                    transform={`translate(${rider.x} ${rider.y})`}
+                    onClick={() => onSelectOrder?.(row.order.id)}
+                    role={onSelectOrder ? "button" : undefined}
+                    tabIndex={onSelectOrder ? 0 : undefined}
+                    aria-label={`Rider: ${row.order.driver_name || row.order.tracking_code}`}
+                    style={{ cursor: onSelectOrder ? "pointer" : "default" }}
+                  >
                     {(isDemo ||
                       parcelLocationState(row.order, now) === "live") && (
                       <circle className="rider-pulse" r="25" />
@@ -332,6 +383,39 @@ function OsmLocationMap({
                       <circle cx="3" cy="6" r="1.7" />
                     </g>
                   </g>
+                </g>
+              );
+            })}
+            {roadReports?.filter((r) => r.status !== "rejected").map((report) => {
+              const pos = pointAt(
+                { latitude: report.latitude, longitude: report.longitude },
+                center,
+                size,
+                zoom,
+              );
+              const isSevere =
+                report.severity === "high" || report.severity === "blocked";
+              return (
+                <g
+                  key={report.id}
+                  transform={`translate(${pos.x} ${pos.y})`}
+                  className="hazard-marker"
+                  aria-label={`Hazard: ${report.category} (${report.severity})`}
+                >
+                  <circle
+                    r="12"
+                    fill={isSevere ? "#FEF2F2" : "#FFFBEB"}
+                    stroke={isSevere ? "#DC2626" : "#D97706"}
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M0 -6 L6 5 L-6 5 Z"
+                    fill={isSevere ? "#DC2626" : "#D97706"}
+                  />
+                  <circle cx="0" cy="3" r="0.8" fill="#FFFFFF" />
+                  <text className="map-marker-label" x="14" y="4">
+                    {report.category}
+                  </text>
                 </g>
               );
             })}

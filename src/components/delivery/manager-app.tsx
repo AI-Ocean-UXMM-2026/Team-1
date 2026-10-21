@@ -154,6 +154,10 @@ export function ManagerDashboard({
   const [manualDriverId, setManualDriverId] = useState("");
   const [manualVehicleId, setManualVehicleId] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
+  const [mapFocusPoint, setMapFocusPoint] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   const mobileNavItems: MobileNavItem[] = useMemo(
     () => [
@@ -986,6 +990,8 @@ export function ManagerDashboard({
                   isDemo={workspace.isDemo}
                   tall
                   onSelectOrder={setSelectedId}
+                  roadReports={workspace.data.roadReports}
+                  focusPoint={mapFocusPoint}
                 />
                 {selectedOrder ? (
                   <div className="dispatch-detail">
@@ -1424,6 +1430,8 @@ export function ManagerDashboard({
                   isDemo={workspace.isDemo}
                   tall
                   onSelectOrder={setSelectedId}
+                  roadReports={workspace.data.roadReports}
+                  focusPoint={mapFocusPoint}
                 />
                 {selectedOrder && (
                   <div className="manager-track-summary">
@@ -1506,14 +1514,31 @@ export function ManagerDashboard({
                       <div className="road-report-actions">
                         {request.latitude != null &&
                           request.longitude != null && (
-                            <a
-                              className="button button-outline button-small"
-                              href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Open location
-                            </a>
+                            <>
+                              <button
+                                type="button"
+                                className="button button-outline button-small"
+                                onClick={() => {
+                                  setMapFocusPoint({
+                                    latitude: request.latitude!,
+                                    longitude: request.longitude!,
+                                  });
+                                  document
+                                    .querySelector(".manager-track-map")
+                                    ?.scrollIntoView({ behavior: "smooth" });
+                                }}
+                              >
+                                <Icon name="location" size={13} /> View on map
+                              </button>
+                              <a
+                                className="button button-outline button-small"
+                                href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Google Maps
+                              </a>
+                            </>
                           )}
                         {request.status === "open" && (
                           <button
@@ -1589,6 +1614,21 @@ export function ManagerDashboard({
                           : ""}
                       </span>
                       <div className="road-report-actions">
+                        <button
+                          type="button"
+                          className="button button-outline button-small"
+                          onClick={() => {
+                            setMapFocusPoint({
+                              latitude: report.latitude,
+                              longitude: report.longitude,
+                            });
+                            document
+                              .querySelector(".manager-track-map")
+                              ?.scrollIntoView({ behavior: "smooth" });
+                          }}
+                        >
+                          <Icon name="location" size={13} /> View on map
+                        </button>
                         <button
                           type="button"
                           className="button button-outline button-small"

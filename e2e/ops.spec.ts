@@ -268,6 +268,93 @@ test("managers reconcile and settle cash on delivery (O-02)", async ({
   ).toMatchObject({ status: "settled" });
 });
 
+test("manager can group cash by rider and batch settle shift", async ({
+  page,
+  context,
+}) => {
+  const backend = await signInAs(context, "manager", {
+    delivery_orders: [
+      makeOrder({
+        id: "order-c1",
+        tracking_code: "OR-COD-1",
+        status: "delivered",
+        driver_id: "driver-1",
+        driver_name: "Aung Kyaw",
+        cod_amount: 50000,
+        cod_status: "collected",
+      }),
+      makeOrder({
+        id: "order-c2",
+        tracking_code: "OR-COD-2",
+        status: "delivered",
+        driver_id: "driver-1",
+        driver_name: "Aung Kyaw",
+        cod_amount: 30000,
+        cod_status: "collected",
+      }),
+    ],
+    delivery_assignments: [
+      {
+        id: "a-c1",
+        order_id: "order-c1",
+        driver_id: "driver-1",
+        vehicle_id: null,
+        route_id: null,
+        assigned_at: minutesAgo(40),
+        ended_at: null,
+      },
+      {
+        id: "a-c2",
+        order_id: "order-c2",
+        driver_id: "driver-1",
+        vehicle_id: null,
+        route_id: null,
+        assigned_at: minutesAgo(40),
+        ended_at: null,
+      },
+    ],
+    cod_payments: [
+      {
+        order_id: "order-c1",
+        amount: 50000,
+        payment_method: "cash",
+        status: "collected",
+        collected_by: "driver-1",
+        collected_at: minutesAgo(30),
+        settled_at: null,
+      },
+      {
+        order_id: "order-c2",
+        amount: 30000,
+        payment_method: "cash",
+        status: "collected",
+        collected_by: "driver-1",
+        collected_at: minutesAgo(20),
+        settled_at: null,
+      },
+    ],
+  });
+
+  await page.goto("/manager/cod");
+  await page.getByRole("tab", { name: /Group by rider/ }).click();
+
+  const riderCard = page.locator(".cod-rider-card").first();
+  await expect(riderCard).toBeVisible();
+  await expect(
+    riderCard.getByRole("heading", { name: "Aung Kyaw" }),
+  ).toBeVisible();
+  await expect(riderCard.getByText("80,000")).toBeVisible();
+
+  const settleBtn = riderCard.getByRole("button", { name: /Settle shift/ });
+  await expect(settleBtn).toBeVisible();
+  await settleBtn.click();
+
+  await riderCard
+    .getByRole("button", { name: "Confirm shift handover" })
+    .click();
+  await expect(page.getByText("Shift settled")).toBeVisible();
+});
+
 test("dispatch can show every rider, not only the top three (O-03)", async ({
   page,
   context,
@@ -352,7 +439,7 @@ test("manager orders queue supports search and filtering", async ({
   await expect(rows).toHaveCount(0);
   await expect(page.getByText("No deliveries match")).toBeVisible();
 
-  await page.getByRole("button", { name: "Clear search" }).click();
+  await page.getByRole("button", { name: "Clear search" }).first().click();
   await expect(rows).toHaveCount(2);
 });
 
@@ -366,6 +453,8 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
         id: "order-r1",
         tracking_code: "OR-REASSIGN",
         status: "assigned",
+        driver_id: "driver-old",
+        driver_name: "Old Driver",
       }),
     ],
     delivery_assignments: [
@@ -380,7 +469,7 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
       },
     ],
     profiles: [
-      { id: "user-mgr", full_name: "Manager", phone: null, role: "manager" },
+      { id: "user-1", full_name: "Manager", phone: null, role: "manager" },
       { id: "driver-old", full_name: "Old Driver", phone: null, role: "driver" },
       { id: "driver-new", full_name: "New Driver", phone: null, role: "driver" },
     ],
@@ -407,7 +496,10 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
   });
   await page.goto("/manager/order");
 
-  const reassignBtn = page.getByRole("button", { name: "Reassign" });
+  const reassignBtn = page
+    .locator(".recommendation-card")
+    .filter({ hasText: "New Driver" })
+    .getByRole("button", { name: "Reassign", exact: true });
   await expect(reassignBtn).toBeVisible();
   await reassignBtn.click();
 
@@ -419,8 +511,8 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
   await modal.getByRole("button", { name: "Confirm reassignment" }).click();
   await expect(modal).toHaveCount(0);
   expect(
-    backend.mutations.find((m) => m.table === "delivery_assignments")?.body,
-  ).toMatchObject({ driver_id: "driver-new" });
+    backend.mutations.find((m) => m.table === "rpc")?.body,
+  ).toMatchObject({ target_driver_id: "driver-new" });
 });
 
 test("mobile bottom nav includes More drawer with full manager operations", async ({

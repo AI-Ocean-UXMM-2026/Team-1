@@ -123,7 +123,7 @@ export function RiderJobBoard({
               >
                 <div>
                   <div className="rj-card-header">
-                    <strong>{job.label}</strong>
+                    <strong>{job.area_label ?? job.label}</strong>
                     {isUrgent ? (
                       <span className="rj-priority-pill is-urgent">⚡ Urgent</span>
                     ) : isPriority ? (
@@ -138,7 +138,7 @@ export function RiderJobBoard({
                     {job.total_weight_kg} kg
                   </span>
                   <span>
-                    {job.area_label ?? "Area to confirm"}
+                    {job.label}
                     {job.cod_total
                       ? ` · COD ${currency.format(job.cod_total)}`
                       : ""}

@@ -1,5 +1,6 @@
 import type { FloodField, FloodReport, FloodSummary } from "./flood.ts";
 import { applyFlood } from "./flood.ts";
+import { applyTraffic, type TrafficSummary } from "./traffic.ts";
 import type {
   BuildInstanceResult,
   DepotRow,
@@ -64,6 +65,7 @@ export type DataQuality = {
   label: string;
   matrix: RoadMatrixStats | null;
   flood: FloodSummary;
+  traffic?: TrafficSummary;
 };
 
 type Json = Record<string, unknown>;
@@ -176,11 +178,12 @@ export async function planDispatch(
       detail: built.excludedTrucks,
     };
 
-  // Road data first; flood exposure is layered onto the same matrix.
+  // Road data first; flood and traffic interception exposure are layered onto the matrix.
   const points = nodePoints(inst);
   const road = await deps.buildMatrix(points, params);
   const flooded = applyFlood(road.matrix, points, input.field, input.reports);
-  const matrix = flooded.matrix;
+  const trafficked = applyTraffic(flooded.matrix, points);
+  const matrix = trafficked.matrix;
 
   const plan = solve(inst, matrix, { nowMs: deps.nowMs });
   const violations = validateSolution(inst, matrix, plan);
@@ -198,6 +201,7 @@ export async function planDispatch(
     label: TIER_LABEL[matrix.source],
     matrix: road.stats,
     flood: flooded.summary,
+    traffic: trafficked.summary,
   };
   const warnings = [...built.warnings];
   if (flooded.summary.status === "unknown")
@@ -445,6 +449,7 @@ function buildSavePayload(
       label: quality.label,
       matrix: stats,
       flood: quality.flood,
+      traffic: quality.traffic,
       warnings,
       counts: built.counts,
       excluded_trucks: built.excludedTrucks,
