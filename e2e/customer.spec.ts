@@ -30,7 +30,8 @@ test("sign-in dialog covers the app chrome (C-01)", async ({ page }) => {
 
   const submit = dialog.locator('button[type="submit"]');
   await submit.scrollIntoViewIfNeeded();
-  const box = (await submit.boundingBox())!;
+  const box = await submit.boundingBox();
+  if (!box) throw new Error("submit button has no box");
   const submitReachable = await page.evaluate(
     ({ x, y }) => !!document.elementFromPoint(x, y)?.closest('[role="dialog"]'),
     { x: box.x + box.width / 2, y: box.y + box.height / 2 },

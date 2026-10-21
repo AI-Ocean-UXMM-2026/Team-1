@@ -90,9 +90,11 @@ export async function signInAs(
   };
   // The signed-in user is the first profile with their id; drop duplicates.
   const seen = new Set<unknown>();
-  all.profiles = all.profiles.filter((row) =>
-    seen.has(row.id) ? false : (seen.add(row.id), true),
-  );
+  all.profiles = all.profiles.filter((row) => {
+    if (seen.has(row.id)) return false;
+    seen.add(row.id);
+    return true;
+  });
   const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
   const user = {
     id: userId,

@@ -328,6 +328,7 @@ export function RiderApp() {
   const [sharing, setSharing] = useState<{ count: number; at: string } | null>(
     null,
   );
+  const [shareFailed, setShareFailed] = useState(false);
   useEffect(() => {
     const orderIds = JSON.parse(onBoardKey) as string[];
     if (
@@ -338,6 +339,7 @@ export function RiderApp() {
       !("geolocation" in navigator)
     ) {
       setSharing(null);
+      setShareFailed(false);
       return;
     }
     return watchRiderLocations({
@@ -352,9 +354,12 @@ export function RiderApp() {
           point.longitude,
           point.accuracy,
         ),
-      onSent: (sentIds, point) =>
-        setSharing({ count: sentIds.length, at: point.recordedAt }),
-      onError: () => setSharing(null),
+      onSent: (sentIds, point) => {
+        setShareFailed(false);
+        setSharing({ count: sentIds.length, at: point.recordedAt });
+      },
+      // Keep the last good share so the chip can say it has stopped.
+      onError: () => setShareFailed(true),
     });
   }, [onBoardKey, workspace.isDemo, workspace.canUseLiveData, driverId]);
 
@@ -652,10 +657,19 @@ export function RiderApp() {
   const [menuNote, setMenuNote] = useState<string | null>(null);
   const energy = current ? assessEnergyRoute(current, vehicle) : null;
 
+  const openMenu = () => {
+    setMenuNote(null);
+    setActionError(null);
+    setMenuOpen(true);
+  };
+
   const saveEnergy = () =>
     run("energy", async () => {
       if (!vehicle || energyLevel === "") return;
+      setMenuNote(null);
       const level = Number(energyLevel);
+      if (!Number.isFinite(level) || level < 0 || level > 100)
+        throw new Error("Enter a level from 0 to 100.");
       if (workspace.isDemo)
         workspace.updateData((previous) => ({
           ...previous,
@@ -689,6 +703,7 @@ export function RiderApp() {
     event.preventDefault();
     return run("road", async () => {
       if (!driverId) return;
+      setMenuNote(null);
       const point = riderPoint;
       if (!point)
         throw new Error(
@@ -810,6 +825,11 @@ export function RiderApp() {
         {menuNote && (
           <Notice tone="success" icon="check">
             {menuNote}
+          </Notice>
+        )}
+        {actionError && (
+          <Notice tone="error" icon="warning">
+            {actionError}
           </Notice>
         )}
         {vehicle && (
@@ -1658,6 +1678,12 @@ export function RiderApp() {
                   ? "Allow location access"
                   : "GPS unavailable"}
               </span>
+            ) : shareFailed ||
+              (sharing && now - Date.parse(sharing.at) > STALE_AFTER_MS * 2) ? (
+              <span className="rf-chip is-error">
+                <Icon name="warning" size={14} /> Customers can’t see your
+                location
+              </span>
             ) : sharing ? (
               <span className="rf-chip is-live">
                 <span className="rf-live-dot" /> Sharing with {sharing.count}{" "}
@@ -1672,7 +1698,7 @@ export function RiderApp() {
             <button
               type="button"
               className="rf-icon-btn rf-help"
-              onClick={() => setMenuOpen(true)}
+              onClick={openMenu}
               aria-label="Help and shift tools"
             >
               <Icon name="help" size={20} />
@@ -1876,6 +1902,20 @@ export function RiderApp() {
                 Report delivery outcome <Icon name="arrow-right" size={18} />
               </button>
             )}
+            {(pickup || !hasArrived) && (
+              <button
+                type="button"
+                className="rf-btn rf-btn-quiet"
+                onClick={() => {
+                  setActionError(null);
+                  updateDraft({ outcome: "failed" });
+                  setOutcomeStep(2);
+                  setScreen("outcome");
+                }}
+              >
+                <Icon name="warning" size={18} /> Report a problem
+              </button>
+            )}
             {!sheetOpen && (
               <button
                 type="button"
@@ -1926,7 +1966,7 @@ export function RiderApp() {
         <button
           type="button"
           className="rf-icon-btn"
-          onClick={() => setMenuOpen(true)}
+          onClick={openMenu}
           aria-label="Help and shift tools"
         >
           <Icon name="help" size={20} />

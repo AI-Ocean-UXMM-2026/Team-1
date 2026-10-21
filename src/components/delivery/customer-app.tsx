@@ -52,7 +52,6 @@ import {
 import {
   currency,
   formatDateTime,
-  formatTime,
   isLiveStatus,
   nextCustomerAction,
   prioritiseOrders,

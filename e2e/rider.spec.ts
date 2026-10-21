@@ -73,3 +73,30 @@ test("a failed write keeps the active stop on screen (C-05)", async ({
   await expect(page.getByText("No deliveries assigned")).toHaveCount(0);
   await expect(collect).toBeVisible();
 });
+
+test("a problem can be reported before arriving, without faking arrival (H-09)", async ({
+  page,
+  context,
+}) => {
+  await openRider(page, context, "accepted");
+  await page.getByRole("button", { name: "Report a problem" }).click();
+  await expect(page.getByLabel("Recipient unavailable")).toBeVisible();
+  await expect(page.getByLabel("Incorrect address")).toBeVisible();
+});
+
+test("shift tools show their own errors (H-11)", async ({ page, context }) => {
+  // No geolocation permission: a road report cannot be placed.
+  await signInAs(context, "driver", {
+    delivery_orders: [makeOrder({ status: "in_transit" })],
+    delivery_assignments: [assignment],
+  });
+  await page.goto("/rider/route");
+  await page
+    .getByRole("button", { name: "Help and shift tools" })
+    .first()
+    .click();
+  const menu = page.getByRole("dialog");
+  await menu.getByLabel("What did you see?").fill("Left lane closed");
+  await menu.getByRole("button", { name: "Send with my location" }).click();
+  await expect(menu.getByText(/location is needed/i)).toBeVisible();
+});

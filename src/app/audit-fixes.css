@@ -135,3 +135,14 @@
 .timeline-step.is-failed strong {
   color: var(--color-error-text);
 }
+
+/* M-03 / M-04: rider controls are glove-sized and text stays readable. */
+.rf-link,
+.rf-app summary,
+.rf-sheet-handle {
+  min-height: var(--target-min, 48px);
+}
+.rf-app .rf-quick button span,
+.rf-app .rf-step-dots li {
+  font-size: 12px;
+}
