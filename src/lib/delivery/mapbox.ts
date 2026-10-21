@@ -224,3 +224,65 @@ export function formatDriveMinutes(minutes: number | null) {
   const rest = rounded % 60;
   return rest ? `${hours} h ${rest} min` : `${hours} h`;
 }
+
+export type PlaceSuggestion = {
+  id: string;
+  name: string;
+  detail: string;
+  point: MapPoint;
+};
+
+type SearchBody = {
+  features?: {
+    id: string;
+    text?: string;
+    place_name?: string;
+    center?: [number, number];
+  }[];
+};
+
+/**
+ * Address and place suggestions for typed text, biased toward `near` and kept
+ * inside Myanmar. Returns an empty list when Mapbox is off or the lookup fails.
+ */
+export async function searchPlaces(
+  query: string,
+  near: MapPoint | null,
+  signal?: AbortSignal,
+): Promise<PlaceSuggestion[]> {
+  const text = query.trim();
+  if (!hasMapbox || text.length < 3) return [];
+  const params = new URLSearchParams({
+    access_token: MAPBOX_TOKEN,
+    country: "mm",
+    autocomplete: "true",
+    types: "address,poi,neighborhood,locality,place",
+    limit: "5",
+  });
+  if (near) params.set("proximity", `${near.longitude},${near.latitude}`);
+  try {
+    const response = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?${params}`,
+      { signal },
+    );
+    if (!response.ok) return [];
+    const body = (await response.json()) as SearchBody;
+    return (body.features ?? []).flatMap((feature) => {
+      if (!feature.center || !feature.place_name) return [];
+      const name = feature.text ?? feature.place_name;
+      const detail = feature.place_name.startsWith(name)
+        ? feature.place_name.slice(name.length).replace(/^,\s*/, "")
+        : feature.place_name;
+      return [
+        {
+          id: feature.id,
+          name,
+          detail,
+          point: { longitude: feature.center[0], latitude: feature.center[1] },
+        },
+      ];
+    });
+  } catch {
+    return [];
+  }
+}

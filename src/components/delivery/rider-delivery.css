@@ -200,8 +200,6 @@
 .dv-stop-row.is-arrived,
 .dv-stop-row.is-handover_in_progress {
   background: var(--rf-info-bg);
-  border-left: 4px solid var(--color-info);
-  padding-left: 10px;
 }
 
 .dv-stop-list.is-compact .dv-stop-row {
