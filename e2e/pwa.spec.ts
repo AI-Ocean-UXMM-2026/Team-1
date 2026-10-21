@@ -30,10 +30,14 @@ test("Burmese text renders with the bundled font (H-14)", async ({ page }) => {
     node.lang = "my";
     node.textContent = "ဗဟန်းမြို့နယ်၊ ရန်ကုန်";
     document.body.append(node);
-    await document.fonts.ready;
-    return [...document.fonts]
+    // Faces load lazily, so ask for the Myanmar ones explicitly.
+    const faces = [...document.fonts].filter(
+      (face) => /myanmar/i.test(face.family) && !/fallback/i.test(face.family),
+    );
+    await Promise.allSettled(faces.map((face) => face.load()));
+    return faces
       .filter((face) => face.status === "loaded")
-      .map((face) => face.family);
+      .map((f) => f.family);
   });
   expect(loaded.some((family) => /myanmar/i.test(family))).toBe(true);
 });
