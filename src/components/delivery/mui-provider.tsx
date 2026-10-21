@@ -23,26 +23,6 @@ const lightPalette = {
   grey: { 100: "#f1f5f9", 200: "#e2e8f0" },
 };
 
-// DESIGN.md §6.4: dark theme for driver and night use. Surfaces separate by
-// lightness, not by inverting the light palette.
-const darkPalette = {
-  primary: {
-    main: "#f97316",
-    light: "#fb923c",
-    dark: "#c2410c",
-    contrastText: "#0f172a",
-  },
-  secondary: { main: "#334155", contrastText: "#f8fafc" },
-  error: { main: "#f87171", light: "#450a0a", dark: "#fca5a5" },
-  warning: { main: "#fbbf24", light: "#422006", dark: "#fcd34d" },
-  info: { main: "#60a5fa", light: "#172554", dark: "#93c5fd" },
-  success: { main: "#4ade80", light: "#052e16", dark: "#86efac" },
-  background: { default: "#0f172a", paper: "#1e293b" },
-  text: { primary: "#f8fafc", secondary: "#cbd5e1" },
-  divider: "#334155",
-  grey: { 100: "#273449", 200: "#334155" },
-};
-
 const themeOptions = {
   shape: { borderRadius: 12 },
   typography: {
@@ -130,15 +110,11 @@ const themeOptions = {
 
 const theme = createTheme({ ...themeOptions, palette: lightPalette });
 
-// The rider flow follows the OS colour scheme through CSS variables, so a
-// night-shift phone switches without a re-render or a flash of light theme.
+// The rider flow intentionally stays light for consistent route and COD
+// readability in every operating environment.
 const riderTheme = createTheme({
   ...themeOptions,
-  cssVariables: { colorSchemeSelector: "media" },
-  colorSchemes: {
-    light: { palette: lightPalette },
-    dark: { palette: darkPalette },
-  },
+  palette: lightPalette,
 });
 
 export function RiderThemeProvider({ children }: { children: ReactNode }) {

@@ -1,4 +1,4 @@
-/* Oern rider workflow — map-first, no tab bar. Color System v1.2 tokens, light by default and dark on prefers-color-scheme (DESIGN.md §6.4). */
+/* Oern rider workflow — map-first, no tab bar. Color System v1.2 light tokens. */
 
 /* Tokens also apply to the sheet scrim, which renders outside .rf-app. */
 .rf-app,
@@ -40,46 +40,6 @@
   --rf-error-fg: #991b1b;
   --rf-safe-top: env(safe-area-inset-top, 0px);
   --rf-safe-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-@media (prefers-color-scheme: dark) {
-  .rf-app,
-  .rf-scrim {
-    color-scheme: dark;
-    --color-background: #0f172a;
-    --color-surface: #1e293b;
-    --color-surface-subtle: #273449;
-    --color-border: #334155;
-    --color-border-control: #8294ad;
-    --color-text-primary: #f8fafc;
-    --color-text-secondary: #cbd5e1;
-    --color-text-secondary-subtle: #cbd5e1;
-    --color-text-inverse: #0f172a;
-    --color-brand-orange-action: #f97316;
-    --color-brand-orange-action-hover: #fb923c;
-    --color-map-route: #60a5fa;
-    --color-map-route-casing: #0f172a;
-    --color-map-driver: #f8fafc;
-    --color-map-driver-casing: #0f172a;
-    --color-map-destination: #fb923c;
-    --rf-shadow-float:
-      0 6px 18px -6px rgb(0 0 0 / 0.6), 0 2px 4px rgb(0 0 0 / 0.3);
-    --rf-shadow-sheet: 0 -10px 30px -12px rgb(0 0 0 / 0.6);
-    --rf-border-info: #1e40af;
-    --rf-border-warning: #92400e;
-    --rf-border-error: #991b1b;
-    --rf-border-success: #166534;
-    --rf-error-strong: #fca5a5;
-    --rf-info-bg: #172554;
-    --rf-info-bg-strong: #1e3a8a;
-    --rf-info-fg: #93c5fd;
-    --rf-success-bg: #052e16;
-    --rf-success-fg: #86efac;
-    --rf-warn-bg: #2a1a05;
-    --rf-warn-fg: #fcd34d;
-    --rf-error-bg: #450a0a;
-    --rf-error-fg: #fca5a5;
-  }
 }
 
 .rf-app {
