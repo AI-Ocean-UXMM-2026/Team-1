@@ -50,6 +50,7 @@ import {
   useId,
   useState,
 } from "react";
+import { Loader } from "@/components/delivery/loader";
 
 import {
   buildTodayItems,
@@ -1104,7 +1105,9 @@ export function ParcelSwitcher({
 export function HomeSkeleton() {
   return (
     <Box aria-busy="true" sx={pageGutter}>
-      <span className="sr-only">Loading your deliveries…</span>
+      <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+        <Loader label="Loading your deliveries…" />
+      </Box>
       <Skeleton
         variant="rounded"
         height={188}

@@ -281,7 +281,8 @@
   line-height: 1.15;
 }
 .auth-page-back {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
   align-items: center;
   gap: 6px;
   min-height: var(--target-min, 48px);
