@@ -366,14 +366,6 @@
   font-weight: 600;
 }
 
-/* The warning tone is a dark brown; on the dark sheet it needs the light one. */
-@media (prefers-color-scheme: dark) {
-  .dv-dense-end .dv-stop-state.is-warn,
-  .dv-dense-cod {
-    color: #fbbf24;
-  }
-}
-
 /* ---------- checklists ---------- */
 
 .dv-group {
@@ -582,16 +574,6 @@
 .dv-active .dv-instruction .rf-turn {
   background: var(--rf-info-bg);
   color: var(--rf-info-fg);
-}
-
-.dark .dv-active .dv-instruction {
-  background: var(--color-surface, #1e293b);
-  color: #f8fafc;
-}
-
-.dark .dv-active .dv-instruction .rf-turn {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
 }
 
 .dv-top-row {
@@ -1482,12 +1464,6 @@
   .dv-swipe::before,
   .dv-swipe-knob {
     transition: none !important;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .dv-swipe-knob {
-    color: #0f172a;
   }
 }
 
