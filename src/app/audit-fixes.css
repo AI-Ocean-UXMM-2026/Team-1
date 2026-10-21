@@ -246,3 +246,40 @@
 .cod-ledger .dash-kpi {
   min-width: 0;
 }
+
+/* H-13: the rider workflow follows the OS dark setting (night shifts). */
+@media (prefers-color-scheme: dark) {
+  .rf-app {
+    --color-background: #0f172a;
+    --color-surface: #1e293b;
+    --color-surface-subtle: #273449;
+    --color-border: #334155;
+    --color-border-control: #8294ad;
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: #cbd5e1;
+    --color-text-secondary-subtle: #cbd5e1;
+    --color-text-inverse: #0f172a;
+    --color-brand-orange-action: #f97316;
+    --color-brand-orange-action-hover: #fb923c;
+    --color-success: #4ade80;
+    --color-success-text: #86efac;
+    --color-success-surface: #14532d;
+    --color-warning: #fbbf24;
+    --color-warning-text: #fcd34d;
+    --color-warning-surface: #451a03;
+    --color-error: #f87171;
+    --color-error-text: #fca5a5;
+    --color-error-surface: #450a0a;
+    --color-info: #60a5fa;
+    --color-info-text: #93c5fd;
+    --color-info-surface: #172554;
+    --rf-border-info: #1e40af;
+    --rf-border-warning: #92400e;
+    --rf-border-error: #991b1b;
+    --rf-border-success: #166534;
+    --rf-error-strong: #fca5a5;
+    --rf-shadow-float: 0 6px 18px -6px rgb(0 0 0 / 0.6);
+    --rf-shadow-sheet: 0 -10px 30px -12px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+}
