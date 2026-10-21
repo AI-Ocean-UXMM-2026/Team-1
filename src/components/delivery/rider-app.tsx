@@ -1838,6 +1838,7 @@ export function RiderApp() {
             </div>
           )}
 
+          {connectivityBanner}
           {errorBanner}
           <div className="rf-sheet-actions">
             {!hasArrived ? (
