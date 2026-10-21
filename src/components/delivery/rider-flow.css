@@ -5,6 +5,11 @@
   --rf-shadow-float:
     0 6px 18px -6px rgb(23 43 77 / 0.28), 0 2px 4px rgb(23 43 77 / 0.08);
   --rf-shadow-sheet: 0 -10px 30px -12px rgb(23 43 77 / 0.3);
+  --rf-border-info: #bfdbfe;
+  --rf-border-warning: #fcd34d;
+  --rf-border-error: #fca5a5;
+  --rf-border-success: #86efac;
+  --rf-error-strong: #991b1b;
   --rf-safe-top: env(safe-area-inset-top, 0px);
   --rf-safe-bottom: env(safe-area-inset-bottom, 0px);
   position: relative;
@@ -208,25 +213,25 @@
 
 .rf-notice-info {
   background: var(--color-info-surface);
-  border-color: #bfdbfe;
+  border-color: var(--rf-border-info);
   color: var(--color-info-text);
 }
 
 .rf-notice-warning {
   background: var(--color-warning-surface);
-  border-color: #fcd34d;
+  border-color: var(--rf-border-warning);
   color: var(--color-warning-text);
 }
 
 .rf-notice-error {
   background: var(--color-error-surface);
-  border-color: #fca5a5;
-  color: #991b1b;
+  border-color: var(--rf-border-error);
+  color: var(--rf-error-strong);
 }
 
 .rf-notice-success {
   background: var(--color-success-surface);
-  border-color: #86efac;
+  border-color: var(--rf-border-success);
   color: var(--color-success-text);
 }
 
@@ -717,7 +722,7 @@
 .rf-stop-list > li.is-current {
   margin: 0 -8px;
   padding: 16px 12px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--rf-border-info);
   border-radius: 16px;
   background: var(--color-surface);
 }
@@ -960,14 +965,14 @@
 
 .rf-chip.is-warning {
   background: var(--color-warning-surface);
-  border-color: #fcd34d;
+  border-color: var(--rf-border-warning);
   color: var(--color-warning-text);
 }
 
 .rf-chip.is-error {
   background: var(--color-error-surface);
-  border-color: #fca5a5;
-  color: #991b1b;
+  border-color: var(--rf-border-error);
+  color: var(--rf-error-strong);
 }
 
 .rf-help {
@@ -1081,7 +1086,7 @@
 }
 
 .rf-leg-type.is-pickup {
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .rf-leg-type.is-dropoff {
@@ -1191,17 +1196,17 @@
 
 .rf-choice.is-failed .rf-choice-mark {
   background: var(--color-error-surface);
-  color: #991b1b;
+  color: var(--rf-error-strong);
 }
 
 .rf-choice.is-success.is-selected {
   border-color: var(--color-success);
-  background: #f0fdf4;
+  background: var(--color-success-surface);
 }
 
 .rf-choice.is-failed.is-selected {
   border-color: var(--color-error);
-  background: #fef2f2;
+  background: var(--color-error-surface);
 }
 
 .rf-form {
@@ -1215,9 +1220,9 @@
   gap: 12px;
   margin: 0;
   padding: 16px;
-  border: 1px solid #fcd34d;
+  border: 1px solid var(--rf-border-warning);
   border-radius: 16px;
-  background: #fffbeb;
+  background: var(--color-warning-surface);
 }
 
 .rf-cod-panel legend {

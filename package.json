@@ -9,7 +9,8 @@
     "lint": "biome check",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "format": "biome format --write",
-    "playground:classifier": "bun playground/backend.js"
+    "playground:classifier": "bun playground/backend.js",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
@@ -28,7 +29,9 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@biomejs/biome": "2.4.2",
+    "@playwright/test": "1.56.1",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

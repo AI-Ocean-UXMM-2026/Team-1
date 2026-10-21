@@ -349,8 +349,8 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    Inter, "Noto Sans Myanmar", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    var(--font-inter), var(--font-myanmar), Inter, "Noto Sans Myanmar",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, monospace;
 }
 
@@ -370,8 +370,8 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family:
-    Inter, "Noto Sans Myanmar", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, Arial, sans-serif;
+    var(--font-inter), var(--font-myanmar), Inter, "Noto Sans Myanmar",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }

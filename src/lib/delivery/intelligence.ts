@@ -65,6 +65,8 @@ export function recommendAssignments(
   drivers: DriverOption[],
   vehicles: VehicleOption[],
   orders: DeliveryOrder[],
+  /** How many suggestions to return; managers can ask for every candidate. */
+  limit = 3,
 ): AssignmentRecommendation[] {
   if (!order) return [];
   const pickup =
@@ -151,5 +153,5 @@ export function recommendAssignments(
     .sort(
       (a, b) => b.score - a.score || a.activeDeliveries - b.activeDeliveries,
     )
-    .slice(0, 3);
+    .slice(0, limit);
 }

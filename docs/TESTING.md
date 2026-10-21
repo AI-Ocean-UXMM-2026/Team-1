@@ -34,6 +34,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Signed-out users see empty states and cannot create live records.
 
+Open [http://localhost:3000](http://localhost:3000). Signed-out users see empty states. Use `bun run test:e2e` to exercise signed-in flows against synthetic, mocked Supabase responses.
+
 ## Automated checks
 
 Run the complete local verification sequence before opening a pull request:
@@ -65,6 +67,14 @@ The test suite uses Node's built-in test runner. A successful run currently cove
 - GPS cleanup after logout, unmount, completion, or failure
 - live workspace refresh for assignments, statuses, locations, and road reports
 - stale and duplicated Realtime event handling
+
+## Browser tests (Playwright)
+
+```bash
+bun run test:e2e
+```
+
+Playwright starts `next dev` on port 3100 and runs at 360×640, 390×844, 430×932, and 768×1024. Every Supabase request is answered by `e2e/support/supabase-mock.ts`, which signs in an unsigned synthetic session per role. No test reaches a real project, payment, or customer. Specs cover viewport overflow for every workspace, the sign-in dialog layering, ETA and COD readability, and the rider outcome and offline flows.
 
 ## Database workflow checks
 

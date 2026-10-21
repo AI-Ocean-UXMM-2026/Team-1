@@ -1,0 +1,298 @@
+/*
+ * Audit fixes (docs/ui-ux-audit). Loaded last so it can correct legacy rules
+ * without touching them. Each block names the finding it closes.
+ */
+
+/* C-01: dialogs sit above the MUI app bar and bottom navigation (z-index 1100). */
+.dialog-backdrop {
+  z-index: 1400;
+}
+
+/* C-02, H-06: ETA freshness row and COD amount were styled for a dark panel. */
+.tracking-freshness-row {
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+  line-height: 16px;
+}
+.tracking-freshness-row strong {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.eta-meter {
+  background: var(--color-surface-subtle);
+}
+.eta-meter-labels {
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+}
+.eta-panel p {
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+}
+.cod-card strong {
+  font-size: 24px;
+  line-height: 30px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* H-02: never truncate the only copy of an address. */
+.route-address-row strong,
+.delivery-order-card > strong,
+.map-underbar span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* M-04: meaningful text is never below 12px. */
+.loading-screen p,
+.empty-state p,
+.map-marker-label {
+  font-size: 12px;
+}
+
+/* M-01: customer touch targets. */
+.customer-app .button,
+.customer-app .chip,
+.customer-app .error-banner button,
+.customer-app .filter-chip {
+  min-height: var(--target-min, 48px);
+}
+
+/*
+ * C-03 / O-01: the manager workspace is a phone-first layout with a bottom
+ * navigation; the desktop sidebar shell starts at 1024px.
+ */
+@media (max-width: 1023px) {
+  .manager-app {
+    min-width: 0;
+    display: block;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+  .manager-sidebar {
+    display: none;
+  }
+  .manager-main {
+    width: 100%;
+  }
+  .manager-topbar {
+    height: 56px;
+    justify-content: space-between;
+    padding: 0 12px;
+  }
+  .manager-topbar > .brand-lockup {
+    display: flex;
+  }
+  .manager-date {
+    display: none;
+  }
+  .manager-content {
+    width: 100%;
+    padding: 16px 16px 24px;
+  }
+  .manager-operations-grid,
+  .manager-track-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .manager-live-orders .manager-order-list {
+    max-height: none;
+  }
+  .manager-app .mobile-bottom-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .manager-app .mobile-bottom-nav {
+    display: none;
+  }
+}
+
+/* H-07: Orders search and terminal timeline step (H-05). */
+.orders-search {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+  font-weight: 500;
+}
+.orders-search input {
+  min-height: var(--target-min, 48px);
+  padding: 0 14px;
+  border: 1px solid var(--color-border-control, #64748b);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 16px;
+}
+.timeline-step.is-failed .timeline-dot {
+  border-color: var(--color-error);
+  background: var(--color-error-surface, #fee2e2);
+  color: var(--color-error-text);
+}
+.timeline-step.is-failed strong {
+  color: var(--color-error-text);
+}
+
+/* M-03 / M-04: rider controls are glove-sized and text stays readable. */
+.rf-link,
+.rf-app summary,
+.rf-sheet-handle {
+  min-height: var(--target-min, 48px);
+}
+.rf-app .rf-quick button span,
+.rf-app .rf-step-dots li {
+  font-size: 12px;
+}
+
+/* O-02: cash on delivery reconciliation. */
+.cod-ledger {
+  display: grid;
+  gap: 16px;
+}
+.cod-ledger-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cod-ledger-row {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--color-border);
+}
+.cod-ledger-main {
+  display: grid;
+  gap: 2px;
+}
+.cod-ledger-main span,
+.cod-ledger-reason {
+  margin: 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.cod-ledger-state {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary-subtle);
+}
+.cod-ledger-state.is-warning {
+  background: var(--color-warning-surface, #fef3c7);
+  color: var(--color-warning-text, #92400e);
+}
+.cod-ledger-state.is-error {
+  background: var(--color-error-surface);
+  color: var(--color-error-text);
+}
+.cod-ledger-state.is-success {
+  background: var(--color-success-surface, #dcfce7);
+  color: var(--color-success-text, #166534);
+}
+.cod-ledger-amounts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.cod-ledger-amounts dt {
+  color: var(--color-text-secondary-subtle);
+  font-size: 12px;
+}
+.cod-ledger-amounts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.cod-ledger-amounts .is-off dd {
+  color: var(--color-error-text);
+}
+.cod-ledger-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cod-ledger-confirm span {
+  flex: 1 1 100%;
+  font-size: 14px;
+}
+
+/* H-14: Burmese needs more line height than Latin so stacked marks are not clipped. */
+:lang(my),
+[lang="my"] {
+  line-height: 1.7;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+.cod-ledger .dash-kpi-value {
+  font-size: 20px;
+  line-height: 26px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.cod-ledger .dash-kpi {
+  min-width: 0;
+}
+
+/* H-13: the rider workflow follows the OS dark setting (night shifts). */
+@media (prefers-color-scheme: dark) {
+  .rf-app {
+    --color-background: #0f172a;
+    --color-surface: #1e293b;
+    --color-surface-subtle: #273449;
+    --color-border: #334155;
+    --color-border-control: #8294ad;
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: #cbd5e1;
+    --color-text-secondary-subtle: #cbd5e1;
+    --color-text-inverse: #0f172a;
+    --color-brand-orange-action: #f97316;
+    --color-brand-orange-action-hover: #fb923c;
+    --color-success: #4ade80;
+    --color-success-text: #86efac;
+    --color-success-surface: #14532d;
+    --color-warning: #fbbf24;
+    --color-warning-text: #fcd34d;
+    --color-warning-surface: #451a03;
+    --color-error: #f87171;
+    --color-error-text: #fca5a5;
+    --color-error-surface: #450a0a;
+    --color-info: #60a5fa;
+    --color-info-text: #93c5fd;
+    --color-info-surface: #172554;
+    --rf-border-info: #1e40af;
+    --rf-border-warning: #92400e;
+    --rf-border-error: #991b1b;
+    --rf-border-success: #166534;
+    --rf-error-strong: #fca5a5;
+    --rf-shadow-float: 0 6px 18px -6px rgb(0 0 0 / 0.6);
+    --rf-shadow-sheet: 0 -10px 30px -12px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+}
+
+/* M-01: every customer control is at least 48px tall. */
+.customer-app .MuiButton-root,
+.customer-app .MuiChip-clickable,
+.customer-app .orders-filter button,
+.auth-switch button {
+  min-height: var(--target-min, 48px);
+}
+.auth-switch button {
+  min-width: var(--target-min, 48px);
+  padding-inline: 8px;
+  font-size: 14px;
+}

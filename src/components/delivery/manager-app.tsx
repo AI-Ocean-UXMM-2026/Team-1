@@ -10,12 +10,14 @@ import {
   Brand,
   DemoBadge,
   LoadingBlock,
+  MobileNav,
   StatusBadge,
   signOut,
   UserActions,
 } from "@/components/delivery/common";
 import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
+import { CodLedgerView } from "@/components/delivery/manager-cod";
 import {
   assignDelivery,
   reviewRoadReport,
@@ -51,8 +53,11 @@ const managerNavItems = [
   { id: "home", label: "Overview", href: "/manager/home", icon: "delivery" },
   { id: "track", label: "Track", href: "/manager/track", icon: "track" },
   { id: "order", label: "Orders", href: "/manager/order", icon: "box" },
+  { id: "cod", label: "COD", href: "/manager/cod", icon: "coin" },
   { id: "profile", label: "Team", href: "/manager/profile", icon: "user" },
 ] as const;
+
+const managerMobileNav = managerNavItems;
 
 export type ManagerView = (typeof managerNavItems)[number]["id"];
 
@@ -149,16 +154,21 @@ export function ManagerDashboard({
         .filter((stop) => stop.route_id === selectedRoute.id)
         .sort((left, right) => left.sequence_number - right.sequence_number)
     : [];
-  const recommendations = useMemo(
+  const [showAllRiders, setShowAllRiders] = useState(false);
+  const allRecommendations = useMemo(
     () =>
       recommendAssignments(
         selectedOrder,
         workspace.data.drivers,
         workspace.data.vehicles,
         orders,
+        Number.POSITIVE_INFINITY,
       ),
     [selectedOrder, workspace.data.drivers, workspace.data.vehicles, orders],
   );
+  const recommendations = showAllRiders
+    ? allRecommendations
+    : allRecommendations.slice(0, 3);
   const summary = useMemo(
     () => attentionSummary(orders, workspace.data.roadReports),
     [orders, workspace.data.roadReports],
@@ -225,6 +235,13 @@ export function ManagerDashboard({
     vehicleId: string | null,
   ) {
     if (!selectedOrder || !canAssign) return;
+    if (
+      selectedOrder.driver_id &&
+      !window.confirm(
+        `Reassign ${selectedOrder.tracking_code} from ${selectedOrder.driver_name || "the current rider"}?`,
+      )
+    )
+      return;
     setSaving(true);
     setPendingKey(`${driverId}-${vehicleId ?? "none"}`);
     setNotice(null);
@@ -447,6 +464,11 @@ export function ManagerDashboard({
       description:
         "Follow parcels after pickup and verify road reports for ETAs.",
     },
+    cod: {
+      title: "Cash on delivery",
+      description:
+        "Check what riders collected against what was due, then settle it.",
+    },
     order: {
       title: "Orders",
       description: "Work through the queue and assign riders in one step.",
@@ -486,6 +508,12 @@ export function ManagerDashboard({
           </Link>
         </nav>
       </aside>
+
+      <MobileNav
+        label="Manager workspace"
+        items={managerMobileNav}
+        activeId={view}
+      />
 
       <div className="manager-main">
         <header className="manager-topbar">
@@ -543,7 +571,7 @@ export function ManagerDashboard({
             <p>{pageCopy.description}</p>
           </header>
 
-          {view === "home" && signedOut && (
+          {signedOut && (
             <section
               className="dash-card dash-signin"
               aria-label="Sign in required"
@@ -759,7 +787,14 @@ export function ManagerDashboard({
             </div>
           )}
 
-          {view === "order" && (
+          {!signedOut && view === "cod" && (
+            <CodLedgerView
+              orders={orders}
+              live={workspace.canUseLiveData && !workspace.isDemo}
+            />
+          )}
+
+          {!signedOut && view === "order" && (
             <section className="manager-operations-grid">
               <div className="manager-orders-panel" id="orders">
                 <div className="panel-heading-row">
@@ -940,6 +975,18 @@ export function ManagerDashboard({
                             available.
                           </p>
                         )}
+                        {allRecommendations.length > 3 && (
+                          <button
+                            type="button"
+                            className="button button-outline"
+                            aria-expanded={showAllRiders}
+                            onClick={() => setShowAllRiders((value) => !value)}
+                          >
+                            {showAllRiders
+                              ? "Show top 3 only"
+                              : `Show all ${allRecommendations.length} riders`}
+                          </button>
+                        )}
                       </div>
                     )}
                     {!canAssign && isMovingOrder(selectedOrder) && (
@@ -987,7 +1034,7 @@ export function ManagerDashboard({
             </section>
           )}
 
-          {view === "profile" && (
+          {!signedOut && view === "profile" && (
             <section className="manager-profile-grid">
               <article className="manager-profile-card">
                 <span className="manager-profile-avatar">
@@ -1005,7 +1052,7 @@ export function ManagerDashboard({
             </section>
           )}
 
-          {view === "profile" && (
+          {!signedOut && view === "profile" && (
             <section className="dash-card" id="drivers">
               <CardHeader title="Riders" />
               <NoticeStrip notice={notice} scope="riders" />
@@ -1044,7 +1091,7 @@ export function ManagerDashboard({
             </section>
           )}
 
-          {view === "track" && (
+          {!signedOut && view === "track" && (
             <section className="manager-track-grid">
               <div className="manager-live-orders">
                 <div className="panel-heading-row">

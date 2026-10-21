@@ -107,3 +107,36 @@ test("recommendations exclude vehicles that cannot carry the parcel", () => {
   );
   assert.deepEqual(recommendations, []);
 });
+
+test("recommendations can return every candidate, not only the top three", () => {
+  const riders = ["a", "b", "c", "d", "e"].map((id) => ({
+    id,
+    full_name: id,
+    availability: "available",
+  }));
+  const bikes = riders.map((rider) => ({
+    id: `bike-${rider.id}`,
+    registration_number: rider.id,
+    vehicle_type: "motorcycle",
+    status: "available",
+    capacity_kg: 20,
+    energy_source: "fuel",
+    fuel_level_percent: 80,
+    battery_level_percent: null,
+    range_km_at_full: 200,
+    reserve_percent: 10,
+    odometer_km: 0,
+    service_due_at_km: null,
+  }));
+  assert.equal(recommendAssignments(targetOrder, riders, bikes, []).length, 3);
+  assert.equal(
+    recommendAssignments(
+      targetOrder,
+      riders,
+      bikes,
+      [],
+      Number.POSITIVE_INFINITY,
+    ).length,
+    5,
+  );
+});

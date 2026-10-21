@@ -1040,6 +1040,11 @@ export function RiderApp() {
     >
       {errorText}
     </Notice>
+  ) : live.isStale ? (
+    <Notice tone="warning" icon="warning">
+      <strong>Showing your saved route.</strong> We couldn’t reach the server.
+      It will refresh when the connection returns.
+    </Notice>
   ) : null;
 
   const dayLabel = new Intl.DateTimeFormat("en-GB", {

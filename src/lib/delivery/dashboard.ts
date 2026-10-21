@@ -49,6 +49,9 @@ export function attentionSummary(
       (order) => isActiveOrder(order) && order.traffic_delay_minutes > 0,
     ).length,
     codPending: orders.filter(codPending).length,
+    codToSettle: orders.filter(
+      (order) => order.cod_amount > 0 && order.cod_status === "collected",
+    ).length,
     pendingReports: roadReports.filter((report) => report.status === "pending")
       .length,
   };

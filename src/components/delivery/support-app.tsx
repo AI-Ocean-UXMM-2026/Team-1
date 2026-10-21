@@ -101,6 +101,11 @@ export function SupportApp() {
   const caseClosed =
     selectedCase?.status === "resolved" || selectedCase?.status === "closed";
 
+  // Notes belong to one case; never carry them over to another.
+  const selectedCaseId = selectedCase?.id;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on case change only
+  useEffect(() => setResolution(""), [selectedCaseId]);
+
   async function saveCase(status: "in_progress" | "resolved") {
     if (!selectedCase) return;
     if (workspace.isDemo || !workspace.profile) {

@@ -32,7 +32,7 @@ Managers handle multiple active orders and fleet availability. Drivers and rider
 - Customer tracking requires sign-in and is limited to the customer's own orders under the current row-level security policies.
 - Driver location sharing must start after parcel pickup, use browser location permission, and stop when the delivery closes.
 - Manager and driver roles are provisioned through a trusted administrative process; public signups default to customer.
-- Sample records used to preview empty interfaces must be labeled as demo data and must not be written to Supabase.
+- Workspaces load live Supabase data only. Any sample or fixture records (including browser-test fixtures) must be clearly synthetic and must never be written to Supabase.
 - Customer, rider, and management interfaces are available at `/`, `/rider`, and `/manager`, with role redirects and data access enforced by Supabase row-level security.
 - Seller and support workspaces are available at `/seller` and `/support`; fleet maintenance, costs, and energy readiness are available at `/manager/insights`.
 - Rider GPS sharing updates all collected assigned parcels while the app stays open; customer and manager maps receive Realtime location and status updates. Browser permission is required and background tracking is not guaranteed.
