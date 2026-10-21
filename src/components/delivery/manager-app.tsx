@@ -1630,6 +1630,9 @@ export function ManagerDashboard({
           onClose={() => setReassignModal(null)}
         >
           <div className="reassign-modal-content">
+            <div className="reassign-modal-header">
+              <h2 id="reassign-modal-title">Confirm driver reassignment</h2>
+            </div>
             <p className="reassign-modal-desc">
               Reassign delivery <strong>{selectedOrder?.tracking_code}</strong> to a different rider?
             </p>
@@ -1679,6 +1682,17 @@ export function ManagerDashboard({
           className="operations-menu-modal"
           onClose={() => setMoreOpen(false)}
         >
+          <div className="mobile-more-header">
+            <h2 id="operations-menu-title">Operations menu</h2>
+            <button
+              type="button"
+              className="icon-button modal-close-btn"
+              onClick={() => setMoreOpen(false)}
+              aria-label="Close menu"
+            >
+              <Icon name="close" size={18} />
+            </button>
+          </div>
           <div className="mobile-more-menu">
             <Link
               href="/manager/profile"
