@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
@@ -47,48 +49,58 @@ export function SigninForm() {
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-dialog auth-page-card">
-        <Link className="auth-page-back" href="/welcome">
-          <Icon name="arrow-left" size={16} /> Back
+    <main className="auth-page auth-signin-page">
+      <section className="auth-dialog auth-page-card auth-signin-card">
+        <Link className="auth-page-back" href="/signup">
+          <Icon name="arrow-left" size={16} /> Back to sign up
         </Link>
         <span className="eyebrow">Sign in to Oern</span>
         <h1>Your parcel, in view.</h1>
         <p>Sign in to see your orders and the rider’s location after pickup.</p>
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="field-label">
+          <div className="field-label">
             Email address
-            <input
+            <TextField
+              className="auth-mui-field"
+              fullWidth
+              variant="outlined"
+              aria-label="Email address"
               type="email"
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
             />
-          </label>
-          <label className="field-label">
+          </div>
+          <div className="field-label">
             Password
-            <input
+            <TextField
+              className="auth-mui-field"
+              fullWidth
+              variant="outlined"
+              aria-label="Password"
               type="password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
             />
-          </label>
+          </div>
           {error && (
             <div className="form-message form-error" role="alert">
               {error}
             </div>
           )}
-          <button
-            className="button button-primary auth-submit"
+          <Button
+            className="auth-submit auth-mui-submit"
+            variant="contained"
+            color="primary"
+            endIcon={!busy ? <Icon name="arrow-right" size={17} /> : undefined}
             type="submit"
             disabled={busy}
           >
             {busy ? "Please wait…" : "Sign in to your account"}
-            {!busy && <Icon name="arrow-right" size={17} />}
-          </button>
+          </Button>
         </form>
         <div className="auth-switch">
           New to Oern? <Link href="/signup">Create an account</Link>

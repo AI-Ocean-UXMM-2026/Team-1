@@ -372,12 +372,91 @@
   color: var(--color-text-secondary, #64748b);
   font-size: 12px;
 }
+.auth-signin-page {
+  align-items: stretch;
+  padding: 0;
+  background: var(--color-background, #f8fafc);
+}
+.auth-signin-card {
+  width: min(100%, 480px);
+  min-height: 100dvh;
+  max-height: none;
+  overflow: visible;
+  margin: 0 auto;
+  padding: max(20px, env(safe-area-inset-top)) 20px
+    max(28px, env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 0;
+  background: var(--color-surface, #fff);
+  box-shadow: none;
+}
+.auth-signin-card .auth-page-back {
+  margin: 0 0 28px;
+}
+.auth-signin-card .eyebrow {
+  display: block;
+  margin-bottom: 10px;
+}
+.auth-signin-card h1 {
+  max-width: 13ch;
+  margin: 0 0 12px;
+  color: var(--color-text-primary, #172b4d);
+  font-size: clamp(30px, 8vw, 40px);
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+.auth-signin-card > p {
+  max-width: 38ch;
+  margin-bottom: 28px;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.auth-signin-card .auth-form {
+  gap: 16px;
+}
+.auth-signin-card .field-label {
+  gap: 8px;
+  color: var(--color-text-primary, #172b4d);
+  font-size: 13px;
+}
+.auth-signin-card .auth-mui-field .MuiOutlinedInput-root {
+  min-height: 52px;
+  border-radius: 12px;
+  background: var(--color-surface, #fff);
+}
+.auth-signin-card .auth-mui-field .MuiOutlinedInput-input {
+  font-size: 16px;
+}
+.auth-signin-card .auth-mui-submit {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 8px;
+  border-radius: 12px;
+  font-size: 15px;
+  box-shadow: none;
+}
+.auth-signin-card .auth-switch {
+  margin-top: 24px;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 14px;
+}
+.auth-signin-card .auth-note {
+  margin-top: 24px;
+  padding-top: 18px;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 12px;
+}
 @media (max-width: 600px) {
   .auth-page {
     align-items: center;
     padding: 18px 12px;
   }
   .auth-signup-page {
+    align-items: stretch;
+    padding: 0;
+  }
+  .auth-signin-page {
     align-items: stretch;
     padding: 0;
   }
