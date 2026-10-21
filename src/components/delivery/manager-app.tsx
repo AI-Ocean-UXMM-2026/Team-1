@@ -444,7 +444,9 @@ export function ManagerDashboard({
             <div className="workspace-demo manager-demo">
               <DemoBadge>Demo operations</DemoBadge>
               <span>
-                Sample deliveries are for preview. Changes stay on this device.
+                {workspace.canUseLiveData
+                  ? "Live deliveries from Supabase. Create a delivery to start your dispatch board."
+                  : "Sign in to view live orders, riders, and fleet records."}
               </span>
             </div>
           )}

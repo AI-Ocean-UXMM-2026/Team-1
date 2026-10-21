@@ -25,7 +25,7 @@ bun install
 bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Signed-out users see labeled demo data, so the main interfaces can be reviewed without changing Supabase records.
+Open [http://localhost:3000](http://localhost:3000). Signed-out users see empty states and cannot create live records.
 
 ## Automated checks
 
@@ -98,6 +98,14 @@ values ('<driver-user-id>', 'available');
 ```
 
 Use different browser profiles or private windows when testing multiple roles at the same time.
+
+## Persistent dynamic development data
+
+The application does not use browser-only demo records for live workspaces. To populate a development or preview Supabase project with current, persistent records, first create Auth users and provision their profile roles as described above. Then run `supabase/seeds/dev_data.sql` in the Supabase SQL Editor or with your trusted SQL runner.
+
+The seed discovers existing manager, customer, and driver profiles, generates record IDs and timestamps, and creates orders covering pending, assigned, accepted, in-transit, delivered, COD, route, location, notification, and road-report states. It uses stable `DYN-SEED-*` identifiers, so rerunning it replaces only its own records. It never creates Auth users or stores passwords.
+
+To remove only the generated development records, run `supabase/seeds/cleanup_dev_data.sql`. Use both scripts only against a development or preview project; never run cleanup against production.
 
 ## Manual workflow checklist
 

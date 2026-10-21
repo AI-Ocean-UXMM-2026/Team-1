@@ -117,7 +117,7 @@ flowchart TD
 - Manager, driver, seller, and support roles require trusted administrative provisioning.
 - Row-level security enforces order ownership and role access in the database.
 - The URL redirect is a navigation aid; it is not the security boundary.
-- Demo data is labeled and remains in browser memory.
+- Live workspace data comes from Supabase; empty states remain empty until records exist.
 
 ## Main code paths
 
