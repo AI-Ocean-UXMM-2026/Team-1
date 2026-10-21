@@ -531,8 +531,21 @@
 .rf-gate {
   display: grid;
   align-content: center;
-  justify-items: start;
+  justify-items: center;
   gap: 12px;
+  text-align: center;
+}
+
+.rf-gate-brand {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  color: var(--color-text, #172b4d);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  line-height: 1;
 }
 
 .rf-route-art,

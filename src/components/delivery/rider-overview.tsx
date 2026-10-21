@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 
-import { Brand } from "@/components/delivery/common";
 import { Icon } from "@/components/delivery/icons";
 import { CodTag, Notice } from "@/components/delivery/rider-tools";
 import {
@@ -443,7 +442,6 @@ export function RouteOverview({
   return (
     <main className="rf-app dv-overview">
       <header className="rf-overview-head">
-        <Brand href="/rider" />
         <span className={`dv-status is-${state.toLowerCase()}`}>
           {status[state]}
         </span>

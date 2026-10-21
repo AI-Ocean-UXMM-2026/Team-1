@@ -76,9 +76,6 @@ export function AuthDialog({
       >
         <Icon name="close" size={19} />
       </button>
-      <div className="auth-mark">
-        <Icon name="delivery" size={22} />
-      </div>
       <span className="eyebrow">
         {audience === "team"
           ? "Oern team access"

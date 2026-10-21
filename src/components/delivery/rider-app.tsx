@@ -7,7 +7,11 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
-import { Brand, LoadingBlock, signOut } from "@/components/delivery/common";
+import {
+  BrandMark,
+  LoadingBlock,
+  signOut,
+} from "@/components/delivery/common";
 import { Icon } from "@/components/delivery/icons";
 import {
   ActiveDelivery,
@@ -1680,7 +1684,10 @@ function SignInGate() {
   const [open, setOpen] = useState(false);
   return (
     <main className="rf-app rf-gate">
-      <Brand href="/rider" />
+      <div className="rf-gate-brand">
+        <BrandMark size={116} />
+        <span>Oern</span>
+      </div>
       <div className="rf-route-art" aria-hidden="true">
         <svg viewBox="0 0 360 180" role="presentation">
           <path
