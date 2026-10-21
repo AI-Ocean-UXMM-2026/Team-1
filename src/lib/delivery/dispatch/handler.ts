@@ -343,6 +343,11 @@ export async function handlePlan(
       scheduledLater: result.scheduledLater,
       basis: result.basis,
       serviceDate: req.serviceDate,
+      depot: {
+        code: depot.code,
+        latitude: depot.latitude,
+        longitude: depot.longitude,
+      },
       today: yangonDate(ctx.now),
       simulated: false,
     },
