@@ -24,14 +24,15 @@ import {
   type RouteMetrics,
   RouteOverview,
 } from "@/components/delivery/rider-overview";
+import { RouteRevisionNotice } from "@/components/delivery/rider-revision";
 import {
   CautionsPanel,
   EnergyPanel,
+  LocationHelpSheet,
   Notice,
   type ProblemChoice,
   ProblemPanel,
   type RoadReportDraft,
-  Sheet,
   ShiftMenu,
   type ToolPanel,
 } from "@/components/delivery/rider-tools";
@@ -64,7 +65,7 @@ import {
   type RouteSnapshot,
   snapshotRoute,
 } from "@/lib/delivery/driver-route";
-import { currency, formatTime } from "@/lib/delivery/format";
+import { currency } from "@/lib/delivery/format";
 import { formatDriveMinutes } from "@/lib/delivery/mapbox";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
 import {
@@ -97,7 +98,9 @@ import type {
   RiderRequestCategory,
   WorkspaceData,
 } from "@/lib/delivery/types";
+import { usePermissionRecovery } from "@/lib/delivery/use-permission-recovery";
 import { useRoadRoute } from "@/lib/delivery/use-road-route";
+import { useStoredState } from "@/lib/delivery/use-stored-state";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
@@ -120,46 +123,7 @@ const STALE_AFTER_MS = 60_000;
 const ARRIVAL_RADIUS_KM = 0.08;
 const ALLOW_PREVIEW = process.env.NODE_ENV !== "production";
 
-function readStore<T>(key: string, fallback: T): T {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStore(key: string, value: unknown) {
-  try {
-    if (value == null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Storage can be unavailable in private browsing; state then lives in memory only.
-  }
-}
-
-/** State kept on this phone so a reload or dropped connection loses nothing. */
-function useStored<T>(key: string, fallback: T) {
-  const [value, setValue] = useState<T>(fallback);
-  const fallbackRef = useRef(fallback);
-  useEffect(() => {
-    setValue(readStore(key, fallbackRef.current));
-  }, [key]);
-  const update = useCallback(
-    (next: T | ((previous: T) => T)) => {
-      setValue((previous) => {
-        const resolved =
-          typeof next === "function"
-            ? (next as (previous: T) => T)(previous)
-            : next;
-        writeStore(key, resolved);
-        return resolved;
-      });
-    },
-    [key],
-  );
-  return [value, update] as const;
-}
+const useStored = useStoredState;
 
 function friendlyError(cause: unknown, fallback: string) {
   if (cause instanceof TypeError || /fetch|network/i.test(String(cause)))
@@ -288,9 +252,7 @@ export function RiderApp() {
 
   /* ---------------- route session ---------------- */
 
-  const [serverSession, setServerSession] = useState<RouteSession | null>(
-    null,
-  );
+  const [serverSession, setServerSession] = useState<RouteSession | null>(null);
   const [sessionAvailable, setSessionAvailable] = useState(true);
   useEffect(() => {
     if (isPreview || !driverId || !live.canUseLiveData) return;
@@ -382,6 +344,18 @@ export function RiderApp() {
     return () => navigator.geolocation.clearWatch(id);
   }, [wantsGps, gpsAttempt]);
 
+  // Auto-recover when location permission is granted in browser settings
+  usePermissionRecovery({
+    permission: "geolocation",
+    enabled: wantsGps,
+    onGranted: () => {
+      setGpsAttempt((attempt) => attempt + 1);
+    },
+    onDenied: () => {
+      setGps("denied");
+    },
+  });
+
   // In preview the truck sits 600 m short of the current stop, or at the depot.
   const previewPoint = useMemo<GeoPoint | null>(() => {
     if (!isPreview || previewGpsDenied) return null;
@@ -421,6 +395,7 @@ export function RiderApp() {
     route.onBoard.map((order) => order.id).sort(),
   );
   const [sharing, setSharing] = useState<number | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: gpsAttempt re-triggers watchRiderLocations on retry
   useEffect(() => {
     const orderIds = JSON.parse(onBoardKey) as string[];
     if (
@@ -447,9 +422,19 @@ export function RiderApp() {
           point.accuracy,
         ),
       onSent: (sentIds) => setSharing(sentIds.length),
-      onError: () => setSharing(null),
+      onError: (_msg, permissionDenied) => {
+        setSharing(null);
+        if (permissionDenied) setGps("denied");
+      },
     });
-  }, [onBoardKey, isPreview, live.canUseLiveData, driverId, route.state]);
+  }, [
+    onBoardKey,
+    isPreview,
+    live.canUseLiveData,
+    driverId,
+    route.state,
+    gpsAttempt,
+  ]);
 
   /* ---------------- distances, road routes, cautions ---------------- */
 
@@ -562,7 +547,9 @@ export function RiderApp() {
   async function run(label: string, task: () => Promise<void>) {
     if (busyRef.current) return false;
     if (!isPreview && !live.canUseLiveData) {
-      setActionError("Your session needs refreshing. Sign in again to continue.");
+      setActionError(
+        "Your session needs refreshing. Sign in again to continue.",
+      );
       return false;
     }
     busyRef.current = true;
@@ -572,7 +559,9 @@ export function RiderApp() {
       await task();
       return true;
     } catch (cause) {
-      setActionError(friendlyError(cause, "That update did not save. Try again."));
+      setActionError(
+        friendlyError(cause, "That update did not save. Try again."),
+      );
       return false;
     } finally {
       busyRef.current = false;
@@ -582,7 +571,11 @@ export function RiderApp() {
   }
 
   const applyStatus = useCallback(
-    (orderId: string, status: DeliveryStatus, extra: Partial<DeliveryOrder> = {}) =>
+    (
+      orderId: string,
+      status: DeliveryStatus,
+      extra: Partial<DeliveryOrder> = {},
+    ) =>
       updateData((previous) => ({
         ...previous,
         orders: previous.orders.map((order) =>
@@ -591,7 +584,9 @@ export function RiderApp() {
         statusEvents: [
           ...previous.statusEvents,
           {
-            id: Math.max(0, ...previous.statusEvents.map((event) => event.id)) + 1,
+            id:
+              Math.max(0, ...previous.statusEvents.map((event) => event.id)) +
+              1,
             order_id: orderId,
             status,
             note: null,
@@ -607,7 +602,10 @@ export function RiderApp() {
     if (isPreview) {
       setPreviewData((previous) =>
         previous
-          ? { ...previous, data: previewSetStatus(previous.data, order.id, status) }
+          ? {
+              ...previous,
+              data: previewSetStatus(previous.data, order.id, status),
+            }
           : previous,
       );
       return;
@@ -615,7 +613,12 @@ export function RiderApp() {
     await setOrderStatus(
       createClient(),
       order.id,
-      status as "accepted" | "picked_up" | "in_transit" | "delivered" | "failed",
+      status as
+        | "accepted"
+        | "picked_up"
+        | "in_transit"
+        | "delivered"
+        | "failed",
     );
     applyStatus(order.id, status);
   }
@@ -626,12 +629,16 @@ export function RiderApp() {
     if (!isPreview) return completeDelivery(createClient(), input);
     const seen = previewRequests.current.get(input.requestId);
     if (seen) return { ...seen, duplicate: true };
-    const order = previewData.data.orders.find((item) => item.id === input.orderId);
+    const order = previewData.data.orders.find(
+      (item) => item.id === input.orderId,
+    );
     if (!order) throw new Error("This parcel is not assigned to you");
     if (order.status === "delivered" || order.status === "failed")
       throw new Error(`This parcel already has an outcome: ${order.status}`);
     if (input.outcome === "delivered" && !input.parcelVerified)
-      throw new Error("Check the parcel against the manifest before handing it over");
+      throw new Error(
+        "Check the parcel against the manifest before handing it over",
+      );
     const codStatus =
       input.outcome === "delivered" &&
       codDue(order) > 0 &&
@@ -657,7 +664,11 @@ export function RiderApp() {
                     ...previous.data,
                     orders: previous.data.orders.map((item) =>
                       item.id === order.id
-                        ? { ...item, status: input.outcome, cod_status: codStatus }
+                        ? {
+                            ...item,
+                            status: input.outcome,
+                            cod_status: codStatus,
+                          }
                         : item,
                     ),
                   },
@@ -816,7 +827,11 @@ export function RiderApp() {
           note: current.note,
           codExpected: order.cod_amount,
           codReceived:
-            due > 0 ? (allocation ? (allocation.get(order.id) ?? 0) : due) : null,
+            due > 0
+              ? allocation
+                ? (allocation.get(order.id) ?? 0)
+                : due
+              : null,
           codReason:
             due > 0 && allocation && allocation.get(order.id) !== due
               ? current.codReason
@@ -827,9 +842,7 @@ export function RiderApp() {
           cod_status: result.codStatus as DeliveryOrder["cod_status"],
         });
       }
-      const collected = allocation
-        ? Number(current.codAmount)
-        : target.codDue;
+      const collected = allocation ? Number(current.codAmount) : target.codDue;
       finishStop(target);
       setFlash(
         `Stop ${target.number} delivered · ${target.open.length} ${target.open.length === 1 ? "parcel" : "parcels"}${target.codDue > 0 ? ` · ${currency.format(collected)} COD recorded` : ""}${duplicates ? " · already saved on the first try" : ""}.`,
@@ -855,7 +868,10 @@ export function RiderApp() {
         requestIds[`fail:${id}`] ??= newRequestId();
       setDrafts((previous) => ({
         ...previous,
-        [target.key]: { ...(previous[target.key] ?? EMPTY_HANDOVER), requestIds },
+        [target.key]: {
+          ...(previous[target.key] ?? EMPTY_HANDOVER),
+          requestIds,
+        },
       }));
       for (const id of exception.parcelIds) {
         const order = target.open.find((item) => item.id === id);
@@ -913,7 +929,8 @@ export function RiderApp() {
         driver_name: profileName,
         order_id: stop?.open[0]?.id ?? null,
         vehicle_id: vehicle?.id ?? null,
-        kind: category === "refuel" || category === "recharge" ? "energy" : "issue",
+        kind:
+          category === "refuel" || category === "recharge" ? "energy" : "issue",
         category,
         note: note.trim() || null,
         energy_level_percent: routeEnergy.levelPercent,
@@ -985,9 +1002,13 @@ export function RiderApp() {
             ? {
                 ...item,
                 fuel_level_percent:
-                  item.energy_source === "electric" ? item.fuel_level_percent : level,
+                  item.energy_source === "electric"
+                    ? item.fuel_level_percent
+                    : level,
                 battery_level_percent:
-                  item.energy_source === "fuel" ? item.battery_level_percent : level,
+                  item.energy_source === "fuel"
+                    ? item.battery_level_percent
+                    : level,
               }
             : item,
         ),
@@ -1019,8 +1040,7 @@ export function RiderApp() {
   if (!now || !previewChecked || (!isPreview && live.isLoading))
     return <LoadingBlock title="Opening your route…" />;
 
-  if (!isPreview && !live.isAuthenticated)
-    return <SignInGate />;
+  if (!isPreview && !live.isAuthenticated) return <SignInGate />;
 
   const errorText = actionError ?? (isPreview ? null : live.error);
   const errorBanner = errorText ? (
@@ -1081,7 +1101,27 @@ export function RiderApp() {
     severity: report.severity,
   }));
 
-  const revisionNotice = renderRevision();
+  const revisionNotice = (
+    <RouteRevisionNotice
+      route={route}
+      started={started}
+      revision={revision}
+      revisionOpen={revisionOpen}
+      onOpenChange={setRevisionOpen}
+      stop={stop}
+      finishEstimate={finishEstimate}
+      acknowledged={acknowledged}
+      errorBanner={errorBanner}
+      busy={busy}
+      online={online}
+      onAcknowledge={() => void acknowledge()}
+      onLoadParcels={(ids) => void loadParcels(ids)}
+      onDismiss={() => {
+        setResnapshot(true);
+        setRevisionOpen(false);
+      }}
+    />
+  );
   const sheets = renderSheets();
   const previewBar = isPreview ? renderPreviewBar() : null;
 
@@ -1095,7 +1135,11 @@ export function RiderApp() {
           arrow: null,
         }
       : arrivedHere
-        ? { title: `At stop ${stop.number}`, sub: "Park safely, then start the handover", arrow: null }
+        ? {
+            title: `At stop ${stop.number}`,
+            sub: "Park safely, then start the handover",
+            arrow: null,
+          }
         : !riderPoint
           ? {
               title:
@@ -1106,7 +1150,11 @@ export function RiderApp() {
               arrow: null,
             }
           : atTarget
-            ? { title: "You’re at the stop", sub: "Park safely, then tap I’ve arrived", arrow: null }
+            ? {
+                title: "You’re at the stop",
+                sub: "Park safely, then tap I’ve arrived",
+                arrow: null,
+              }
             : legRoute?.firstStep
               ? {
                   title: legRoute.firstStep.instruction,
@@ -1146,7 +1194,11 @@ export function RiderApp() {
               )}
               cautions={navCautions}
               routeThroughStops={riderPoint == null}
-              padding={{ x: 48, top: nextCaution ? 250 : 190, bottom: sheetHeight + 16 }}
+              padding={{
+                x: 48,
+                top: nextCaution ? 250 : 190,
+                bottom: sheetHeight + 16,
+              }}
               road={riderPoint ? legRoute : null}
               label={`Map to stop ${stop.number} of ${route.stops.length}: ${stop.address}`}
             />
@@ -1261,8 +1313,8 @@ export function RiderApp() {
           <>
             {isPreview && (
               <Notice tone="neutral" icon="shield">
-                Preview route for development. Nothing here is saved to
-                Supabase or shared.
+                Preview route for development. Nothing here is saved to Supabase
+                or shared.
               </Notice>
             )}
             {!online && (
@@ -1320,157 +1372,6 @@ export function RiderApp() {
 
   /* ---------------- render helpers ---------------- */
 
-  function renderRevision(): ReactNode {
-    const waitingToLoad = started ? route.toLoad : [];
-    const unacknowledged = started ? route.unacknowledged : [];
-    if (!revision && !waitingToLoad.length && !unacknowledged.length)
-      return null;
-    const added = revision?.addedParcels ?? unacknowledged;
-    const addedStops = route.stops.filter((item) =>
-      item.parcels.some((order) => added.some((other) => other.id === order.id)),
-    );
-    const finishNow = finishEstimate(route);
-    const summary = [
-      added.length
-        ? `${addedStops.length} ${addedStops.length === 1 ? "stop" : "stops"} added`
-        : null,
-      revision?.removedParcels.length
-        ? `${revision.removedParcels.length} ${revision.removedParcels.length === 1 ? "parcel" : "parcels"} removed`
-        : null,
-      revision?.reordered ? "order changed" : null,
-      !added.length && waitingToLoad.length
-        ? `${waitingToLoad.length} to load`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    const needsAck = unacknowledged.length > 0;
-    if (!revisionOpen)
-      return (
-        <button
-          type="button"
-          className={`dv-revision ${revision?.currentChanged ? "is-urgent" : ""}`}
-          onClick={() => setRevisionOpen(true)}
-          aria-expanded="false"
-        >
-          <Icon name="bell" size={18} />
-          <span>
-            <strong>Route updated by dispatch</strong>
-            <small>{summary}</small>
-          </span>
-          <span className="dv-revision-cta">
-            {needsAck ? "Review" : "View"}
-          </span>
-        </button>
-      );
-    return (
-      <section className="dv-revision is-open" aria-label="Route update">
-        <div className="dv-revision-head">
-          <Icon name="bell" size={18} />
-          <strong>Route updated by dispatch</strong>
-          <button
-            type="button"
-            className="rf-icon-btn"
-            aria-label="Hide route update"
-            onClick={() => setRevisionOpen(false)}
-          >
-            <Icon name="close" size={18} />
-          </button>
-        </div>
-        <ul>
-          {addedStops.map((item) => (
-            <li key={item.key}>
-              <strong>
-                + Stop {item.number} · {item.recipient}
-              </strong>
-              <span>
-                {item.address} · {item.parcels.length}{" "}
-                {item.parcels.length === 1 ? "parcel" : "parcels"}
-                {item.codDue > 0 ? ` · COD ${currency.format(item.codDue)}` : ""}
-              </span>
-            </li>
-          ))}
-          {revision?.reordered && (
-            <li>
-              <strong>Delivery order changed</strong>
-              <span>The stop list below shows the new order.</span>
-            </li>
-          )}
-          {revision?.removedParcels.length ? (
-            <li>
-              <strong>
-                {revision.removedParcels.length}{" "}
-                {revision.removedParcels.length === 1 ? "parcel" : "parcels"}{" "}
-                taken off your route
-              </strong>
-              <span>Keep them on the truck until operations says otherwise.</span>
-            </li>
-          ) : null}
-          <li>
-            <strong>
-              {revision?.currentChanged && stop
-                ? `Your next stop is now stop ${stop.number} · ${stop.recipient}`
-                : "Your current stop hasn’t changed"}
-            </strong>
-            <span>
-              {finishNow
-                ? `Finish by ${formatTime(finishNow)}${acknowledged?.finishBy && acknowledged.finishBy !== finishNow ? ` (was ${formatTime(acknowledged.finishBy)})` : ""}`
-                : "No finish time from dispatch"}
-            </span>
-          </li>
-          {waitingToLoad.length > 0 && (
-            <li>
-              <strong>
-                {waitingToLoad.length}{" "}
-                {waitingToLoad.length === 1 ? "parcel isn’t" : "parcels aren’t"}{" "}
-                on your truck yet
-              </strong>
-              <span>
-                Collect from {waitingToLoad[0].pickup_address} as dispatch
-                arranges, then mark it loaded.
-              </span>
-            </li>
-          )}
-        </ul>
-        {errorBanner}
-        {needsAck ? (
-          <button
-            type="button"
-            className="rf-btn rf-btn-primary"
-            disabled={busy != null || !online}
-            onClick={() => void acknowledge()}
-          >
-            {busy === "acknowledge" ? "Saving…" : "Acknowledge changes"}
-          </button>
-        ) : waitingToLoad.length ? (
-          <button
-            type="button"
-            className="rf-btn rf-btn-primary"
-            disabled={busy != null || !online}
-            onClick={() =>
-              void loadParcels(waitingToLoad.map((order) => order.id))
-            }
-          >
-            {busy === "load"
-              ? "Saving…"
-              : `Mark ${waitingToLoad.length} loaded`}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="rf-btn rf-btn-secondary"
-            onClick={() => {
-              setResnapshot(true);
-              setRevisionOpen(false);
-            }}
-          >
-            Got it
-          </button>
-        )}
-      </section>
-    );
-  }
-
   function renderSheets(): ReactNode {
     const close = () => setPanel(null);
     const canPause = route.state === "IN_PROGRESS";
@@ -1516,9 +1417,12 @@ export function RiderApp() {
         return (
           <CautionsPanel
             legCautions={legCautions}
-            laterCautions={routeCautions.filter((item) => !legIds.has(item.report.id))}
+            laterCautions={routeCautions.filter(
+              (item) => !legIds.has(item.report.id),
+            )}
             now={now}
             canLocate={riderPoint != null}
+            onLocationHelp={() => openPanel("location")}
             busy={busy === "road"}
             error={errorBanner}
             done={panelDone}
@@ -1534,7 +1438,9 @@ export function RiderApp() {
             error={errorBanner}
             done={panelDone}
             canPause={canPause}
-            onSend={(category: ProblemChoice, note) => void requestHelp(category, note)}
+            onSend={(category: ProblemChoice, note) =>
+              void requestHelp(category, note)
+            }
             onPause={() => void pauseRoute()}
             onClose={close}
           />
@@ -1553,38 +1459,14 @@ export function RiderApp() {
         ) : null;
       case "location":
         return (
-          <Sheet
-            title={gpsState === "stale" ? "GPS signal is old" : "Location is off"}
+          <LocationHelpSheet
+            gpsState={gpsState}
+            onRetry={() => {
+              if (isPreview) setPreviewGpsDenied(false);
+              setGpsAttempt((value) => value + 1);
+            }}
             onClose={close}
-          >
-            <p>
-              {gpsState === "stale"
-                ? "Your phone hasn’t sent a fresh position for over a minute. The map shows where you were last seen."
-                : "Oern can’t read your location, so the map shows your stops without your position, and customers won’t see you live."}
-            </p>
-            <ol className="dv-steps">
-              <li>Open your browser’s site settings for Oern.</li>
-              <li>Set Location to Allow.</li>
-              <li>Come back and tap Try again.</li>
-            </ol>
-            <p className="rf-muted">
-              Deliveries, COD and proof still work without location.
-            </p>
-            <button
-              type="button"
-              className="rf-btn rf-btn-primary"
-              onClick={() => {
-                if (isPreview) setPreviewGpsDenied(false);
-                setGpsAttempt((value) => value + 1);
-                close();
-              }}
-            >
-              Try again
-            </button>
-            <button type="button" className="rf-btn rf-btn-quiet" onClick={close}>
-              Continue without live location
-            </button>
-          </Sheet>
+          />
         );
       default:
         return null;
@@ -1623,7 +1505,10 @@ export function RiderApp() {
             onClick={() =>
               setPreviewData((previous) =>
                 previous
-                  ? { ...previous, data: previewAddStop(previous.data, Date.now()) }
+                  ? {
+                      ...previous,
+                      data: previewAddStop(previous.data, Date.now()),
+                    }
                   : previous,
               )
             }
@@ -1668,7 +1553,10 @@ export function RiderApp() {
           </label>
           <small>
             {EXCEPTION_OPTIONS.length} exception reasons ·{" "}
-            {route.parcels.filter((order) => hasParcelOnBoard(order.status)).length}{" "}
+            {
+              route.parcels.filter((order) => hasParcelOnBoard(order.status))
+                .length
+            }{" "}
             on truck
           </small>
         </div>

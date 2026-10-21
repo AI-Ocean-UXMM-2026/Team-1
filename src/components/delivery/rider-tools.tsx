@@ -4,6 +4,7 @@ import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { Icon, type IconName } from "@/components/delivery/icons";
+import type { GpsState } from "@/components/delivery/rider-active";
 import { currency, formatTime } from "@/lib/delivery/format";
 import {
   cautionCopy,
@@ -535,6 +536,7 @@ export function CautionsPanel({
   error,
   done,
   onReport,
+  onLocationHelp,
   onClose,
 }: {
   legCautions: RoadCaution[];
@@ -545,6 +547,7 @@ export function CautionsPanel({
   error: ReactNode;
   done: string | null;
   onReport: (draft: RoadReportDraft) => void;
+  onLocationHelp?: () => void;
   onClose: () => void;
 }) {
   const [reporting, setReporting] = useState(false);
@@ -563,7 +566,11 @@ export function CautionsPanel({
         <Notice tone="success" icon="check">
           {done}
         </Notice>
-        <button type="button" className="rf-btn rf-btn-primary" onClick={onClose}>
+        <button
+          type="button"
+          className="rf-btn rf-btn-primary"
+          onClick={onClose}
+        >
           Back to the route
         </button>
       </Sheet>
@@ -628,9 +635,23 @@ export function CautionsPanel({
             route won’t change from this report alone.
           </p>
           {!canLocate && (
-            <Notice tone="warning" icon="location">
-              Your location is needed to place the report. Turn on location,
-              or call your dispatcher.
+            <Notice
+              tone="warning"
+              icon="location"
+              action={
+                onLocationHelp ? (
+                  <button
+                    type="button"
+                    className="rf-link"
+                    onClick={onLocationHelp}
+                  >
+                    Fix location
+                  </button>
+                ) : null
+              }
+            >
+              Your location is needed to place the report. Turn on location, or
+              call your dispatcher.
             </Notice>
           )}
           {error}
@@ -788,9 +809,8 @@ export function ProblemPanel({
         >
           {choice === "accident" && (
             <Notice tone="error" icon="warning">
-              <strong>If anyone is hurt, get help first.</strong> Call
-              emergency services, then send this so operations can cover your
-              deliveries.
+              <strong>If anyone is hurt, get help first.</strong> Call emergency
+              services, then send this so operations can cover your deliveries.
             </Notice>
           )}
           <p className="rf-muted">
@@ -832,6 +852,58 @@ export function ProblemPanel({
           </button>
         </form>
       )}
+    </Sheet>
+  );
+}
+
+export function LocationHelpSheet({
+  gpsState,
+  onRetry,
+  onClose,
+}: {
+  gpsState: GpsState;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet
+      title={gpsState === "stale" ? "GPS signal is old" : "Location is off"}
+      onClose={onClose}
+    >
+      <p>
+        {gpsState === "stale"
+          ? "Your phone hasn’t sent a fresh position for over a minute. The map shows where you were last seen."
+          : "Oern can’t read your location, so the map shows your stops without your position, and customers won’t see you live."}
+      </p>
+      <ol className="dv-steps">
+        <li>
+          <strong>Safari (iOS):</strong> Tap <em>aA</em> or the settings icon in the address bar → Website Settings → Location → Allow.
+        </li>
+        <li>
+          <strong>Chrome / Android:</strong> Tap the lock or tune icon in the address bar → Permissions → Location → Allow.
+        </li>
+        <li>Come back and tap Try again.</li>
+      </ol>
+      <p className="rf-muted">
+        Deliveries, COD and proof still work without location.
+      </p>
+      <button
+        type="button"
+        className="rf-btn rf-btn-primary"
+        onClick={() => {
+          onRetry();
+          onClose();
+        }}
+      >
+        Try again
+      </button>
+      <button
+        type="button"
+        className="rf-btn rf-btn-quiet"
+        onClick={onClose}
+      >
+        Continue without live location
+      </button>
     </Sheet>
   );
 }

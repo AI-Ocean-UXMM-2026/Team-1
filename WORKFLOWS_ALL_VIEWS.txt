@@ -1,0 +1,663 @@
+================================================================================
+OERN DELIVERY PLATFORM - WORKFLOW SPECIFICATION ACROSS ALL VIEWS
+================================================================================
+Document Type: System Workflow Specification
+File Format  : Plain Text (.txt)
+Date         : October 2026
+Project      : Oern Door-to-Door Delivery Operations Platform
+Repository   : /Users/happer/Projects/oern
+Reference Docs: docs/PROJECT_FLOW.md, PRODUCT.md, README.md, DESIGN.md
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. EXECUTIVE SUMMARY & EXISTING REPOSITORY DOCUMENTATION
+2. VIEW 1: ACTOR / USER ROLE WORKSPACE PERSPECTIVE
+   2.1. Customer Perspective (/ and /pickup)
+   2.2. Rider / Driver Perspective (/rider)
+   2.3. Operations Manager Perspective (/manager)
+   2.4. Fleet & Insights Manager Perspective (/manager/insights)
+   2.5. Merchant / Seller Perspective (/seller)
+   2.6. Customer Support Agent Perspective (/support)
+3. VIEW 2: DELIVERY LIFECYCLE & STATE MACHINE PERSPECTIVE
+   3.1. Complete State Progression Diagram
+   3.2. Detailed State Descriptions & Transition Triggers
+   3.3. State Guardrails & Row-Level Security Enforcements
+4. VIEW 3: OPERATIONAL SUBSYSTEM & FEATURE WORKFLOWS
+   4.1. Intelligent Rider & Vehicle Recommendation Workflow
+   4.2. Live Tracking & Predictive ETA Workflow
+   4.3. Road Knowledge & Hazard Reporting Workflow
+   4.4. Energy Readiness (Fuel / Battery) Routing Workflow
+   4.5. Cash on Delivery (COD) Collection & Ledger Workflow
+   4.6. Multi-Provider & External E-Commerce Integration Workflow
+   4.7. Customer Support & Issue Resolution Workflow
+5. VIEW 4: SYSTEM ARCHITECTURE & DATA FLOW PERSPECTIVE
+   5.1. Authentication, Role Proxy & Row-Level Security (RLS)
+   5.2. Realtime Event Synchronization Pipeline
+   5.3. Geolocation & Mapping Integration Stack
+6. VIEW 5: EDGE CASES, FAILURE MODES & RECOVERY WORKFLOWS
+================================================================================
+
+
+================================================================================
+1. EXECUTIVE SUMMARY & EXISTING REPOSITORY DOCUMENTATION
+================================================================================
+The Oern platform is a unified door-to-door logistics platform connecting 
+customers, centralized dispatch managers, drivers/riders, merchants/sellers, and
+support agents.
+
+Existing documentation files in this repository include:
+- `docs/PROJECT_FLOW.md`: The primary project flow reference detailing interface
+  maps, delivery lifecycles, intelligence flows, data flows, and team conventions.
+- `PRODUCT.md`: Product positioning, user definitions, core constraints, and 
+  operating principles.
+- `README.md`: Feature overview, release roadmaps (P0/P1/P2), local development,
+  and deployment instructions.
+- `DESIGN.md`: Visual tokens, typography, component hierarchies, and interface
+  guidelines.
+
+This text document (`WORKFLOWS_ALL_VIEWS.txt`) synthesizes and articulates all
+system workflows across five distinct viewpoints:
+1. Actor / Role Perspective (Who does what and where)
+2. State Machine Perspective (How order data evolves over time)
+3. Subsystem Workflows (Algorithms, intelligence, energy, COD, integrations)
+4. Technical Architecture (Next.js, Supabase Auth/RLS, WebSockets, Maps)
+5. Failure & Exception Handling (Offline tracking, stale locations, failed tasks)
+
+
+================================================================================
+2. VIEW 1: ACTOR / USER ROLE WORKSPACE PERSPECTIVE
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1. Customer Perspective (Routes: `/` and `/pickup`)
+--------------------------------------------------------------------------------
+Primary Goal:
+Request deliveries, follow parcel progress in real time once collected, see ETA
+and COD balance, track third-party shipments, and submit support tickets.
+
+Step-by-Step Customer Journey:
+1. Access & Authentication:
+   - Public visitors land on `/`. Public sign-ups default to the `customer` role.
+   - Customers log in or view tracking information.
+2. Creating an Order (/pickup):
+   - Customer enters pickup address, recipient delivery address, parcel details
+     (size, weight, description), and optional Cash on Delivery (COD) amount.
+   - Customer submits the request. A guarded database function creates the order
+     with status `pending`.
+3. Order Monitoring (/):
+   - The customer sees their active and historical orders.
+   - While `pending` or `assigned`, the customer sees the scheduled task state.
+4. Live Real-Time Tracking Activation:
+   - Live GPS tracking begins ONLY when the rider marks the order as `picked_up`.
+   - The customer interface renders a live Mapbox GL (or OpenStreetMap fallback)
+     map showing the rider's latest location, estimated drive time, and route line.
+   - Predictive ETA updates dynamically as the rider moves.
+   - Cash on Delivery (COD) amount and payment status are clearly displayed.
+5. Third-Party Tracking:
+   - Customers can add external tracking numbers from registered commerce/logistics
+     providers to view all their incoming shipments in one unified view.
+6. Support Escalation:
+   - From any active order view, the customer can click "Request Support" to
+     open a support case directly linked to that specific order.
+7. Delivery Completion:
+   - When delivered, the tracking session closes; final delivery confirmation and
+     COD payment receipt are preserved in the order history.
+
+--------------------------------------------------------------------------------
+2.2. Rider / Driver Perspective (Route: `/rider`)
+--------------------------------------------------------------------------------
+Primary Goal:
+Accept assignments, pick up parcels, share background GPS updates, navigate to
+destinations, collect COD payments, report road hazards, and close deliveries.
+
+Step-by-Step Rider Journey:
+1. Authentication & Onboarding:
+   - Rider signs in with a provisioned driver account (`driver` profile role +
+     registered `driver_profiles` record).
+   - Rider toggles availability status (Online / Offline / On Break).
+2. Receiving Task Assignments:
+   - Rider reviews the task queue showing orders in `assigned` status.
+   - Rider views pickup location, parcel dimensions, destination, and COD sum.
+   - Rider clicks "Accept Delivery", moving the order to `accepted`.
+3. Parcel Collection & Pickup:
+   - Rider travels to the sender/merchant pickup point.
+   - Rider inspects parcel and clicks "Confirm Pickup".
+   - The order status transitions to `picked_up`.
+4. Browser GPS Location Sharing:
+   - On pickup confirmation, the rider's browser requests location permissions.
+   - The app initiates a single continuous Geolocation `watchPosition` process.
+   - As long as the rider app remains open, this single GPS watch stream sends
+     periodic updates to Supabase, automatically associating location data with
+     ALL active collected parcels assigned to that rider.
+5. Navigation & Road Reports:
+   - Rider clicks "Open Navigation" to launch turn-by-turn directions in Google Maps.
+   - On the road, rider can submit quick "Road Knowledge" reports (e.g., Road
+     Blocked, Flooding, Heavy Congestion, Police Checkpoint, Construction) with
+     current GPS coordinates.
+   - Rider monitors vehicle fuel/battery readiness and can update current battery
+     percentage or fuel gauge level.
+6. Destination Arrival & Handover:
+   - Rider arrives at recipient destination.
+   - If the delivery is Cash on Delivery, rider collects payment and clicks
+     "Record COD Collection".
+   - Rider clicks "Mark as Delivered" (`delivered`).
+   - If delivery is impossible (recipient absent, incorrect address, rejected),
+     rider clicks "Report Issue / Failed Delivery" (`failed`) with an explicit
+     failure reason.
+   - GPS tracking for that parcel terminates immediately upon closure.
+
+--------------------------------------------------------------------------------
+2.3. Operations Manager Perspective (Route: `/manager`)
+--------------------------------------------------------------------------------
+Primary Goal:
+Oversee end-to-end delivery fulfillment, create custom door-to-door orders,
+evaluate automated dispatch recommendations, assign drivers/vehicles, and monitor
+fleet activity on a real-time dispatch map.
+
+Step-by-Step Manager Journey:
+1. Workspace Access:
+   - Manager logs in via administrative credentials. The system redirects them to
+     `/manager`.
+2. Order Creation:
+   - Manager creates new delivery requests: sender/recipient contact, physical
+     addresses, optional pinpoint map coordinates, package weight, COD value.
+   - Orders enter the dispatch queue as `pending`.
+3. Intelligent Dispatch Recommendation & Assignment:
+   - Manager selects a pending order.
+   - The recommendation engine analyzes and scores available riders based on:
+     * Active workload and pending drops
+     * Straight-line distance / proximity to pickup
+     * Current shift availability
+   - The engine also scores compatible vehicles based on:
+     * Vehicle operational status (`available`, `in_service`)
+     * Payload capacity vs parcel volume/weight
+     * Usable fuel/battery range
+   - The manager reviews the scoring explanation, chooses the rider and vehicle,
+     and clicks "Assign". Supabase executes the assignment atomically.
+4. Active Fleet Monitoring:
+   - Manager monitors the live dispatch map showing active rider locations,
+     route lines, and delivery clusters.
+   - Stale locations (no update for >5 minutes) are flagged with warning badges.
+5. Road Knowledge Review:
+   - Manager reviews rider-submitted road hazard alerts in the "Road Knowledge" tab.
+   - Manager verifies or rejects each report.
+   - Once verified, the system incorporates the delay into predictive ETA models
+     for all overlapping routes.
+6. COD Audit & Reconciliation:
+   - Manager monitors total COD collected by each driver during the shift.
+
+--------------------------------------------------------------------------------
+2.4. Fleet & Insights Manager Perspective (Route: `/manager/insights`)
+--------------------------------------------------------------------------------
+Primary Goal:
+Monitor fleet vehicle readiness, energy consumption, maintenance lifecycles, and
+operational delivery unit economics.
+
+Step-by-Step Fleet Operations Journey:
+1. Energy Readiness Dashboard:
+   - View list of all active vehicles (gasoline, diesel, electric, hybrid, bicycle).
+   - Inspect configured full range (km), reserve threshold (e.g., 15%), and
+     current fuel/charge level (%).
+   - Review active route distance estimates against remaining vehicle range.
+   - System flags vehicles as:
+     * Sufficient: Usable range safely exceeds route distance.
+     * Low: Vehicle will dip into reserve threshold.
+     * Insufficient: Vehicle will run out of fuel/charge before destination.
+     * Unknown: Incomplete location or odometer configuration.
+2. Maintenance Management:
+   - Schedule routine service appointments (oil changes, tire replacement, brake pads).
+   - Review maintenance history logs and due date alerts.
+   - Mark vehicles as `maintenance` to prevent assignment during dispatch.
+3. Delivery Cost Analytics:
+   - Track logged costs per delivery: fuel expense, electric charging fees, toll
+     booths, vehicle maintenance wear-and-tear, and driver labor.
+   - Review aggregate cost-per-kilometer and average fulfillment cost per parcel.
+
+--------------------------------------------------------------------------------
+2.5. Merchant / Seller Perspective (Route: `/seller`)
+--------------------------------------------------------------------------------
+Primary Goal:
+Register sales channels, submit parcel delivery requests, manually import
+external provider orders, and track fulfillment in a unified dashboard.
+
+Step-by-Step Seller Journey:
+1. Channel Management:
+   - Seller registers their sales sources (e.g., Shopify, TikTok Shop, WooCommerce,
+     Facebook Commerce, or regional courier partners).
+2. Order Submission:
+   - Single Order: Input customer details, parcel weight, destination, and COD.
+   - Order Import: Upload or enter external tracking identifiers from third-party
+     logistics providers.
+3. Unified Queue Monitoring:
+   - Seller tracks local Oern deliveries alongside external carrier shipments.
+   - Filter by fulfillment status (Pending, Dispatched, Delivered, Returned).
+   - View real-time COD collection status for completed deliveries.
+
+--------------------------------------------------------------------------------
+2.6. Customer Support Agent Perspective (Route: `/support`)
+--------------------------------------------------------------------------------
+Primary Goal:
+Investigate delivery delays, review route histories and road reports, communicate
+with customers, and resolve escalation tickets.
+
+Step-by-Step Support Journey:
+1. Ticket Intake:
+   - Support receives incoming issues submitted by customers from `/` or internal
+     escalations from managers/riders.
+2. Contextual Investigation:
+   - Support enters Order ID or customer phone number to pull up full context:
+     * Assigned driver, vehicle, and current status.
+     * Real-time location or last-known GPS ping.
+     * Timeline of status events (created -> assigned -> picked up).
+     * Any verified road hazards or traffic disruptions on the delivery route.
+     * External provider tracking details (if applicable).
+3. Case Assignment & Resolution:
+   - Agent assigns ticket to themselves (`open` -> `in_progress`).
+   - Agent contacts rider, customer, or manager to resolve the problem.
+   - Agent records root cause, resolution notes, and marks case as `resolved`.
+   - Realtime updates notify the customer interface immediately.
+
+
+================================================================================
+3. VIEW 2: DELIVERY LIFECYCLE & STATE MACHINE PERSPECTIVE
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1. Complete State Progression Diagram
+--------------------------------------------------------------------------------
+
+   [ Customer / Seller / Manager ]
+                 |
+                 v
+           +-----------+
+           |  pending  | <--- Created, awaiting dispatch assignment
+           +-----------+
+                 |
+                 | (Manager assigns driver & vehicle)
+                 v
+          +------------+
+          |  assigned  | <--- Rider notified, visible in rider task queue
+          +------------+
+                 |
+                 | (Rider clicks "Accept")
+                 v
+          +------------+
+          |  accepted  | <--- Rider en route to pickup location
+          +------------+
+                 |
+                 | (Rider collects parcel & clicks "Confirm Pickup")
+                 v
+         +--------------+
+         |  picked_up   | <--- *** LIVE GPS TRACKING & ETA ACTIVATE HERE ***
+         +--------------+
+                 |
+                 | (Rider is travelling towards delivery destination)
+                 v
+         +--------------+
+         |  in_transit  | <--- Dynamic ETA updating continuously with road data
+         +--------------+
+                 |
+        +--------+--------+-----------------------+
+        |                 |                       |
+        v                 v                       v
+  +-----------+     +------------+         +-------------+
+  | delivered |     |   failed   |         |  cancelled  |
+  +-----------+     +------------+         +-------------+
+  (COD stored,      (Issue logged,         (Terminated   
+   tracking stops)   support alerted,       before pickup)
+                     tracking stops)
+
+--------------------------------------------------------------------------------
+3.2. Detailed State Descriptions & Transition Triggers
+--------------------------------------------------------------------------------
+1. `pending`:
+   - Trigger: Created via `/pickup` (Customer), `/manager` (Dispatcher), or
+     `/seller` (Merchant).
+   - Visibility: Unassigned queue for Managers; "Order Placed" for Customer.
+   - Allowed Actions: Manager assignment, customer cancellation.
+
+2. `assigned`:
+   - Trigger: Manager assigns an available driver and vehicle.
+   - Visibility: Driver sees task card in `/rider` under "New Tasks"; Customer
+     sees "Driver Assigned".
+   - Allowed Actions: Driver can "Accept" or "Decline"; Manager can reassign.
+
+3. `accepted`:
+   - Trigger: Driver accepts the assigned delivery task.
+   - Visibility: Driver sees navigation to pickup; Customer sees "Driver on the
+     way to pickup".
+   - Allowed Actions: Driver can confirm arrival and parcel pickup.
+
+4. `picked_up`:
+   - Trigger: Driver receives the parcel from sender and confirms in `/rider`.
+   - Critical Effect:
+     * Starts browser GPS geolocation watch.
+     * Live parcel coordinates become visible to Customer and Manager.
+     * Route progress and ETA calculations are initiated.
+   - Allowed Actions: Driver navigates to drop-off; Customer watches live map.
+
+5. `in_transit`:
+   - Trigger: Driver departs pickup location toward drop-off.
+   - Critical Effect: Continuous GPS coordinates stream into Supabase. Predictive
+     ETA recalculates based on remaining distance and verified road reports.
+
+6. `delivered`:
+   - Trigger: Driver collects any required COD payment and clicks "Complete Delivery".
+   - Critical Effect:
+     * Order marked closed.
+     * COD ledger record recorded as collected.
+     * GPS tracking watch for this parcel stops immediately.
+     * Final status preserved in customer order history.
+
+7. `failed`:
+   - Trigger: Driver reports delivery failure (e.g., recipient unreachable,
+     incorrect address, parcel damaged, customer refused COD).
+   - Critical Effect:
+     * GPS sharing ceases.
+     * Order flagged for manager and support intervention.
+     * Failure reason logged to audit trail.
+
+8. `cancelled`:
+   - Trigger: Customer or manager cancels order before pickup.
+   - Critical Effect: Order removed from active queues; driver notified.
+
+--------------------------------------------------------------------------------
+3.3. State Guardrails & Row-Level Security Enforcements
+--------------------------------------------------------------------------------
+- Post-Pickup Reassignment Guard: Database constraints prevent an order from
+  being reassigned to another rider once it has reached `picked_up` status.
+- GPS Isolation: Location writes (`delivery_locations`) are rejected by RLS
+  unless the authenticated user is the assigned driver and the order is in
+  `picked_up` or `in_transit` status.
+- Customer Isolation: Customers can only query locations and order events for
+  orders where their authenticated user ID matches `customer_id`.
+
+
+================================================================================
+4. VIEW 3: OPERATIONAL SUBSYSTEM & FEATURE WORKFLOWS
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1. Intelligent Rider & Vehicle Recommendation Workflow
+--------------------------------------------------------------------------------
+When a manager opens an unassigned pending delivery, the recommendation engine
+in `src/lib/delivery/intelligence.ts` calculates recommendation scores.
+
+Rider Scoring Logic:
+1. Workload Factor (Max 40 points):
+   - 0 active deliveries = 40 pts
+   - 1 active delivery   = 30 pts
+   - 2 active deliveries = 15 pts
+   - 3+ active deliveries = 0 pts
+2. Distance / Proximity Factor (Max 40 points):
+   - Computes Haversine distance between rider's last-known location and pickup point.
+   - Distance <= 2 km  = 40 pts
+   - Distance <= 5 km  = 30 pts
+   - Distance <= 10 km = 15 pts
+   - Distance > 10 km  = 5 pts (penalty for excessive deadheading)
+3. Availability Status (Max 20 points):
+   - Status 'available' = 20 pts
+   - Status 'on_break' or 'busy' = 0 pts
+
+Vehicle Scoring Logic:
+1. Status Check: Must be `available` or `in_service`.
+2. Capacity Check: Evaluates max payload (kg) and parcel volume against order
+   requirements.
+3. Range Check: Compares remaining battery/fuel with estimated route distance.
+
+Result:
+The manager sees ranked cards: "Recommended: Rider A (Score: 92/100 - Low workload,
+1.4 km from pickup)". The recommendation is advisory; the manager retains full
+authority to assign any driver.
+
+--------------------------------------------------------------------------------
+4.2. Live Tracking & Predictive ETA Workflow
+--------------------------------------------------------------------------------
+Tracking Lifecycle:
+1. Start: Triggered at `picked_up` confirmation.
+2. Device Geolocation:
+   - Rider app calls `navigator.geolocation.watchPosition` with high accuracy.
+   - A single watcher process aggregates all active parcels assigned to that rider.
+3. Secure Ingestion:
+   - Coordinates (lat, lng, heading, speed, timestamp) write to `delivery_locations`.
+   - Supabase exposes the latest point via the security-definer view
+     `latest_delivery_locations`.
+4. Realtime Broadcasting:
+   - Supabase Realtime emits `INSERT` events on `delivery_locations` channel.
+   - Customer and Manager apps subscribe and update map markers without polling.
+5. Dynamic ETA Engine:
+   - ETA = (Remaining Haversine / Road Distance / Vehicle Expected Speed)
+           + Verified Road Hazard Delay (minutes).
+   - If rider vehicle is bicycle (15 km/h), motorbike (30 km/h), or van (25 km/h),
+     baseline travel speed varies.
+   - Verified road reports along the route inject calibrated time penalties.
+6. Termination:
+   - When order reaches `delivered`, `failed`, or `cancelled`, the watcher drops
+     the order ID.
+
+--------------------------------------------------------------------------------
+4.3. Road Knowledge & Hazard Reporting Workflow
+--------------------------------------------------------------------------------
+Allows drivers on the ground to report road disruptions, crowdsourcing traffic
+intelligence.
+
+Workflow:
+1. Rider Submission:
+   - Driver in `/rider` selects hazard category:
+     * `road_blocked` (+20 min delay default)
+     * `flooding` (+25 min delay default)
+     * `heavy_congestion` (+15 min delay default)
+     * `police_checkpoint` (+10 min delay default)
+     * `construction` (+10 min delay default)
+   - Coordinates captured automatically; driver enters optional notes.
+   - Status initialized to `pending`.
+2. Manager Verification:
+   - Report appears in Manager's "Road Knowledge" queue.
+   - Manager verifies (or rejects) the report and sets an expiration timestamp
+     (e.g., valid for 2 hours).
+3. System Propagation:
+   - Active orders whose route intersects the hazard radius (e.g., within 3 km)
+     automatically receive the delay penalty in their ETA calculation.
+   - Notification broadcast via Supabase Realtime updates customer ETA displays.
+
+--------------------------------------------------------------------------------
+4.4. Energy Readiness (Fuel / Battery) Routing Workflow
+--------------------------------------------------------------------------------
+Prevents vehicle stranding and optimizes electric vs combustion assignments.
+
+Workflow:
+1. Vehicle Parameter Setup:
+   - Full range (km), reserve safety margin (typically 15%), and fuel/energy
+     source (electric, gasoline, diesel).
+2. Level Update:
+   - Driver updates fuel gauge or battery percentage during pre-trip inspection
+     or shift handover.
+3. Route Distance Estimation:
+   - System calculates cumulative distance:
+     Rider Current Position -> Pickup Pin -> Destination Pin.
+4. Range Calculation:
+   - Usable Range = (Current Battery/Fuel % - Reserve %) * Full Range.
+5. Readiness Categorization:
+   - `sufficient`   : Usable Range >= Route Distance * 1.2
+   - `low`          : Usable Range between Route Distance and 1.2x Route Distance
+   - `insufficient` : Usable Range < Route Distance (Refuel/Recharge required)
+   - `unknown`      : Vehicle range or position unconfigured.
+6. Display:
+   - Manager insights and rider task views display colored status pills with
+     estimated km headroom.
+
+--------------------------------------------------------------------------------
+4.5. Cash on Delivery (COD) Collection & Ledger Workflow
+--------------------------------------------------------------------------------
+Ensures strict financial reconciliation for cash transactions.
+
+Workflow:
+1. Order Entry:
+   - Sender or Manager sets COD amount and currency during order creation.
+2. Rider Notification:
+   - Rider view highlights COD badge: "Collect $45.00 Cash".
+3. Handover & Collection:
+   - Before completing delivery, driver enters collected amount into the COD
+     dialog.
+   - If cash collected matches required sum, driver confirms receipt.
+4. Ledger Logging:
+   - System writes record to `cod_transactions` table with timestamps, driver ID,
+     order ID, and collected amount.
+5. Reconciliation:
+   - At end of shift, Manager opens COD reconciliation view in `/manager/insights`
+     or `/manager` to verify physical cash deposit from driver against ledger total.
+
+--------------------------------------------------------------------------------
+4.6. Multi-Provider & External E-Commerce Integration Workflow
+--------------------------------------------------------------------------------
+Integrates third-party logistics and sales channels into a unified dashboard.
+
+Workflow:
+1. Provider Channel Registration:
+   - Seller registers external provider (e.g., DHL, FedEx, Royal Express, TikTok).
+2. Shipment Ingestion:
+   - External tracking IDs, recipient info, and carrier codes are imported.
+3. Unified Queue:
+   - Seller and Support workspaces show native Oern orders alongside external
+     shipments.
+4. Customer Multi-Tracking:
+   - Customers can paste external tracking numbers into their customer portal to
+     track all parcel deliveries in one location.
+5. Future Adapter Interface:
+   - Designed for pluggable webhook/REST adapters to pull status updates from
+     carrier APIs automatically.
+
+--------------------------------------------------------------------------------
+4.7. Customer Support & Issue Resolution Workflow
+--------------------------------------------------------------------------------
+Provides fast resolution for delayed, damaged, or lost deliveries.
+
+Workflow:
+1. Case Creation:
+   - Initiated by customer from tracking screen or by manager from dispatch.
+   - Context attached: Order ID, rider ID, last location, current status.
+2. Agent Claim:
+   - Support agent claims ticket in `/support`. Status becomes `in_progress`.
+3. Investigation:
+   - Agent audits timeline events, driver notes, and road reports.
+4. Resolution Action:
+   - Agent can contact driver, update recipient phone, arrange re-delivery, or
+     process refund.
+5. Case Closure:
+   - Agent records resolution summary and sets status to `resolved`.
+   - Update syncs via Realtime to customer view.
+
+
+================================================================================
+5. VIEW 5: SYSTEM ARCHITECTURE & DATA FLOW PERSPECTIVE
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1. Authentication, Role Proxy & Row-Level Security (RLS)
+--------------------------------------------------------------------------------
+Architecture Stack:
+- Frontend: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS
+- Backend / Database: Supabase (PostgreSQL 15+, Supabase Auth, Supabase Realtime)
+- Mapping: Mapbox GL JS / OpenStreetMap fallback
+
+Access Control Boundary:
+1. Next.js Role Proxy (`src/proxy.ts` / Next.js middleware):
+   - Inspects authenticated user's profile role (`customer`, `driver`, `manager`,
+     `seller`, `support`).
+   - Redirects authenticated users from `/` to their respective workspace.
+   - NOTE: The proxy is a navigational convenience, NOT the security boundary.
+2. PostgreSQL Row-Level Security (RLS) (The True Security Boundary):
+   - Enforced directly at the database engine level on every query and mutation.
+   - `orders`: Customers read only their own orders (`customer_id = auth.uid()`).
+     Drivers read only their assigned orders (`driver_id = auth.uid()`).
+     Managers have organization-wide read/write access.
+   - `delivery_locations`: Only the assigned driver can insert GPS points during
+     an active `picked_up` / `in_transit` state. Customers only read points
+     associated with their active delivery.
+
+--------------------------------------------------------------------------------
+5.2. Realtime Event Synchronization Pipeline
+--------------------------------------------------------------------------------
++-------------------+           +-----------------------+           +------------------+
+|  Rider Device     | --------> | PostgreSQL DB         | --------> | Supabase Realtime|
+|  (GPS Updates)    |  INSERT   | (delivery_locations)  |  WAL Pub  | (WebSocket Bus)  |
++-------------------+           +-----------------------+           +------------------+
+                                                                             |
+                                             +-------------------------------+
+                                             | Broadcast to subscribers
+                                             v
+                             +-------------------------------+
+                             | Customer Map / Manager Map    |
+                             | - Updates pin coordinates     |
+                             | - Recalculates predictive ETA |
+                             | - Updates route polyline      |
+                             +-------------------------------+
+
+- Uses Postgres Write-Ahead Logging (WAL) via Supabase Realtime channels.
+- Fallback reconciliation: periodic polling (every 30s) automatically reconciles
+  any dropped WebSocket packets or reconnects after network blips.
+
+--------------------------------------------------------------------------------
+5.3. Geolocation & Mapping Integration Stack
+--------------------------------------------------------------------------------
+1. Mapbox GL Integration:
+   - When `NEXT_PUBLIC_MAPBOX_TOKEN` is present, maps render high-definition road
+     networks, turn vectors, and real-time driving polyline paths.
+2. OpenStreetMap Fallback:
+   - When token is absent, gracefully switches to OpenStreetMap raster tiles
+     with straight-line geodesic route projections, maintaining 100% functionality
+     without external API costs.
+3. Turn-by-Turn Mobile Handoff:
+   - Riders tap "Open Navigation" to trigger a deep link intent opening native
+     Google Maps with destination coordinates pre-loaded.
+
+
+================================================================================
+6. VIEW 6: EDGE CASES, FAILURE MODES & RECOVERY WORKFLOWS
+================================================================================
+
+1. Rider Locks Phone or Browser Tab Closes:
+   - Behavior: HTML5 Geolocation API freezes when browser suspends in background.
+   - Detection: Customer and Manager map clients detect location age > 5 minutes.
+   - Display: Marker visually dims; label changes to "Last Known Location (5m ago)".
+   - Recovery: As soon as rider re-opens the app, watcher resumes and streams fresh
+     pings.
+
+2. Failed Delivery Attempt:
+   - Cause: Recipient absent, refused delivery, or wrong address.
+   - Handling: Rider clicks "Report Issue", selects failure code, and enters
+     required explanatory note.
+   - State: Order moves to `failed`. Location tracking stops immediately.
+   - Follow-up: Dispatcher and Support dashboards immediately receive alert to
+     schedule re-delivery or return parcel to sender.
+
+3. Vehicle Fuel/Battery Depletion Warning:
+   - Detection: Energy engine calculates Usable Range < Route Distance.
+   - Alert: Red "Insufficient Range" badge shown on task card and dispatch queue.
+   - Resolution: Manager reassigns task before pickup, or rider records charging
+     stop.
+
+4. Unauthorized Location Tampering Prevention:
+   - Database trigger validates that `delivery_locations.driver_id` strictly
+     matches `auth.uid()`, preventing any spoofed location injections from third
+     parties.
+
+5. Accidental Reassignment Prevention:
+   - Database check prevents changing `driver_id` once `status` is `picked_up`
+     or `in_transit`, preventing parcel loss mid-journey.
+
+================================================================================
+SUMMARY TABLE: WORKSPACE & CAPABILITY MATRIX
+================================================================================
+Workspace Route   | Target User   | Key Actions & Workflows
+------------------+---------------+---------------------------------------------
+/                 | Customer      | Track active parcels, ETA, COD, view history
+/pickup           | Customer      | Submit door-to-door delivery requests
+/rider            | Driver/Rider  | Accept, pickup, GPS share, nav, COD, reports
+/manager          | Dispatcher    | Create orders, intelligent dispatch, fleet map
+/manager/insights | Fleet Ops     | Battery/fuel readiness, maintenance, costs
+/seller           | Merchant      | Channel setup, order import, queue monitoring
+/support          | Support Agent | Ticket investigation, timeline audit, solve
+================================================================================
+[END OF FILE - OERN WORKFLOW SPECIFICATION]
