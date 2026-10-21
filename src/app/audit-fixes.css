@@ -281,7 +281,8 @@
   line-height: 1.15;
 }
 .auth-page-back {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
   align-items: center;
   gap: 6px;
   min-height: var(--target-min, 48px);
@@ -294,9 +295,90 @@
 .auth-page-back:hover {
   color: var(--forest);
 }
+.auth-page-card > .eyebrow {
+  display: block;
+  margin-bottom: 18px;
+}
+.auth-signup-page {
+  align-items: stretch;
+  padding: 0;
+  background: var(--color-background, #f8fafc);
+}
+.auth-signup-card {
+  width: min(100%, 480px);
+  min-height: 100dvh;
+  max-height: none;
+  overflow: visible;
+  margin: 0 auto;
+  padding: max(20px, env(safe-area-inset-top)) 20px
+    max(28px, env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 0;
+  background: var(--color-surface, #fff);
+  box-shadow: none;
+}
+.auth-signup-card .auth-page-back {
+  margin: 0 0 28px;
+}
+.auth-signup-card .eyebrow {
+  display: block;
+  margin-bottom: 10px;
+}
+.auth-signup-card h1 {
+  max-width: 13ch;
+  margin: 0 0 12px;
+  color: var(--color-text-primary, #172b4d);
+  font-size: clamp(30px, 8vw, 40px);
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+.auth-signup-card > p {
+  max-width: 38ch;
+  margin-bottom: 28px;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.auth-signup-card .auth-form {
+  gap: 16px;
+}
+.auth-signup-card .field-label {
+  gap: 8px;
+  color: var(--color-text-primary, #172b4d);
+  font-size: 13px;
+}
+.auth-signup-card .field-label input {
+  height: 52px;
+  padding-inline: 14px;
+  border-color: var(--color-border-control, #64748b);
+  border-radius: 12px;
+  color: var(--color-text-primary, #172b4d);
+  background: var(--color-surface, #fff);
+  font-size: 16px;
+}
+.auth-signup-card .auth-submit {
+  min-height: 54px;
+  margin-top: 8px;
+  font-size: 15px;
+}
+.auth-signup-card .auth-switch {
+  margin-top: 24px;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 14px;
+}
+.auth-signup-card .auth-note {
+  margin-top: 24px;
+  padding-top: 18px;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 12px;
+}
 @media (max-width: 600px) {
   .auth-page {
     align-items: center;
     padding: 18px 12px;
+  }
+  .auth-signup-page {
+    align-items: stretch;
+    padding: 0;
   }
 }

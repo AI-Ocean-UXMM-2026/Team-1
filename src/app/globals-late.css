@@ -535,7 +535,7 @@
 }
 
 .dash-list li.is-alert {
-  border-left: 3px solid var(--color-warning);
+  border-left: 2px solid var(--color-warning);
   background: rgba(254, 243, 199, 0.3);
 }
 
@@ -1603,9 +1603,9 @@
   .manager-side-nav a.side-nav-active {
     color: #ffffff;
     background: rgba(249, 115, 22, 0.14);
-    border-left: 3px solid var(--color-brand-orange);
+    border-left: 2px solid var(--color-brand-orange);
     font-weight: 600;
-    padding-left: 8px;
+    padding-left: 9px;
   }
 
   .manager-side-nav a.side-nav-active > svg {

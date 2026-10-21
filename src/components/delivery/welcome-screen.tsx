@@ -96,7 +96,7 @@ export function WelcomeScreen() {
           variant="contained"
           color="primary"
           size="large"
-          onClick={() => router.push("/home")}
+          onClick={() => router.push("/signup")}
           sx={{ minHeight: 56 }}
         >
           Get started

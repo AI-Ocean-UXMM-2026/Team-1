@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "./loader.css";
 import "./globals-late.css";
 import "./form-fields.css";
 import "./audit-fixes.css";

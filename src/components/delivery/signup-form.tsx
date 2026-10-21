@@ -59,8 +59,8 @@ export function SignupForm() {
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-dialog auth-page-card">
+    <main className="auth-page auth-signup-page">
+      <section className="auth-dialog auth-page-card auth-signup-card">
         <Link className="auth-page-back" href="/home">
           <Icon name="arrow-left" size={16} /> Back to sign in
         </Link>
