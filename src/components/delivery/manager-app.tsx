@@ -535,6 +535,10 @@ export function ManagerDashboard({
               )}
             </Link>
           ))}
+          <Link href="/manager/dispatch">
+            <Icon name="navigation" size={17} />
+            Plan routes
+          </Link>
           <Link href="/manager/insights">
             <Icon name="truck" size={17} />
             Fleet
@@ -693,6 +697,13 @@ export function ManagerDashboard({
                   <div>
                     <h2>Delivery queue</h2>
                   </div>
+                  <Link
+                    className="button button-outline button-small"
+                    href="/manager/dispatch"
+                  >
+                    <Icon name="navigation" size={15} />
+                    Plan routes
+                  </Link>
                 </div>
                 <div
                   className="order-filter-tabs"

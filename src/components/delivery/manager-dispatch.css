@@ -690,3 +690,11 @@
   gap: 8px;
   color: var(--color-success-text);
 }
+
+.dispatch-segment,
+.dispatch-legend {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
