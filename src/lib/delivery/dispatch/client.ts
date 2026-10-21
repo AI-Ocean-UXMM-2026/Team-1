@@ -99,6 +99,7 @@ export type PlanResponse = {
   serviceDate: string;
   today: string;
   depot: { code: string; latitude: number; longitude: number };
+  trucks: { id: string; registration: string; capacityKg: number | null }[];
   simulated: boolean;
 };
 

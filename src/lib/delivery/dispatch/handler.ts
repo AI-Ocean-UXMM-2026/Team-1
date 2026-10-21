@@ -343,6 +343,11 @@ export async function handlePlan(
       scheduledLater: result.scheduledLater,
       basis: result.basis,
       serviceDate: req.serviceDate,
+      trucks: trucks.map((t) => ({
+        id: t.id,
+        registration: t.registration_number,
+        capacityKg: t.capacity_kg,
+      })),
       depot: {
         code: depot.code,
         latitude: depot.latitude,
