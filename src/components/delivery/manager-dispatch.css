@@ -328,7 +328,6 @@
 .dispatch-card {
   display: grid;
   gap: var(--space-3);
-  border-left-width: 5px;
 }
 
 .dispatch-card.is-selected {
@@ -497,9 +496,6 @@
   --route-color: var(--color-brand-navy);
 }
 
-.dispatch-card {
-  border-left-color: var(--route-color, var(--color-border));
-}
 .dispatch-route-line polyline,
 .dispatch-legend-item line {
   stroke: var(--route-color);
