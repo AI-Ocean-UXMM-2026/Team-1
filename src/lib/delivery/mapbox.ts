@@ -34,10 +34,12 @@ export type RouteRequest = {
   at: number;
 };
 
-export function mapStyle(dark: boolean) {
-  return dark
-    ? "mapbox://styles/mapbox/dark-v11"
-    : "mapbox://styles/mapbox/light-v11";
+/** Oern's own Mapbox Studio style, used for every map. */
+export const MAP_STYLE =
+  "mapbox://styles/happer64bit/clnpqzscu00dj01qqhgrkhawy";
+
+export function mapStyle() {
+  return MAP_STYLE;
 }
 
 export function parseRoadRoute(body: DirectionsBody): RoadRoute | null {
