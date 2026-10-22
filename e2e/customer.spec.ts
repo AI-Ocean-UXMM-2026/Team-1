@@ -84,3 +84,37 @@ test("COD amount on Track is at least 12px (H-06)", async ({
     .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
   expect(size).toBeGreaterThanOrEqual(12);
 });
+
+test("Home keeps every active delivery visible", async ({ page, context }) => {
+  await signInAs(context, "customer", {
+    delivery_orders: [
+      makeOrder({
+        id: "moving-order",
+        tracking_code: "OR-MOVING",
+        customer_id: "user-1",
+        status: "in_transit",
+      }),
+      makeOrder({
+        id: "scheduled-order",
+        tracking_code: "OR-SCHEDULED",
+        customer_id: "user-1",
+        status: "assigned",
+        estimated_delivery_at: null,
+      }),
+    ],
+  });
+
+  await page.goto("/home");
+
+  await expect(
+    page.getByRole("heading", { name: "Next delivery" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Also on the way" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("list", { name: "Other active deliveries" })
+      .getByText("OR-SCHEDULED"),
+  ).toBeVisible();
+});

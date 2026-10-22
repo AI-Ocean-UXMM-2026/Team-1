@@ -26,7 +26,6 @@ import CardActionArea from "@mui/material/CardActionArea";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
-import LinearProgress from "@mui/material/LinearProgress";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
@@ -54,22 +53,14 @@ import {
 import {
   buildTodayItems,
   codDue,
-  describeDelay,
   normaliseCode,
   ordersHref,
-  pickNextParcel,
-  progressPercent,
   readRecentCodes,
   splitOrders,
   type TodayItem,
   type TodayState,
 } from "@/lib/delivery/customer-home";
-import {
-  currency,
-  formatTime,
-  nextCustomerAction,
-  timeUntil,
-} from "@/lib/delivery/format";
+import { formatTime } from "@/lib/delivery/format";
 import type { DeliveryOrder, StatusEvent } from "@/lib/delivery/types";
 
 /* ----------------------------------------------------------------- shared */
@@ -228,36 +219,6 @@ const todayIcons: Record<TodayState, ReactElement> = {
   scheduled: <Inventory2Outlined />,
   delivered: <CheckCircleOutlined />,
 };
-
-function heroCopy(order: DeliveryOrder, now: number) {
-  const eta = order.estimated_delivery_at;
-  const outNow = order.status === "picked_up" || order.status === "in_transit";
-  if (!outNow) {
-    return {
-      main: "Being collected by your rider",
-      sub: eta
-        ? `Estimated arrival around ${formatTime(eta)}`
-        : "An estimate appears after pickup.",
-    };
-  }
-  if (!eta) {
-    return {
-      main: "Arrival time being estimated",
-      sub: "We’ll show a time as soon as the route updates.",
-    };
-  }
-  if (now - Date.parse(eta) > 5 * 60_000) {
-    return {
-      main: "Running late",
-      sub: `Was estimated around ${formatTime(eta)}`,
-    };
-  }
-  const until = timeUntil(eta);
-  return {
-    main: until === "Arriving now" ? until : `Arriving in ${until}`,
-    sub: `Estimated around ${formatTime(eta)}`,
-  };
-}
 
 /** Secondary shortcut: a quiet filled row, no outline, so the next parcel stays primary. */
 function ShortcutRow({
@@ -418,151 +379,6 @@ const MoreShortcuts = memo(function MoreShortcuts({
     </Box>
   );
 });
-
-function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
-  const copy = heroCopy(order, now);
-  const delay = describeDelay(order, now);
-  const primaryAction = nextCustomerAction(order.status, delay.isDelayed);
-  return (
-    <Card
-      elevation={0}
-      sx={{
-        mx: 2,
-        mt: 1.5,
-        borderRadius: "20px",
-        bgcolor: "secondary.main",
-        color: "secondary.contrastText",
-      }}
-    >
-      <CardActionArea
-        component={Link}
-        href={`/track?order=${encodeURIComponent(order.id)}`}
-        sx={{ p: 2 }}
-      >
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ justifyContent: "space-between", alignItems: "center" }}
-        >
-          <Typography
-            variant="overline"
-            sx={{ opacity: 0.8, fontWeight: 650, lineHeight: 1.5 }}
-          >
-            Next arriving
-          </Typography>
-          <StatusChip status={order.status} />
-        </Stack>
-        <Typography
-          variant="h5"
-          component="strong"
-          sx={{ display: "block", mt: 1.25, fontWeight: 750 }}
-        >
-          {copy.main}
-        </Typography>
-        <Typography variant="body2" sx={{ mt: 0.5, opacity: 0.86 }}>
-          {copy.sub}
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{ mt: 0.75, fontWeight: 600, overflowWrap: "anywhere" }}
-        >
-          To {order.delivery_address}
-        </Typography>
-        {delay.isDelayed && (
-          <Chip
-            size="small"
-            icon={<WarningAmber />}
-            label={`Delayed about ${delay.minutes} min`}
-            sx={{ ...toneSx("warning"), mt: 1.25 }}
-          />
-        )}
-        {order.cod_amount > 0 && (
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{ alignItems: "center", mt: 1.5 }}
-          >
-            <PaymentsOutlined fontSize="small" />
-            <Typography variant="body2" sx={{ flex: 1, fontWeight: 600 }}>
-              COD · {currency.format(order.cod_amount)}
-            </Typography>
-            <Chip
-              size="small"
-              label={
-                order.cod_status === "collected" ||
-                order.cod_status === "settled"
-                  ? "Paid"
-                  : "Due on arrival"
-              }
-              sx={toneSx(
-                order.cod_status === "collected" ||
-                  order.cod_status === "settled"
-                  ? "success"
-                  : "warning",
-              )}
-            />
-          </Stack>
-        )}
-        {order.route_progress_percent != null && (
-          <LinearProgress
-            variant="determinate"
-            value={progressPercent(order)}
-            aria-label="Delivery progress"
-            sx={{
-              mt: 2,
-              height: 6,
-              borderRadius: "999px",
-              bgcolor: (theme) => alpha(theme.palette.common.white, 0.2),
-              "& .MuiLinearProgress-bar": {
-                borderRadius: "999px",
-                bgcolor: "primary.light",
-              },
-            }}
-          />
-        )}
-        <Stack
-          direction="row"
-          spacing={1.5}
-          sx={{
-            alignItems: "center",
-            justifyContent: "space-between",
-            mt: 1.75,
-          }}
-        >
-          <Box sx={{ minWidth: 0 }}>
-            <Typography
-              variant="caption"
-              sx={{ display: "block", opacity: 0.75 }}
-            >
-              {order.tracking_code}
-            </Typography>
-            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
-              {order.driver_name ?? "Rider being assigned"}
-              {order.vehicle_label ? ` · ${order.vehicle_label}` : ""}
-            </Typography>
-          </Box>
-          <Box
-            component="span"
-            sx={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 0.75,
-              minHeight: 48,
-              px: 2.25,
-              borderRadius: "999px",
-              bgcolor: "background.paper",
-              color: "secondary.main",
-              typography: "body2",
-              fontWeight: 700,
-            }}
-          >
-            {primaryAction} <ArrowForward fontSize="small" />
-          </Box>
-        </Stack>
-      </CardActionArea>
-    </Card>
-  );
-}
 
 function TodayRow({ item }: { item: TodayItem }) {
   const label =
@@ -858,7 +674,18 @@ export function CustomerHome({
   );
   const next = pickNextParcel(activeOrders);
   const today = buildTodayItems(activeOrders, statusEvents, now);
-  const rest = today.filter((item) => item.order.id !== next?.id);
+  const todayByOrder = new Map(today.map((item) => [item.order.id, item]));
+  const rest = activeOrders
+    .filter((order) => order.id !== next?.id)
+    .map(
+      (order): TodayItem =>
+        todayByOrder.get(order.id) ?? {
+          order,
+          state: "scheduled",
+          etaAt: order.estimated_delivery_at,
+          delayMinutes: 0,
+        },
+    );
   const codOrders = codDue(orders);
   const codCount = codOrders.length;
   // The next parcel's card already shows its own COD, so the summary chip
@@ -892,7 +719,7 @@ export function CustomerHome({
             component="h2"
             sx={{ fontWeight: 750 }}
           >
-            Your deliveries
+            {next ? "Next delivery" : "Your deliveries"}
           </Typography>
           {isAuthenticated && activeCount > 0 && (
             <Chip size="small" label={activeCount} sx={toneSx("info")} />
@@ -916,21 +743,28 @@ export function CustomerHome({
           <>
             <NextParcelCard order={next} now={now} />
             {rest.length > 0 && (
-              <List
-                disablePadding
-                aria-label="Also arriving today"
-                sx={{
-                  px: 2,
-                  mt: 1.5,
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr)",
-                  gap: 1,
-                }}
-              >
-                {rest.map((item) => (
-                  <TodayRow key={item.order.id} item={item} />
-                ))}
-              </List>
+              <Box sx={{ px: 2, mt: 2 }}>
+                <Typography
+                  variant="subtitle2"
+                  component="h3"
+                  sx={{ mb: 1, fontWeight: 750 }}
+                >
+                  Also on the way
+                </Typography>
+                <List
+                  disablePadding
+                  aria-label="Other active deliveries"
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0, 1fr)",
+                    gap: 1,
+                  }}
+                >
+                  {rest.map((item) => (
+                    <TodayRow key={item.order.id} item={item} />
+                  ))}
+                </List>
+              </Box>
             )}
           </>
         ) : (
