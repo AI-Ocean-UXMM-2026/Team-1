@@ -22,8 +22,8 @@ import {
 } from "@/lib/delivery/dispatch-rows";
 import {
   canShowParcelLocation,
-  parcelLocationState,
   isRecentLocation,
+  parcelLocationState,
 } from "@/lib/delivery/location-state";
 import type { MapPoint } from "@/lib/delivery/map-projection";
 import { formatDriveMinutes } from "@/lib/delivery/mapbox";

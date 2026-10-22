@@ -555,7 +555,9 @@
   text-decoration: none;
   color: inherit;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .dash-kpi-link:hover,
 .dash-kpi-link:focus-visible {
@@ -755,4 +757,40 @@
 .manual-cod-match {
   align-self: flex-start;
   font-size: 12px;
+}
+
+/* Customer app canvas: edge to edge on phones, one centred column above 480px. */
+:root {
+  --customer-canvas: 480px;
+}
+.customer-app {
+  width: min(100%, var(--customer-canvas));
+}
+.customer-loading {
+  width: min(100%, var(--customer-canvas));
+  margin-inline: auto;
+  padding: 16px;
+}
+/* Every tappable MUI control is at least 48px (sheets are portalled, so unscoped). */
+.MuiChip-root.MuiChip-clickable,
+.MuiButton-root,
+.MuiIconButton-root {
+  min-height: var(--target-min, 48px);
+}
+.MuiIconButton-root {
+  min-width: var(--target-min, 48px);
+}
+
+/* Customer app: honour reduced motion for MUI transitions and ripples. */
+@media (prefers-reduced-motion: reduce) {
+  html:has(.customer-app) *,
+  html:has(.customer-app) *::before,
+  html:has(.customer-app) *::after {
+    /* biome-ignore-start lint/complexity/noImportantStyles: must beat MUI's emotion styles */
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    /* biome-ignore-end lint/complexity/noImportantStyles: must beat MUI's emotion styles */
+  }
 }

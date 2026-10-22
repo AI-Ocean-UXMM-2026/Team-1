@@ -14,8 +14,8 @@ The three interfaces share Supabase Auth and delivery data, with separate URLs:
 
 | Interface | URL | Available workflow |
 | --- | --- | --- |
-| Customer | `/` | Sign in or create a customer account; follow own orders on a map with location updates, status history, ETA, and COD details. |
-| Driver/rider | `/rider` | Accept assigned tasks, confirm parcel pickup, share GPS for every collected parcel, open navigation, record COD, and complete or report a failed delivery. |
+| Customer | `/` (→ `/welcome`), `/home`, `/orders`, `/pickup`, `/profile`, `/track` | Sign in or create a customer account; request a pickup in three steps; follow own orders on a map with location updates, status history, ETA, and COD details; browse Active and History orders. |
+| Driver/rider | `/rider` (→ `/rider/route`) | Accept assigned tasks, confirm parcel pickup, share GPS for every collected parcel, open navigation, record COD, and complete or report a failed delivery. |
 | Centralized management | `/manager` | Create orders with optional map pins, assign registered riders and vehicles, manage rider availability, filter deliveries, and monitor active riders on a map. |
 | Fleet insights | `/manager/insights` | Review route energy readiness, update vehicle range and reserve settings, schedule maintenance, and analyze delivery costs. |
 | Seller | `/seller` | Submit delivery requests, register commerce channels, import external orders, and monitor a unified order queue. |
@@ -23,7 +23,7 @@ The three interfaces share Supabase Auth and delivery data, with separate URLs:
 
 The default interface is the customer app. Next.js Proxy redirects signed-in team accounts to the workspace matching their profile role; Supabase row-level security controls which records each account can read or change. Managers, riders, sellers, and support staff use accounts provisioned through a trusted administrative process. A rider needs both a `driver` profile role and a `driver_profiles` record before assignment.
 
-Signed-out visitors and accounts with no orders see empty states; the workspaces load live Supabase data only (the in-memory sample workspace in `src/lib/delivery/demo-data.ts` is no longer wired in). Browser tests answer every Supabase request from synthetic fixtures (`e2e/support/supabase-mock.ts`), so they never touch a real project.
+Signed-out visitors and accounts with no records see live empty states. Workspace data is loaded from Supabase; browser-only demo records are not substituted for missing data. Browser tests answer every Supabase request from synthetic fixtures (`e2e/support/supabase-mock.ts`), so they never touch a real project.
 
 ## Customer tracking flow
 

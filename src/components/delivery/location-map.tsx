@@ -11,8 +11,8 @@ import {
 } from "@/lib/delivery/dispatch-rows";
 import {
   canShowParcelLocation,
-  parcelLocationState,
   isRecentLocation,
+  parcelLocationState,
 } from "@/lib/delivery/location-state";
 import { hasMapbox } from "@/lib/delivery/mapbox";
 import type { DeliveryOrder } from "@/lib/delivery/types";

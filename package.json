@@ -11,6 +11,8 @@
     "traffic:editor": "node scripts/traffic-editor.mjs",
     "format": "biome format --write",
     "playground:classifier": "bun playground/backend.js",
+    "typecheck": "tsc --noEmit",
+    "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
     "test:e2e": "playwright test"
   },
   "dependencies": {

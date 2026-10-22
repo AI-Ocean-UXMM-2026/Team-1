@@ -295,34 +295,24 @@ export function MobileNav({
   );
 }
 
-export async function signOut() {
-  const { createClient } = await import("@/lib/supabase/client");
-  const supabase = createClient();
-  await supabase.auth.signOut();
+/**
+ * Ends the session and returns to the start. Resolves to an error message
+ * when sign-out fails, so a screen can show it instead of silently staying.
+ */
+export async function signOut(): Promise<string | null> {
+  try {
+    const { createClient } = await import("@/lib/supabase/client");
+    const { error } = await createClient().auth.signOut();
+    if (error) return error.message;
+    // A shared phone must not keep the last customer's unsent request.
+    try {
+      window.localStorage.removeItem("oern.pickup-draft.v1");
+    } catch {
+      // Storage can be blocked.
+    }
+  } catch (cause) {
+    return cause instanceof Error ? cause.message : "Could not sign out.";
+  }
   window.location.assign("/");
-}
-
-export function SignInRequired({
-  title,
-  description,
-  onSignIn,
-}: {
-  title: string;
-  description: string;
-  onSignIn: () => void;
-}) {
-  return (
-    <section className="dash-card dash-signin" aria-label="Sign in required">
-      <h1>{title}</h1>
-      <p>{description}</p>
-      <button
-        type="button"
-        className="button button-primary"
-        onClick={onSignIn}
-      >
-        Sign in
-        <Icon name="arrow-right" size={16} />
-      </button>
-    </section>
-  );
+  return null;
 }

@@ -4,6 +4,8 @@ import { expect, test } from "./support/test";
 // Brand links and the map-provider attribution are not task controls.
 const ignored = (control: { cls: string; text: string }) =>
   control.cls.includes("brand-lockup") ||
+  // The 48px field wrapper is the target; the inner input only holds the text.
+  control.cls.includes("MuiInputBase-input") ||
   /OpenStreetMap|Mapbox/i.test(control.text);
 
 test("customer controls meet the 44px minimum (M-01)", async ({

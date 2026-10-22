@@ -69,59 +69,6 @@ test("a failed delivery explains itself in the timeline (H-05)", async ({
   await expect(timeline.getByText("Up next")).toHaveCount(0);
 });
 
-test("orders can be searched and show dates (H-07)", async ({
-  page,
-  context,
-}) => {
-  await signInAs(context, "customer", {
-    delivery_orders: [
-      makeOrder({
-        id: "order-1",
-        tracking_code: "OR-1001",
-        customer_id: "user-1",
-        status: "delivered",
-        delivery_address: "Bahan, near Inya Road",
-      }),
-      makeOrder({
-        id: "order-2",
-        tracking_code: "OR-1002",
-        customer_id: "user-1",
-        status: "assigned",
-        delivery_address: "Kamayut, Yangon",
-      }),
-      makeOrder({
-        id: "order-3",
-        tracking_code: "OR-1003",
-        customer_id: "user-1",
-        status: "assigned",
-        delivery_address: "Hlaing, Yangon",
-      }),
-      makeOrder({
-        id: "order-4",
-        tracking_code: "OR-1004",
-        customer_id: "user-1",
-        status: "assigned",
-        delivery_address: "Insein, Yangon",
-      }),
-    ],
-  });
-  await page.goto("/orders");
-  // All four are listed; the old view hid everything past the third card.
-  await expect(page.getByRole("list").getByRole("listitem")).toHaveCount(4);
-  await page.getByLabel("Search deliveries").fill("kamayut");
-  await expect(page.getByRole("list").getByRole("listitem")).toHaveCount(1);
-  await expect(page.getByRole("list").getByRole("listitem")).toContainText(
-    "OR-1002",
-  );
-  await expect(page.getByRole("list").getByRole("listitem")).toContainText(
-    /Ordered/,
-  );
-  await page.getByLabel("Search deliveries").fill("zzz");
-  await expect(
-    page.getByText("No deliveries match that search."),
-  ).toBeVisible();
-});
-
 test("Help sends a support case with the order attached (H-03)", async ({
   page,
   context,

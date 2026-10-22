@@ -3,10 +3,11 @@ import type { MapPoint } from "@/lib/delivery/map-projection";
 export const PICKUP_DRAFT_KEY = "oern.pickup-draft.v1";
 
 export const pickupDays = ["Today", "Tomorrow"] as const;
+/** `startHour`/`endHour` are Yangon local time and match the database's windows. */
 export const pickupWindows = [
-  { value: "Morning", hours: "8–12" },
-  { value: "Afternoon", hours: "12–5" },
-  { value: "Evening", hours: "5–8" },
+  { value: "Morning", hours: "8–12", startHour: 8, endHour: 12 },
+  { value: "Afternoon", hours: "12–5", startHour: 12, endHour: 17 },
+  { value: "Evening", hours: "5–8", startHour: 17, endHour: 20 },
 ] as const;
 export const parcelKinds = [
   "Documents",
@@ -44,15 +45,35 @@ export type PickupDraft = {
   window: PickupWindow;
 };
 
-/** The first window that has not already started, rolling to tomorrow after 8 pm. */
-export function defaultSchedule(now = new Date()): {
+/** Hour of day (0-23.99) in Yangon, UTC+6:30, whatever the device's own zone. */
+export function yangonHour(now: Date | number = new Date()) {
+  const ms = typeof now === "number" ? now : now.getTime();
+  const minutes = Math.floor(ms / 60_000) + 6 * 60 + 30;
+  return (((minutes % 1440) + 1440) % 1440) / 60;
+}
+
+/**
+ * Windows still open for a day: every window tomorrow, and today only those
+ * that have not ended in Yangon time.
+ */
+export function availableWindows(
+  day: PickupDay,
+  now: Date | number = new Date(),
+) {
+  if (day === "Tomorrow") return [...pickupWindows];
+  const hour = yangonHour(now);
+  return pickupWindows.filter((window) => window.endHour > hour);
+}
+
+/** The next window a rider can still make; tomorrow morning once today is over. */
+export function defaultSchedule(now: Date | number = new Date()): {
   day: PickupDay;
   window: PickupWindow;
 } {
-  const hour = now.getHours();
-  if (hour < 11) return { day: "Today", window: "Afternoon" };
-  if (hour < 16) return { day: "Today", window: "Evening" };
-  return { day: "Tomorrow", window: "Morning" };
+  const next = availableWindows("Today", now)[0];
+  return next
+    ? { day: "Today", window: next.value }
+    : { day: "Tomorrow", window: "Morning" };
 }
 
 export function emptyDraft(
@@ -79,13 +100,64 @@ export function emptyDraft(
   };
 }
 
-export function loadDraft(): PickupDraft {
-  const fresh = emptyDraft(defaultSchedule());
+const text = (value: unknown, max = 500) =>
+  typeof value === "string" ? value.slice(0, max) : "";
+
+function cleanPoint(value: unknown): MapPoint | null {
+  if (!value || typeof value !== "object") return null;
+  const { latitude, longitude } = value as Record<string, unknown>;
+  if (
+    typeof latitude !== "number" ||
+    typeof longitude !== "number" ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    Math.abs(latitude) > 90 ||
+    Math.abs(longitude) > 180
+  )
+    return null;
+  return { latitude, longitude };
+}
+
+/** Accepts only the shape this module writes, so stored junk can't break a form. */
+export function sanitizeDraft(raw: unknown, fresh: PickupDraft): PickupDraft {
+  if (!raw || typeof raw !== "object") return fresh;
+  const r = raw as Record<string, unknown>;
+  const day = pickupDays.find((item) => item === r.day) ?? fresh.day;
+  const window = pickupWindows.find((item) => item.value === r.window)?.value;
+  return {
+    pickupAddress: text(r.pickupAddress, 300),
+    pickupPoint: cleanPoint(r.pickupPoint),
+    contactPhone: text(r.contactPhone, 30),
+    deliveryAddress: text(r.deliveryAddress, 300),
+    deliveryPoint: cleanPoint(r.deliveryPoint),
+    recipientName: text(r.recipientName, 120),
+    recipientPhone: text(r.recipientPhone, 30),
+    parcelKind: parcelKinds.find((item) => item === r.parcelKind) ?? null,
+    parcelSize:
+      parcelSizes.find((item) => item.value === r.parcelSize)?.value ??
+      fresh.parcelSize,
+    fragile: r.fragile === true,
+    parcelDetails: text(r.parcelDetails, 300),
+    codAmount: text(r.codAmount, 12),
+    notes: text(r.notes, 300),
+    day,
+    window: window ?? fresh.window,
+  };
+}
+
+export function loadDraft(now: Date | number = new Date()): PickupDraft {
+  const fresh = emptyDraft(defaultSchedule(now));
   if (typeof window === "undefined") return fresh;
   try {
     const raw = window.localStorage.getItem(PICKUP_DRAFT_KEY);
     if (!raw) return fresh;
-    return { ...fresh, ...(JSON.parse(raw) as Partial<PickupDraft>) };
+    const draft = sanitizeDraft(JSON.parse(raw), fresh);
+    // A saved "this afternoon" is wrong by evening: move to the next open slot.
+    return availableWindows(draft.day, now).some(
+      (w) => w.value === draft.window,
+    )
+      ? draft
+      : { ...draft, ...defaultSchedule(now) };
   } catch {
     return fresh;
   }
@@ -130,4 +202,57 @@ export function describeParcel(draft: PickupDraft) {
 export function isMyanmarPhone(value: string) {
   const digits = value.replace(/[\s()-]/g, "");
   return /^(\+?95|0)9\d{7,9}$/.test(digits);
+}
+
+/** COD in whole kyat: blank means none, anything else must be a sensible integer. */
+export function parseCod(input: string): number | null {
+  const value = input.replace(/[,\s]/g, "");
+  if (value === "") return 0;
+  if (!/^\d{1,9}$/.test(value)) return null;
+  const amount = Number(value);
+  return amount <= 50_000_000 ? amount : null;
+}
+
+export type PickupErrors = Partial<
+  Record<
+    | "pickupAddress"
+    | "deliveryAddress"
+    | "recipientName"
+    | "recipientPhone"
+    | "contactPhone"
+    | "codAmount"
+    | "window",
+    string
+  >
+>;
+
+/** Step 1: both addresses. */
+export function validateAddresses(draft: PickupDraft): PickupErrors {
+  const errors: PickupErrors = {};
+  if (!draft.pickupAddress.trim())
+    errors.pickupAddress = "Add the pickup address or choose it on the map.";
+  if (!draft.deliveryAddress.trim())
+    errors.deliveryAddress = "Add the delivery address.";
+  return errors;
+}
+
+/** Step 2: who receives it, when to collect, and any optional numbers. */
+export function validateDetails(
+  draft: PickupDraft,
+  now: Date | number = new Date(),
+): PickupErrors {
+  const errors: PickupErrors = {};
+  if (!draft.recipientName.trim())
+    errors.recipientName = "Add the recipient’s name.";
+  if (!draft.recipientPhone.trim())
+    errors.recipientPhone = "Add the recipient’s phone number.";
+  else if (!isMyanmarPhone(draft.recipientPhone))
+    errors.recipientPhone = "Use a Myanmar mobile number, like 09 421 555 018.";
+  if (draft.contactPhone.trim() && !isMyanmarPhone(draft.contactPhone))
+    errors.contactPhone = "Use a Myanmar mobile number, like 09 421 555 018.";
+  if (parseCod(draft.codAmount) === null)
+    errors.codAmount = "Enter the amount in whole kyat, like 25000.";
+  if (!availableWindows(draft.day, now).some((w) => w.value === draft.window))
+    errors.window = "That pickup time has passed. Choose another.";
+  return errors;
 }

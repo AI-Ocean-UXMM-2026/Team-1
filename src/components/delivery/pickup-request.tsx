@@ -1,541 +1,1040 @@
 "use client";
 
-import ArrowBack from "@mui/icons-material/ArrowBack";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
+import Close from "@mui/icons-material/Close";
+import ExpandMore from "@mui/icons-material/ExpandMore";
+import MapOutlined from "@mui/icons-material/MapOutlined";
 import MyLocationOutlined from "@mui/icons-material/MyLocationOutlined";
 import RefreshOutlined from "@mui/icons-material/RefreshOutlined";
-import AppBar from "@mui/material/AppBar";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
+import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
-import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
-import { AuthDialog } from "@/components/delivery/auth-dialog";
-import { Icon } from "@/components/delivery/icons";
+import { CustomerHeader } from "@/components/delivery/customer-home";
+import { CustomerBottomNav } from "@/components/delivery/customer-pages";
 import { Loader } from "@/components/delivery/loader";
-import { useMapboxMap } from "@/components/delivery/mapbox-kit";
 import { useBackNavigation } from "@/components/delivery/use-back-navigation";
+import { usePickupDraft } from "@/components/delivery/use-pickup-draft";
 import { createCustomerPickupOrder } from "@/lib/delivery/actions";
-import type { MapPoint } from "@/lib/delivery/map-projection";
+import { currency } from "@/lib/delivery/format";
 import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
+import {
+  availableWindows,
+  describeParcel,
+  type PickupDraft,
+  type PickupErrors,
+  parcelKinds,
+  parcelSizes,
+  parseCod,
+  pickupDays,
+  validateAddresses,
+  validateDetails,
+} from "@/lib/delivery/pickup-draft";
+import { signInHref } from "@/lib/delivery/return-to";
 import { usePermissionRecovery } from "@/lib/delivery/use-permission-recovery";
 import { createClient } from "@/lib/supabase/client";
 
-const pickupWindows = ["Morning", "Afternoon", "Evening"] as const;
-type PickupWindow = (typeof pickupWindows)[number];
+export type PickupStep = "route" | "details" | "review";
 type GpsState = "idle" | "locating" | "ready" | "denied" | "unavailable";
 
-function FieldLabel({ children }: { children: string }) {
-  return (
-    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-      {children}
-    </Typography>
-  );
+const STEPS: { id: PickupStep; title: string; href: string }[] = [
+  { id: "route", title: "Addresses", href: "/pickup" },
+  { id: "details", title: "Parcel and contacts", href: "/pickup/details" },
+  { id: "review", title: "Review and request", href: "/pickup/review" },
+];
+
+/** Plain-language reasons a request can fail, never a raw database message. */
+export function friendlyPickupError(cause: unknown) {
+  const message = cause instanceof Error ? cause.message : String(cause ?? "");
+  if (/only customer accounts/i.test(message))
+    return "Pickup requests are for customer accounts. Sign in with a customer account to continue.";
+  if (/sign in/i.test(message) || /42501|jwt|not authenticated/i.test(message))
+    return "Your session has ended. Sign in again and your request will still be here.";
+  if (/22023|required|blank|invalid/i.test(message))
+    return "Some details are missing or not valid. Check each step and try again.";
+  if (/fetch|network|load failed|timeout|offline/i.test(message))
+    return "We couldn’t reach Oern. Check your connection and try again; your details are saved.";
+  return "We couldn’t send your request. Your details are saved; try again in a moment.";
 }
 
-/**
- * Pans a Mapbox map with a pin fixed at its centre — panning IS picking.
- * "Use my location" flies the map there instead of requiring a separate
- * drag-the-marker interaction. Without a Mapbox token there's nothing to
- * render here; the page falls back to GPS-only capture.
- */
-function MapPointPicker({
-  point,
-  onChange,
+function Field({
+  id,
+  label,
+  error,
+  hint,
+  children,
 }: {
-  point: MapPoint | null;
-  onChange: (point: MapPoint) => void;
+  id: string;
+  label: string;
+  error?: string;
+  hint?: string;
+  children: ReactNode;
 }) {
-  const container = useRef<HTMLDivElement>(null);
-  const mapState = useMapboxMap(container, true);
-  const map = mapState?.map ?? null;
-  const flewToInitial = useRef(false);
-
-  useEffect(() => {
-    if (!map) return;
-    const report = () => {
-      const center = map.getCenter();
-      onChange({ latitude: center.lat, longitude: center.lng });
-    };
-    map.on("moveend", report);
-    return () => {
-      map.off("moveend", report);
-    };
-  }, [map, onChange]);
-
-  useEffect(() => {
-    if (!map || !point || flewToInitial.current) return;
-    flewToInitial.current = true;
-    map.jumpTo({ center: [point.longitude, point.latitude], zoom: 16 });
-  }, [map, point]);
-
   return (
-    <Box
-      sx={{
-        position: "relative",
-        height: 200,
-        borderRadius: "16px",
-        overflow: "hidden",
-        border: "1px solid",
-        borderColor: "divider",
-      }}
-    >
-      <Box ref={container} style={{ position: "absolute", inset: 0 }} />
-      <Box
-        aria-hidden="true"
-        sx={{
-          position: "absolute",
-          left: "50%",
-          top: "50%",
-          transform: "translate(-50%, -100%)",
-          color: "primary.main",
-          filter: "drop-shadow(0 2px 3px rgb(0 0 0 / 0.35))",
-          pointerEvents: "none",
-        }}
+    <Box>
+      <Typography
+        component="label"
+        htmlFor={id}
+        variant="subtitle2"
+        sx={{ display: "block", fontWeight: 700, mb: 0.5 }}
       >
-        <Icon name="location" size={34} strokeWidth={2.2} />
-      </Box>
+        {label}
+      </Typography>
+      {children}
+      {error ? (
+        <Typography
+          id={`${id}-error`}
+          role="alert"
+          variant="caption"
+          sx={{
+            display: "block",
+            mt: 0.5,
+            color: "error.main",
+            fontWeight: 600,
+          }}
+        >
+          {error}
+        </Typography>
+      ) : hint ? (
+        <Typography
+          id={`${id}-hint`}
+          variant="caption"
+          sx={{ display: "block", mt: 0.5, color: "text.secondary" }}
+        >
+          {hint}
+        </Typography>
+      ) : null}
     </Box>
   );
 }
 
-export function PickupRequestPage({
-  step: _step,
+function TextInput({
+  id,
+  value,
+  onChange,
+  onBlur,
+  error,
+  hint,
+  ...rest
 }: {
-  step?: "route" | "details" | string;
-} = {}) {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  error?: string;
+  hint?: string;
+  placeholder?: string;
+  multiline?: boolean;
+  minRows?: number;
+  inputMode?: "text" | "tel" | "numeric";
+  autoComplete?: string;
+  type?: string;
+  maxLength?: number;
+}) {
+  const { inputMode, autoComplete, type, maxLength, ...input } = rest;
+  return (
+    <OutlinedInput
+      fullWidth
+      id={id}
+      value={value}
+      error={Boolean(error)}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onBlur}
+      inputProps={{
+        inputMode,
+        autoComplete,
+        type,
+        maxLength,
+        "aria-invalid": error ? true : undefined,
+        "aria-describedby": error
+          ? `${id}-error`
+          : hint
+            ? `${id}-hint`
+            : undefined,
+      }}
+      {...input}
+    />
+  );
+}
+
+/** Chrome shared by every step: header, content, one bottom action. */
+function PickupShell({
+  step,
+  onBack,
+  tabBar,
+  action,
+  children,
+}: {
+  step: PickupStep;
+  onBack: () => void;
+  tabBar?: boolean;
+  action: ReactNode;
+  children: ReactNode;
+}) {
+  const index = STEPS.findIndex((item) => item.id === step);
+  return (
+    <main className="customer-app pickup-app">
+      <CustomerHeader
+        title={STEPS[index]?.title ?? "Request a pickup"}
+        subtitle={`Step ${index + 1} of ${STEPS.length}`}
+        isAuthenticated={false}
+        unreadCount={0}
+        showBell={false}
+        onBack={onBack}
+      />
+      <Box
+        sx={{
+          px: 2,
+          pt: 1,
+          pb: tabBar
+            ? "calc(96px + 24px + env(safe-area-inset-bottom))"
+            : "calc(104px + env(safe-area-inset-bottom))",
+          display: "grid",
+          gap: 2,
+        }}
+      >
+        {children}
+        {tabBar && <Box>{action}</Box>}
+      </Box>
+      {!tabBar && (
+        <Box
+          sx={{
+            position: "fixed",
+            left: "50%",
+            transform: "translateX(-50%)",
+            bottom: 0,
+            width: "min(100%, var(--customer-canvas, 480px))",
+            px: 2,
+            pt: 1.5,
+            pb: "calc(16px + env(safe-area-inset-bottom))",
+            bgcolor: "background.default",
+            borderTop: "1px solid",
+            borderColor: "divider",
+            zIndex: (theme) => theme.zIndex.appBar,
+          }}
+        >
+          {action}
+        </Box>
+      )}
+      {tabBar && <CustomerBottomNav activeId="pickup" />}
+    </main>
+  );
+}
+
+function PinChip({ label, onDelete }: { label: string; onDelete: () => void }) {
+  return (
+    <Chip
+      icon={<CheckCircleOutlined />}
+      label={label}
+      onDelete={onDelete}
+      deleteIcon={<Close titleAccess="Remove pin" />}
+      color="success"
+      variant="outlined"
+      sx={{ mt: 1 }}
+    />
+  );
+}
+
+function AddressesStep({
+  draft,
+  update,
+  errors,
+  next,
+  onBack,
+}: {
+  draft: PickupDraft;
+  update: (patch: Partial<PickupDraft>) => void;
+  errors: PickupErrors;
+  next: () => void;
+  onBack: () => void;
+}) {
   const router = useRouter();
-  const goBack = useBackNavigation("/home");
-
-  const [point, setPoint] = useState<MapPoint | null>(null);
-  const [placeName, setPlaceName] = useState("");
-  const [address, setAddress] = useState("");
-  const [dropoff, setDropoff] = useState("");
-  const [gpsState, setGpsState] = useState<GpsState>("idle");
-  const [phone, setPhone] = useState("");
-  const [recipientName, setRecipientName] = useState("");
-  const [recipientPhone, setRecipientPhone] = useState("");
-  const [parcelDescription, setParcelDescription] = useState("");
-  const [codAmount, setCodAmount] = useState("0");
-  const [notes, setNotes] = useState("");
-  const [pickupWindow, setPickupWindow] = useState<PickupWindow>("Morning");
-  const [state, setState] = useState<"editing" | "sending" | "sent">("editing");
-  const [error, setError] = useState<string | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [trackingCode, setTrackingCode] = useState<string | null>(null);
-  const ready =
-    address.trim().length > 0 &&
-    dropoff.trim().length > 0 &&
-    recipientName.trim().length > 0 &&
-    recipientPhone.trim().length > 0 &&
-    parcelDescription.trim().length > 0;
-
-  useEffect(() => {
-    if (!point) return;
-    const controller = new AbortController();
-    reverseGeocode(point, controller.signal).then((name) => {
-      if (name) {
-        setPlaceName(name);
-        setAddress((current) => current || name);
-      }
-    });
-    return () => controller.abort();
-  }, [point]);
+  const [gps, setGps] = useState<GpsState>("idle");
+  const [touched, setTouched] = useState({ pickup: false, delivery: false });
+  const [attempted, setAttempted] = useState(false);
+  const show = (key: "pickup" | "delivery") => attempted || touched[key];
 
   function locate() {
     if (!("geolocation" in navigator)) {
-      setGpsState("unavailable");
+      setGps("unavailable");
       return;
     }
-    setGpsState("locating");
+    setGps("locating");
     navigator.geolocation.getCurrentPosition(
-      (fix) => {
-        setPoint({
+      async (fix) => {
+        const point = {
           latitude: fix.coords.latitude,
           longitude: fix.coords.longitude,
-        });
-        setGpsState("ready");
+        };
+        update({ pickupPoint: point });
+        setGps("ready");
+        // Only fill the address when the person has not typed one.
+        if (!draft.pickupAddress.trim()) {
+          const name = await reverseGeocode(point);
+          if (name) update({ pickupAddress: name });
+        }
       },
-      (error) => {
-        setGpsState(
+      (error) =>
+        setGps(
           error.code === error.PERMISSION_DENIED ? "denied" : "unavailable",
-        );
-      },
+        ),
       { enableHighAccuracy: true, timeout: 15_000 },
     );
   }
 
   usePermissionRecovery({
     permission: "geolocation",
-    enabled: gpsState === "denied",
+    enabled: gps === "denied",
     onGranted: locate,
   });
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!ready || state === "sending") return;
-    setError(null);
-    const supabase = createClient();
-    const { data } = await supabase.auth.getSession();
-    const userId = data.session?.user.id;
-    if (!userId) {
-      // Everything typed stays on the page while the person signs in.
-      setAuthOpen(true);
-      return;
-    }
-    setState("sending");
-    try {
-      const result = await createCustomerPickupOrder(supabase, {
-        pickupAddress: address,
-        pickupLatitude: point?.latitude,
-        pickupLongitude: point?.longitude,
-        pickupContactPhone: phone,
-        deliveryAddress: dropoff,
-        recipientName,
-        recipientPhone,
-        parcelDescription: [parcelDescription, notes && `Pickup: ${notes}`]
-          .filter(Boolean)
-          .join(" · "),
-        codAmount: Math.max(0, Number(codAmount) || 0),
-      });
-      setTrackingCode(result.tracking_code);
-      setState("sent");
-    } catch (cause) {
-      setState("editing");
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "We couldn’t send your request. Check your connection and try again.",
-      );
-    }
+  function submit() {
+    setAttempted(true);
+    if (Object.keys(errors).length === 0) next();
   }
 
   return (
-    <main className="customer-app">
-      <AppBar
-        position="sticky"
-        color="inherit"
+    <PickupShell
+      step="route"
+      onBack={onBack}
+      tabBar
+      action={
+        <Button
+          fullWidth
+          variant="contained"
+          size="large"
+          onClick={submit}
+          sx={{ minHeight: 52 }}
+        >
+          Next: parcel and contacts
+        </Button>
+      }
+    >
+      <Field
+        id="pickup-address"
+        label="Pickup address"
+        error={show("pickup") ? errors.pickupAddress : undefined}
+      >
+        <TextInput
+          id="pickup-address"
+          value={draft.pickupAddress}
+          onChange={(value) => update({ pickupAddress: value })}
+          onBlur={() => setTouched((t) => ({ ...t, pickup: true }))}
+          placeholder="House, street, township"
+          autoComplete="street-address"
+          maxLength={300}
+          error={show("pickup") ? errors.pickupAddress : undefined}
+        />
+      </Field>
+      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
+        {hasMapbox && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<MapOutlined />}
+            onClick={() => router.push("/pickup/map")}
+            sx={{ minHeight: 48 }}
+          >
+            Choose on map
+          </Button>
+        )}
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={locate}
+          disabled={gps === "locating"}
+          startIcon={
+            gps === "locating" ? (
+              <Loader compact label="Finding your location…" />
+            ) : (
+              <MyLocationOutlined fontSize="small" />
+            )
+          }
+          sx={{ minHeight: 48 }}
+        >
+          {gps === "locating" ? "Finding you…" : "Use my location"}
+        </Button>
+      </Stack>
+      {draft.pickupPoint && (
+        <Box sx={{ mt: -1 }}>
+          <PinChip
+            label="Pickup pin set"
+            onDelete={() => update({ pickupPoint: null })}
+          />
+        </Box>
+      )}
+      {gps === "denied" && (
+        <Alert
+          severity="warning"
+          sx={{ borderRadius: "12px" }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              startIcon={<RefreshOutlined />}
+              onClick={locate}
+            >
+              Try again
+            </Button>
+          }
+        >
+          Location is blocked for this site. Allow it in your browser settings,
+          or type the address above.
+        </Alert>
+      )}
+      {gps === "unavailable" && (
+        <Alert severity="info" sx={{ borderRadius: "12px" }}>
+          GPS isn’t available right now. Type the pickup address above.
+        </Alert>
+      )}
+
+      <Field
+        id="delivery-address"
+        label="Deliver to"
+        error={show("delivery") ? errors.deliveryAddress : undefined}
+      >
+        <TextInput
+          id="delivery-address"
+          value={draft.deliveryAddress}
+          onChange={(value) => update({ deliveryAddress: value })}
+          onBlur={() => setTouched((t) => ({ ...t, delivery: true }))}
+          placeholder="Recipient’s address and township"
+          maxLength={300}
+          error={show("delivery") ? errors.deliveryAddress : undefined}
+        />
+      </Field>
+      {hasMapbox && (
+        <Box sx={{ mt: -1 }}>
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<MapOutlined />}
+            onClick={() => router.push("/pickup/map/delivery")}
+            sx={{ minHeight: 48 }}
+          >
+            Choose on map
+          </Button>
+          {draft.deliveryPoint && (
+            <Box>
+              <PinChip
+                label="Delivery pin set"
+                onDelete={() => update({ deliveryPoint: null })}
+              />
+            </Box>
+          )}
+        </Box>
+      )}
+    </PickupShell>
+  );
+}
+
+function DetailsStep({
+  draft,
+  update,
+  errors,
+  next,
+  onBack,
+}: {
+  draft: PickupDraft;
+  update: (patch: Partial<PickupDraft>) => void;
+  errors: PickupErrors;
+  next: () => void;
+  onBack: () => void;
+}) {
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [attempted, setAttempted] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const show = (key: keyof PickupErrors) =>
+    attempted || touched[key] ? errors[key] : undefined;
+  const touch = (key: string) => setTouched((t) => ({ ...t, [key]: true }));
+  const windows = availableWindows(draft.day);
+
+  function submit() {
+    setAttempted(true);
+    // Optional fields hide behind the disclosure; open it when one is wrong.
+    if (errors.contactPhone || errors.codAmount) setMoreOpen(true);
+    if (Object.keys(errors).length === 0) next();
+  }
+
+  return (
+    <PickupShell
+      step="details"
+      onBack={onBack}
+      action={
+        <Button
+          fullWidth
+          variant="contained"
+          size="large"
+          onClick={submit}
+          sx={{ minHeight: 52 }}
+        >
+          Next: review
+        </Button>
+      }
+    >
+      <Field
+        id="recipient-name"
+        label="Recipient name"
+        error={show("recipientName")}
+      >
+        <TextInput
+          id="recipient-name"
+          value={draft.recipientName}
+          onChange={(value) => update({ recipientName: value })}
+          onBlur={() => touch("recipientName")}
+          placeholder="Who should receive it?"
+          autoComplete="name"
+          maxLength={120}
+          error={show("recipientName")}
+        />
+      </Field>
+      <Field
+        id="recipient-phone"
+        label="Recipient phone"
+        error={show("recipientPhone")}
+      >
+        <TextInput
+          id="recipient-phone"
+          value={draft.recipientPhone}
+          onChange={(value) => update({ recipientPhone: value })}
+          onBlur={() => touch("recipientPhone")}
+          placeholder="09 xxx xxx xxx"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          maxLength={30}
+          error={show("recipientPhone")}
+        />
+      </Field>
+
+      <Box>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+          Pickup time
+        </Typography>
+        <ToggleButtonGroup
+          exclusive
+          fullWidth
+          value={draft.day}
+          onChange={(_, value) => {
+            if (!value) return;
+            const open = availableWindows(value);
+            update({
+              day: value,
+              window: open.some((w) => w.value === draft.window)
+                ? draft.window
+                : (open[0]?.value ?? "Morning"),
+            });
+          }}
+          aria-label="Pickup day"
+          sx={{ mb: 1 }}
+        >
+          {pickupDays.map((day) => (
+            <ToggleButton key={day} value={day} sx={{ minHeight: 48 }}>
+              {day}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+        <ToggleButtonGroup
+          exclusive
+          fullWidth
+          value={draft.window}
+          onChange={(_, value) => value && update({ window: value })}
+          aria-label="Pickup window"
+        >
+          {windows.map((window) => (
+            <ToggleButton
+              key={window.value}
+              value={window.value}
+              sx={{ minHeight: 48, flexDirection: "column", lineHeight: 1.2 }}
+            >
+              {window.value}
+              <Typography variant="caption" sx={{ color: "inherit" }}>
+                {window.hours}
+              </Typography>
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+        <Typography
+          variant="caption"
+          sx={{ display: "block", mt: 0.75, color: "text.secondary" }}
+        >
+          This is the time you’d like the rider to collect. We confirm it once a
+          rider is assigned.
+        </Typography>
+        {errors.window && (
+          <Typography
+            role="alert"
+            variant="caption"
+            sx={{ color: "error.main" }}
+          >
+            {errors.window}
+          </Typography>
+        )}
+      </Box>
+
+      <Accordion
+        disableGutters
         elevation={0}
+        expanded={moreOpen}
+        onChange={(_e, open) => setMoreOpen(open)}
         sx={{
-          bgcolor: "background.default",
-          pt: "env(safe-area-inset-top)",
-          borderBottom: "1px solid",
-          borderColor: "divider",
+          bgcolor: "grey.100",
+          borderRadius: "16px !important",
+          "&::before": { display: "none" },
         }}
       >
-        <Toolbar disableGutters sx={{ minHeight: 72, px: 2, gap: 1 }}>
-          <IconButton
-            aria-label="Back"
-            edge="start"
-            onClick={goBack}
-            sx={{ width: 48, height: 48, color: "text.primary" }}
-          >
-            <ArrowBack />
-          </IconButton>
-          <Typography
-            variant="h5"
-            component="h1"
-            noWrap
-            sx={{ fontWeight: 750, lineHeight: "30px" }}
-          >
-            Request a pickup
-          </Typography>
-        </Toolbar>
-      </AppBar>
-
-      {state === "sent" ? (
-        <Stack
-          spacing={1.5}
-          sx={{ px: 2, pt: 4, pb: 6, alignItems: "flex-start" }}
+        <AccordionSummary
+          expandIcon={<ExpandMore />}
+          aria-controls="pickup-more-panel"
+          id="pickup-more-header"
+          sx={{ minHeight: 56, px: 2 }}
         >
-          <CheckCircleOutlined sx={{ fontSize: 36, color: "success.main" }} />
-          <Typography variant="h6" component="h2" sx={{ fontWeight: 750 }}>
-            Request sent
+          <Typography sx={{ fontWeight: 700 }}>
+            More details (optional)
           </Typography>
-          <Typography sx={{ color: "text.secondary" }}>
-            Your order {trackingCode ? `${trackingCode} ` : ""}is now waiting
-            for assignment. We will confirm{" "}
-            {/^[aeiou]/i.test(pickupWindow) ? "an" : "a"}{" "}
-            {pickupWindow.toLowerCase()} pickup from {address.trim()} and reach
-            you at {phone.trim() || "the number on your account"}.
-          </Typography>
+        </AccordionSummary>
+        <AccordionDetails
+          id="pickup-more-panel"
+          sx={{ px: 2, pt: 0, pb: 2, display: "grid", gap: 2 }}
+        >
+          <Field
+            id="contact-phone"
+            label="Your phone for the rider"
+            error={show("contactPhone")}
+            hint="Defaults to the number on your account."
+          >
+            <TextInput
+              id="contact-phone"
+              value={draft.contactPhone}
+              onChange={(value) => update({ contactPhone: value })}
+              onBlur={() => touch("contactPhone")}
+              placeholder="09 xxx xxx xxx"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              maxLength={30}
+              error={show("contactPhone")}
+            />
+          </Field>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              What is it?
+            </Typography>
+            <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
+              {parcelKinds.map((kind) => (
+                <Chip
+                  key={kind}
+                  clickable
+                  role="radio"
+                  aria-checked={draft.parcelKind === kind}
+                  label={kind}
+                  onClick={() =>
+                    update({
+                      parcelKind: draft.parcelKind === kind ? null : kind,
+                    })
+                  }
+                  color={draft.parcelKind === kind ? "secondary" : "default"}
+                />
+              ))}
+            </Stack>
+          </Box>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              Size
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              value={draft.parcelSize}
+              onChange={(_, value) => value && update({ parcelSize: value })}
+              aria-label="Parcel size"
+            >
+              {parcelSizes.map((size) => (
+                <ToggleButton
+                  key={size.value}
+                  value={size.value}
+                  sx={{
+                    minHeight: 48,
+                    flexDirection: "column",
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {size.value}
+                  <Typography variant="caption" sx={{ color: "inherit" }}>
+                    {size.hint}
+                  </Typography>
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+            <FormControlLabel
+              sx={{ mt: 0.5, minHeight: 48 }}
+              control={
+                <Checkbox
+                  checked={draft.fragile}
+                  onChange={(event) =>
+                    update({ fragile: event.target.checked })
+                  }
+                />
+              }
+              label="Fragile, handle with care"
+            />
+          </Box>
+          <Field id="parcel-details" label="Parcel details">
+            <TextInput
+              id="parcel-details"
+              multiline
+              minRows={2}
+              value={draft.parcelDetails}
+              onChange={(value) => update({ parcelDetails: value })}
+              placeholder="Contents, brand, anything the rider should know"
+              maxLength={300}
+            />
+          </Field>
+          <Field
+            id="cod-amount"
+            label="Cash on delivery (MMK)"
+            error={show("codAmount")}
+            hint="Leave blank if the recipient pays nothing on delivery."
+          >
+            <TextInput
+              id="cod-amount"
+              value={draft.codAmount}
+              onChange={(value) => update({ codAmount: value })}
+              onBlur={() => touch("codAmount")}
+              placeholder="0"
+              inputMode="numeric"
+              maxLength={12}
+              error={show("codAmount")}
+            />
+          </Field>
+          <Field id="pickup-notes" label="Note for the rider">
+            <TextInput
+              id="pickup-notes"
+              multiline
+              minRows={2}
+              value={draft.notes}
+              onChange={(value) => update({ notes: value })}
+              placeholder="Landmark, gate code, who to ask for"
+              maxLength={300}
+            />
+          </Field>
+        </AccordionDetails>
+      </Accordion>
+    </PickupShell>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string;
+  href: string;
+}) {
+  return (
+    <Stack
+      direction="row"
+      spacing={1.5}
+      sx={{ alignItems: "flex-start", py: 1.25 }}
+    >
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          {label}
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={{ fontWeight: 650, overflowWrap: "anywhere" }}
+        >
+          {value}
+        </Typography>
+      </Box>
+      <Button
+        component={Link}
+        href={href}
+        size="small"
+        color="secondary"
+        aria-label={`Edit ${label.toLowerCase()}`}
+        sx={{ minHeight: 48, minWidth: 48, fontWeight: 700 }}
+      >
+        Edit
+      </Button>
+    </Stack>
+  );
+}
+
+function ReviewStep({
+  draft,
+  submit,
+  state,
+  error,
+  signedIn,
+  onBack,
+}: {
+  draft: PickupDraft;
+  onBack: () => void;
+  submit: () => void;
+  state: "editing" | "sending";
+  error: string | null;
+  signedIn: boolean | null;
+}) {
+  const cod = parseCod(draft.codAmount) ?? 0;
+  return (
+    <PickupShell
+      step="review"
+      onBack={onBack}
+      action={
+        <>
+          {error && (
+            <Typography
+              role="alert"
+              variant="body2"
+              sx={{ color: "error.main", mb: 1 }}
+            >
+              {error}
+            </Typography>
+          )}
           <Button
             fullWidth
             variant="contained"
             size="large"
-            onClick={() => router.push("/home")}
-            sx={{ minHeight: 52, mt: 2 }}
+            disabled={state === "sending" || signedIn === null}
+            onClick={submit}
+            sx={{ minHeight: 52 }}
+          >
+            {state === "sending"
+              ? "Sending…"
+              : signedIn === false
+                ? "Sign in to request pickup"
+                : "Request pickup"}
+          </Button>
+        </>
+      }
+    >
+      {signedIn === false && (
+        <Alert severity="info" sx={{ borderRadius: "12px" }}>
+          Sign in to send this request. Everything you entered is saved and will
+          be here when you come back.
+        </Alert>
+      )}
+      <Box sx={{ "& > * + *": { borderTop: 1, borderColor: "divider" } }}>
+        <SummaryRow
+          label="Pickup address"
+          value={draft.pickupAddress}
+          href="/pickup"
+        />
+        <SummaryRow
+          label="Deliver to"
+          value={draft.deliveryAddress}
+          href="/pickup"
+        />
+        <SummaryRow
+          label="Recipient"
+          value={`${draft.recipientName} · ${draft.recipientPhone}`}
+          href="/pickup/details"
+        />
+        <SummaryRow
+          label="Parcel"
+          value={describeParcel(draft).replace(
+            / · Pickup (today|tomorrow), \w+/i,
+            "",
+          )}
+          href="/pickup/details"
+        />
+        <SummaryRow
+          label="Requested pickup"
+          value={`${draft.day}, ${draft.window.toLowerCase()}`}
+          href="/pickup/details"
+        />
+        <SummaryRow
+          label="Cash on delivery"
+          value={cod > 0 ? currency.format(cod) : "None"}
+          href="/pickup/details"
+        />
+      </Box>
+    </PickupShell>
+  );
+}
+
+/**
+ * Request a pickup in three steps: addresses, parcel and contacts, review.
+ * The draft lives in storage, so the map screens, a sign-in or a reload never
+ * cost the customer what they typed.
+ */
+export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
+  const router = useRouter();
+  const { draft, hydrated, update, reset } = usePickupDraft();
+  const [state, setState] = useState<"editing" | "sending" | "sent">("editing");
+  const [error, setError] = useState<string | null>(null);
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [sent, setSent] = useState<{
+    id: string;
+    code: string;
+    summary: string;
+  } | null>(null);
+  const inFlight = useRef(false);
+
+  const index = STEPS.findIndex((item) => item.id === step);
+  const previous = STEPS[index - 1]?.href ?? "/home";
+  const stepBack = useBackNavigation(previous);
+  // The first step is a tab root: Back always lands on Home.
+  const goBack = step === "route" ? () => router.push("/home") : stepBack;
+  const addressErrors = validateAddresses(draft);
+  const detailErrors = validateDetails(draft);
+
+  // A step is only reachable once the ones before it are complete.
+  useEffect(() => {
+    if (!hydrated || state === "sent") return;
+    if (step !== "route" && Object.keys(addressErrors).length > 0)
+      router.replace("/pickup");
+    else if (step === "review" && Object.keys(detailErrors).length > 0)
+      router.replace("/pickup/details");
+  }, [hydrated, state, step, addressErrors, detailErrors, router]);
+
+  useEffect(() => {
+    if (step !== "review") return;
+    let live = true;
+    void createClient()
+      .auth.getSession()
+      .then(({ data }) => live && setSignedIn(Boolean(data.session?.user.id)));
+    return () => {
+      live = false;
+    };
+  }, [step]);
+
+  async function submit() {
+    if (inFlight.current) return;
+    if (signedIn === false) {
+      router.push(signInHref("/pickup/review"));
+      return;
+    }
+    inFlight.current = true;
+    setError(null);
+    setState("sending");
+    try {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user.id) {
+        setSignedIn(false);
+        setState("editing");
+        router.push(signInHref("/pickup/review"));
+        return;
+      }
+      const result = await createCustomerPickupOrder(supabase, {
+        pickupAddress: draft.pickupAddress.trim(),
+        pickupLatitude: draft.pickupPoint?.latitude,
+        pickupLongitude: draft.pickupPoint?.longitude,
+        pickupContactPhone: draft.contactPhone,
+        deliveryAddress: draft.deliveryAddress.trim(),
+        deliveryLatitude: draft.deliveryPoint?.latitude,
+        deliveryLongitude: draft.deliveryPoint?.longitude,
+        recipientName: draft.recipientName.trim(),
+        recipientPhone: draft.recipientPhone.trim(),
+        // The window is written in the form the database turns into a stored
+        // pickup window, so it is a real request rather than a promise.
+        parcelDescription: describeParcel(draft),
+        codAmount: parseCod(draft.codAmount) ?? 0,
+      });
+      setSent({
+        id: result.id,
+        code: result.tracking_code,
+        summary: `${draft.day}, ${draft.window.toLowerCase()}`,
+      });
+      setState("sent");
+      reset();
+    } catch (cause) {
+      // The draft stays; only a success clears it.
+      setError(friendlyPickupError(cause));
+      setState("editing");
+    } finally {
+      inFlight.current = false;
+    }
+  }
+
+  if (state === "sent" && sent)
+    return (
+      <main className="customer-app pickup-app">
+        <CustomerHeader
+          title="Request sent"
+          isAuthenticated={false}
+          unreadCount={0}
+          showBell={false}
+        />
+        <Stack spacing={1.5} sx={{ px: 2, pt: 3, pb: 6 }}>
+          <CheckCircleOutlined sx={{ fontSize: 40, color: "success.main" }} />
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 750 }}>
+            Your tracking code is {sent.code}
+          </Typography>
+          <Typography sx={{ color: "text.secondary" }}>
+            We’ve received your request for a pickup{" "}
+            {sent.summary.toLowerCase()}. A rider is assigned next; follow the
+            order to see when.
+          </Typography>
+          <Button
+            component={Link}
+            href={`/track?order=${encodeURIComponent(sent.id)}`}
+            variant="contained"
+            size="large"
+            sx={{ minHeight: 52, mt: 1 }}
+          >
+            View order
+          </Button>
+          <Button
+            component={Link}
+            href="/home"
+            variant="outlined"
+            color="secondary"
+            size="large"
+            sx={{ minHeight: 52 }}
           >
             Back to home
           </Button>
         </Stack>
-      ) : (
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          sx={{
-            px: 2,
-            pt: 2,
-            pb: "calc(96px + env(safe-area-inset-bottom))",
-            display: "grid",
-            gap: 2,
-          }}
-        >
-          <Box>
-            <FieldLabel>Pickup location</FieldLabel>
-            {hasMapbox && (
-              <Box sx={{ mb: 1 }}>
-                <MapPointPicker point={point} onChange={setPoint} />
-                <Typography
-                  variant="caption"
-                  sx={{ display: "block", mt: 0.5, color: "text.secondary" }}
-                >
-                  Drag the map so the pin sits on your pickup spot.
-                </Typography>
-              </Box>
-            )}
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={locate}
-              disabled={gpsState === "locating"}
-              startIcon={
-                gpsState === "locating" ? (
-                  <Loader compact label="Finding your location…" />
-                ) : (
-                  <MyLocationOutlined fontSize="small" />
-                )
-              }
-              sx={{ mb: 1 }}
-            >
-              {gpsState === "locating" ? "Finding you…" : "Use my location"}
-            </Button>
-            {gpsState === "denied" && (
-              <Box sx={{ mb: 1.5 }}>
-                <Typography
-                  variant="caption"
-                  sx={{ display: "block", mb: 0.5, color: "error.main" }}
-                >
-                  Location access was blocked. Allow it in your browser
-                  settings, or enter the address below:
-                </Typography>
-                <Box
-                  component="ul"
-                  sx={{
-                    m: 0,
-                    pl: 2.5,
-                    typography: "caption",
-                    color: "text.secondary",
-                  }}
-                >
-                  <li>
-                    <strong>Safari (iPhone):</strong> Tap <em>aA</em> in the
-                    address bar → Website Settings → Location → Allow.
-                  </li>
-                  <li>
-                    <strong>Chrome / Android:</strong> Tap the lock or tune icon
-                    in the address bar → Permissions → Location → Allow.
-                  </li>
-                </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<RefreshOutlined />}
-                  onClick={locate}
-                  sx={{ mt: 1 }}
-                >
-                  Try again
-                </Button>
-              </Box>
-            )}
-            {gpsState === "unavailable" && (
-              <Typography
-                variant="caption"
-                sx={{ display: "block", mb: 1, color: "error.main" }}
-              >
-                GPS isn't available on this device. Enter the address below.
-              </Typography>
-            )}
-            {placeName && (
-              <Typography
-                variant="caption"
-                sx={{ display: "block", mb: 1, color: "text.secondary" }}
-              >
-                Matched: {placeName}
-              </Typography>
-            )}
-            <OutlinedInput
-              fullWidth
-              required
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
-              placeholder="House, street, township"
-              inputProps={{ "aria-label": "Pickup address" }}
-            />
-          </Box>
+      </main>
+    );
 
-          <Box>
-            <FieldLabel>Deliver to</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              required
-              value={dropoff}
-              onChange={(event) => setDropoff(event.target.value)}
-              placeholder="Recipient’s address and township"
-              inputProps={{ "aria-label": "Delivery address" }}
-            />
-          </Box>
+  const content =
+    step === "route" ? (
+      <AddressesStep
+        draft={draft}
+        update={update}
+        errors={addressErrors}
+        next={() => router.push("/pickup/details")}
+        onBack={goBack}
+      />
+    ) : step === "details" ? (
+      <DetailsStep
+        draft={draft}
+        update={update}
+        errors={detailErrors}
+        next={() => router.push("/pickup/review")}
+        onBack={goBack}
+      />
+    ) : (
+      <ReviewStep
+        draft={draft}
+        submit={() => void submit()}
+        state={state === "sending" ? "sending" : "editing"}
+        error={error}
+        signedIn={signedIn}
+        onBack={goBack}
+      />
+    );
 
-          <Box>
-            <FieldLabel>Contact phone (optional)</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              placeholder="09xxxxxxxxx"
-              inputProps={{ "aria-label": "Contact phone" }}
-            />
-          </Box>
-
-          <Box>
-            <FieldLabel>Recipient name</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              required
-              value={recipientName}
-              onChange={(event) => setRecipientName(event.target.value)}
-              placeholder="Who should receive it?"
-              inputProps={{ "aria-label": "Recipient name" }}
-            />
-          </Box>
-
-          <Box>
-            <FieldLabel>Recipient phone</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              required
-              value={recipientPhone}
-              onChange={(event) => setRecipientPhone(event.target.value)}
-              placeholder="09xxxxxxxxx"
-              inputProps={{ "aria-label": "Recipient phone" }}
-            />
-          </Box>
-
-          <Box>
-            <FieldLabel>Parcel details</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              required
-              multiline
-              minRows={2}
-              value={parcelDescription}
-              onChange={(event) => setParcelDescription(event.target.value)}
-              placeholder="Documents, clothing, fragile items…"
-              inputProps={{ "aria-label": "Parcel details" }}
-            />
-          </Box>
-
-          <Box>
-            <FieldLabel>COD amount · MMK</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              type="number"
-              value={codAmount}
-              onChange={(event) => setCodAmount(event.target.value)}
-              inputProps={{ min: 0, step: 1, "aria-label": "COD amount" }}
-            />
-          </Box>
-
-          <Box>
-            <FieldLabel>Preferred time</FieldLabel>
-            <ToggleButtonGroup
-              exclusive
-              fullWidth
-              value={pickupWindow}
-              onChange={(_, value: PickupWindow | null) => {
-                if (value) setPickupWindow(value);
-              }}
-              aria-label="Preferred pickup time"
-              sx={{ p: 0.5, borderRadius: "999px", bgcolor: "grey.100" }}
-            >
-              {pickupWindows.map((value) => (
-                <ToggleButton
-                  key={value}
-                  value={value}
-                  sx={{
-                    minHeight: 44,
-                    border: 0,
-                    borderRadius: "999px !important",
-                    "&.Mui-selected": {
-                      bgcolor: "background.paper",
-                      boxShadow: 1,
-                    },
-                  }}
-                >
-                  {value}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          </Box>
-
-          <Box>
-            <FieldLabel>What are we picking up? (optional)</FieldLabel>
-            <OutlinedInput
-              fullWidth
-              multiline
-              minRows={3}
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="Parcel size, fragile items, landmark…"
-              inputProps={{ "aria-label": "Pickup notes" }}
-            />
-          </Box>
-
-          <Box
-            sx={{
-              position: "fixed",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              px: 2,
-              pt: 1.5,
-              pb: "calc(16px + env(safe-area-inset-bottom))",
-              bgcolor: "background.default",
-              borderTop: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            {error && (
-              <Typography
-                role="alert"
-                variant="body2"
-                sx={{ color: "error.main", mb: 1 }}
-              >
-                {error}
-              </Typography>
-            )}
-            <Button
-              fullWidth
-              type="submit"
-              variant="contained"
-              size="large"
-              disabled={!ready || state === "sending"}
-              sx={{ minHeight: 52 }}
-            >
-              {state === "sending" ? "Sending…" : "Request pickup"}
-            </Button>
-          </Box>
-        </Box>
-      )}
-      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
-    </main>
-  );
+  return content;
 }

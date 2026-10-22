@@ -114,7 +114,8 @@ export function RiderJobBoard({
         <ul className="rj-list">
           {jobs.map((job) => {
             const isUrgent = job.priority === "urgent";
-            const isPriority = job.priority === "high" || job.reproduce_count > 0;
+            const isPriority =
+              job.priority === "high" || job.reproduce_count > 0;
 
             return (
               <li
@@ -125,10 +126,15 @@ export function RiderJobBoard({
                   <div className="rj-card-header">
                     <strong>{job.label}</strong>
                     {isUrgent ? (
-                      <span className="rj-priority-pill is-urgent">⚡ Urgent</span>
+                      <span className="rj-priority-pill is-urgent">
+                        ⚡ Urgent
+                      </span>
                     ) : isPriority ? (
                       <span className="rj-priority-pill is-high">
-                        ⚡ Priority {job.reproduce_count > 0 ? `· R${job.reproduce_count}` : ""}
+                        ⚡ Priority{" "}
+                        {job.reproduce_count > 0
+                          ? `· R${job.reproduce_count}`
+                          : ""}
                       </span>
                     ) : null}
                   </div>
