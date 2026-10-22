@@ -8,27 +8,27 @@
   box-sizing: border-box;
 }
 
-/* Ensure pure white background on manager layout */
+/* Ensure canvas background on manager layout */
 .manager-app:has(.manager-order-view-container) {
-  background-color: #ffffff !important;
-  min-width: 0 !important;
-  width: 100% !important;
+  background-color: var(--color-background);
+  min-width: 0;
+  width: 100%;
 }
 
 .manager-main:has(.manager-order-view-container) {
-  background-color: #ffffff !important;
+  background-color: var(--color-background);
 }
 
 .manager-content:has(> .manager-order-view-container) {
-  background-color: #ffffff !important;
-  width: min(1380px, calc(100% - 48px)) !important;
-  max-width: 1440px !important;
-  padding: 24px 0 48px !important;
+  background-color: var(--color-background);
+  width: min(1380px, calc(100% - 48px));
+  max-width: 1440px;
+  padding: 24px 0 48px;
 }
 
 .manager-app:has(.manager-order-view-container) .manager-topbar {
-  background-color: #ffffff !important;
-  border-bottom: 1px solid #e2e8f0 !important;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
 }
 
 /* Responsive Main Grid */
@@ -54,35 +54,36 @@
 
 .manager-order-panel-paper div::-webkit-scrollbar-thumb,
 .manager-order-map-paper div::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
+  background-color: var(--color-border-control);
   border-radius: 999px;
 }
 
 .manager-order-panel-paper div::-webkit-scrollbar-thumb:hover,
 .manager-order-map-paper div::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  background-color: var(--color-text-secondary);
 }
 
 /* Mobile responsive views */
 @media (max-width: 1023px) {
   .manager-content:has(> .manager-order-view-container) {
-    width: 100% !important;
-    padding: 16px 16px 32px !important;
+    width: 100%;
+    padding: 16px 16px 32px;
   }
 
   .manager-order-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 100%;
     gap: 16px;
+    width: 100%;
+  }
+
+  .manager-order-col-list,
+  .manager-order-col-map {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .manager-order-mobile-tabs {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-
-  .manager-order-col-list.mobile-hidden,
-  .manager-order-col-map.mobile-hidden {
-    display: none !important;
+    display: none;
   }
 }

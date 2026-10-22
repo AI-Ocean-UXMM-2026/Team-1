@@ -1,4 +1,3 @@
-import type { LiveFloodConditions } from "@/lib/delivery/dispatch/open-meteo";
 import type { RoadReport } from "@/lib/delivery/types";
 
 export type FloodHazardClass = 1 | 2 | 3;
@@ -43,7 +42,8 @@ export const YANGON_FLOOD_ZONES: FloodZone[] = [
     name: "Thingangyun Canal Corridor",
     hazardClass: 2,
     severity: "high",
-    description: "Low-lying creek overflow zone connecting Pazundaung and Thingangyun basin.",
+    description:
+      "Low-lying creek overflow zone connecting Pazundaung and Thingangyun basin.",
     waterDepthEstimateCm: 35,
     flowRisk: "flowing",
     coordinates: [
@@ -55,14 +55,16 @@ export const YANGON_FLOOD_ZONES: FloodZone[] = [
       [96.182, 16.804],
     ],
     center: { latitude: 16.816, longitude: 96.192 },
-    advisory: "Water over road during monsoon downpours. High clearance or alternative arterial recommended.",
+    advisory:
+      "Water over road during monsoon downpours. High clearance or alternative arterial recommended.",
   },
   {
     id: "flood-zone-hlaing-bayintnaung",
     name: "Hlaing River Lowlands & Bayintnaung",
     hazardClass: 3,
     severity: "severe",
-    description: "Tidal riverfront drainage basin with frequent monsoon backflow and deep waterlogging.",
+    description:
+      "Tidal riverfront drainage basin with frequent monsoon backflow and deep waterlogging.",
     waterDepthEstimateCm: 55,
     flowRisk: "torrential",
     coordinates: [
@@ -74,14 +76,16 @@ export const YANGON_FLOOD_ZONES: FloodZone[] = [
       [96.08, 16.862],
     ],
     center: { latitude: 16.882, longitude: 96.091 },
-    advisory: "Severe flooding risk. Avoid light vehicles and e-bikes when river discharge exceeds 40 m³/s.",
+    advisory:
+      "Severe flooding risk. Avoid light vehicles and e-bikes when river discharge exceeds 40 m³/s.",
   },
   {
     id: "flood-zone-pazundaung-tamwe",
     name: "Pazundaung Creek Basin (Tamwe)",
     hazardClass: 2,
     severity: "high",
-    description: "Runoff gathering basin along lower arterial junctions and Kyaikkasan corridor.",
+    description:
+      "Runoff gathering basin along lower arterial junctions and Kyaikkasan corridor.",
     waterDepthEstimateCm: 30,
     flowRisk: "standing",
     coordinates: [
@@ -93,14 +97,16 @@ export const YANGON_FLOOD_ZONES: FloodZone[] = [
       [96.162, 16.786],
     ],
     center: { latitude: 16.802, longitude: 96.172 },
-    advisory: "Water accumulation on road shoulders. Add 10-15 minute transit buffer.",
+    advisory:
+      "Water accumulation on road shoulders. Add 10-15 minute transit buffer.",
   },
   {
     id: "flood-zone-inya-kamayut",
     name: "Inya Spillway & Kamayut Drainage",
     hazardClass: 1,
     severity: "moderate",
-    description: "Flash runoff corridor near Inya Lake lower drainage and Pyay Road feeder lanes.",
+    description:
+      "Flash runoff corridor near Inya Lake lower drainage and Pyay Road feeder lanes.",
     waterDepthEstimateCm: 18,
     flowRisk: "standing",
     coordinates: [
@@ -112,14 +118,16 @@ export const YANGON_FLOOD_ZONES: FloodZone[] = [
       [96.12, 16.82],
     ],
     center: { latitude: 16.831, longitude: 96.129 },
-    advisory: "Service lane ponding. Passable with reduced speed; watch for stalled traffic.",
+    advisory:
+      "Service lane ponding. Passable with reduced speed; watch for stalled traffic.",
   },
   {
     id: "flood-zone-botahtaung-strand",
     name: "Downtown Strand Riverfront",
     hazardClass: 1,
     severity: "moderate",
-    description: "Quay basin exposed to tidal surges and heavy rain drainage bottlenecks.",
+    description:
+      "Quay basin exposed to tidal surges and heavy rain drainage bottlenecks.",
     waterDepthEstimateCm: 20,
     flowRisk: "standing",
     coordinates: [
@@ -130,7 +138,8 @@ export const YANGON_FLOOD_ZONES: FloodZone[] = [
       [96.146, 16.76],
     ],
     center: { latitude: 16.769, longitude: 96.162 },
-    advisory: "Tidal water accumulation at peak high tide. Low vehicle caution advised.",
+    advisory:
+      "Tidal water accumulation at peak high tide. Low vehicle caution advised.",
   },
 ];
 
@@ -138,7 +147,9 @@ export const YANGON_FLOOD_ZONES: FloodZone[] = [
  * Returns active flood hazard zones, incorporating any custom GeoJSON features
  * or falling back to the curated Yangon flood corridors.
  */
-export function getYangonFloodZones(customGeoJson?: GeoJsonLike | null): FloodZone[] {
+export function getYangonFloodZones(
+  customGeoJson?: GeoJsonLike | null,
+): FloodZone[] {
   if (!customGeoJson?.features?.length) {
     return YANGON_FLOOD_ZONES;
   }
@@ -165,7 +176,9 @@ export function getYangonFloodZones(customGeoJson?: GeoJsonLike | null): FloodZo
 
     for (const polygon of polygons) {
       if (!polygon?.length) continue;
-      const ring = polygon.map(([lng, lat]) => [Number(lng), Number(lat)] as [number, number]);
+      const ring = polygon.map(
+        ([lng, lat]) => [Number(lng), Number(lat)] as [number, number],
+      );
       const lats = ring.map(([, lat]) => lat);
       const lngs = ring.map(([lng]) => lng);
       const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
@@ -173,13 +186,22 @@ export function getYangonFloodZones(customGeoJson?: GeoJsonLike | null): FloodZo
 
       customZones.push({
         id: `custom-flood-zone-${index++}`,
-        name: String(feature.properties?.name ?? `Monitored Flood Area ${index}`),
-        hazardClass,
-        severity: hazardClass === 3 ? "severe" : hazardClass === 2 ? "high" : "moderate",
-        description: String(
-          feature.properties?.description ?? "Mapped hydrological hazard zone from active layer.",
+        name: String(
+          feature.properties?.name ?? `Monitored Flood Area ${index}`,
         ),
-        waterDepthEstimateCm: hazardClass === 3 ? 50 : hazardClass === 2 ? 30 : 15,
+        hazardClass,
+        severity:
+          hazardClass === 3
+            ? "severe"
+            : hazardClass === 2
+              ? "high"
+              : "moderate",
+        description: String(
+          feature.properties?.description ??
+            "Mapped hydrological hazard zone from active layer.",
+        ),
+        waterDepthEstimateCm:
+          hazardClass === 3 ? 50 : hazardClass === 2 ? 30 : 15,
         flowRisk: hazardClass === 3 ? "torrential" : "standing",
         coordinates: ring,
         center: { latitude: centerLat, longitude: centerLng },
@@ -197,12 +219,19 @@ export function getYangonFloodZones(customGeoJson?: GeoJsonLike | null): FloodZo
 /**
  * Ray-casting algorithm to test whether point (lat, lng) is inside a polygon ring [lng, lat][].
  */
-export function pointInPolygon(lat: number, lng: number, ring: [number, number][]): boolean {
+export function pointInPolygon(
+  lat: number,
+  lng: number,
+  ring: [number, number][],
+): boolean {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const [xi, yi] = ring[i];
     const [xj, yj] = ring[j];
-    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+    if (
+      yi > lat !== yj > lat &&
+      lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi
+    ) {
       inside = !inside;
     }
   }
@@ -257,7 +286,8 @@ export function calculateRadiusPixels(
   latitude: number,
   zoom: number,
 ): number {
-  const latitudeRadians = (Math.max(Math.min(latitude, 85.0511), -85.0511) * Math.PI) / 180;
+  const latitudeRadians =
+    (Math.max(Math.min(latitude, 85.0511), -85.0511) * Math.PI) / 180;
   const metersPerPixel = (156543.03392 * Math.cos(latitudeRadians)) / 2 ** zoom;
   return Math.max(8, radiusMeters / Math.max(0.1, metersPerPixel));
 }
@@ -284,7 +314,9 @@ export function checkRouteFloodExposure(
   }
 
   const activeFloodReports = roadReports.filter(
-    (r) => r.status !== "rejected" && (r.category === "flooding" || r.severity === "blocked"),
+    (r) =>
+      r.status !== "rejected" &&
+      (r.category === "flooding" || r.severity === "blocked"),
   );
 
   const matchedZones = new Set<FloodZone>();
@@ -330,7 +362,8 @@ export function checkRouteFloodExposure(
 
   const intersectedZones = Array.from(matchedZones);
   const nearbyFloodReports = Array.from(matchedReports);
-  const hasFloodRisk = intersectedZones.length > 0 || nearbyFloodReports.length > 0;
+  const hasFloodRisk =
+    intersectedZones.length > 0 || nearbyFloodReports.length > 0;
 
   // Determine suggested slowdown
   let suggestedSlowdownPercent = 0;

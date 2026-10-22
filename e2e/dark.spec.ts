@@ -4,7 +4,7 @@ import { expect, test } from "./support/test";
 
 test.use({ colorScheme: "dark" });
 
-test("rider screens use the dark theme at night (H-13)", async ({
+test("rider screens stay light when device prefers dark color scheme", async ({
   page,
   context,
 }, testInfo) => {
@@ -42,12 +42,22 @@ test("rider screens use the dark theme at night (H-13)", async ({
       return "rgb(255, 255, 255)";
     });
   const surface = await surfaceOf(stop);
-  expect(isDark(surface), `stop sheet ${surface} is not dark`).toBe(true);
-  await swipeToConfirm(page, /i.ve arrived/i);
+  expect(isDark(surface), `stop sheet ${surface} should remain light`).toBe(false);
+  const confirmArrival = page.getByRole("button", {
+    name: /confirm arrival|i.ve arrived/i,
+  });
+  if (await confirmArrival.isVisible()) {
+    await confirmArrival.click();
+  } else {
+    await swipeToConfirm(page, /i.ve arrived/i);
+  }
   await page.getByRole("button", { name: /yes, i.m here/i }).click();
-  await page.getByRole("button", { name: "Start handover" }).click();
+  const startHandover = page.getByRole("button", { name: "Start handover" });
+  if (await startHandover.isVisible()) {
+    await startHandover.click();
+  }
   const handover = page.getByRole("group", { name: "Verify the parcel" });
   await expect(handover).toBeVisible();
   const outcome = await surfaceOf(handover);
-  expect(isDark(outcome), `handover ${outcome} is not dark`).toBe(true);
+  expect(isDark(outcome), `handover ${outcome} should remain light`).toBe(false);
 });

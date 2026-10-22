@@ -50,7 +50,8 @@ export function watchRiderLocations({
           latitude,
           longitude,
           accuracy: Number.isFinite(accuracy) ? accuracy : null,
-          speedMps: finiteOrNull(speed) == null ? null : Math.max(0, speed ?? 0),
+          speedMps:
+            finiteOrNull(speed) == null ? null : Math.max(0, speed ?? 0),
           headingDegrees: finiteOrNull(heading),
           recordedAt: new Date(timestamp).toISOString(),
         };

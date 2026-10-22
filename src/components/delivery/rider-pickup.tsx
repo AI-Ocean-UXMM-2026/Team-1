@@ -153,17 +153,21 @@ export function PickupPanel({
   return (
     <div className="dv-handover">
       {warning}
-      <p className="dv-progress" role="status">
+      <output className="dv-progress">
         <strong>Page {page} of 2</strong>{" "}
         {page === 1 ? "Pickup information" : "Confirm pickup"}
-      </p>
+      </output>
 
       {page === 1 && (
         <>
           <fieldset className="dv-step">
             <legend>
               <span className="dv-badge" aria-hidden="true">
-                {checkedAll ? <Icon name="check" size={14} strokeWidth={2.8} /> : 1}
+                {checkedAll ? (
+                  <Icon name="check" size={14} strokeWidth={2.8} />
+                ) : (
+                  1
+                )}
               </span>
               {stop.collect.length > 1
                 ? `Check ${stop.collect.length} parcels`

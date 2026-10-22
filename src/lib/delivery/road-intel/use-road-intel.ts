@@ -64,7 +64,6 @@ export function useRoadNoteAnalysis(
     .sort();
   const key = waiting.join(",");
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh is stable enough; the key captures the notes
   useEffect(() => {
     if (!enabled || !key || tried.current.has(key)) return;
     tried.current.add(key);
@@ -78,5 +77,5 @@ export function useRoadNoteAnalysis(
       .then((response) => (response.ok ? refresh() : undefined))
       .catch(() => undefined);
     return () => controller.abort();
-  }, [enabled, key]);
+  }, [enabled, key, refresh]);
 }

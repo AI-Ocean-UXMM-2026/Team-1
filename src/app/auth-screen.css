@@ -1,0 +1,361 @@
+/* /signin and /signup — brand band, white sheet, actions at the bottom.
+   Own class names so the older .auth-dialog / .field-label cascade
+   (globals.css, audit-fixes.css) never reaches these screens. */
+.auth-screen {
+  min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--color-surface, #fff);
+  color: var(--color-text-primary, var(--color-text-primary));
+}
+.auth-screen-frame {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100dvh;
+  background: var(--color-surface, #fff);
+}
+
+.auth-screen-hero {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  height: clamp(184px, 30dvh, 236px);
+  padding-top: env(safe-area-inset-top);
+  overflow: hidden;
+  background: radial-gradient(
+    120% 110% at 50% 0%,
+    var(--color-orange-surface) 0%,
+    var(--color-orange-surface) 55%,
+    #fef3e8 100%
+  );
+}
+.auth-screen-route {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.auth-screen-route path {
+  fill: none;
+  stroke: #fdba74;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 2 10;
+}
+.auth-screen-mascot {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  margin-bottom: -14px;
+  object-fit: contain;
+}
+.auth-screen-back {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 12px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--target-min, 48px);
+  height: var(--target-min, 48px);
+  border-radius: 999px;
+  color: var(--color-brand-navy, var(--color-text-primary));
+  background: rgb(255 255 255 / 85%);
+  box-shadow: 0 1px 2px rgb(23 43 77 / 8%);
+  transition: background-color 0.15s ease;
+}
+.auth-screen-back:hover {
+  background: #fff;
+}
+.auth-screen-back:focus-visible,
+.auth-screen-submit:focus-visible,
+.auth-field-toggle:focus-visible,
+.auth-screen-switch a:focus-visible,
+.auth-screen-switch button:focus-visible {
+  outline: 3px solid var(--color-info, var(--color-info));
+  outline-offset: 2px;
+}
+
+.auth-screen-sheet {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin-top: -20px;
+  /* Same 420px content column as the welcome page, centred on wide screens. */
+  padding: 28px max(20px, calc((100% - 420px) / 2 + 20px)) 0;
+  border-radius: 24px 24px 0 0;
+  background: var(--color-surface, #fff);
+}
+.auth-screen-eyebrow {
+  margin-bottom: 6px;
+  color: var(--color-brand-orange-action, var(--color-brand-orange-action));
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.auth-screen-sheet h1 {
+  margin: 0 0 8px;
+  color: var(--color-brand-navy, var(--color-text-primary));
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.auth-screen-body {
+  max-width: 36ch;
+  margin: 0 0 24px;
+  color: var(--color-text-secondary-subtle, var(--color-text-secondary-subtle));
+  font-size: 15px;
+  line-height: 1.5;
+}
+.auth-screen-body strong {
+  color: var(--color-text-primary, var(--color-text-primary));
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.auth-screen-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.auth-screen-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-field-group {
+  display: grid;
+  gap: 6px;
+}
+.auth-field {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  min-height: 60px;
+  padding: 8px 6px 6px 14px;
+  border: 1px solid var(--color-border-control, var(--color-text-secondary));
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-surface, #fff);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.auth-field:hover {
+  border-color: var(--color-text-primary, var(--color-text-primary));
+}
+.auth-field:focus-within {
+  border-color: var(--color-brand-orange-action, var(--color-brand-orange-action));
+  box-shadow: 0 0 0 3px rgb(249 115 22 / 22%);
+}
+.auth-field label {
+  grid-column: 1;
+  color: var(--color-text-secondary-subtle, var(--color-text-secondary-subtle));
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.auth-field-optional {
+  color: var(--color-text-secondary, var(--color-text-secondary));
+  font-weight: 400;
+}
+.auth-field input {
+  grid-column: 1;
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px 0 0;
+  border: 0;
+  outline: none;
+  color: var(--color-text-primary, var(--color-text-primary));
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+}
+.auth-field-toggle,
+.auth-field-valid {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.auth-field-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary-subtle, var(--color-text-secondary-subtle));
+  background: transparent;
+  cursor: pointer;
+}
+.auth-field-toggle:hover {
+  color: var(--color-text-primary, var(--color-text-primary));
+  background: var(--color-surface-subtle, var(--color-surface-subtle));
+}
+.auth-field-valid {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--color-success, var(--color-success));
+  animation: auth-pop 0.2s ease-out;
+}
+@keyframes auth-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.auth-field-hint {
+  padding-inline: 4px;
+  color: var(--color-text-secondary, var(--color-text-secondary));
+  font-size: 13px;
+  line-height: 18px;
+}
+.auth-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.auth-rule svg {
+  padding: 2px;
+  border-radius: 999px;
+  color: var(--color-text-secondary, var(--color-text-secondary));
+  background: var(--color-surface-subtle, var(--color-surface-subtle));
+  box-sizing: content-box;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+.auth-rule-met {
+  color: var(--color-success-text, var(--color-success-text));
+}
+.auth-rule-met svg {
+  color: #fff;
+  background: var(--color-success, var(--color-success));
+}
+
+.auth-screen-error {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: var(--radius-md, 12px);
+  color: var(--color-error-text, var(--color-error-text));
+  background: var(--color-error-surface, var(--color-error-surface));
+  font-size: 14px;
+  line-height: 20px;
+}
+.auth-screen-error svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* Pushed to the bottom of the screen when the form is short (sign-in),
+   flowing straight after the fields when it is long (sign-up). */
+.auth-screen-actions {
+  display: grid;
+  gap: 4px;
+  margin-top: auto;
+  padding: 24px 0 max(16px, env(safe-area-inset-bottom));
+}
+.auth-screen-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--color-text-inverse, #fff);
+  background: var(--color-brand-orange-action, var(--color-brand-orange-action));
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease;
+}
+.auth-screen-submit:hover {
+  background: var(--color-brand-orange-action-hover, var(--color-brand-orange-action-hover));
+}
+.auth-screen-submit:active {
+  transform: scale(0.985);
+}
+.auth-screen-submit:disabled {
+  cursor: progress;
+  opacity: 0.8;
+}
+.auth-screen-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgb(255 255 255 / 40%);
+  border-top-color: #fff;
+  border-radius: 999px;
+  animation: auth-spin 0.7s linear infinite;
+}
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.auth-screen-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  margin: 4px 0 0;
+  color: var(--color-text-secondary-subtle, var(--color-text-secondary-subtle));
+  font-size: 14px;
+}
+.auth-screen-switch a,
+.auth-screen-switch button {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min, 48px);
+  padding: 0 6px;
+  border: 0;
+  color: var(--color-brand-orange-action, var(--color-brand-orange-action));
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.auth-screen-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--color-text-secondary, var(--color-text-secondary));
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+}
+.auth-screen-note svg {
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-field-valid,
+  .auth-screen-spinner {
+    animation: none;
+  }
+}

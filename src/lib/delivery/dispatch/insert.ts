@@ -5,6 +5,32 @@ import type { Instance, Matrix, RouteEval, Stop, Truck } from "./types.ts";
 export type Insertion = { seq: Stop[]; eval: RouteEval; delta: number };
 
 /**
+ * Memo of exact insertion results. An insertion depends only on the truck,
+ * the order and the truck's current stop sequence, and ALNS leaves most trucks
+ * untouched between iterations, so the same question recurs constantly.
+ * `null` (no feasible slot) is cached too. Shared by reference across the
+ * clones of a search state.
+ */
+export type InsertionCache = {
+  entries: Map<string, { seq: Stop[]; eval: RouteEval } | null>;
+  hits: number;
+  misses: number;
+  /** Full route evaluations spent inside insertion search. */
+  evaluations: number;
+};
+
+const CACHE_LIMIT = 150_000;
+
+export function createInsertionCache(): InsertionCache {
+  return { entries: new Map(), hits: 0, misses: 0, evaluations: 0 };
+}
+
+const routeKey = (seq: readonly Stop[]) =>
+  seq.map((stop) => (stop.r << 1) | (stop.kind === "D" ? 1 : 0)).join(",");
+
+export type InsertOptions = EvalOptions & { cache?: InsertionCache };
+
+/**
  * Cheapest feasible way to add request `r` to `seq`, judged by the exact
  * forward pass. Door orders try every (pickup, delivery) position pair with
  * the pickup first; depot orders try every delivery position.
@@ -16,14 +42,66 @@ export function bestInsertion(
   seq: readonly Stop[],
   currentScore: number,
   r: number,
-  options: EvalOptions = {},
+  { cache, ...options }: InsertOptions = {},
+): Insertion | null {
+  const request = inst.requests[r];
+  // Exact feasibility filter: a truck that cannot carry the order alone can
+  // never take it, so skip the whole slot search.
+  if (!options.ignoreCapacity) {
+    const util = inst.params.utilisation;
+    if (
+      request.weightKg > truck.capKg * util + EPS ||
+      request.volumeM3 > truck.capM3 * util + EPS
+    )
+      return null;
+  }
+  const useCache = cache != null && !options.detail && !options.ignoreCapacity;
+  const key = useCache ? `${truck.id}|${r}|${routeKey(seq)}` : "";
+  if (useCache) {
+    const hit = cache.entries.get(key);
+    if (hit !== undefined) {
+      cache.hits++;
+      return hit
+        ? { seq: hit.seq, eval: hit.eval, delta: hit.eval.score - currentScore }
+        : null;
+    }
+    cache.misses++;
+  }
+  const found = searchInsertion(
+    inst,
+    matrix,
+    truck,
+    seq,
+    currentScore,
+    r,
+    options,
+    cache,
+  );
+  if (useCache) {
+    if (cache.entries.size >= CACHE_LIMIT) cache.entries.clear();
+    cache.entries.set(key, found ? { seq: found.seq, eval: found.eval } : null);
+  }
+  return found;
+}
+
+function searchInsertion(
+  inst: Instance,
+  matrix: Matrix,
+  truck: Truck,
+  seq: readonly Stop[],
+  currentScore: number,
+  r: number,
+  options: EvalOptions,
+  cache: InsertionCache | undefined,
 ): Insertion | null {
   const request = inst.requests[r];
   let best: Insertion | null = null;
   const consider = (candidate: Stop[]) => {
+    if (cache) cache.evaluations++;
     const result = evaluateRoute(inst, matrix, truck, candidate, {
       ...options,
       bail: true,
+      trustedOrder: true,
     });
     if (!result.feasible) return;
     const delta = result.score - currentScore;

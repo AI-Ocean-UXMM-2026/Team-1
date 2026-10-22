@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isLocalOrderId, isUuid } from "@/lib/delivery/ids";
 import type {
   DeliveryStatus,
   RiderRequest,
@@ -6,7 +7,6 @@ import type {
   RoadReport,
 } from "@/lib/delivery/types";
 import type { Database } from "@/lib/supabase/database.types";
-import { isLocalOrderId, isUuid } from "@/lib/delivery/ids";
 
 export type DeliveryActionClient = SupabaseClient<Database>;
 
@@ -66,7 +66,9 @@ export async function sendDriverLocation(
     accuracy_meters: accuracy,
     // Speed and heading feed the shared road-speed picture used for routing
     speed_mps:
-      motion?.speedMps != null ? Math.min(70, Math.round(motion.speedMps * 100) / 100) : null,
+      motion?.speedMps != null
+        ? Math.min(70, Math.round(motion.speedMps * 100) / 100)
+        : null,
     heading_degrees:
       motion?.headingDegrees != null
         ? Math.round((((motion.headingDegrees % 360) + 360) % 360) * 100) / 100
@@ -226,7 +228,9 @@ export async function assignDelivery(
   },
 ) {
   if (isLocalOrderId(input.orderId))
-    throw new Error("This sample parcel is not saved, so it cannot be assigned.");
+    throw new Error(
+      "This sample parcel is not saved, so it cannot be assigned.",
+    );
   const { data, error } = await supabase.rpc("assign_delivery", {
     target_order_id: input.orderId,
     target_driver_id: input.driverId,

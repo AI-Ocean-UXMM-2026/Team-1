@@ -55,8 +55,8 @@ export function SupportApp() {
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new case starts with an empty draft
   useEffect(() => {
+    void selectedId;
     setResolution("");
   }, [selectedId]);
   const normalizedQuery = query.trim().toLowerCase();

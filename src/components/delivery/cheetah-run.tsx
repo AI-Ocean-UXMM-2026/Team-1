@@ -2,12 +2,21 @@ import Image from "next/image";
 
 /**
  * The brand cheetah mid-gallop. The character is cut into layers (see
- * public/mascot/run) so the head, tail and legs swing on their own joints;
+ * public/mascot/run) so the head, tail and legs swing on their own joints (the
+ * harness strap sits over the near front leg so it swings under it);
  * every layer shares the same square canvas, so they line up exactly when
  * stacked. Back-to-front paint order. Purely decorative — callers always
  * carry their own text — and it stands still for reduced-motion users.
  */
-const RIG_PARTS = ["tail", "leg-back", "leg-front", "body", "head"] as const;
+const RIG_PARTS = [
+  "tail",
+  "leg-back",
+  "leg-front",
+  "body",
+  "leg-front-near",
+  "harness",
+  "head",
+] as const;
 
 /** Stage grid the CSS is drawn on; the rig itself is 88 units square. */
 const STAGE_WIDTH = 132;

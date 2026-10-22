@@ -82,7 +82,7 @@ test("customer sign-in page", async ({ page }) => {
   await page.clock.setFixedTime(NOW);
   await page.goto("/signin?next=%2Fpickup%2Freview");
   await expect(
-    page.getByRole("heading", { name: "Your parcel, in view." }),
+    page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
   await shoot(page, "customer-signin", false);
 });

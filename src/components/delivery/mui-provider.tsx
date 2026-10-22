@@ -43,7 +43,7 @@ const themeOptions = {
         root: {
           "& .MuiTouchRipple-ripplePulsate": { display: "none" },
           "&.Mui-focusVisible": {
-            outline: "3px solid #f3a38d",
+            outline: "3px solid #fdba74",
             outlineOffset: "2px",
           },
         },
@@ -81,14 +81,14 @@ const themeOptions = {
         root: {
           minHeight: 52,
           borderRadius: 12,
-          background: "var(--mui-palette-background-paper, #ffffff)",
+          background: "var(--color-surface, #ffffff)",
           fontSize: 16,
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-            borderColor: "#2563eb",
+            borderColor: "var(--color-info, #2563eb)",
             borderWidth: 2,
           },
           "&.Mui-error .MuiOutlinedInput-notchedOutline": {
-            borderColor: "#dc2626",
+            borderColor: "var(--color-error, #dc2626)",
             borderWidth: 2,
           },
         },
@@ -102,29 +102,22 @@ const themeOptions = {
             paddingBottom: 0,
           },
         },
-        notchedOutline: { borderColor: "#64748b" },
+        notchedOutline: { borderColor: "var(--color-border-control, #64748b)" },
       },
     },
   },
 };
 
-const theme = createTheme({ ...themeOptions, palette: lightPalette });
-
-// The rider flow intentionally stays light for consistent route and COD
-// readability in every operating environment.
-const riderTheme = createTheme({
-  ...themeOptions,
-  palette: lightPalette,
-});
+const appTheme = createTheme({ ...themeOptions, palette: lightPalette });
 
 export function RiderThemeProvider({ children }: { children: ReactNode }) {
-  return <ThemeProvider theme={riderTheme}>{children}</ThemeProvider>;
+  return <ThemeProvider theme={appTheme}>{children}</ThemeProvider>;
 }
 
 export function MuiProvider({ children }: { children: ReactNode }) {
   return (
     <AppRouterCacheProvider>
-      <ThemeProvider theme={theme}>{children}</ThemeProvider>
+      <ThemeProvider theme={appTheme}>{children}</ThemeProvider>
     </AppRouterCacheProvider>
   );
 }

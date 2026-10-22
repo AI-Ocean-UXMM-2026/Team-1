@@ -4,7 +4,13 @@ import { improve } from "./improve.ts";
 import { hashString } from "./rng.ts";
 import { evaluateRoute } from "./route-eval.ts";
 import { ruinAndRecreate } from "./ruin.ts";
-import type { Instance, Matrix, Plan, PlanRoute } from "./types.ts";
+import type {
+  Instance,
+  Matrix,
+  Plan,
+  PlanRoute,
+  SolverMetrics,
+} from "./types.ts";
 
 export type SolveDeps = { nowMs: () => number };
 
@@ -24,11 +30,16 @@ export function solve(
   const startedAt = deps.nowMs();
   const state = construct(inst, matrix);
   let result = improve(inst, matrix, state, deps.nowMs, { startedAt });
+  let ruinIterations = 0;
+  let ruinStopReason: SolverMetrics["ruinStopReason"] = "skipped";
   if (result.stopReason !== "deadline" && p.ruinIterations > 0) {
     const ruin = ruinAndRecreate(inst, matrix, state, deps.nowMs, {
       iterations: p.ruinIterations,
       startedAt,
+      patience: p.ruinPatience,
     });
+    ruinIterations = ruin.iterations;
+    ruinStopReason = ruin.stopReason;
     const left = p.maxIterations - result.iterations;
     if (ruin.stopReason === "deadline")
       result = { ...result, stopReason: "deadline" };
@@ -63,7 +74,23 @@ export function solve(
   }));
   // Recompute with detail so the plan carries per-stop timings.
   // (Search runs without detail; this is one extra pass per used route.)
-  return finish(inst, matrix, routes, unassigned, totalScore(state), result);
+  const plan = finish(
+    inst,
+    matrix,
+    routes,
+    unassigned,
+    totalScore(state),
+    result,
+  );
+  plan.metrics = {
+    elapsedMs: deps.nowMs() - startedAt,
+    routeEvaluations: state.cache?.evaluations ?? 0,
+    cacheHits: state.cache?.hits ?? 0,
+    cacheMisses: state.cache?.misses ?? 0,
+    ruinIterations,
+    ruinStopReason,
+  };
+  return plan;
 }
 
 function finish(

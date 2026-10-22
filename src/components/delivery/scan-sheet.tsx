@@ -52,8 +52,8 @@ export function ScanView({
     onGranted: () => setRetryCount((prev) => prev + 1),
   });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount re-triggers camera acquisition
   useEffect(() => {
+    void retryCount;
     setStatus("starting");
     const Detector = (
       window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }

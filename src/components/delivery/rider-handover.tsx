@@ -87,118 +87,120 @@ export function HandoverPanel({
   return (
     <div className="dv-handover">
       {hasCash && (
-        <p className="dv-progress" role="status">
+        <output className="dv-progress">
           <strong>Page {page} of 2</strong>{" "}
           {page === 1 ? "Delivery information" : "Cash to collect"}
-        </p>
+        </output>
       )}
 
       {page === 1 && (
         <div className="dv-collect-page">
           <div className="dv-info-body">
-          <fieldset className="dv-step">
-            <legend>
-              <StepBadge n={1} done={parcelDone} />
-              {stop.open.length > 1
-                ? `Verify ${stop.open.length} parcels`
-                : "Verify the parcel"}
-            </legend>
-            {stop.open.map((order) => (
-              <label
-                key={order.id}
-                className={`dv-check ${verifiedIds.has(order.id) ? "is-checked" : ""}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={verifiedIds.has(order.id)}
-                  onChange={() => toggle(order.id)}
-                />
-                <span className="dv-check-box" aria-hidden="true">
-                  <Icon name="check" size={16} strokeWidth={2.6} />
-                </span>
-                <ParcelLine order={order} showCod={false} />
-              </label>
-            ))}
-            {stop.notLoaded.length > 0 && (
-              <p className="rf-muted">
-                {stop.notLoaded.length} more{" "}
-                {stop.notLoaded.length === 1 ? "parcel" : "parcels"} for this
-                recipient {stop.notLoaded.length === 1 ? "isn’t" : "aren’t"} on
-                your truck. Deliver what you have; operations follows up on the
-                rest.
-              </p>
-            )}
-          </fieldset>
+            <fieldset className="dv-step">
+              <legend>
+                <StepBadge n={1} done={parcelDone} />
+                {stop.open.length > 1
+                  ? `Verify ${stop.open.length} parcels`
+                  : "Verify the parcel"}
+              </legend>
+              {stop.open.map((order) => (
+                <label
+                  key={order.id}
+                  className={`dv-check ${verifiedIds.has(order.id) ? "is-checked" : ""}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={verifiedIds.has(order.id)}
+                    onChange={() => toggle(order.id)}
+                  />
+                  <span className="dv-check-box" aria-hidden="true">
+                    <Icon name="check" size={16} strokeWidth={2.6} />
+                  </span>
+                  <ParcelLine order={order} showCod={false} />
+                </label>
+              ))}
+              {stop.notLoaded.length > 0 && (
+                <p className="rf-muted">
+                  {stop.notLoaded.length} more{" "}
+                  {stop.notLoaded.length === 1 ? "parcel" : "parcels"} for this
+                  recipient {stop.notLoaded.length === 1 ? "isn’t" : "aren’t"}{" "}
+                  on your truck. Deliver what you have; operations follows up on
+                  the rest.
+                </p>
+              )}
+            </fieldset>
 
-          <fieldset className="dv-step">
-            <legend>
-              <StepBadge n={2} done={receiverDone} />
-              Who received it?
-            </legend>
-            <div className="dv-seg">
-              <label
-                className={
-                  !someoneElse && draft.receivedBy === stop.recipient
-                    ? "is-on"
-                    : undefined
-                }
-              >
-                <input
-                  type="radio"
-                  name="receiver"
-                  checked={!someoneElse && draft.receivedBy === stop.recipient}
-                  onChange={() => {
-                    setSomeoneElse(false);
-                    onChange({ receivedBy: stop.recipient });
-                  }}
-                />
-                <span>{stop.recipient}</span>
-              </label>
-              <label className={someoneElse ? "is-on" : undefined}>
-                <input
-                  type="radio"
-                  name="receiver"
-                  checked={someoneElse}
-                  onChange={() => {
-                    setSomeoneElse(true);
-                    if (draft.receivedBy === stop.recipient)
-                      onChange({ receivedBy: "" });
-                  }}
-                />
-                <span>Someone else</span>
-              </label>
-            </div>
-            {someoneElse && (
-              <label className="rf-field">
-                <span className="rf-sr-only">Actual receiver</span>
-                <input
-                  value={draft.receivedBy}
-                  autoComplete="off"
-                  aria-label="Actual receiver"
-                  placeholder="Name of the person taking the parcels"
-                  onChange={(event) =>
-                    onChange({ receivedBy: event.target.value })
+            <fieldset className="dv-step">
+              <legend>
+                <StepBadge n={2} done={receiverDone} />
+                Who received it?
+              </legend>
+              <div className="dv-seg">
+                <label
+                  className={
+                    !someoneElse && draft.receivedBy === stop.recipient
+                      ? "is-on"
+                      : undefined
                   }
-                />
-              </label>
-            )}
-          </fieldset>
+                >
+                  <input
+                    type="radio"
+                    name="receiver"
+                    checked={
+                      !someoneElse && draft.receivedBy === stop.recipient
+                    }
+                    onChange={() => {
+                      setSomeoneElse(false);
+                      onChange({ receivedBy: stop.recipient });
+                    }}
+                  />
+                  <span>{stop.recipient}</span>
+                </label>
+                <label className={someoneElse ? "is-on" : undefined}>
+                  <input
+                    type="radio"
+                    name="receiver"
+                    checked={someoneElse}
+                    onChange={() => {
+                      setSomeoneElse(true);
+                      if (draft.receivedBy === stop.recipient)
+                        onChange({ receivedBy: "" });
+                    }}
+                  />
+                  <span>Someone else</span>
+                </label>
+              </div>
+              {someoneElse && (
+                <label className="rf-field">
+                  <span className="rf-sr-only">Actual receiver</span>
+                  <input
+                    value={draft.receivedBy}
+                    autoComplete="off"
+                    aria-label="Actual receiver"
+                    placeholder="Name of the person taking the parcels"
+                    onChange={(event) =>
+                      onChange({ receivedBy: event.target.value })
+                    }
+                  />
+                </label>
+              )}
+            </fieldset>
 
-          {!hasCash && (
-            <details className="dv-note">
-              <summary>
-                <Icon name="message" size={16} /> Add a note
-              </summary>
-              <textarea
-                aria-label="Delivery note"
-                value={draft.note}
-                maxLength={500}
-                placeholder="For example: authorized building security"
-                onChange={(event) => onChange({ note: event.target.value })}
-              />
-            </details>
-          )}
-          {error}
+            {!hasCash && (
+              <details className="dv-note">
+                <summary>
+                  <Icon name="message" size={16} /> Add a note
+                </summary>
+                <textarea
+                  aria-label="Delivery note"
+                  value={draft.note}
+                  maxLength={500}
+                  placeholder="For example: authorized building security"
+                  onChange={(event) => onChange({ note: event.target.value })}
+                />
+              </details>
+            )}
+            {error}
           </div>
 
           <div className="dv-collect-foot">
@@ -217,7 +219,9 @@ export function HandoverPanel({
                 endIcon={<Icon name="arrow-right" size={18} />}
                 sx={{ minHeight: 52, borderRadius: 999 }}
               >
-                {infoDone ? "Next · cash to collect" : "Check the parcels and receiver"}
+                {infoDone
+                  ? "Next · cash to collect"
+                  : "Check the parcels and receiver"}
               </Button>
             ) : (
               <>
@@ -258,7 +262,7 @@ export function HandoverPanel({
         <div className="dv-collect-page">
           <div className="dv-collect-body">
             <p className="dv-collect-label">Total to collect</p>
-            <p className="dv-collect-figure" aria-label={`MMK ${stop.codDue}`}>
+            <p className="dv-collect-figure">
               <span>MMK</span> {stop.codDue.toLocaleString()}
             </p>
             <p className="dv-collect-from">From {stop.recipient}</p>

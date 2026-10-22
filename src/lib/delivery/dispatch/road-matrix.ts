@@ -11,11 +11,40 @@ import type { DispatchParams, Matrix, Point } from "./types.ts";
  * measured on the pairs that were fetched, and the plan is labelled accordingly.
  */
 
+/**
+ * Directional road legs already fetched from Mapbox, kept so a re-plan only
+ * pays for pairs it has not seen. Keys round to ~1 m, so jittering GPS fixes
+ * still hit. Values are raw Mapbox seconds and metres, before any scaling.
+ */
+export type RoadPairCache = {
+  entries: Map<string, { seconds: number; meters: number; at: number }>;
+  ttlMs: number;
+  maxPairs: number;
+  now: () => number;
+};
+
+export function createRoadPairCache(
+  over: Partial<RoadPairCache> = {},
+): RoadPairCache {
+  return {
+    entries: new Map(),
+    ttlMs: 6 * 60 * 60 * 1000,
+    maxPairs: 50_000,
+    now: () => Date.now(),
+    ...over,
+  };
+}
+
+const pairKey = (a: Point, b: Point) =>
+  `${a.lat.toFixed(5)},${a.lng.toFixed(5)}>${b.lat.toFixed(5)},${b.lng.toFixed(5)}`;
+
 export type RoadMatrixDeps = {
   fetch: typeof fetch;
   token: string;
   baseUrl?: string;
   sleep?: (ms: number) => Promise<void>;
+  /** Reuse and fill previously fetched legs; omit to always fetch. */
+  cache?: RoadPairCache;
 };
 
 export type RoadMatrixStats = {
@@ -24,6 +53,10 @@ export type RoadMatrixStats = {
   tilesPlanned: number;
   tilesFetched: number;
   elementsBilled: number;
+  /** Pairs served from the pair cache instead of the Matrix API. */
+  cachedPairs: number;
+  /** Planned tiles skipped because every pair in them was cached. */
+  tilesSkipped: number;
   realPairs: number;
   totalPairs: number;
   coverage: number;
@@ -206,6 +239,8 @@ export async function buildRoadMatrix(
     tilesPlanned: 0,
     tilesFetched: 0,
     elementsBilled: 0,
+    cachedPairs: 0,
+    tilesSkipped: 0,
     realPairs: 0,
     totalPairs,
     coverage: 0,
@@ -222,11 +257,40 @@ export async function buildRoadMatrix(
   let failed = 0;
   let fetched = 0;
   let elements = 0;
+  let cachedPairs = 0;
+  let skipped = 0;
+
+  const cache = deps.cache;
+  if (cache) {
+    const nowMs = cache.now();
+    for (let i = 0; i < n; i++)
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        const key = pairKey(points[i], points[j]);
+        const hit = cache.entries.get(key);
+        if (!hit) continue;
+        if (nowMs - hit.at > cache.ttlMs) {
+          cache.entries.delete(key);
+          continue;
+        }
+        realTime[i * n + j] = hit.seconds * scale;
+        realKm[i * n + j] = hit.meters / 1000;
+        cachedPairs++;
+      }
+  }
+  const covered = (tile: Tile) =>
+    tile.nodes.every((i) =>
+      tile.nodes.every((j) => i === j || !Number.isNaN(realTime[i * n + j])),
+    );
 
   let next = 0;
   const worker = async () => {
     while (next < tiles.length) {
       const tile = tiles[next++];
+      if (cache && covered(tile)) {
+        skipped++;
+        continue;
+      }
       const body = await fetchTile(tile, points, deps);
       if (!body?.durations || !body.distances) {
         failed++;
@@ -249,6 +313,14 @@ export async function buildRoadMatrix(
             continue;
           realTime[i * n + j] = d * scale;
           realKm[i * n + j] = m / 1000;
+          if (cache) {
+            if (cache.entries.size >= cache.maxPairs) cache.entries.clear();
+            cache.entries.set(pairKey(points[i], points[j]), {
+              seconds: d,
+              meters: m,
+              at: cache.now(),
+            });
+          }
         }
     }
   };
@@ -276,9 +348,10 @@ export async function buildRoadMatrix(
       matrix: base,
       stats: {
         ...empty,
-        requests: tiles.length,
+        requests: tiles.length - skipped,
         failedRequests: failed,
         tilesPlanned: tiles.length,
+        tilesSkipped: skipped,
       },
     };
 
@@ -313,11 +386,13 @@ export async function buildRoadMatrix(
       source: realPairs === totalPairs ? "road_matrix" : "road_calibrated",
     },
     stats: {
-      requests: tiles.length,
+      requests: tiles.length - skipped,
       failedRequests: failed,
       tilesPlanned: tiles.length,
       tilesFetched: fetched,
       elementsBilled: elements,
+      cachedPairs,
+      tilesSkipped: skipped,
       realPairs,
       totalPairs,
       coverage,

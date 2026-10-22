@@ -35,9 +35,9 @@ import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
 import {
   availableWindows,
   describeParcel,
+  foodPresets,
   type PickupDraft,
   type PickupErrors,
-  foodPresets,
   parcelKinds,
   parcelSizes,
   parseCod,

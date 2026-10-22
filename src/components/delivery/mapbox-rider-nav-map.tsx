@@ -1,7 +1,7 @@
 "use client";
 
 import type { Marker as MapboxMarker } from "mapbox-gl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import {
@@ -10,7 +10,6 @@ import {
   lngLat,
   type MapboxGl,
   mapPalette,
-  prefersDark,
   svgMarker,
   useMapboxMap,
 } from "@/components/delivery/mapbox-kit";
@@ -116,13 +115,16 @@ export function MapboxRiderNavMap({
   const gl: MapboxGl | null = mapState?.gl ?? null;
   const following = follow && driver != null;
 
-  const focus: MapPoint[] = [];
-  if (driver) focus.push(driver);
-  if (routeThroughStops)
-    for (const stop of stops) if (stop.state !== "done") focus.push(stop.point);
-  if (target) focus.push(target);
-  if (!focus.length) for (const stop of stops) focus.push(stop.point);
-  const focusKey = focus.map((point) => `${point.longitude},${point.latitude}`);
+  const focus = useMemo<MapPoint[]>(() => {
+    const points: MapPoint[] = [];
+    if (driver) points.push(driver);
+    if (routeThroughStops)
+      for (const stop of stops)
+        if (stop.state !== "done") points.push(stop.point);
+    if (target) points.push(target);
+    if (!points.length) for (const stop of stops) points.push(stop.point);
+    return points;
+  }, [driver, routeThroughStops, stops, target]);
 
   const straightPath: MapPoint[] = [];
   if (driver) straightPath.push(driver);
@@ -201,9 +203,8 @@ export function MapboxRiderNavMap({
   }, [following, moved, driver]);
 
   // Overview: north-up, flat, everything in view.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: focusKey tracks focus
   useEffect(() => {
-    if (!map || following || moved || !focusKey.length) return;
+    if (!map || following || moved || !focus.length) return;
     followedOnce.current = false;
     map.easeTo({ bearing: 0, pitch: 0, duration: 0 });
     fitToPoints(
@@ -212,15 +213,7 @@ export function MapboxRiderNavMap({
       { x: padding.x, top: padding.top, bottom: padding.bottom },
       MAX_ZOOM,
     );
-  }, [
-    map,
-    following,
-    moved,
-    focusKey.join("|"),
-    padding.x,
-    padding.top,
-    padding.bottom,
-  ]);
+  }, [map, following, moved, focus, padding.x, padding.top, padding.bottom]);
 
   // Navigation: keep the rider in the open band between the cards, turn the
   // map to their heading, and tilt it so the road ahead fills the screen.
@@ -343,7 +336,7 @@ export function MapboxRiderNavMap({
 
   useEffect(() => {
     if (!map) return;
-    const palette = mapPalette(prefersDark());
+    const palette = mapPalette();
     // Later legs first, so the current leg draws on top of them.
     drawLines(
       map,

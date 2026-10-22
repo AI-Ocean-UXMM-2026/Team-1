@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildFoodParcelDescription,
   getFoodItemById,
   getFoodVendorsByCategory,
   getFoodVendorsByTownship,
@@ -9,7 +10,6 @@ import {
   YANGON_FOOD_CATEGORIES,
   YANGON_FOOD_ITEMS,
   YANGON_FOOD_VENDORS,
-  buildFoodParcelDescription,
 } from "../src/lib/delivery/data/yangon-food-vendors.ts";
 import { parseParcelDescription } from "../src/lib/delivery/dispatch/parcel-description.ts";
 import { foodPresets } from "../src/lib/delivery/pickup-draft.ts";

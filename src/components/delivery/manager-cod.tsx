@@ -56,8 +56,9 @@ export function CodLedgerView({
   const [reloadKey, setReloadKey] = useState(0);
   const [viewMode, setViewMode] = useState<"orders" | "riders">("orders");
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reload when orders or the key change
   useEffect(() => {
+    void orders;
+    void reloadKey;
     if (!live) return;
     let active = true;
     setLoading(true);

@@ -4,10 +4,10 @@ import {
   GOOGLE_PLACES_FUEL_STATIONS,
 } from "./data/yangon-google-fuel-stations.ts";
 import {
-  type InterceptionPoint,
-  YANGON_USER_INTERCEPTION_POINTS,
-  YANGON_SIDE_STREET_BYPASSES,
   ALL_YANGON_INTERCEPTION_POINTS,
+  type InterceptionPoint,
+  YANGON_SIDE_STREET_BYPASSES,
+  YANGON_USER_INTERCEPTION_POINTS,
 } from "./data/yangon-interception-points.ts";
 
 export {

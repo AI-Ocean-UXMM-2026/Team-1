@@ -1,14 +1,21 @@
 "use client";
 
-import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
-import { Icon } from "@/components/delivery/icons";
+import {
+  AuthActions,
+  AuthError,
+  AuthField,
+  AuthNote,
+  AuthScreen,
+  AuthSubmit,
+  AuthSwitch,
+} from "@/components/delivery/auth-screen";
 import { safeReturnTo, signInHref } from "@/lib/delivery/return-to";
 import { createClient } from "@/lib/supabase/client";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function formatAuthError(error: unknown): string {
   if (error instanceof Error) {
@@ -56,7 +63,7 @@ const PORTAL_COPY = [
 
 const CUSTOMER_COPY = {
   eyebrow: "Sign in to Oern",
-  title: "Your parcel, in view.",
+  title: "Welcome back",
   body: "Sign in to see your orders and the rider’s location after pickup.",
 } as const;
 
@@ -89,85 +96,60 @@ export function SigninForm() {
     }
   }
 
+  const back = isTeam
+    ? { href: "/welcome", label: "Back to Oern" }
+    : nextParam
+      ? { href: safeReturnTo(nextParam, "/welcome"), label: "Back" }
+      : { href: "/welcome", label: "Back to welcome" };
+
   return (
-    <main className="auth-page auth-signin-page">
-      <section className="auth-dialog auth-page-card auth-signin-card">
-        {isTeam ? (
-          <Link className="auth-page-back" href="/welcome">
-            <Icon name="arrow-left" size={16} /> Back to Oern
-          </Link>
-        ) : (
-          <Link
-            className="auth-page-back"
-            href={nextParam ? safeReturnTo(nextParam, "/welcome") : "/signup"}
-          >
-            <Icon name="arrow-left" size={16} />{" "}
-            {nextParam ? "Back" : "Back to sign up"}
-          </Link>
-        )}
-        <span className="eyebrow">{copy.eyebrow}</span>
-        <h1>{copy.title}</h1>
-        <p>{copy.body}</p>
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="field-label">
-            Email address
-            <TextField
-              className="auth-mui-field"
-              fullWidth
-              variant="outlined"
-              aria-label="Email address"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-          <div className="field-label">
-            Password
-            <TextField
-              className="auth-mui-field"
-              fullWidth
-              variant="outlined"
-              aria-label="Password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </div>
-          {error && (
-            <div className="form-message form-error" role="alert">
-              {error}
-            </div>
-          )}
-          <Button
-            className="auth-submit auth-mui-submit"
-            variant="contained"
-            color="primary"
-            endIcon={!busy ? <Icon name="arrow-right" size={17} /> : undefined}
-            type="submit"
-            disabled={busy}
-          >
-            {busy ? "Please wait…" : "Sign in to your account"}
-          </Button>
-        </form>
-        {!isTeam && (
-          <div className="auth-switch">
-            New to Oern?{" "}
-            <Link href={signInHref(nextParam ?? "", "signup")}>
-              Create an account
-            </Link>
-          </div>
-        )}
-        <div className="auth-note">
-          <Icon name="shield" size={15} />{" "}
-          {isTeam
-            ? "Team accounts are set up by Oern operations."
-            : "Your orders stay private to your signed-in account."}
+    <AuthScreen
+      backHref={back.href}
+      backLabel={back.label}
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      body={copy.body}
+    >
+      <form className="auth-screen-form" onSubmit={handleSubmit}>
+        <div className="auth-screen-fields">
+          <AuthField
+            label="Email address"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            valid={EMAIL_PATTERN.test(email)}
+            required
+          />
+          <AuthField
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+          {error && <AuthError>{error}</AuthError>}
         </div>
-      </section>
-    </main>
+        <AuthActions>
+          <AuthSubmit busy={busy}>Sign in</AuthSubmit>
+          {!isTeam && (
+            <AuthSwitch
+              prompt="New to Oern?"
+              href={signInHref(nextParam ?? "", "signup")}
+              label="Create an account"
+            />
+          )}
+          <AuthNote>
+            {isTeam
+              ? "Team accounts are set up by Oern operations."
+              : "Your orders stay private to your signed-in account."}
+          </AuthNote>
+        </AuthActions>
+      </form>
+    </AuthScreen>
   );
 }

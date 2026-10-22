@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: var(--color-text-secondary, #475569);
+  color: var(--color-text-secondary, var(--color-text-secondary-subtle));
 }
 
 .oern-loader-art {
@@ -74,8 +74,12 @@
   animation: oern-run-leg-back var(--oern-run-stride) ease-in-out infinite;
 }
 .oern-run-part-leg-front {
-  transform-origin: 74% 64%;
+  transform-origin: 72% 65%;
   animation: oern-run-leg-front var(--oern-run-stride) ease-in-out infinite;
+}
+.oern-run-part-leg-front-near {
+  transform-origin: 49.6% 60.2%;
+  animation: oern-run-leg-front-near var(--oern-run-stride) ease-in-out infinite;
 }
 .oern-run-part-head {
   transform-origin: 66% 62%;
@@ -93,7 +97,7 @@
   width: calc(64 * var(--px));
   height: calc(7 * var(--px));
   border-radius: 50%;
-  background: var(--color-brand-navy, #172b4d);
+  background: var(--color-brand-navy, var(--color-text-primary));
   opacity: 0.16;
   filter: blur(calc(1.5 * var(--px)));
   animation: oern-run-shadow var(--oern-run-stride) linear infinite;
@@ -104,7 +108,7 @@
   left: calc(18 * var(--px));
   height: calc(3 * var(--px));
   border-radius: calc(999 * var(--px));
-  background: var(--color-brand-orange, #f97316);
+  background: var(--color-brand-orange, var(--color-brand-orange));
   opacity: 0;
   transform-origin: right center;
   animation: oern-run-streak calc(var(--oern-run-stride) * 1.5) ease-out
@@ -132,7 +136,7 @@
   width: calc(8 * var(--px));
   height: calc(8 * var(--px));
   border-radius: 50%;
-  background: var(--color-border, #e2e8f0);
+  background: var(--color-border, var(--color-border));
   opacity: 0;
   animation: oern-run-dust var(--oern-run-stride) ease-out infinite;
 }
@@ -234,13 +238,31 @@
     transform: rotate(2deg);
   }
   22% {
-    transform: rotate(14deg);
+    transform: rotate(12deg);
   }
   50% {
-    transform: rotate(-8deg);
+    transform: rotate(-6deg);
   }
   80% {
-    transform: rotate(-16deg);
+    transform: rotate(-12deg);
+  }
+}
+
+/* near front leg: plants on landing, sweeps back under the body, then
+ * reaches forward a beat after the far leg so the pair doesn't move as one */
+@keyframes oern-run-leg-front-near {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(7deg);
+  }
+  60% {
+    transform: rotate(-3deg);
+  }
+  86% {
+    transform: rotate(-7deg);
   }
 }
 

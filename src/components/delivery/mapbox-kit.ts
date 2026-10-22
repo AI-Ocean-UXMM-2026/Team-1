@@ -19,37 +19,18 @@ export async function loadMapbox() {
   return mapboxgl;
 }
 
-/**
- * Oern's custom map style is a single (light) style, so route and marker
- * colours stay on the light palette whatever the device theme.
- */
-export function prefersDark() {
-  return false;
-}
-
-/** Route colours from DESIGN.md §6.3 (map tokens), light and dark. */
-export function mapPalette(dark: boolean) {
-  return dark
-    ? {
-        route: "#60A5FA",
-        casing: "#0F172A",
-        driver: "#F8FAFC",
-        driverCasing: "#0F172A",
-        destination: "#FB923C",
-        origin: "#94A3B8",
-        completed: "#4ADE80",
-        alert: "#F87171",
-      }
-    : {
-        route: "#2563EB",
-        casing: "#FFFFFF",
-        driver: "#172B4D",
-        driverCasing: "#FFFFFF",
-        destination: "#C2410C",
-        origin: "#64748B",
-        completed: "#16A34A",
-        alert: "#DC2626",
-      };
+/** Route colours from DESIGN.md §6.3 (map tokens). */
+export function mapPalette() {
+  return {
+    route: "#2563EB",
+    casing: "#FFFFFF",
+    driver: "#172B4D",
+    driverCasing: "#FFFFFF",
+    destination: "#C2410C",
+    origin: "#64748B",
+    completed: "#16A34A",
+    alert: "#DC2626",
+  };
 }
 
 export function lngLat(point: MapPoint): Coordinate {

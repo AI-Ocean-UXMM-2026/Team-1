@@ -170,6 +170,7 @@ export function FloodWatch({
             {[...zones]
               .sort((a, b) => a.hazardClass - b.hazardClass)
               .map((zone) => (
+                // biome-ignore lint/a11y/noStaticElementInteractions: SVG polygon hover highlight
                 <polygon
                   key={zone.id}
                   className="flood-zone"
@@ -242,12 +243,12 @@ export function FloodWatch({
               {exposed.map(({ point, zone }) => (
                 <li
                   key={`${point.kind}-${point.id}`}
-                  data-class={zone!.hazardClass}
+                  data-class={zone?.hazardClass}
                 >
                   <Icon name="flood" size={16} />
                   <span>
                     <strong>{point.label}</strong>
-                    {zone!.name}
+                    {zone?.name}
                   </span>
                 </li>
               ))}

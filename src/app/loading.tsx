@@ -3,12 +3,7 @@ import Skeleton from "@mui/material/Skeleton";
 /** Neutral route placeholder: no brand or mascot, so signed-in screens stay clean. */
 export default function Loading() {
   return (
-    <div
-      className="customer-loading"
-      role="status"
-      aria-busy="true"
-      aria-label="Loading"
-    >
+    <output className="customer-loading" aria-busy="true" aria-label="Loading">
       <Skeleton variant="rounded" height={32} width="55%" />
       <Skeleton
         variant="rounded"
@@ -17,6 +12,6 @@ export default function Loading() {
       />
       <Skeleton variant="rounded" height={56} sx={{ mt: 2 }} />
       <Skeleton variant="rounded" height={56} sx={{ mt: 1 }} />
-    </div>
+    </output>
   );
 }

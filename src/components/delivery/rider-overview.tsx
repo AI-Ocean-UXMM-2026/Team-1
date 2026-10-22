@@ -264,7 +264,9 @@ function StartDock({
                     </span>
                     <span className="dv-parcel-copy">
                       <strong>{order.tracking_code}</strong>
-                      <small>{order.parcel_description ?? "No description"}</small>
+                      <small>
+                        {order.parcel_description ?? "No description"}
+                      </small>
                     </span>
                   </label>
                 ))}
@@ -504,39 +506,39 @@ export function RouteOverview({
         onStart={onStartWithLoad}
       />
     ) : state === "ASSIGNED" || state === "READY" || state === "PAUSED" ? (
-          <div className="rf-dock">
-            {state === "READY" ? (
-              <SwipeConfirm
-                label={`Start route · ${route.stops.length} stops`}
-                hint="Swipe to start route"
-                disabled={busy != null || !online}
-                onConfirm={onStart}
-              />
-            ) : (
-              <Button
-                fullWidth
-                variant="contained"
-                color="primary"
-                size="large"
-                disabled={busy != null || !online}
-                onClick={state === "ASSIGNED" ? onAcknowledge : onResume}
-                endIcon={
-                  busy == null && online ? (
-                    <Icon name="arrow-right" size={18} />
-                  ) : undefined
-                }
-                sx={{ minHeight: 52, borderRadius: 999 }}
-              >
-                {busy
-                  ? "Saving…"
-                  : !online
-                    ? "Waiting for connection"
-                    : state === "ASSIGNED"
-                      ? "Confirm route"
-                      : `Resume at stop ${route.current?.number ?? ""}`}
-              </Button>
-            )}
-          </div>
+      <div className="rf-dock">
+        {state === "READY" ? (
+          <SwipeConfirm
+            label={`Start route · ${route.stops.length} stops`}
+            hint="Swipe to start route"
+            disabled={busy != null || !online}
+            onConfirm={onStart}
+          />
+        ) : (
+          <Button
+            fullWidth
+            variant="contained"
+            color="primary"
+            size="large"
+            disabled={busy != null || !online}
+            onClick={state === "ASSIGNED" ? onAcknowledge : onResume}
+            endIcon={
+              busy == null && online ? (
+                <Icon name="arrow-right" size={18} />
+              ) : undefined
+            }
+            sx={{ minHeight: 52, borderRadius: 999 }}
+          >
+            {busy
+              ? "Saving…"
+              : !online
+                ? "Waiting for connection"
+                : state === "ASSIGNED"
+                  ? "Confirm route"
+                  : `Resume at stop ${route.current?.number ?? ""}`}
+          </Button>
+        )}
+      </div>
     ) : null;
 
   if (fullScreenMap) {

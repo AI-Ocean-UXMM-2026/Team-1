@@ -1,6 +1,4 @@
-import type { AttachedDecision } from "./road-intel/types.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
 import type {
   DeliveryLocation,
   DeliveryOrder,
@@ -17,6 +15,7 @@ import type {
   WorkspaceProfile,
 } from "@/lib/delivery/types";
 import type { Database, Tables } from "@/lib/supabase/database.types";
+import type { AttachedDecision } from "./road-intel/types.ts";
 
 type DeliveryOrderRow = Tables<"delivery_orders">;
 type AssignmentRow = Tables<"delivery_assignments">;

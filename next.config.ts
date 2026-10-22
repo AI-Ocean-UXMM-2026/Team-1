@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   // REACT_COMPILER=off lets e2e runs A/B-test compiler interference.
-  reactCompiler: process.env.REACT_COMPILER === "off" ? false : true,
+  reactCompiler: process.env.REACT_COMPILER !== "off",
   // e2e tests run a second dev server on port 3100 while `next dev` may
   // already be running; each server needs its own lockfile, which lives in
   // the dist dir.
@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
       {
         source: "/manager",
         destination: "/manager/home",
+        permanent: false,
+      },
+      {
+        source: "/manager/insights",
+        destination: "/manager/vehicles",
         permanent: false,
       },
       {

@@ -20,15 +20,16 @@ export function WelcomeScreen() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        px: 3,
-        pt: 8,
-        pb: 4,
+        justifyContent: "space-between",
+        px: { xs: 2.5, sm: 3 },
+        pt: { xs: 3, sm: 5, md: 8 },
+        pb: { xs: 3, sm: 4 },
         background:
-          "radial-gradient(120% 90% at 50% 0%, #fff7ed 0%, #f8fafc 60%)",
+          "radial-gradient(120% 90% at 50% 0%, var(--color-orange-surface) 0%, var(--color-background) 60%)",
       }}
     >
       <Stack
-        spacing={2.5}
+        spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
         sx={{
           flex: 1,
           alignItems: "center",
@@ -71,13 +72,25 @@ export function WelcomeScreen() {
             </circle>
           </svg>
         </Box>
-        <CheetahRun size={264} entrance />
+        <Box
+          sx={{
+            transform: {
+              xs: "scale(0.82)",
+              sm: "scale(0.92)",
+              md: "scale(1)",
+            },
+            transformOrigin: "center",
+            my: { xs: -1.5, sm: 0 },
+          }}
+        >
+          <CheetahRun size={264} entrance />
+        </Box>
         <Typography
           component="h1"
           className="welcome-rise"
           sx={{
             fontWeight: 800,
-            fontSize: 44,
+            fontSize: { xs: 36, sm: 40, md: 44 },
             lineHeight: 1,
             color: "secondary.main",
           }}
@@ -87,13 +100,17 @@ export function WelcomeScreen() {
         <Typography
           variant="body1"
           className="welcome-rise welcome-rise-late"
-          sx={{ color: "text.secondary", maxWidth: 300 }}
+          sx={{
+            color: "text.secondary",
+            maxWidth: { xs: 280, sm: 320 },
+            fontSize: { xs: "0.95rem", sm: "1rem" },
+          }}
         >
           Delivery, in full view. Follow your parcel from pickup to your door.
         </Typography>
       </Stack>
 
-      <Stack spacing={1.5} sx={{ width: "100%", maxWidth: 420 }}>
+      <Stack spacing={1.25} sx={{ width: "100%", maxWidth: 420 }}>
         <Button
           variant="contained"
           color="primary"

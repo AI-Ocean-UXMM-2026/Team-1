@@ -7,14 +7,14 @@ test("signed-out customers get a standalone sign-in page without app chrome (C-0
 }) => {
   await page.goto("/home?signin=1");
   await expect(
-    page.getByRole("heading", { name: "Your parcel, in view." }),
+    page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
   // The app chrome may stay mounted behind the page, but it must be hidden
   // from assistive tech and unreachable, not sit beside the form.
   await expect(page.getByRole("navigation")).toHaveCount(0);
   await expect(page.getByRole("banner")).toHaveCount(0);
 
-  const submit = page.getByRole("button", { name: "Sign in to your account" });
+  const submit = page.getByRole("button", { name: "Sign in", exact: true });
   await submit.scrollIntoViewIfNeeded();
   const box = await submit.boundingBox();
   if (!box) throw new Error("submit button has no box");

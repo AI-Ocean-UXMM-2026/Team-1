@@ -4,9 +4,20 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
-import { Icon } from "@/components/delivery/icons";
+import {
+  AuthActions,
+  AuthError,
+  AuthField,
+  AuthNote,
+  AuthRule,
+  AuthScreen,
+  AuthSubmit,
+  AuthSwitch,
+} from "@/components/delivery/auth-screen";
 import { safeReturnTo, signInHref } from "@/lib/delivery/return-to";
 import { createClient } from "@/lib/supabase/client";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function formatSignupError(error: unknown): string {
   if (error instanceof Error) {
@@ -31,14 +42,13 @@ export function SignupForm() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    setMessage(null);
     setError(null);
 
     try {
@@ -49,10 +59,7 @@ export function SignupForm() {
       });
       if (signUpError) throw signUpError;
       if (data.session) router.push(safeReturnTo(nextParam));
-      else
-        setMessage(
-          "Check your inbox to confirm your email, then sign in to follow your deliveries.",
-        );
+      else setAwaitingConfirmation(true);
     } catch (cause) {
       setError(formatSignupError(cause));
     } finally {
@@ -60,84 +67,111 @@ export function SignupForm() {
     }
   }
 
-  return (
-    <main className="auth-page auth-signup-page">
-      <section className="auth-dialog auth-page-card auth-signup-card">
-        <Link className="auth-page-back" href="/welcome">
-          <Icon name="arrow-left" size={16} /> Back to welcome
-        </Link>
-        <span className="eyebrow">New customer account</span>
-        <h1>Keep every delivery in view.</h1>
-        <p>
-          Create an account to see your orders and the rider’s location after
-          parcel pickup.
-        </p>
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="field-label">
-            Full name
-            <input
-              autoComplete="name"
-              value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
-              required
-            />
-          </label>
-          <label className="field-label">
-            Phone number
-            <input
-              autoComplete="tel"
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-            />
-          </label>
-          <label className="field-label">
-            Email address
-            <input
-              autoComplete="email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </label>
-          <label className="field-label">
-            Password
-            <input
-              autoComplete="new-password"
-              type="password"
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </label>
-          {error && (
-            <div className="form-message form-error" role="alert">
-              {error}
-            </div>
-          )}
-          {message && (
-            <output className="form-message form-success">{message}</output>
-          )}
-          <button
-            className="button button-primary auth-submit"
-            type="submit"
-            disabled={busy}
+  const passwordLongEnough = password.length >= 8;
+
+  if (awaitingConfirmation) {
+    return (
+      <AuthScreen
+        backHref="/welcome"
+        backLabel="Back to welcome"
+        eyebrow="Almost there"
+        title="Check your inbox"
+        body={
+          <>
+            We sent a confirmation link to <strong>{email}</strong>. Open it,
+            then sign in to follow your deliveries.
+          </>
+        }
+      >
+        <AuthActions>
+          <Link
+            className="auth-screen-submit"
+            href={signInHref(nextParam ?? "")}
           >
-            {busy ? "Please wait…" : "Create customer account"}
-            {!busy && <Icon name="arrow-right" size={17} />}
-          </button>
-        </form>
-        <div className="auth-switch">
-          Already have an account?
-          <Link href={signInHref(nextParam ?? "")}>Sign in</Link>
+            Go to sign in
+          </Link>
+          <p className="auth-screen-switch">
+            Wrong email?{" "}
+            <button
+              type="button"
+              onClick={() => setAwaitingConfirmation(false)}
+            >
+              Change it
+            </button>
+          </p>
+        </AuthActions>
+      </AuthScreen>
+    );
+  }
+
+  return (
+    <AuthScreen
+      backHref="/welcome"
+      backLabel="Back to welcome"
+      eyebrow="New customer account"
+      title="Create your account"
+      body="Follow every order from rider pickup to your door."
+    >
+      <form className="auth-screen-form" onSubmit={handleSubmit}>
+        <div className="auth-screen-fields">
+          <AuthField
+            label="Full name"
+            autoComplete="name"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            valid={fullName.trim().length > 1}
+            required
+          />
+          <AuthField
+            label="Phone number"
+            optional
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            hint="Riders call this number if they can’t find you."
+          />
+          <AuthField
+            label="Email address"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            valid={EMAIL_PATTERN.test(email)}
+            required
+          />
+          <AuthField
+            label="Password"
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            hint={
+              <AuthRule met={passwordLongEnough}>
+                At least 8 characters
+              </AuthRule>
+            }
+            required
+          />
+          {error && <AuthError>{error}</AuthError>}
         </div>
-        <div className="auth-note">
-          <Icon name="shield" size={15} /> Your orders stay private to your
-          signed-in account.
-        </div>
-      </section>
-    </main>
+        <AuthActions>
+          <AuthSubmit busy={busy}>Create account</AuthSubmit>
+          <AuthSwitch
+            prompt="Already have an account?"
+            href={signInHref(nextParam ?? "")}
+            label="Sign in"
+          />
+          <AuthNote>
+            Your orders stay private to your signed-in account.
+          </AuthNote>
+        </AuthActions>
+      </form>
+    </AuthScreen>
   );
 }

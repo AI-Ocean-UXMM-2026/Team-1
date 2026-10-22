@@ -91,14 +91,7 @@ function EnergyMeter({ vehicle }: { vehicle: VehicleOption }) {
       : null;
   return (
     <div className="vehicle-energy" data-tone={tone}>
-      <div
-        className="vehicle-energy-track"
-        role="meter"
-        aria-label={`${vehicle.energy_source === "electric" ? "Battery" : "Fuel"} level`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={level ?? undefined}
-      >
+      <div className="vehicle-energy-track">
         <span style={{ width: `${level ?? 0}%` }} />
         <i style={{ left: `${vehicle.reserve_percent}%` }} />
       </div>
@@ -206,7 +199,9 @@ export function ManagerVehiclesApp() {
     if (!selected) return;
     const form = new FormData(event.currentTarget);
     const source = String(form.get("energySource")) as
-      "fuel" | "electric" | "hybrid";
+      | "fuel"
+      | "electric"
+      | "hybrid";
     const level = Number(form.get("level"));
     await runAction(
       () =>
@@ -256,7 +251,12 @@ export function ManagerVehiclesApp() {
         orderId: String(form.get("orderId") || ""),
         vehicleId: String(form.get("vehicleId") || ""),
         category: String(form.get("category")) as
-          "fuel" | "charging" | "toll" | "maintenance" | "labor" | "other",
+          | "fuel"
+          | "charging"
+          | "toll"
+          | "maintenance"
+          | "labor"
+          | "other",
         amount: Number(form.get("amount")),
         notes: String(form.get("notes") || ""),
       });
@@ -265,7 +265,7 @@ export function ManagerVehiclesApp() {
   }
 
   if (workspace.isLoading) return <LoadingBlock title="Opening vehicles…" />;
-  const signedOut = !workspace.isAuthenticated && !workspace.isDemo;
+  const signedOut = !workspace.isAuthenticated;
   const vehicleOptions = vehicles.map((vehicle) => (
     <option value={vehicle.id} key={vehicle.id}>
       {vehicle.registration_number}

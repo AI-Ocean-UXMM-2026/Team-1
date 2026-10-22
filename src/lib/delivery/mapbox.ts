@@ -7,17 +7,18 @@ import {
 import type { TrafficSignal } from "./energy-routing.ts";
 import { haversineKilometers } from "./intelligence.ts";
 import {
-  distanceToPathKm,
-  signalDelayMin,
-  signalIndexFor,
-  signalsAlongPath,
-} from "./signal-index.ts";
-import {
   buildSpeedGrid,
   type SpeedGrid,
   telemetryDelayAlongPath,
 } from "./road-intel/speed-cells.ts";
 import type { SpeedCell } from "./road-intel/types.ts";
+import { priceRoadReport, scoreCost, ZERO_COST } from "./routing-cost.ts";
+import {
+  distanceToPathKm,
+  signalDelayMin,
+  signalIndexFor,
+  signalsAlongPath,
+} from "./signal-index.ts";
 import type { RoadReport } from "./types.ts";
 
 export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
@@ -247,46 +248,23 @@ export function evaluateRouteTraffic(
   const nowMs = options?.now ?? Date.now();
   const hazards: RouteHazard[] = [];
   for (const report of reports) {
-    if (report.status === "rejected") continue;
-    if (Date.parse(report.expires_at) <= nowMs) continue;
-    const decision =
-      report.decision && Date.parse(report.decision.expiresAt) > nowMs
-        ? report.decision
-        : null;
-    if (decision?.action === "ignore") continue;
-    const reach = decision ? decision.radiusMeters / 1000 : 0.055;
-    if (distanceToPathKm(coordinates, report) > reach) continue;
-    const serious = decision
-      ? decision.action === "avoid" ||
-        (decision.action === "delay" && decision.delayMinutes >= 5)
-      : report.category === "closure";
-    if (serious) {
+    const price = priceRoadReport(report, nowMs);
+    if (!price) continue;
+    if (distanceToPathKm(coordinates, report) > price.reachKm) continue;
+    if (price.serious) {
       hazards.push({
         id: report.id,
         latitude: report.latitude,
         longitude: report.longitude,
-        radiusMeters: Math.round(reach * 1000),
+        radiusMeters: Math.round(price.reachKm * 1000),
         label: `reported ${report.category}`,
       });
     }
-    if (decision) {
-      if (decision.action === "avoid" && decision.severity === "blocked") {
-        isBlocked = true;
-        reportDelayMin += 999;
-      } else if (decision.action === "avoid") {
-        // Heavy enough to prefer a detour, not a hard block
-        reportDelayMin += Math.max(8, decision.delayMinutes);
-      } else if (decision.action === "delay") {
-        reportDelayMin += decision.delayMinutes;
-      }
-    } else if (report.category === "closure") {
+    if (price.blocked) {
       isBlocked = true;
       reportDelayMin += 999;
-    } else if (report.category === "congestion") {
-      reportDelayMin +=
-        report.severity === "high" ? 4.5 : report.severity === "medium" ? 2.5 : 1.5;
     } else {
-      reportDelayMin += report.severity === "high" ? 3.5 : 2.0;
+      reportDelayMin += price.delayMin;
     }
   }
 
@@ -320,10 +298,12 @@ function rankCost(evaluation: {
   effectiveDurationMin: number;
   delays: { signalCount: number };
 }) {
-  return (
-    evaluation.effectiveDurationMin +
-    evaluation.delays.signalCount * SIGNAL_AVERSION_MIN
-  );
+  return scoreCost({
+    ...ZERO_COST,
+    durationSeconds: evaluation.effectiveDurationMin * 60,
+    riskPenaltySeconds:
+      evaluation.delays.signalCount * SIGNAL_AVERSION_MIN * 60,
+  });
 }
 
 export function parseRoadRoute(
@@ -363,8 +343,7 @@ export function parseRoadRoute(
   // shorter distance, break ties
   evaluations.sort(
     (a, b) =>
-      rankCost(a) - rankCost(b) ||
-      a.route.distanceKm - b.route.distanceKm,
+      rankCost(a) - rankCost(b) || a.route.distanceKm - b.route.distanceKm,
   );
 
   const winning = evaluations[0];
@@ -406,7 +385,8 @@ export function parseRoadRoute(
         if (
           winning.route.coordinates.some(
             ([lng, lat]) =>
-              haversineKilometers({ latitude: lat, longitude: lng }, bp) <= 0.05,
+              haversineKilometers({ latitude: lat, longitude: lng }, bp) <=
+              0.05,
           )
         ) {
           bypassRoad = bp.road ?? bp.name;
@@ -523,11 +503,13 @@ async function fetchWithBypass(
         (p) => p.id === bp.bypassesPointId,
       );
       if (!targetJunction) return false;
-      return signalsAlongPath(
-        signalIndexFor([targetJunction], []),
-        directRoute.coordinates,
-        0.045,
-      ).length > 0;
+      return (
+        signalsAlongPath(
+          signalIndexFor([targetJunction], []),
+          directRoute.coordinates,
+          0.045,
+        ).length > 0
+      );
     });
     if (!bypasses.length) return directRoute;
 
@@ -635,7 +617,8 @@ async function withHazardDetour(
   );
   let best: RoadRoute | null = null;
   for (const probe of probes) {
-    if (!probe || probe.hazards?.some((item) => item.id === hazard.id)) continue;
+    if (!probe || probe.hazards?.some((item) => item.id === hazard.id))
+      continue;
     if (!best || routeCost(probe) < routeCost(best)) best = probe;
   }
   if (!best || routeCost(best) >= routeCost(route)) return route;

@@ -2,7 +2,13 @@
 
 import "./rider-jobs.css";
 
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
@@ -10,9 +16,9 @@ import { currency } from "@/lib/delivery/format";
 import {
   type DeliveryJob,
   isSampleJob,
-  SAMPLE_OPEN_JOBS,
   jobSpreadKm,
   loadOpenJobs,
+  SAMPLE_OPEN_JOBS,
   startJob,
 } from "@/lib/delivery/jobs";
 import {
@@ -236,9 +242,7 @@ export function RiderJobBoard({
       )}
 
       {sorted === null ? (
-        <p className="rj-status" role="status">
-          Loading jobs…
-        </p>
+        <output className="rj-status">Loading jobs…</output>
       ) : sorted.length === 0 ? (
         <div className="rj-empty">
           <span className="rj-empty-icon" aria-hidden="true">

@@ -3,11 +3,11 @@
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { workspaceHome } from "@/lib/delivery/access";
+import { cloneDemoWorkspace } from "@/lib/delivery/demo-data";
 import { loadWorkspace } from "@/lib/delivery/load-workspace";
 import type { WorkspaceData, WorkspaceProfile } from "@/lib/delivery/types";
 import { subscribeWorkspaceRealtime } from "@/lib/delivery/workspace-realtime";
 import { createClient } from "@/lib/supabase/client";
-import { cloneDemoWorkspace } from "@/lib/delivery/demo-data";
 
 const emptyWorkspace = (): WorkspaceData => ({
   orders: [],

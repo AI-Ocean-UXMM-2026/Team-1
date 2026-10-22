@@ -10,6 +10,7 @@ import { haversineKm } from "../src/lib/delivery/dispatch/matrix.ts";
 import { DEFAULT_PARAMS } from "../src/lib/delivery/dispatch/params.ts";
 import {
   buildRoadMatrix,
+  createRoadPairCache,
   hilbertOrder,
   planTiles,
 } from "../src/lib/delivery/dispatch/road-matrix.ts";
@@ -253,4 +254,61 @@ test("applyFlood reports an unknown status instead of 'no risk' when nothing is 
     layered.matrix.floodFrac[1 * 6 + 3],
     layered.matrix.floodFrac[3 * 6 + 1],
   );
+});
+
+test("a pair cache serves a repeat plan without new Matrix API requests", async () => {
+  const points = grid(30);
+  const cache = createRoadPairCache();
+  const first = fakeFetch();
+  const a = await buildRoadMatrix(points, DEFAULT_PARAMS, {
+    fetch: first,
+    token: "t",
+    sleep,
+    cache,
+  });
+  assert.ok(first.calls.length > 0);
+  const second = fakeFetch();
+  const b = await buildRoadMatrix(points, DEFAULT_PARAMS, {
+    fetch: second,
+    token: "t",
+    sleep,
+    cache,
+  });
+  assert.equal(second.calls.length, 0);
+  assert.equal(b.stats.requests, 0);
+  assert.equal(b.stats.cachedPairs, b.stats.totalPairs);
+  assert.deepEqual([...b.matrix.time], [...a.matrix.time]);
+
+  // One new stop: only tiles that touch it are fetched again.
+  const grown = [...points, { lat: 16.9, lng: 96.3 }];
+  const third = fakeFetch();
+  const c = await buildRoadMatrix(grown, DEFAULT_PARAMS, {
+    fetch: third,
+    token: "t",
+    sleep,
+    cache,
+  });
+  assert.ok(third.calls.length < first.calls.length);
+  assert.equal(c.matrix.source, "road_matrix");
+});
+
+test("stale cached legs are refetched", async () => {
+  let clock = 0;
+  const cache = createRoadPairCache({ ttlMs: 1000, now: () => clock });
+  const points = grid(10);
+  await buildRoadMatrix(points, DEFAULT_PARAMS, {
+    fetch: fakeFetch(),
+    token: "t",
+    sleep,
+    cache,
+  });
+  clock = 5000;
+  const again = fakeFetch();
+  await buildRoadMatrix(points, DEFAULT_PARAMS, {
+    fetch: again,
+    token: "t",
+    sleep,
+    cache,
+  });
+  assert.ok(again.calls.length > 0);
 });

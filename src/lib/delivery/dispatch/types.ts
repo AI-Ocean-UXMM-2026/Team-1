@@ -61,6 +61,8 @@ export type DispatchParams = {
   maxIterations: number;
   /** Ruin-and-recreate rounds after local search; 0 turns it off. */
   ruinIterations: number;
+  /** Stop ruin-and-recreate after this many iterations without a new best; 0 = never. */
+  ruinPatience: number;
   deadlineMs: number;
   seed: number;
   /** Mapbox "driving" is a car profile; trucks are slower (ASSUMED). */
@@ -175,6 +177,17 @@ export type PlanRoute = {
   eval: RouteEval;
 };
 
+/** Solver effort, for benchmarking. Not part of the plan hash. */
+export type SolverMetrics = {
+  elapsedMs: number;
+  /** Full route evaluations spent in insertion search. */
+  routeEvaluations: number;
+  cacheHits: number;
+  cacheMisses: number;
+  ruinIterations: number;
+  ruinStopReason: "iterations" | "deadline" | "stagnated" | "skipped";
+};
+
 export type Plan = {
   routes: PlanRoute[];
   unassigned: { requestId: string; reason: UnassignedReason }[];
@@ -184,4 +197,5 @@ export type Plan = {
   stopReason: "converged" | "iterations" | "deadline";
   dataQuality: Matrix["source"];
   hash: string;
+  metrics?: SolverMetrics;
 };

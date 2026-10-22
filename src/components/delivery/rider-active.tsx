@@ -17,10 +17,7 @@ import UTurnLeftRounded from "@mui/icons-material/UTurnLeftRounded";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
-import type {
-  ReactNode,
-  PointerEvent as ReactPointerEvent,
-} from "react";
+import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";

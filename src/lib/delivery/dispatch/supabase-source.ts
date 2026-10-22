@@ -141,10 +141,13 @@ export function createSupabaseSource(
           .gt("expires_at", nowIso),
         supabase
           .from("road_report_decisions")
-          .select("report_id, action, severity, confidence, delay_minutes, radius_meters")
+          .select(
+            "report_id, action, severity, confidence, delay_minutes, radius_meters",
+          )
           .gt("expires_at", nowIso),
       ]);
-      if (reports.error) throw new Error(`road_reports: ${reports.error.message}`);
+      if (reports.error)
+        throw new Error(`road_reports: ${reports.error.message}`);
       // Decisions are optional: planning works without the table or rows
       const decisionById = new Map(
         (decisions.error ? [] : (decisions.data ?? [])).map((row) => [

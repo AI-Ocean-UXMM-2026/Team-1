@@ -9,12 +9,12 @@ import {
   CardHeader,
   KpiCell,
 } from "@/components/delivery/manager-ui-components";
-import type { attentionSummary } from "@/lib/delivery/dashboard";
+import {
+  type attentionSummary,
+  managerExceptions,
+} from "@/lib/delivery/dashboard";
 import { currency, formatTime } from "@/lib/delivery/format";
-import type {
-  DeliveryOrder,
-  VehicleOption,
-} from "@/lib/delivery/types";
+import type { DeliveryOrder, VehicleOption } from "@/lib/delivery/types";
 import type { useWorkspace } from "@/lib/delivery/use-workspace";
 
 type Workspace = ReturnType<typeof useWorkspace>;
@@ -136,6 +136,10 @@ export function ManagerHomeView({
   availableVehicles,
   tasks,
 }: ManagerHomeViewProps) {
+  const exceptions = managerExceptions(
+    workspace.data.orders,
+    workspace.data.riderRequests ?? [],
+  );
   const hasOperationalData =
     workspace.data.orders.length > 0 ||
     workspace.data.drivers.length > 0 ||
@@ -180,6 +184,58 @@ export function ManagerHomeView({
 
   return (
     <div className="dash-overview">
+      <section
+        className="dash-card dash-priority"
+        aria-label="Priority exceptions"
+      >
+        <CardHeader
+          title="Act now"
+          icon="warning"
+          meta={
+            exceptions.length ? (
+              <span className="dash-pill-alert">
+                {exceptions.length} prioritised
+              </span>
+            ) : (
+              <span className="dash-pill-clear">Operations checked</span>
+            )
+          }
+        />
+        {exceptions.length ? (
+          <ol className="dash-exception-list">
+            {exceptions.map((item) => (
+              <li key={item.id} className={`is-${item.tone}`}>
+                <Link href={item.href}>
+                  <span className="dash-exception-icon" aria-hidden="true">
+                    <Icon
+                      name={item.title.includes("cash") ? "coin" : "warning"}
+                      size={17}
+                    />
+                  </span>
+                  <span className="dash-exception-copy">
+                    <strong>{item.title}</strong>
+                    <small>{item.detail}</small>
+                  </span>
+                  <span className="dash-exception-meta">{item.meta}</span>
+                  <Icon name="arrow-right" size={15} />
+                </Link>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className="dash-healthy-state">
+            <Icon name="check" size={18} />
+            <span>
+              <strong>No urgent intervention needed</strong>
+              <small>
+                Live data loaded and no stale locations, delays, unassigned
+                deliveries, rider requests, or unsettled cash were found.
+              </small>
+            </span>
+          </div>
+        )}
+      </section>
+
       <div className="dash-main">
         <section className="dash-card" aria-label="Delivery metrics">
           <div className="dash-kpi-grid">

@@ -52,7 +52,6 @@ import {
 
 import {
   buildTodayItems,
-  codDue,
   normaliseCode,
   ordersHref,
   readRecentCodes,
@@ -60,7 +59,7 @@ import {
   type TodayItem,
   type TodayState,
 } from "@/lib/delivery/customer-home";
-import { formatTime } from "@/lib/delivery/format";
+import { currency, formatTime } from "@/lib/delivery/format";
 import type { DeliveryOrder, StatusEvent } from "@/lib/delivery/types";
 
 /* ----------------------------------------------------------------- shared */
@@ -254,7 +253,7 @@ function ShortcutRow({
 }
 
 /** Home's primary action: the whole surface opens /pickup. */
-const PickupHero = memo(function PickupHero() {
+const _PickupHero = memo(function PickupHero() {
   return (
     <Card
       elevation={0}
@@ -262,15 +261,9 @@ const PickupHero = memo(function PickupHero() {
         mx: 2,
         mt: 1,
         borderRadius: "24px",
-        bgcolor: (theme) =>
-          theme.palette.mode === "dark"
-            ? alpha(theme.palette.primary.main, 0.16)
-            : alpha(theme.palette.primary.main, 0.08),
+        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
         border: 1,
-        borderColor: (theme) =>
-          theme.palette.mode === "dark"
-            ? alpha(theme.palette.primary.main, 0.32)
-            : alpha(theme.palette.primary.main, 0.2),
+        borderColor: (theme) => alpha(theme.palette.primary.main, 0.2),
       }}
     >
       <CardActionArea component={Link} href="/pickup" sx={{ p: 2.5 }}>
@@ -308,7 +301,7 @@ const PickupHero = memo(function PickupHero() {
 });
 
 /** Once a parcel is on the way, booking another is a quiet row under it. */
-const PickupRow = memo(function PickupRow() {
+const _PickupRow = memo(function PickupRow() {
   return (
     <Box sx={{ px: 2, mt: 3 }}>
       <ListItemButton
@@ -415,7 +408,7 @@ const QuickActions = memo(function QuickActions({
   );
 });
 
-const MoreShortcuts = memo(function MoreShortcuts({
+const _MoreShortcuts = memo(function MoreShortcuts({
   onOpenHelp,
 }: {
   onOpenHelp: () => void;
@@ -461,15 +454,25 @@ function TodayRow({ item }: { item: TodayItem }) {
       ? `Delayed · ${item.delayMinutes} min`
       : todayLabels[item.state];
   const missed = item.state === "missed";
+  const hasCodDue =
+    item.order.cod_amount > 0 &&
+    item.order.cod_status === "pending" &&
+    item.state !== "delivered" &&
+    item.state !== "missed";
   return (
     <ListItem disablePadding>
       <ListItemButton
         component={Link}
         href={`/track?order=${encodeURIComponent(item.order.id)}`}
         sx={{
-          gap: 1.25,
+          display: "grid",
+          gridTemplateColumns: "64px minmax(0, 1fr)",
+          alignItems: "center",
+          columnGap: 1.25,
+          rowGap: 1,
           minHeight: 64,
           px: 1.5,
+          py: 1.25,
           borderRadius: "16px",
           border: missed ? 1 : 0,
           borderColor: "error.main",
@@ -479,10 +482,11 @@ function TodayRow({ item }: { item: TodayItem }) {
         <Typography
           variant="body2"
           sx={{
+            gridColumn: 1,
+            gridRow: "1 / span 2",
             color: "text.secondary",
             fontWeight: 650,
-            width: 64,
-            flex: "none",
+            fontVariantNumeric: "tabular-nums",
             lineHeight: 1.2,
           }}
         >
@@ -493,24 +497,53 @@ function TodayRow({ item }: { item: TodayItem }) {
               : "ETA pending"}
         </Typography>
         <ListItemText
-          sx={{ minWidth: 0, m: 0 }}
+          sx={{ gridColumn: 2, gridRow: 1, minWidth: 0, m: 0 }}
           primary={item.order.tracking_code}
           secondary={item.order.delivery_address}
           slotProps={{
-            primary: { sx: { fontWeight: 700, fontSize: 14 } },
+            primary: {
+              noWrap: true,
+              sx: { fontWeight: 700, fontSize: 14, letterSpacing: "0.01em" },
+            },
             secondary: { noWrap: true, sx: { fontSize: 12 } },
           }}
         />
-        <Chip
-          size="small"
-          icon={todayIcons[item.state]}
-          label={label}
+        <Box
           sx={{
-            ...toneSx(todayTone[item.state]),
-            height: 28,
-            "& .MuiChip-icon": { color: "inherit", fontSize: 16 },
+            gridColumn: 2,
+            gridRow: 2,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 0.75,
+            minWidth: 0,
           }}
-        />
+        >
+          {hasCodDue && (
+            <Chip
+              size="small"
+              icon={<PaymentsOutlined sx={{ fontSize: 14 }} />}
+              label={`COD ${currency.format(item.order.cod_amount)}`}
+              sx={{
+                ...toneSx("warning"),
+                height: 28,
+                fontWeight: 700,
+                fontSize: 11,
+                "& .MuiChip-icon": { color: "inherit", fontSize: 14 },
+              }}
+            />
+          )}
+          <Chip
+            size="small"
+            icon={todayIcons[item.state]}
+            label={label}
+            sx={{
+              ...toneSx(todayTone[item.state]),
+              height: 28,
+              maxWidth: "100%",
+              "& .MuiChip-icon": { color: "inherit", fontSize: 16 },
+            }}
+          />
+        </Box>
       </ListItemButton>
     </ListItem>
   );
@@ -731,7 +764,7 @@ export function CustomerHome({
   isAuthenticated,
   now,
   onSignIn,
-  onOpenCod,
+  onOpenCod: _onOpenCod,
   onOpenHelp,
 }: {
   /** Real orders only. Sample records must never be passed in. */
@@ -752,7 +785,7 @@ export function CustomerHome({
 
   // Keep booking secondary while any delivery is still active, even if its
   // scheduled day is later than today.
-  const hasLive = isAuthenticated && activeCount > 0;
+  const _hasLive = isAuthenticated && activeCount > 0;
 
   return (
     <>

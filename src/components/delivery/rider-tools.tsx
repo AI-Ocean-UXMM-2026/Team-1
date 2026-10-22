@@ -85,7 +85,8 @@ export function CodTag({
   return (
     <span className={`rf-cod ${collected ? "is-collected" : "is-due"}`}>
       <Icon name="coin" size={14} strokeWidth={2.1} />
-      {collected ? "Cash collected" : "Cash to collect"} · {currency.format(amount)}
+      {collected ? "Cash collected" : "Cash to collect"} ·{" "}
+      {currency.format(amount)}
     </span>
   );
 }
@@ -269,7 +270,10 @@ export function ShiftMenu({
         disabled={fuelBusy || fuelRequest != null}
         onClick={onRequestFuel}
         startIcon={
-          <Icon name={energy.source === "battery" ? "battery" : "fuel"} size={18} />
+          <Icon
+            name={energy.source === "battery" ? "battery" : "fuel"}
+            size={18}
+          />
         }
         sx={{ minHeight: 48, borderRadius: 999, mb: 1.5 }}
       >
@@ -459,7 +463,11 @@ export function CautionsPanel({
             icon="location"
             action={
               onLocationHelp ? (
-                <button type="button" className="rf-link" onClick={onLocationHelp}>
+                <button
+                  type="button"
+                  className="rf-link"
+                  onClick={onLocationHelp}
+                >
                   Fix location
                 </button>
               ) : null

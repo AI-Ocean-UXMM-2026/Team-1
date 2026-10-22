@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRoadNoteAnalysis } from "@/lib/delivery/road-intel/use-road-intel";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
-
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
   DemoBadge,
@@ -19,14 +17,12 @@ import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
 import { CodLedgerView } from "@/components/delivery/manager-cod";
 import { ManagerCreateOrder } from "@/components/delivery/manager-create-order";
+import { useRoadNoteAnalysis } from "@/lib/delivery/road-intel/use-road-intel";
 import "@/components/delivery/manager-create-order.css";
 import { ManagerHomeView } from "@/components/delivery/manager-home-view";
-import { ManagerSidebar } from "@/components/delivery/manager-sidebar";
 import { ManagerOrderView } from "@/components/delivery/manager-order-view";
-import { useSimulatedFleet } from "@/lib/delivery/simulated-fleet";
-import { useJobBoard } from "@/lib/delivery/use-job-board";
+import { ManagerSidebar } from "@/components/delivery/manager-sidebar";
 import {
-  CardHeader,
   type ManagerNotice as Notice,
   NoticeStrip,
 } from "@/components/delivery/manager-ui-components";
@@ -46,18 +42,19 @@ import {
 } from "@/lib/delivery/dashboard";
 import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
 import {
-  currency,
   formatTime,
   prioritiseOrders,
   sentenceCase,
 } from "@/lib/delivery/format";
 import { confirmOrders } from "@/lib/delivery/jobs";
+import { useSimulatedFleet } from "@/lib/delivery/simulated-fleet";
 import type {
   DeliveryOrder,
   DriverOption,
   RiderRequest,
   VehicleOption,
 } from "@/lib/delivery/types";
+import { useJobBoard } from "@/lib/delivery/use-job-board";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
@@ -69,7 +66,7 @@ const managerNavItems = [
   { id: "profile", label: "Team", href: "/manager/profile", icon: "user" },
 ] as const;
 
-const managerMobileNav = managerNavItems;
+const _managerMobileNav = managerNavItems;
 
 export type ManagerView = (typeof managerNavItems)[number]["id"] | "create";
 
@@ -149,7 +146,7 @@ export function ManagerDashboard({
   const [filter, setFilter] = useState<OrderFilter>(
     initialFilter(searchParams.get("filter")),
   );
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, _setSearchQuery] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
   const [mapFocusPoint, setMapFocusPoint] = useState<{
     latitude: number;
@@ -230,7 +227,7 @@ export function ManagerDashboard({
         order.tracking_code.toLowerCase().includes(q) ||
         order.customer_name.toLowerCase().includes(q) ||
         order.delivery_address.toLowerCase().includes(q) ||
-        (order.driver_name && order.driver_name.toLowerCase().includes(q)),
+        order.driver_name?.toLowerCase().includes(q),
     );
   }, [filteredOrders, searchQuery]);
   const selectedOrder =
@@ -242,12 +239,12 @@ export function ManagerDashboard({
   const selectedRoute = selectedOrder?.route_id
     ? workspace.data.routes.find((route) => route.id === selectedOrder.route_id)
     : null;
-  const selectedRouteStops = selectedRoute
+  const _selectedRouteStops = selectedRoute
     ? workspace.data.routeStops
         .filter((stop) => stop.route_id === selectedRoute.id)
         .sort((left, right) => left.sequence_number - right.sequence_number)
     : [];
-  const selectedOrderAssessment = useMemo(() => {
+  const _selectedOrderAssessment = useMemo(() => {
     if (!selectedOrder) return null;
     const vehicle = selectedOrder.vehicle_id
       ? workspace.data.vehicles.find((v) => v.id === selectedOrder.vehicle_id)
@@ -339,7 +336,7 @@ export function ManagerDashboard({
     );
   }
 
-  async function confirmSelectedOrder() {
+  async function _confirmSelectedOrder() {
     if (!selectedOrder || selectedOrder.status !== "pending") return;
     setSaving(true);
     setNotice(null);
@@ -712,10 +709,10 @@ export function ManagerDashboard({
           {!signedOut && view === "order" && (
             <ManagerOrderView
               workspace={workspace}
-              orders={orders}
+              orders={queueOrders}
               movingOrders={movingOrders}
               movingCount={movingCount}
-              initialSelectedId={selectedId}
+              initialSelectedId={searchParams.get("id") ?? undefined}
             />
           )}
 
@@ -1288,29 +1285,54 @@ export function ManagerDashboard({
                 <small>Driver availability and on-duty status</small>
               </div>
             </Link>
-
+            <Link
+              href="/manager/dispatch"
+              className="mobile-more-item"
+              onClick={() => setMoreOpen(false)}
+            >
+              <Icon name="navigation" size={20} />
+              <div>
+                <strong>Plan routes</strong>
+                <small>Depot multi-truck assignment &amp; routing</small>
+              </div>
+            </Link>
             <Link
               href="/manager/jobs"
               className="mobile-more-item"
               onClick={() => setMoreOpen(false)}
             >
-              <Icon name="spark" size={20} />
+              <Icon name="box" size={20} />
               <div>
-                <strong>Task Automation</strong>
-                <small>Queue requests and group them into jobs</small>
+                <strong>Job board</strong>
+                <small>Batch requests and task automation</small>
               </div>
             </Link>
             <Link
-              href="/manager/vehicles"
+              href="/manager/insights"
               className="mobile-more-item"
               onClick={() => setMoreOpen(false)}
             >
               <Icon name="truck" size={20} />
               <div>
-                <strong>Vehicles</strong>
-                <small>Fleet status, energy, service &amp; costs</small>
+                <strong>Fleet insights</strong>
+                <small>
+                  Energy reserves, service due &amp; operating costs
+                </small>
               </div>
             </Link>
+            <a
+              href="/tools/traffic-editor.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mobile-more-item"
+              onClick={() => setMoreOpen(false)}
+            >
+              <Icon name="compass" size={20} />
+              <div>
+                <strong>Traffic editor ↗</strong>
+                <small>Interactive Yangon traffic and junction points</small>
+              </div>
+            </a>
 
             <div className="mobile-more-auth">
               {workspace.isAuthenticated ? (

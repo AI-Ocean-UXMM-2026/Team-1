@@ -1,11 +1,18 @@
 import { handlePlan } from "@/lib/delivery/dispatch/handler";
 import { buildStraightLineMatrix } from "@/lib/delivery/dispatch/matrix";
-import { buildRoadMatrix } from "@/lib/delivery/dispatch/road-matrix";
+import {
+  buildRoadMatrix,
+  createRoadPairCache,
+} from "@/lib/delivery/dispatch/road-matrix";
 import { createSupabaseSource } from "@/lib/delivery/dispatch/supabase-source";
 import { createClient } from "@/lib/supabase/server";
 
 // Planning makes up to ~55 Matrix calls and then searches for a few seconds.
 export const maxDuration = 30;
+
+// Survives across requests on a warm instance, so a re-plan with mostly the
+// same stops only pays Mapbox for the legs it has not seen.
+const roadCache = createRoadPairCache();
 
 const NO_STORE = { "Cache-Control": "no-store" };
 const reply = (status: number, body: unknown) =>
@@ -63,7 +70,11 @@ export async function POST(request: Request) {
         buildMatrix: async (points, params) =>
           policy === "no_network" || !token
             ? { matrix: buildStraightLineMatrix(points, params), stats: null }
-            : buildRoadMatrix(points, params, { fetch, token }),
+            : buildRoadMatrix(points, params, {
+                fetch,
+                token,
+                cache: roadCache,
+              }),
       }),
     });
     return reply(result.status, result.body);

@@ -160,7 +160,10 @@ const SIM_CARS: SimCar[] = [
       [16.8409, 96.1904],
       [16.8498, 96.1951],
     ],
-    destination: { address: "Thingangyun Industrial Zone", point: [16.8302, 96.1702] },
+    destination: {
+      address: "Thingangyun Industrial Zone",
+      point: [16.8302, 96.1702],
+    },
   },
 ];
 

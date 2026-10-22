@@ -7,7 +7,7 @@ import type { Instance, Matrix } from "./types.ts";
 
 export type RuinResult = {
   iterations: number;
-  stopReason: "iterations" | "deadline";
+  stopReason: "iterations" | "deadline" | "stagnated";
 };
 
 type Rng = ReturnType<typeof createRng>;
@@ -32,6 +32,7 @@ const clone = (state: State): State => ({
   routes: state.routes.slice(),
   evals: state.evals.slice(),
   unassigned: state.unassigned.slice(),
+  cache: state.cache,
 });
 
 const assigned = (state: State) =>
@@ -147,7 +148,7 @@ export function ruinAndRecreate(
   matrix: Matrix,
   state: State,
   nowMs: () => number,
-  budget: { iterations: number; startedAt: number },
+  budget: { iterations: number; startedAt: number; patience?: number },
 ): RuinResult {
   const p = inst.params;
   const rng = createRng((p.seed ^ 0x9e3779b9) >>> 0);
@@ -169,7 +170,10 @@ export function ruinAndRecreate(
   const hopeless = new Set(
     state.unassigned.filter((r) =>
       inst.trucks.every(
-        (truck) => bestInsertion(inst, matrix, truck, [], 0, r) == null,
+        (truck) =>
+          bestInsertion(inst, matrix, truck, [], 0, r, {
+            cache: state.cache,
+          }) == null,
       ),
     ),
   );
@@ -179,8 +183,15 @@ export function ruinAndRecreate(
   const uses = RUINS.map(() => 0);
 
   let iterations = 0;
+  let sinceBest = 0;
   let stopReason: RuinResult["stopReason"] = "iterations";
   while (iterations < budget.iterations) {
+    // Adaptive budget: give up once the best plan has not moved for `patience`
+    // iterations. Iteration-based, so it stays deterministic.
+    if (budget.patience && sinceBest >= budget.patience) {
+      stopReason = "stagnated";
+      break;
+    }
     if (nowMs() - budget.startedAt > p.deadlineMs) {
       stopReason = "deadline";
       break;
@@ -205,7 +216,9 @@ export function ruinAndRecreate(
     const score = objective(inst, candidate);
 
     uses[pick]++;
+    sinceBest++;
     if (score < bestScore - GAIN) {
+      sinceBest = 0;
       best = clone(candidate);
       bestScore = score;
       current = candidate;

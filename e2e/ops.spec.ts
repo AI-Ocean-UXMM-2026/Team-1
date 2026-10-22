@@ -651,7 +651,9 @@ test("admin map displays flood visualization and toggle controls", async ({
   await expect(floodToggle).toHaveAttribute("aria-pressed", "true");
 
   await expect(page.getByLabel("Flood risk legend")).toBeVisible();
-  await expect(page.getByText("Thingangyun Canal Corridor").first()).toBeVisible();
+  await expect(
+    page.getByText("Thingangyun Canal Corridor").first(),
+  ).toBeVisible();
 
   await floodToggle.click();
   await expect(floodToggle).toHaveAttribute("aria-pressed", "false");
@@ -661,4 +663,3 @@ test("admin map displays flood visualization and toggle controls", async ({
   await expect(floodToggle).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("Flood risk legend")).toBeVisible();
 });
-

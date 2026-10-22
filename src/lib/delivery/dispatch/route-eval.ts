@@ -21,7 +21,19 @@ export type EvalOptions = {
    * infinite score and partial figures. For search, which discards these.
    */
   bail?: boolean;
+  /**
+   * The caller guarantees pickup-before-delivery (insertion and local search
+   * only build such sequences), so skip the precedence scan.
+   */
+  trustedOrder?: boolean;
 };
+
+/** Record a violation once, in first-seen order, allocating only when needed. */
+function addViolation(list: ViolationCode[] | null, code: ViolationCode) {
+  if (list == null) return [code];
+  if (!list.includes(code)) list.push(code);
+  return list;
+}
 
 export const pickupNode = (r: number) => 1 + 2 * r;
 export const deliveryNode = (r: number) => 2 + 2 * r;
@@ -50,7 +62,7 @@ export function evaluateRoute(
   options: EvalOptions = {},
 ): RouteEval {
   const p = inst.params;
-  const violations = new Set<ViolationCode>();
+  let violations: ViolationCode[] | null = null;
   const stops: StopTiming[] = [];
 
   if (seq.length === 0) {
@@ -70,31 +82,44 @@ export function evaluateRoute(
   }
 
   // Precedence: each door order needs P then D on this route; depot orders only D.
-  const seen = new Map<number, number>();
   let depotParcels = 0;
   let loadKg = 0;
   let loadM3 = 0;
-  for (const stop of seq) {
-    const request = inst.requests[stop.r];
-    if (stop.kind === "P") {
-      if (request.origin === "depot" || seen.has(stop.r))
-        violations.add("precedence");
-      seen.set(stop.r, 1);
-    } else {
-      if (request.origin === "door") {
-        if (seen.get(stop.r) !== 1) violations.add("precedence");
-      } else {
+  if (options.trustedOrder) {
+    for (const stop of seq) {
+      if (stop.kind !== "D") continue;
+      const request = inst.requests[stop.r];
+      if (request.origin === "depot") {
         depotParcels++;
         loadKg += request.weightKg;
         loadM3 += request.volumeM3;
       }
-      seen.set(stop.r, 2);
+    }
+  } else {
+    const seen = new Map<number, number>();
+    for (const stop of seq) {
+      const request = inst.requests[stop.r];
+      if (stop.kind === "P") {
+        if (request.origin === "depot" || seen.has(stop.r))
+          violations = addViolation(violations, "precedence");
+        seen.set(stop.r, 1);
+      } else {
+        if (request.origin === "door") {
+          if (seen.get(stop.r) !== 1)
+            violations = addViolation(violations, "precedence");
+        } else {
+          depotParcels++;
+          loadKg += request.weightKg;
+          loadM3 += request.volumeM3;
+        }
+        seen.set(stop.r, 2);
+      }
     }
   }
 
   const bailOut = (): RouteEval => ({
     feasible: false,
-    violations: [...violations],
+    violations: violations ? [...violations] : [],
     score: Number.POSITIVE_INFINITY,
     terms: { ...EMPTY_TERMS },
     km: 0,
@@ -105,15 +130,15 @@ export function evaluateRoute(
     peakM3: 0,
     stops,
   });
-  if (options.bail && violations.size > 0) return bailOut();
+  if (options.bail && violations !== null) return bailOut();
 
   const capKg = truck.capKg * p.utilisation;
   const capM3 = truck.capM3 * p.utilisation;
   let peakKg = loadKg;
   let peakM3 = loadM3;
   if (!options.ignoreCapacity && (loadKg > capKg + EPS || loadM3 > capM3 + EPS))
-    violations.add("capacity");
-  if (options.bail && violations.size > 0) return bailOut();
+    violations = addViolation(violations, "capacity");
+  if (options.bail && violations !== null) return bailOut();
 
   const loadMin = p.loadBaseMin + p.loadPerParcelMin * depotParcels;
   const depart = Math.max(p.shiftStart, inst.earliestDepart) + loadMin;
@@ -134,7 +159,7 @@ export function evaluateRoute(
     const request = inst.requests[stop.r];
     const node = stopNode(stop);
     const arc = prev * n + node;
-    if (matrix.blocked?.[arc]) violations.add("blocked");
+    if (matrix.blocked?.[arc]) violations = addViolation(violations, "blocked");
     const frac = matrix.floodFrac?.[arc] ?? 0;
     const leg = matrix.time[arc] * (1 + p.floodSlowdown * frac);
     const legKm = matrix.km[arc];
@@ -148,7 +173,8 @@ export function evaluateRoute(
     let service: number;
     let slack: number;
     if (stop.kind === "P") {
-      if (arrive > request.windowEnd + EPS) violations.add("window");
+      if (arrive > request.windowEnd + EPS)
+        violations = addViolation(violations, "window");
       start = Math.max(arrive, request.windowStart);
       wait += start - arrive;
       service = request.pickupService;
@@ -161,13 +187,14 @@ export function evaluateRoute(
         !options.ignoreCapacity &&
         (loadKg > capKg + EPS || loadM3 > capM3 + EPS)
       )
-        violations.add("capacity");
+        violations = addViolation(violations, "capacity");
     } else {
       service = request.deliveryService;
       const due = request.deadline ?? p.shiftEnd;
       slack = due - start;
       if (request.deadline != null && start > request.deadline + EPS) {
-        if (request.deadlineHard) violations.add("deadline");
+        if (request.deadlineHard)
+          violations = addViolation(violations, "deadline");
         else late += start - request.deadline;
       }
       loadKg -= request.weightKg;
@@ -204,21 +231,22 @@ export function evaluateRoute(
       });
     prev = node;
     // Time only moves forward, so a route already past the shift cannot recover.
-    if (options.bail && (violations.size > 0 || t > p.shiftEnd + EPS))
+    if (options.bail && (violations !== null || t > p.shiftEnd + EPS))
       return bailOut();
   }
 
   const back = prev * n;
   const frac = matrix.floodFrac?.[back] ?? 0;
-  if (matrix.blocked?.[back]) violations.add("blocked");
+  if (matrix.blocked?.[back]) violations = addViolation(violations, "blocked");
   t += matrix.time[back] * (1 + p.floodSlowdown * frac);
   km += matrix.km[back];
   flood += p.floodWeight * frac * matrix.km[back];
   const ret = t;
 
   if (ret > p.shiftEnd + EPS || ret - depart > p.maxRouteMin + EPS)
-    violations.add("shift");
-  if (truck.maxKm != null && km > truck.maxKm + EPS) violations.add("range");
+    violations = addViolation(violations, "shift");
+  if (truck.maxKm != null && km > truck.maxKm + EPS)
+    violations = addViolation(violations, "range");
 
   if (townships.size > 1) cohesion += p.territoryPenalty * (townships.size - 1);
 
@@ -239,8 +267,8 @@ export function evaluateRoute(
     terms.cohesion;
 
   return {
-    feasible: violations.size === 0,
-    violations: [...violations],
+    feasible: violations === null,
+    violations: violations ?? [],
     score,
     terms,
     km,

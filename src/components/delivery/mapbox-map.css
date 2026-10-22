@@ -14,7 +14,7 @@
   padding: 2px 6px;
   border-radius: 999px;
   background: var(--color-surface-raised, #ffffff);
-  color: var(--color-text-primary, #172b4d);
+  color: var(--color-text-primary, var(--color-text-primary));
   box-shadow: 0 1px 3px rgb(23 43 77 / 0.25);
   font-size: 10px;
   font-weight: 700;
@@ -30,11 +30,27 @@
 .mapbox-canvas {
   position: absolute;
   inset: 0;
+  z-index: 1;
 }
 
 .mapbox-canvas.mapboxgl-map {
   position: absolute;
   inset: 0;
+  z-index: 1;
+}
+
+.map-actions-cluster {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 50;
+  pointer-events: auto;
+}
+
+.map-action-btn {
+  position: relative;
+  z-index: 51;
+  pointer-events: auto;
 }
 
 /* Mapbox flood hazard marker styles */
@@ -44,7 +60,8 @@
 }
 
 .mapbox-flood-marker .flood-pulse {
-  animation: mapbox-flood-ripple 2.2s infinite cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: mapbox-flood-ripple 2.2s infinite
+    cubic-bezier(0.25, 0.46, 0.45, 0.94);
   transform-origin: center;
 }
 
@@ -58,7 +75,6 @@
     opacity: 0;
   }
 }
-
 
 /* Moving rider/car marker: pulsing halo so live vehicles stand out on the map */
 .mapbox-rider-marker .rider-pulse {

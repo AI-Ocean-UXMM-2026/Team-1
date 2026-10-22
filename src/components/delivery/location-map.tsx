@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/delivery/icons";
 import { MapboxLocationMap } from "@/components/delivery/mapbox-location-map";
 import {
-  type LiveFloodConditions,
   fetchLiveFloodConditions,
+  type LiveFloodConditions,
 } from "@/lib/delivery/dispatch/open-meteo";
 import {
   dispatchRows,
@@ -14,9 +14,9 @@ import {
   locationStatusText,
 } from "@/lib/delivery/dispatch-rows";
 import {
-  type FloodZone,
   calculateRadiusPixels,
   checkRouteFloodExposure,
+  type FloodZone,
   getYangonFloodZones,
 } from "@/lib/delivery/flood-zones";
 import {
@@ -134,8 +134,12 @@ function OsmLocationMap({
   const [liveFlood, setLiveFlood] = useState<LiveFloodConditions | null>(
     propLiveFlood ?? null,
   );
-  const [activeFloodZone, setActiveFloodZone] = useState<FloodZone | null>(null);
-  const [activeHazardPopup, setActiveHazardPopup] = useState<RoadReport | null>(null);
+  const [activeFloodZone, setActiveFloodZone] = useState<FloodZone | null>(
+    null,
+  );
+  const [activeHazardPopup, setActiveHazardPopup] = useState<RoadReport | null>(
+    null,
+  );
   const [showWeatherModal, setShowWeatherModal] = useState(false);
 
   useEffect(() => {
@@ -375,7 +379,9 @@ function OsmLocationMap({
                 title="Open-Meteo live hydrology & rain conditions"
                 aria-label="Live weather & flood telemetry"
               >
-                <span className={`live-weather-dot dot-${liveFlood.severity}`} />
+                <span
+                  className={`live-weather-dot dot-${liveFlood.severity}`}
+                />
                 <span className="live-weather-text">
                   {liveFlood.precipitationMm > 0
                     ? `${liveFlood.precipitationMm} mm/h rain`
@@ -505,6 +511,7 @@ function OsmLocationMap({
                     .join(" ");
                   const centerPx = pointAt(zone.center, center, size, zoom);
                   return (
+                    // biome-ignore lint/a11y/useSemanticElements: SVG elements cannot be native HTML buttons
                     <g
                       key={zone.id}
                       className={`flood-zone-group hazard-class-${zone.hazardClass}`}
@@ -517,7 +524,10 @@ function OsmLocationMap({
                       aria-label={`Flood hazard zone: ${zone.name}`}
                       style={{ cursor: "pointer" }}
                     >
-                      <polygon points={pointsStr} className="flood-polygon-shape" />
+                      <polygon
+                        points={pointsStr}
+                        className="flood-polygon-shape"
+                      />
                       <text
                         x={centerPx.x}
                         y={centerPx.y}
@@ -544,7 +554,10 @@ function OsmLocationMap({
                 );
                 const rPx = calculateRadiusPixels(400, report.latitude, zoom);
                 return (
-                  <g key={`flood-buf-${report.id}`} className="flood-report-buffer">
+                  <g
+                    key={`flood-buf-${report.id}`}
+                    className="flood-report-buffer"
+                  >
                     <circle
                       cx={pos.x}
                       cy={pos.y}
@@ -592,6 +605,7 @@ function OsmLocationMap({
                       </g>
                     </>
                   )}
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: SVG rider marker */}
                   <g
                     transform={`translate(${rider.x} ${rider.y})`}
                     onClick={() => onSelectOrder?.(row.order.id)}
@@ -631,6 +645,7 @@ function OsmLocationMap({
 
                 if (report.category === "flooding") {
                   return (
+                    // biome-ignore lint/a11y/useSemanticElements: SVG elements cannot be native HTML buttons
                     <g
                       key={report.id}
                       transform={`translate(${pos.x} ${pos.y})`}
@@ -644,28 +659,34 @@ function OsmLocationMap({
                       aria-label={`Flooding report: ${report.description}`}
                       style={{ cursor: "pointer" }}
                     >
-                      {isSevere && <circle className="flood-pulse-ring" r="24" />}
+                      {isSevere && (
+                        <circle className="flood-pulse-ring" r="24" />
+                      )}
                       <circle
                         r="13"
-                        fill={isSevere ? "#FEF2F2" : "#F0F9FF"}
-                        stroke={isSevere ? "#DC2626" : "#0284C7"}
+                        fill={isSevere ? "var(--color-error-surface)" : "var(--color-info-surface)"}
+                        stroke={isSevere ? "var(--color-error)" : "var(--color-info)"}
                         strokeWidth="1.8"
                       />
                       <path
                         d="M-5 1 C-3 -1 -1 3 1 1 C3 -1 5 3 7 1"
-                        stroke={isSevere ? "#DC2626" : "#0284C7"}
+                        stroke={isSevere ? "var(--color-error)" : "var(--color-info)"}
                         strokeWidth="1.8"
                         fill="none"
                         strokeLinecap="round"
                       />
                       <path
                         d="M-5 -2 C-3 -4 -1 0 1 -2 C3 -4 5 0 7 -2"
-                        stroke={isSevere ? "#DC2626" : "#0284C7"}
+                        stroke={isSevere ? "var(--color-error)" : "var(--color-info)"}
                         strokeWidth="1.8"
                         fill="none"
                         strokeLinecap="round"
                       />
-                      <text className="map-marker-label flood-badge-label" x="15" y="4">
+                      <text
+                        className="map-marker-label flood-badge-label"
+                        x="15"
+                        y="4"
+                      >
                         {isSevere ? "FLOOD (BLOCKED)" : "FLOOD HAZARD"}
                       </text>
                     </g>
@@ -673,6 +694,7 @@ function OsmLocationMap({
                 }
 
                 return (
+                  // biome-ignore lint/a11y/useSemanticElements: SVG elements cannot be native HTML buttons
                   <g
                     key={report.id}
                     transform={`translate(${pos.x} ${pos.y})`}
@@ -688,15 +710,15 @@ function OsmLocationMap({
                   >
                     <circle
                       r="12"
-                      fill={isSevere ? "#FEF2F2" : "#FFFBEB"}
-                      stroke={isSevere ? "#DC2626" : "#D97706"}
+                      fill={isSevere ? "var(--color-error-surface)" : "var(--color-warning-surface)"}
+                      stroke={isSevere ? "var(--color-error)" : "var(--color-warning)"}
                       strokeWidth="1.5"
                     />
                     <path
                       d="M0 -6 L6 5 L-6 5 Z"
-                      fill={isSevere ? "#DC2626" : "#D97706"}
+                      fill={isSevere ? "var(--color-error)" : "var(--color-warning)"}
                     />
-                    <circle cx="0" cy="3" r="0.8" fill="#FFFFFF" />
+                    <circle cx="0" cy="3" r="0.8" fill="var(--color-surface, #ffffff)" />
                     <text className="map-marker-label" x="14" y="4">
                       {report.category}
                     </text>
@@ -746,7 +768,7 @@ function OsmLocationMap({
 
         {/* Flood Legend for Manager Map */}
         {showFlood && mode === "manager" && (
-          <div className="map-flood-legend" aria-label="Flood risk legend">
+          <aside className="map-flood-legend" aria-label="Flood risk legend">
             <div className="flood-legend-header">
               <span className="flood-legend-title">
                 <Icon name="flood" size={13} />
@@ -767,7 +789,7 @@ function OsmLocationMap({
                 <i className="legend-swatch class-3" /> Class 3 (&gt;50cm)
               </span>
             </div>
-          </div>
+          </aside>
         )}
 
         {/* Flood Zone Details Popover */}
@@ -796,7 +818,9 @@ function OsmLocationMap({
             </div>
             <div className="map-popover-body">
               <strong>{activeFloodZone.name}</strong>
-              <p className="hazard-description">{activeFloodZone.description}</p>
+              <p className="hazard-description">
+                {activeFloodZone.description}
+              </p>
               <div className="flood-popover-meta">
                 <span>
                   Est. depth:{" "}
@@ -842,8 +866,8 @@ function OsmLocationMap({
                 {activeHazardPopup.description}
               </p>
               <span className="map-popover-meta">
-                Reported by {activeHazardPopup.driver_name || "Assigned rider"} ·{" "}
-                {formatTime(activeHazardPopup.reported_at)}
+                Reported by {activeHazardPopup.driver_name || "Assigned rider"}{" "}
+                · {formatTime(activeHazardPopup.reported_at)}
               </span>
               {activeHazardPopup.category === "flooding" && (
                 <div className="flood-advisory-box">
@@ -868,7 +892,9 @@ function OsmLocationMap({
             aria-label="Open-Meteo weather details"
           >
             <div className="map-popover-header">
-              <span className={`weather-badge-pill weather-${liveFlood.severity}`}>
+              <span
+                className={`weather-badge-pill weather-${liveFlood.severity}`}
+              >
                 <span className="live-weather-dot" />
                 LIVE HYDROLOGY · OPEN-METEO
               </span>
@@ -903,12 +929,15 @@ function OsmLocationMap({
                 </div>
                 <div className="weather-metric-item">
                   <span>ETA Slowdown</span>
-                  <strong>+{Math.round(liveFlood.suggestedSlowdown * 100)}%</strong>
+                  <strong>
+                    +{Math.round(liveFlood.suggestedSlowdown * 100)}%
+                  </strong>
                 </div>
               </div>
               <p className="weather-source-note">
-                Live open data from Copernicus GloFAS & Open-Meteo. Automatically
-                factored into route feasibility and dispatch planning.
+                Live open data from Copernicus GloFAS & Open-Meteo.
+                Automatically factored into route feasibility and dispatch
+                planning.
               </p>
             </div>
           </div>

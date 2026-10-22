@@ -121,7 +121,7 @@
 }
 
 .manual-order-remove:hover {
-  background: var(--color-error-bg, #fee2e2);
+  background: var(--color-error-bg, var(--color-error-surface));
 }
 
 .manual-order-remove:focus-visible {

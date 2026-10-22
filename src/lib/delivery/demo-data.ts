@@ -64,7 +64,8 @@ export const DEMO_ORDERS: DeliveryOrder[] = [
     delivery_longitude: 96.1348,
     recipient_name: "Thu Zar Win",
     recipient_phone: "+95 9 421 555 019",
-    parcel_description: "Food, small size · Lucky Seven Mohinga & Tea set (thermal bag)",
+    parcel_description:
+      "Food, small size · Lucky Seven Mohinga & Tea set (thermal bag)",
     parcel_weight_kg: 0.9,
     cod_amount: 11_500,
     cod_status: "pending",
@@ -167,7 +168,8 @@ export const DEMO_ORDERS: DeliveryOrder[] = [
     delivery_longitude: 96.1978,
     recipient_name: "Hla Hla",
     recipient_phone: "+95 9 421 555 032",
-    parcel_description: "Food, medium size, fragile · SP Bakery fresh birthday cake & pastries box (keep level)",
+    parcel_description:
+      "Food, medium size, fragile · SP Bakery fresh birthday cake & pastries box (keep level)",
     parcel_weight_kg: 1.4,
     cod_amount: 28_000,
     cod_status: "pending",

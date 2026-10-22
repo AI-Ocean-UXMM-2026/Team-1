@@ -1,621 +1,373 @@
-# Oern Mobile Design System
-**Version:** 1.0  
-**Scope:** Mobile-only experiences for Customer, Driver, and Delivery Operator  
-**Color foundation:** Oern Final Color System v1.2  
-**Status:** Proposed design system informed by mobile UX desk research; validate with users before production.
+---
+name: Oern
+description: Door-to-door delivery for Yangon. Calm navy structure, one orange action, blue for anything live.
+colors:
+  signal-orange: "#f97316"
+  kiln-orange: "#c2410c"
+  kiln-orange-pressed: "#9a3412"
+  orange-wash: "#fff7ed"
+  dispatch-navy: "#172b4d"
+  canvas: "#f8fafc"
+  surface: "#ffffff"
+  surface-subtle: "#f1f5f9"
+  hairline: "#e2e8f0"
+  control-slate: "#64748b"
+  text-secondary-subtle: "#475569"
+  live-blue: "#2563eb"
+  live-blue-text: "#1d4ed8"
+  live-blue-wash: "#dbeafe"
+  live-blue-border: "#bfdbfe"
+  delivered-green: "#16a34a"
+  delivered-green-text: "#166534"
+  delivered-green-wash: "#dcfce7"
+  caution-amber: "#d97706"
+  caution-amber-text: "#92400e"
+  caution-amber-wash: "#fef3c7"
+  caution-amber-border: "#fde68a"
+  failed-red: "#dc2626"
+  failed-red-text: "#b91c1c"
+  failed-red-wash: "#fee2e2"
+  failed-red-border: "#fca5a5"
+  focus-apricot: "#fdba74"
+typography:
+  display:
+    fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
+    fontSize: "30px"
+    fontWeight: 700
+    lineHeight: "33px"
+    letterSpacing: "-0.03em"
+  headline:
+    fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
+    fontSize: "20px"
+    fontWeight: 750
+    lineHeight: "26px"
+  title:
+    fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
+    fontSize: "16px"
+    fontWeight: 700
+    lineHeight: "22px"
+  body:
+    fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: "20px"
+  body-large:
+    fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: "22.5px"
+  input:
+    fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
+    fontSize: "16px"
+    fontWeight: 400
+    lineHeight: "22px"
+  button:
+    fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
+    fontSize: "16px"
+    fontWeight: 600
+    lineHeight: "24px"
+  label:
+    fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
+    fontSize: "12px"
+    fontWeight: 500
+    lineHeight: "16px"
+  figure:
+    fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
+    fontSize: "14px"
+    fontWeight: 650
+    lineHeight: "20px"
+    fontFeature: "tnum"
+rounded:
+  sm: "8px"
+  md: "12px"
+  lg: "16px"
+  xl: "20px"
+  pill: "999px"
+spacing:
+  "1": "4px"
+  "2": "8px"
+  "3": "12px"
+  "4": "16px"
+  "5": "20px"
+  "6": "24px"
+  "8": "32px"
+components:
+  button-primary:
+    backgroundColor: "{colors.kiln-orange}"
+    textColor: "{colors.surface}"
+    typography: "{typography.button}"
+    rounded: "{rounded.pill}"
+    height: "56px"
+    padding: "0 24px"
+  button-primary-pressed:
+    backgroundColor: "{colors.kiln-orange-pressed}"
+    textColor: "{colors.surface}"
+  button-secondary:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.dispatch-navy}"
+    typography: "{typography.button}"
+    rounded: "{rounded.pill}"
+    height: "56px"
+    padding: "0 24px"
+  button-dark:
+    backgroundColor: "{colors.dispatch-navy}"
+    textColor: "{colors.surface}"
+    rounded: "{rounded.md}"
+    height: "52px"
+  icon-button:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.dispatch-navy}"
+    rounded: "{rounded.pill}"
+    size: "48px"
+  input:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.dispatch-navy}"
+    typography: "{typography.input}"
+    rounded: "{rounded.md}"
+    height: "52px"
+    padding: "12px 14px"
+  status-chip-live:
+    backgroundColor: "{colors.live-blue-wash}"
+    textColor: "{colors.live-blue-text}"
+    rounded: "{rounded.pill}"
+    height: "28px"
+  status-chip-delivered:
+    backgroundColor: "{colors.delivered-green-wash}"
+    textColor: "{colors.delivered-green-text}"
+    rounded: "{rounded.pill}"
+    height: "28px"
+  status-chip-caution:
+    backgroundColor: "{colors.caution-amber-wash}"
+    textColor: "{colors.caution-amber-text}"
+    rounded: "{rounded.pill}"
+    height: "28px"
+  status-chip-failed:
+    backgroundColor: "{colors.failed-red-wash}"
+    textColor: "{colors.failed-red-text}"
+    rounded: "{rounded.pill}"
+    height: "28px"
+  status-chip-neutral:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-secondary-subtle}"
+    rounded: "{rounded.pill}"
+    height: "28px"
+  list-row:
+    backgroundColor: "{colors.surface-subtle}"
+    textColor: "{colors.dispatch-navy}"
+    rounded: "{rounded.lg}"
+    height: "64px"
+    padding: "10px 12px"
+  card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.dispatch-navy}"
+    rounded: "{rounded.lg}"
+    padding: "20px"
+  sidebar-item-active:
+    backgroundColor: "{colors.live-blue-wash}"
+    textColor: "{colors.live-blue-text}"
+    rounded: "{rounded.md}"
+    height: "44px"
+---
 
-## 1. Purpose and design direction
+# Design System: Oern
 
-Oern is a delivery platform for Myanmar, initially focused on Yangon. It needs to make three connected jobs feel simple:
+## Overview
 
-- Customers need confidence: what is happening, where the driver is, when the parcel may arrive, and how much COD is due.
-- Drivers need execution clarity: what to deliver next, where to go, what to collect, and how to prove completion.
-- Delivery operators need control: what is unassigned, which drivers and vehicles are available, which deliveries are at risk, and whether COD has been reconciled.
+**Creative North Star: "The Dispatch Board"**
 
-**Design direction:** Fast, clear, reliable, delivery-first. Use calm neutral surfaces, strong navy hierarchy, orange for brand and primary actions, blue for live tracking, and explicit semantic states. The three role experiences share one token and component system but have distinct information architecture and task flows.
+Oern looks like a well-run dispatch board. Every surface answers the question its user is asking right now: where is my parcel, what is my next stop, what needs a rider. The structure is navy and quiet, so state can speak. A single orange marks the one action that moves a delivery forward. Blue appears only where something is live or in motion: a route, a rider dot, an "On the way" chip. Green, amber and red are reserved for outcomes. Nothing is ornamental, and the map exists to support a decision, not as wallpaper.
 
-### Principles
+Three roles share one token set but not one layout. Customers and riders get a phone-first shell: edge-to-edge on phones and centered at 480px above that, with 16px gutters, 48px targets, safe-area-aware bottom actions and labeled bottom tabs. Managers get the same language at desktop density: a white sidebar, a canvas work area, and white panels divided by hairlines instead of shadows. The app is light only: there is no dark theme, and the device's dark-mode setting does not change its colors.
 
-1. **One primary job per screen.** Make the most likely next action obvious.
-2. **Status before decoration.** Show state, ETA, amount, or next stop before secondary metrics.
-3. **Maps are functional, not ornamental.** Give maps enough space to support a route decision; use a compact preview when the user mainly needs status.
-4. **Use color, label, and icon together.** Never communicate delivery or payment state through color alone.
-5. **Design for real operating conditions.** Support one-handed use, sunlight, night shifts, variable connectivity, and long local addresses.
-6. **Reduce uncertainty, not just taps.** Explain stale GPS, delayed delivery, failed delivery, and COD mismatches in plain language.
-7. **Share patterns, not screens.** Common components look and behave consistently, while customer, driver, and operator flows remain role-specific.
-8. **Progressive disclosure.** Keep the first view focused; put history, advanced filters, and secondary settings one level deeper.
+The brand's warmth sits at the edges. The cheetah mascot and dashed route art appear on welcome, auth, loading and empty states. Illustrated icons (`public/icons`) appear on customer shortcuts and profile rows. Neither appears inside working surfaces, where state and figures take priority.
 
-## 2. Research basis and confidence
+**Key Characteristics:**
+- Navy structure, one orange action per screen, blue only for live things.
+- Delivery state and COD payment state are always two separate signals.
+- Flat surfaces separated by hairlines and tonal steps; shadows only on things that float over a map.
+- Pill-shaped primary actions (56px) on phone flows; 12px-radius controls inside dense workspaces.
+- Inter for Latin text, self-hosted Noto Sans Myanmar for Burmese, and tabular numerals for every time, count and amount.
+- Mascot and illustration at the edges of a flow, never inside a working surface.
 
-This is a desk-research synthesis, not a claim that every screen in every app has been exhaustively audited. Mobbin search results were used to identify representative mobile screen and flow references across parcel tracking, delivery execution, order management, and dispatch. Official platform and accessibility guidance informs navigation and target sizing. Recommendations for Oern are product design decisions derived from the user's project scope, the existing color system, and those references; they are not claims about proprietary internal designs.
+## Colors
 
-### Representative Mobbin references
+The palette is cool and slate-based, with navy for structure, one warm orange for action, and a strict four-color semantic set for delivery state.
 
-| Area | Reference | Research focus |
-|---|---|---|
-| Customer tracking | [Shopee — Tracking driver location](https://mobbin.com/flows/7ef69bab-a64c-4b7b-bce0-877d0ac70163), 3 screens | Tracking journey and driver-location entry point |
-| Customer delivery details | [Klarna — Tracking a delivery](https://mobbin.com/flows/55b055d1-bd89-4071-b021-15788b7eb4ed), 9 screens | Delivery tracking and related details |
-| Package tracking | [PayPal — Track a package](https://mobbin.com/flows/fb233d86-7d8d-4a95-bc0f-04ebbd1c9f38), 3 screens | Package lookup and tracking journey |
-| Parcel details | [InPost UK — Parcel info](https://mobbin.com/flows/614f75e0-9b66-4ef3-822c-18c75e51e144), 3 screens | Parcel information |
-| Driver execution | [DoorDash Dasher — Completing an order](https://mobbin.com/flows/ec82d267-a98a-4124-bb3b-3de97f76132a), 14 screens | Task progression and order completion |
-| Driver execution | [Grab Driver — Completing a job](https://mobbin.com/flows/d28b1cfa-d25b-413e-ab85-d7e6d2acb39e), 14 screens | Driver job lifecycle |
-| Proof of delivery | [Instacart — Proof of delivery](https://mobbin.com/flows/4585a752-6c5f-4c21-b9df-6776c05fdcb9), 3 screens | Completion evidence flow |
-| Courier task | [Shopee — Deliver packages](https://mobbin.com/flows/c83b6d74-157e-4f2e-bd05-21da0c4ee90a), 4 screens | Package delivery sequence |
-| Order creation | [Grab — Creating a delivery order](https://mobbin.com/flows/3484fed9-4d50-42b9-b887-e587a170fab2), 9 screens | Delivery creation workflow |
-| Delivery form | [Grab — Creating a delivery form](https://mobbin.com/flows/e07479c3-7c98-4d0e-920f-f00726eedc1f), 8 screens | Form structure and order entry |
-| Order management | [Shopify — Filtering orders](https://mobbin.com/flows/2b417ba9-496e-4be7-8f00-1ee6dee3bb3e), 5 screens | Filtering and order list interactions |
-| Order management | [talabat — Orders](https://mobbin.com/flows/b4889bcf-e732-4109-8464-a5fbfe456203), 7 screens | Order management journey |
+### Primary
+- **Kiln Orange** (`kiln-orange`): the light-theme action color. Primary buttons, the "Track" lookup button, link text such as "Create an account", and the destination pin. White text on it passes AA.
+- **Kiln Orange, Pressed** (`kiln-orange-pressed`): the pressed and hover state of Kiln Orange, and nothing else.
+- **Signal Orange** (`signal-orange`): the brand mark itself. Used for the logo tile, the mascot's accents, the period in "oern." and decorative route art. Never put white small text on it.
+- **Orange Wash** (`orange-wash`): the tint behind brand-flavored notices and the selected pickup option.
 
-### Platform and accessibility references
+### Secondary
+- **Dispatch Navy** (`dispatch-navy`): all primary text and headings, the driver marker, the navy button, the selected segment in a segmented control, completed timeline steps, and avatar fills. It carries the system's authority.
 
-- [Apple Human Interface Guidelines — Tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars/) — top-level navigation should remain understandable, labeled, and easy to switch between.
-- [Android Developers — Layouts and navigation patterns](https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns) — navigation should match compact mobile use and platform conventions.
-- [Material 3 for Compose](https://developer.android.com/develop/ui/compose/designsystems/material3) — reusable components and platform design-system patterns.
-- [W3C WCAG 2.2](https://www.w3.org/TR/wcag/) — contrast, focus, and target-size requirements.
-- [Nielsen Norman Group — Mobile UX study guide](https://www.nngroup.com/articles/mobile-ux-study-guide/) — mobile navigation and information architecture considerations.
+### Tertiary
+- **Live Blue** (`live-blue`): the active route line, the rider dot, live-sharing indicators, input focus, and the active manager sidebar item (on **Live Blue Wash**, `live-blue-wash`, with **Live Blue Text**, `live-blue-text`). Blue always means "happening now".
 
-### Synthesis for Oern
+### Semantic
+- **Delivered Green** (`delivered-green`, text `delivered-green-text`, wash `delivered-green-wash`): delivered, COD collected, completed stops.
+- **Caution Amber** (`caution-amber`, text `caution-amber-text`, wash `caution-amber-wash`, border `caution-amber-border`): assigned but not yet moving, delayed, COD due.
+- **Failed Red** (`failed-red`, text `failed-red-text`, wash `failed-red-wash`, border `failed-red-border`): failed, cancelled, missed, blocked road, invalid fields.
 
-- Customers should be able to resume a trackable delivery directly from Home or Orders.
-- Driver workflows should be task-oriented and state-driven, with a single prominent next action.
-- Operator workflows should favor scannable lists, search, filters, assignment decisions, and exception handling over dense charts.
-- COD is a payment state separate from delivery status. A parcel can be delivered while money is still outstanding or awaiting reconciliation.
-- The route map must communicate driver, destination, origin, completed stops, and alerts using shape, label, and color.
-- The mobile operator app should be designed for phones, not a desktop dashboard compressed into a narrow viewport.
+Status tone mapping as shipped: pending is neutral; assigned and accepted are amber; picked up and in transit are blue; delivered is green; failed and cancelled are red.
 
-## 3. Product architecture
+### Neutral
+- **Canvas** (`canvas`): the app background on every role. It is also the `theme-color`.
+- **Surface** (`surface`): cards, sheets, inputs, the manager sidebar and top bar.
+- **Surface Subtle** (`surface-subtle`): list rows on the customer home, grouped panels, and disabled field fills.
+- **Hairline** (`hairline`): dividers and decorative card edges only.
+- **Control Slate** (`control-slate`): input and secondary-button outlines, placeholders, and supporting text on white.
+- **Slate Text** (`text-secondary-subtle`): supporting text on Surface Subtle, MUI `text.secondary`, and neutral chip text.
+- **Focus Apricot** (`focus-apricot`): the 3px keyboard focus ring on buttons and links.
 
-### Three role experiences, one design language
+### Named Rules
+**The One Orange Rule.** Each screen has at most one Kiln Orange fill. Secondary actions are outlined navy, and tertiary actions are underlined text. If two things are orange, one of them is wrong.
 
-| Role | Primary outcome | Primary navigation | Main information priority |
-|---|---|---|---|
-| Customer | Understand and trust a delivery | Home · Track · Orders · Profile | Active order, ETA, driver, COD, progress |
-| Driver | Complete the next stop safely and accurately | Route · Deliveries · Earnings · Profile | Next stop, navigation, delivery action, COD |
-| Delivery Operator | Keep orders assigned and exceptions under control | Overview · Orders · Drivers · More | Unassigned/at-risk orders, availability, fleet, COD |
+**The Blue Means Live Rule.** Live Blue is reserved for motion and live data: routes, rider position, sharing state and in-transit status. Never use it as a generic accent or for links.
 
-Use role-based access so users only see relevant actions and data. A customer must not see driver earnings or other customers' addresses. A driver must not see unrelated customer records. An operator sees only the fleet and delivery data permitted by their organization and role.
+**The Orange Is Not a Status Rule.** Orange never encodes delivery state. States use only the four semantic families plus neutral.
 
-### Shared mobile shell
+**The Decorative Grey Rule.** `#94a3b8` and Hairline are never used for text, placeholders, inactive icons or control boundaries. Use Control Slate for those.
 
-- Safe-area-aware status and navigation regions.
-- Consistent top bar, screen title, back behavior, spacing, and surfaces.
-- Four primary navigation destinations per role by default.
-- Labeled navigation icons; do not rely on icon-only navigation.
-- One primary action per screen where possible.
-- Full-screen map or guided task mode only when it supports the active task.
-- Bottom sheets for focused choices, such as driver assignment, stop actions, and filters.
-- Use native back behavior and preserve scroll/filter state when users return.
+## Typography
 
-## 4. Information architecture
+**Body Font:** Inter, self-hosted at weights 400, 500, 600 and 700 (`src/app/fonts`, exposed as `--font-inter`).
+**Burmese Font:** Noto Sans Myanmar, self-hosted at weights 400, 600 and 700 (`--font-myanmar`), placed directly after Inter in every stack.
+**Fallback:** `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`.
 
-### Customer
+**Character:** A single neutral sans-serif carries the whole system. Hierarchy comes from weight and size, not from a second family. Headings use heavy weights (700–750) and slightly negative tracking. Labels stay sentence case so mixed Burmese and English reads naturally.
 
-The customer app is a mobile-first shell: edge-to-edge on phones, a centered 480px canvas on larger screens, 16px gutters, 48px touch targets, and safe-area-aware bottom actions. Signed-in screens carry no logo.
+### Hierarchy
+- **Display** (700, 30px/33px, −0.03em): auth and welcome headings ("Welcome back"), and manager page titles at desktop sizes.
+- **Headline** (750, 20px/26px): app-bar greetings and section headings ("Today's deliveries").
+- **Title** (700, 16px/22px): card titles, the stop name in the rider sheet, and sheet titles.
+- **Body** (400, 14px/20px): the default size, set on `body`.
+- **Body Large** (400, 15px/22.5px): lead paragraphs under a Display heading.
+- **Input** (400, 16px/22px): every text input, at 16px so mobile browsers don't zoom on focus.
+- **Button** (600, 16px/24px): primary and secondary buttons. Dense workspace buttons use 15px/20px.
+- **Label** (500, 12px/16px): floating field labels, metadata, timestamps and footnotes. 12px is the floor for meaningful text.
+- **Figure** (650, 14px, `tabular-nums`): ETAs, MMK amounts, counts and tracking codes. Manager KPIs scale the same treatment up to 28–32px at weight 700.
+
+### Named Rules
+**The Tabular Figures Rule.** Every time, amount, count and tracking code is set with `font-variant-numeric: tabular-nums`, so columns and live-updating ETAs don't shift.
+
+**The Burmese Fallback Rule.** Every font stack places `var(--font-myanmar)` directly after Inter. Never ship a stack without it, and never depend on a remote font for essential text.
+
+**The Sentence Case Rule.** Labels, buttons and headings use sentence case. Uppercase is reserved for the small tracked section labels in the manager sidebar ("WORKSPACE").
+
+## Layout
+
+**Phone shell (customer, rider, seller and support on phones).** The base frame is 390×844. Layouts are tested at 320, 360, 390 and 430px. The shell is edge-to-edge below 480px and becomes a centered 480px column above that. Gutters are 16px. Bottom tab bars and bottom actions sit inside `env(safe-area-inset-bottom)`. The primary action is anchored to the bottom of the viewport on step flows (sign in, pickup steps, rider stop sheet), where the thumb is.
+
+**Manager workspace.** A fixed white sidebar sits on the left (about 248px), with the logo, a "WORKSPACE" label, nav items with count badges, and an org switcher at the foot. To its right is a 72px top bar with update time, refresh and the account. The work area sits on Canvas with about 32px of padding. Content is a two-column grid: the primary column holds the KPI strip, live map and recent-deliveries table, and a narrower right rail (about 300px) holds the "Needs attention" and fleet summaries. On phones the sidebar becomes a fixed bottom nav.
+
+**Rhythm.** Spacing follows a 4px-based scale (`--space-1` to `--space-8`: 4, 8, 12, 16, 20, 24 and 32px). Gaps between cards are 12–16px, card padding is 16–20px, and major sections are separated by 24px. List rows are separated by 8px.
+
+**Targets.** `--target-min` is 48px. Every interactive control is at least 48×48. Primary phone actions are 52–56px tall. Adjacent targets are at least 8px apart.
+
+### Named Rules
+**The Thumb Zone Rule.** On phone flows, the action that advances the task lives in the bottom third of the screen. A primary action at the top of the screen is a layout bug.
+
+**The Map Earns Its Space Rule.** Maps are full-bleed only when the user is navigating (rider) or following a live parcel (customer track). Anywhere else they are a bounded panel with a text or list alternative next to them.
+
+## Elevation & Depth
+
+Oern is flat by default. Depth comes from tonal steps (Canvas → Surface → Surface Subtle) and 1px Hairline edges, not from shadows. Shadows appear on one category of object: things that float over a map or slide over content.
+
+### Shadow Vocabulary
+- **Float** (`--rf-shadow-float`: `0 6px 18px -6px rgb(23 43 77 / 0.28), 0 2px 4px rgb(23 43 77 / 0.08)`): map controls, the turn card, and chips floating over the rider map.
+- **Sheet** (`--rf-shadow-sheet`: `0 -10px 30px -12px rgb(23 43 77 / 0.3)`): bottom sheets rising over the map.
+- **Whisper** (`0 1px 2px rgb(23 43 77 / 0.08)`): circular back buttons sitting on illustrated auth backgrounds.
+
+Shadows are tinted with Dispatch Navy, never pure black.
+
+### Named Rules
+**The Float-Only Shadow Rule.** A shadow means "this sits above a map or above other content". Cards, list rows and panels resting on Canvas never get one.
+
+## Shapes
+
+Gently curved corners on a fixed scale: `--radius-sm` (8px) for small tags and inner icon tiles, `--radius-md` (12px) for inputs, workspace buttons and compact cards, `--radius-lg` (16px) for cards, list rows and manager panels, and `--radius-xl` (20px) for sheet tops and large hero panels. Pills (999px) are used for primary phone buttons, chips, segmented controls, tab indicators and circular icon buttons. Avatars and map dots are perfect circles.
+
+Corner values outside 8, 12, 16, 20 and 999 (or 50%) are drift. Snap them to the nearest step.
+
+Map markers combine shape and color. The rider is a navy arrow with a 2px white casing. The destination is an orange teardrop pin. The origin is a hollow slate circle. Completed stops are green checks. Multi-stop routes carry numbers.
+
+## Components
+
+### Buttons
+Confident and unmissable on phones; compact and quiet in workspaces.
+- **Shape:** full pill (999px) on phone flows and in MUI `Button`; 12px in dense manager and rider workspace rows.
+- **Primary:** Kiln Orange fill, white 16px/600 text, 56px tall on phone flows (`.auth-screen-submit`, rider "I've arrived") and at least 48px everywhere. Pressed state is Kiln Orange Pressed. No elevation.
+- **Secondary:** Surface fill with a 1px Control Slate outline and navy text, same height and shape as the primary it accompanies.
+- **Navy:** Dispatch Navy fill with white text. Used for a strong non-brand action in workspaces.
+- **Tertiary:** underlined navy text links ("Report a problem", "View delivery details") stacked under the primary. Each is a 48px target.
+- **Focus:** 3px Focus Apricot outline with a 2px offset. MUI focus ripples are disabled, so the ring is the only focus signal.
+- **Disabled:** 55% opacity and `cursor: not-allowed`. Never color alone.
+
+### Chips
+- **Status chip:** a 28px pill with a semantic wash fill and the matching `-text` color (neutral uses a white fill with a Hairline border). Labels are short ("On the way", "Delivered"). Where space allows, a 16px leading icon in the current text color repeats the meaning.
+- **COD chip:** always a separate chip next to the status chip, with a payments or coin icon and "COD · MMK 68,000" in amber. It never merges with delivery state.
+- **Filter or parcel chip:** an outlined 1px Control Slate pill. When selected it becomes a Dispatch Navy fill with white text.
+
+### Cards and list rows
+- **List row (customer):** a Surface Subtle fill with 16px corners and no border, at least 64px tall. A 64px tabular time column on the left, the tracking code (700) and address (12px, one line) on the right, and chips below. A missed row switches to a Failed Red wash with a 1px red edge.
+- **Shortcut tile:** a white tile with 16px corners, a 1px Hairline border, a 40px illustrated icon above a 15px/600 label, and a minimum height of 112px, laid out in a three-up grid.
+- **Manager panel:** a white panel with 16px corners, a 1px Hairline border, 20px padding and no shadow. A 16px/700 title leads, with a muted count on the right. KPI cells are separated by vertical hairlines.
+
+### Inputs and fields
+- **Style:** a 52px minimum height, Surface fill, 1px Control Slate border, 12px corners, 16px text and 12px/14px padding. Labels stay visible: either a 14px/600 label above the field (`.field-label`, `.rf-field`) or the MUI floating label in 12px/500.
+- **Focus:** a 3px Live Blue outline and a Live Blue border (MUI: a 2px Live Blue notched outline). The caret is Kiln Orange.
+- **Error:** set through `aria-invalid="true"`, which gives a 2px Failed Red boundary plus a plain-language helper below the field.
+- **Disabled:** a Surface Subtle fill with Control Slate text.
+- **Single source:** native fields are styled in `src/app/form-fields.css` and MUI fields in `mui-provider.tsx`. Both follow this spec.
+
+### Navigation
+- **Phone bottom tabs:** four labeled destinations (customer: Home, Orders, Pickup, Profile). The selected tab gets an Orange Wash pill behind a Kiln Orange icon, with a navy label. Tabs hide on focused steps, which carry a back control instead.
+- **Manager sidebar:** 15px/500 items with 20px line icons. The active item gets a Live Blue Wash pill with Live Blue Text in 600 weight. Neutral count badges are right-aligned.
+- **Back control:** a 48px circular icon button with a navy arrow. It sits on a white 85% fill wherever it overlaps illustrated backgrounds.
+
+### Rider stop sheet (signature)
+A bottom sheet with 20px top corners and the Sheet shadow, rising over a full-bleed map. It opens with a grab handle, then shows a Kiln Orange eyebrow ("Stop 1 of 1 · Deliver parcel"), a 22–24px/700 recipient name, the address, then a 28px tabular Live Blue ETA with a confidence label and distance. A row of parcel and COD chips follows, then one full-width pill primary action, then two underlined tertiary links. A white turn card with the Float shadow sits at the top of the map, carrying a navy direction tile and a Live Blue "Directions" action.
+
+### Mascot moments
+The cheetah (`cheetah-run`) and the dashed blue-and-orange route art belong to welcome, sign in and sign up, loading, and empty states. They animate once on entry and respect `prefers-reduced-motion`. They never appear on a working list, form or map.
+
+### Motion
+State changes run at 120–240ms on `--rf-ease` (`cubic-bezier(0.16, 1, 0.3, 1)`). Sheets travel at 400ms. Live pulses are optional and are never the only status cue. Every keyframe animation has a `prefers-reduced-motion: reduce` fallback.
+
+## Do's and Don'ts
+
+### Do:
+- **Do** reference tokens (`var(--color-*)`, `var(--radius-*)`, `var(--space-*)`) instead of repeating their hex or pixel values.
+- **Do** pair every status color with a text label, and add an icon where space allows. Status must survive color-vision deficiency.
+- **Do** show COD as its own chip or panel, in MMK, beside the delivery status and never inside it.
+- **Do** show the last-updated time and a stale-GPS state on every live map. Never invent a location or an ETA.
+- **Do** let addresses, townships and landmarks wrap. Never truncate the only copy of an address.
+- **Do** give every key screen loading, empty, error and permission-denied states, and keep cached data visible but labeled stale.
+- **Do** confirm destructive actions and irreversible COD transitions in a dialog with an explicit label.
+
+### Don't:
+- **Don't** put two Kiln Orange fills on one screen, or use orange for any delivery status.
+- **Don't** use Live Blue for links, decoration or non-live emphasis.
+- **Don't** add shadows to cards or panels that rest on Canvas. Shadows are for floating map UI and sheets.
+- **Don't** use corner radii outside 8, 12, 16, 20 or pill.
+- **Don't** set meaningful text below 12px, or use `#94a3b8` or Hairline for text and control borders.
+- **Don't** put white small text on Signal Orange (`#f97316`).
+- **Don't** reintroduce the legacy forest-green and cream palette (`#275c49`, `#32443b`, `#fdf8e8`, `#d5aa4d`), which survives only in dead selectors.
+- **Don't** make a swipe the only way to complete a critical action. Every swipe has a visible button alternative.
+- **Don't** place the mascot or illustrations inside a working surface (lists, forms, maps, tables).
+
+## Appendix: Customer app structure
+
+The customer app is a mobile-first shell. Signed-in screens carry no logo.
 
 - **Bottom tabs:** Home, Orders, Pickup, Profile. The tab bar shows on the four tab roots and hides on focused steps: order details, pickup steps 2–3, map selection and notifications. Every hidden-tab screen has a Back control that stays inside Oern.
-- **Home:** the next active parcel (status, ETA, destination, COD, one tracking action) with other active parcels as compact rows. With no active parcel, Request pickup is the primary action. Finished parcels never appear here; a "Delivery history" row links to Orders → History.
-- **Orders:** an Active / History segmented control. Search is scoped to the selected tab; History adds an outcome filter (Delivered, Failed, Cancelled) and is sorted by the latest terminal status event, falling back to the order's creation time. COD is shown beside, never inside, the delivery status. The tab, search and outcome live in the URL (`/orders?tab=history&q=…&outcome=failed`), so Back from a delivery restores them.
-- **Track:** the map and a bottom summary (status, ETA, freshness, call and help). Route, progress timeline, parcel notes and COD sit behind labeled expandable sections. Stale GPS, missing location, delay and failure each get their own explanation and recovery action.
-- **Pickup:** three steps — Addresses (`/pickup`), Parcel and contacts (`/pickup/details`), Review and request (`/pickup/review`). The map screens read and write the same stored draft, so addresses, pins and contacts survive navigation, sign-in and failed requests. One primary action per step, inline validation on blur or attempt, numeric/phone keyboards, optional details behind a disclosure. The requested time is written into the parcel description in the form the database turns into a stored pickup window; the app describes it as a request and never promises a time the data does not hold. Success shows the tracking code and a "View order" action.
+- **Home:** a three-up shortcut grid (Request pickup, Track parcel, Help & support). If any deliveries are finished, a "Delivery history" row follows. Then "Today's deliveries": one row per active parcel with its ETA, tracking code, address, status chip and a COD chip when cash is due. Finished parcels never appear here.
+- **Orders:** an Active / History segmented control. Search is scoped to the selected tab. History adds an outcome filter (Delivered, Failed, Cancelled) and is sorted by the latest terminal status event, falling back to the order's creation time. The tab, search and outcome live in the URL (`/orders?tab=history&q=…&outcome=failed`), so Back from a delivery restores them.
+- **Track:** a tracking-code lookup (paste and scan) with the customer's own parcels as chips. A tracked parcel shows the map and a bottom summary (status, ETA, freshness, call and help). Route, progress timeline, parcel notes and COD sit behind labeled expandable sections. Stale GPS, missing location, delay and failure each get their own explanation and recovery action.
+- **Pickup:** three steps: Addresses (`/pickup`), Parcel and contacts (`/pickup/details`), and Review and request (`/pickup/review`). The map screens read and write the same stored draft, so addresses, pins and contacts survive navigation, sign-in and failed requests. Each step has one primary action. The app describes the requested time as a request and never promises a time the data doesn't hold. Success shows the tracking code and a "View order" action.
 - **Notifications:** one compact chronological list, newest first, with unread markers.
-- **Help:** attached to the selected parcel; when none is selected an order picker comes first.
-- **Profile:** initials avatar, name and phone, then grouped rows (Delivery history, Notifications with unread badge, Help and support) and a separate centered Sign out button that asks for confirmation and reports failure. Rows use the app's own illustrations (`public/icons`). No control appears without working behavior behind it.
+- **Help:** attached to the selected parcel. When no parcel is selected, an order picker comes first.
+- **Profile:** a navy initials avatar, name and phone, then grouped rows (Delivery history, Notifications with an unread badge, Help and support) using the app's illustrations. Sign out is a separate centered button that asks for confirmation and reports failure. No control appears without working behavior behind it.
 - **Sign-in and sign-up** return the customer to the task they started (`?next=`, same-origin paths only).
-
-### Driver
-
-- **Route:** route overview, stop sequence, remaining distance/time, route alerts.
-- **Deliveries:** assigned, completed, failed, and rescheduled tasks.
-- **Stop detail:** address, customer contact, access instructions, parcel summary, COD due.
-- **Proof of delivery:** delivery confirmation, photo/signature/recipient confirmation according to policy.
-- **Earnings / COD:** earnings where applicable, COD collected, cash reconciliation, discrepancies.
-- **Vehicle / Profile:** vehicle type, fuel/battery, shift status, app settings, support.
-
-### Delivery Operator
-
-- **Overview:** active deliveries, unassigned orders, available drivers, delayed orders, COD to reconcile.
-- **Orders:** searchable/filterable order queue, order detail, assignment state, event history.
-- **Assign:** candidate drivers and vehicles, capacity, workload, proximity, route fit, manual override.
-- **Drivers:** online status, workload, last location update, current route, availability.
-- **Fleet:** truck, bike, e-bike; capacity, fuel/battery, service availability.
-- **Exceptions:** delayed, failed, unreachable, address issue, low battery/fuel, COD discrepancy.
-- **Reports / More:** delivery analytics, COD reconciliation, settings, permissions.
-
-## 5. Design tokens
-
-The existing **Oern Final Color System v1.2** is the canonical color contract. Do not change its color values independently inside customer, driver, and operator screens.
-
-### 6.1 Core colors
-
-| Token | Hex | Use |
-|---|---|---|
-| `brand.orange` | `#F97316` | Brand identity and decorative accents; use navy text on orange |
-| `brand.orange-action` | `#C2410C` | Light-theme primary action with white text |
-| `brand.orange-action-hover` | `#9A3412` | Pressed/strong action state |
-| `brand.navy` | `#172B4D` | Main text, headings, structure |
-| `surface.canvas` | `#F8FAFC` | App background |
-| `surface.primary` | `#FFFFFF` | Cards, sheets, input backgrounds |
-| `surface.subtle` | `#F1F5F9` | Grouped/secondary panels |
-| `border.default` | `#E2E8F0` | Decorative edges and dividers only |
-| `border.control` | `#64748B` | Inputs, secondary button outlines |
-| `text.primary` | `#172B4D` | Primary text |
-| `text.secondary` | `#64748B` | Supporting text on white/canvas |
-| `text.secondary-subtle` | `#475569` | Supporting text on subtle surface |
-| `text.placeholder` | `#64748B` | Input placeholders |
-| `text.inverse` | `#FFFFFF` | Text on navy and accessible dark-orange action |
-
-### 6.2 Semantic colors
-
-| Meaning | Graphic token | Text token | Tinted background / foreground |
-|---|---|---|---|
-| Success / delivered | `#16A34A` | `#166534` | `#DCFCE7` / `#166534` |
-| Warning / delayed / COD due | `#D97706` | `#92400E` | `#FEF3C7` / `#92400E` |
-| Error / failed / cancelled | `#DC2626` | `#B91C1C` | `#FEE2E2` / `#991B1B` |
-| Info / live / in transit | `#2563EB` | `#1D4ED8` | `#DBEAFE` / `#1D4ED8` |
-| Neutral / pending | `#64748B` | `#475569` | `#F1F5F9` / `#475569` |
-
-Rules:
-- Orange is not a delivery-status color.
-- Use semantic text tokens for small text; bright semantic colors are primarily for graphics.
-- `#94A3B8` and `#E2E8F0` are decorative only, not small text, placeholders, inactive icons, or critical control boundaries.
-- Use a coin icon and a visible “COD” label for every COD state.
-
-### 6.3 Map tokens
-
-| Token | Light | Dark | Meaning |
-|---|---|---|---|
-| `map.route.active` | `#2563EB` | `#60A5FA` | Active/planned route |
-| `map.route.casing` | `#FFFFFF` | `#0F172A` | Route separation outline |
-| `map.driver` | `#172B4D` | `#F8FAFC` | Driver/vehicle marker |
-| `map.driver.casing` | `#FFFFFF` | `#0F172A` | 2 px marker casing |
-| `map.destination` | `#C2410C` | `#FB923C` | Destination pin |
-| `map.origin` | `#64748B` | `#94A3B8` | Origin/hollow circle |
-| `map.completed` | `#16A34A` | `#4ADE80` | Completed stop/check |
-| `map.alert` | `#DC2626` | `#F87171` | Blockage/failed stop |
-| `map.road-label` | `#475569` | `#CBD5E1` | Road labels |
-| `map.surface` | `#F1F5F9` | `#1E293B` | Low-emphasis map surface |
-
-Map markers always use a shape plus icon/label, not color alone. Multi-stop routes use numbers to communicate order.
-
-### 6.4 Dark theme
-
-| Token | Value |
-|---|---|
-| `background` | `#0F172A` |
-| `surface` | `#1E293B` |
-| `surface.subtle` | `#273449` |
-| `border.default` | `#334155` |
-| `border.control` | `#8294AD` |
-| `text.primary` | `#F8FAFC` |
-| `text.secondary` | `#CBD5E1` |
-| `text.placeholder` | `#94A3B8` |
-| `text.link` | `#FB923C` |
-| `brand.orange-action` | `#F97316` with `#0F172A` text |
-| `map.route.active` | `#60A5FA` |
-| `map.destination` | `#FB923C` |
-
-Use dark theme especially for driver/night use, while respecting OS and user preference. Do not simply invert the light palette.
-
-## 6. Typography
-
-Use **Inter** where bundled. For Myanmar content, support **Noto Sans Myanmar** or the native system font with Myanmar glyph coverage. Fall back to SF Pro on iOS and Roboto on Android. Do not depend on a remote font for essential interface text.
-
-| Style | Size / line height | Weight | Use |
-|---|---|---|---|
-| Display | 28 / 34 px | 700 | Primary ETA or KPI |
-| H1 | 24 / 30 px | 700 | Screen title |
-| H2 | 20 / 26 px | 650–700 | Major card/section heading |
-| H3 | 16 / 22 px | 600 | Card title |
-| Body | 14 / 20 px | 400 | Main content |
-| Body strong | 14 / 20 px | 600 | IDs, values, key labels |
-| Button | 15 / 20 px | 600 | Button label |
-| Caption | 12 / 16 px | 500 | Metadata and timestamps |
-| KPI | 24 / 30 px | 700 | Counts and amounts |
-
-Typography rules:
-- Use sentence case for labels and headings.
-- Keep meaningful text at 12 px or larger.
-- Use tabular numerals for monetary values and counts when available.
-- Allow multi-line addresses; do not truncate the only copy of an address or landmark.
-- Keep Burmese and English mixed text readable without forcing all labels into all caps.
-
-## 7. Spacing, sizing, shape, elevation
-
-### Spacing scale
-
-| Token | Value | Use |
-|---|---:|---|
-| `space.1` | 4 px | Icon/text micro-gap |
-| `space.2` | 8 px | Compact gaps and control separation |
-| `space.3` | 12 px | Compact card padding |
-| `space.4` | 16 px | Standard screen/card padding |
-| `space.5` | 20 px | Section separation |
-| `space.6` | 24 px | Major sections |
-| `space.8` | 32 px | Large separation |
-
-### Shape
-
-| Token | Value | Use |
-|---|---:|---|
-| `radius.sm` | 8 px | Small controls, small badges |
-| `radius.md` | 12 px | Inputs and compact cards |
-| `radius.lg` | 16 px | Main cards and sheets |
-| `radius.xl` | 20 px | Hero cards and large sheets |
-| `radius.pill` | 999 px | Chips and badges |
-
-### Mobile layout rules
-
-- Base design frame: 390 × 844 px.
-- Test widths: 320, 360, 390, and 430 px.
-- Horizontal screen padding: 16 px; 20 px where a major hero section needs breathing room.
-- Main card gaps: 12–16 px.
-- Critical action targets: at least 48 × 48 px; primary actions 52–56 px high.
-- Adjacent targets: at least 8 px apart.
-- Bottom navigation: four items by default, labeled and safe-area aware.
-- Driver screens: portrait-first, with primary action reachable near the lower half of the screen.
-- Avoid horizontally dense metric grids and tiny map controls.
-- Do not create tablet/desktop layouts in this mobile-only system.
-
-### Elevation
-
-- Cards: thin decorative border and little or no shadow.
-- Floating map controls and sheets: soft shadow plus visible surface boundary.
-- Avoid stacked shadows and excessive glass effects.
-- Dark theme hierarchy should rely on surface differences, not black shadows.
-
-## 8. Component library
-
-### 9.1 Buttons
-
-| Variant | Appearance | Use |
-|---|---|---|
-| Primary | Light: `#C2410C` + white text; dark: `#F97316` + navy text | Main action |
-| Secondary | Surface fill + `border.control` outline | Contact, cancel, alternate action |
-| Tertiary | Transparent with accessible action text | Low-emphasis inline action |
-| Destructive | Red semantic treatment with explicit label | Cancel, fail, remove |
-| Icon button | Visible boundary or contrast, accessible label | Map, notification, close |
-
-Required states: default, pressed, loading, disabled, success, error. Keep the label stable during loading where possible. Never use color alone to indicate disabled or destructive state.
-
-### 9.2 Status badge
-
-Every badge includes a short label and a distinct icon.
-
-| State | Treatment | Icon cue | Label |
-|---|---|---|---|
-| Pending | Neutral tinted | Clock | Pending |
-| Assigned | White/transparent with blue outline | Clipboard-check | Assigned |
-| In transit | Blue tinted | Truck | In transit |
-| Approaching | Solid blue with white text | Map pin/arrow | Arriving |
-| Delivered | Green tinted | Check-circle | Delivered |
-| Delayed | Amber tinted | Hourglass | Delayed |
-| Failed | Red tinted | X-octagon | Failed |
-| Cancelled | Red tinted | Slash-circle | Cancelled |
-| COD collected | Green tinted | Coin + check | COD collected |
-| COD due | Amber tinted | Coin + clock | COD due |
-
-Do not merge delivery state and payment state into a single badge. An order can be delivered while COD remains unreconciled.
-
-### 9.3 Delivery card
-
-Recommended information order:
-1. Order ID and status.
-2. ETA or next action.
-3. Map preview if it helps.
-4. Driver/vehicle details.
-5. COD state and amount.
-6. One primary CTA and optional secondary action.
-
-Use a list rather than large cards when operators must compare many orders quickly. Cards are best for a small number of prioritized items or browse-oriented content.
-
-### 9.4 Map and live-tracking surface
-
-- Customer map preview: approximately 150–190 px high; expand on tracking detail.
-- Driver route map: approximately 180–260 px when route context is needed.
-- Operator map: emphasize fleet/exception context, but preserve a list alternative.
-- Use a white casing around the light-theme route and driver marker.
-- Keep map controls on an opaque surface with visible boundaries.
-- Show last-updated time and GPS stale state.
-- Provide a list or textual route summary for people who cannot use the map.
-- Never invent location or ETA when the service is unavailable.
-
-### 9.5 COD panel
-
-- Visually separate payment from delivery progress.
-- Show `COD due`, `COD collected`, `COD handed over`, `COD reconciled`, or `COD discrepancy`.
-- Display amount and currency clearly; use MMK for Myanmar monetary values.
-- Driver records expected and collected amount separately.
-- Operator reconciliation shows amount expected, amount received, status, and discrepancy reason.
-- Keep a confirmation step before irreversible cash-state transitions.
-
-### 9.6 Form controls
-
-- Input height: 52 px minimum.
-- Light border: `#64748B`; dark border: `#8294AD`.
-- Placeholder: `#64748B` light / `#94A3B8` dark.
-- Error state: 2 px red boundary, error icon, and plain-language helper.
-- Labels stay visible after the user types; do not rely on placeholder-only labels.
-- Use appropriate keyboard types for phone numbers, search, amount, and verification codes.
-- Validate after input or submit in a predictable way; preserve valid entries on error.
-
-### 9.7 Search and filter
-
-- Put search near the top of the Orders screen.
-- Use status chips for the most common filters; put rare filters in a sheet.
-- Show active filters and provide “Clear all.”
-- Preserve search and filter state when opening and returning from an order.
-- Provide loading, no results, and retry states.
-- For large operator queues, use compact rows with fixed positions for ID, status, assigned driver, and ETA.
-
-### 9.8 Timeline and event history
-
-- Each event includes an icon, status text, timestamp, and optional detail.
-- Completed events use a completed state; current event is emphasized; future events remain neutral.
-- Do not imply a future step has happened.
-- Keep event timestamps consistent with the user's local timezone.
-- For failed or delayed events, explain the reason and next action.
-
-### 9.9 Bottom navigation
-
-- Four destinations per role by default.
-- Use a consistent icon family and labels.
-- Selected state uses both color and a visual shape/background cue.
-- Navigation items navigate; they should not perform destructive or contextual actions.
-- Preserve scroll state where it supports task resumption.
-- Keep high-frequency destinations visible instead of hiding them in a hamburger menu.
-
-### 9.10 Bottom sheets and dialogs
-
-Use a bottom sheet for contextual, non-destructive choices: assignment candidate list, filter selection, stop actions, or a COD summary. Use a dialog for a consequential confirmation or a short focused alert. Include a clear title, short explanation, and explicit actions. Do not stack multiple sheets.
-
-### 9.11 Notifications and alerts
-
-- Separate informational, warning, and blocking messages.
-- State what happened, what it means, and what the user can do.
-- Avoid alarming copy for normal delays.
-- Show a persistent banner for stale GPS/offline state when it affects task correctness.
-- Push notifications should deep-link to the relevant order or task.
-
-### 9.12 Loading, empty, and error states
-
-Every key screen needs:
-- Loading/skeleton state.
-- Empty state with next action.
-- Error state with retry or recovery.
-- Offline/stale-data state when applicable.
-- Permission-denied state for location/camera/notifications.
-- Success confirmation for assignment, delivery completion, and COD actions.
-
-Do not leave a blank map or spinner indefinitely. Keep cached order details visible when safe and label them as stale.
-
-## 9. Role-specific screen specification
-
-### Customer app screens
-
-| Screen | Primary content | Main action | Key states |
-|---|---|---|---|
-| Home | Next active parcel, other active parcels | Track delivery (Request pickup when none) | No active orders, loading |
-| Orders | Active / History tabs, search, outcome filter | Open order | Empty, no results, many orders |
-| Track detail | Map, status and ETA summary, expandable route/timeline/notes/COD | Contact / get help | Live, stale GPS, no location, delayed, failed |
-| Pickup | Addresses, parcel and contacts, review | Next / Request pickup | Validation, signed out, request failed, sent |
-| Notifications | Chronological list, unread markers | Open order | Empty, all read |
-| Help | Order picker, issue topics | Send to support | Submitted, unavailable |
-| Profile | Avatar, name, phone, grouped rows | Open row / Sign out | Signed out, sign-out failed |
-
-### Driver app screens
-
-| Screen | Primary content | Main action | Key states |
-|---|---|---|---|
-| Route | Stop count, map, next stop | Start/continue route | Offline, no assigned route |
-| Stop detail | Address, customer, parcel, COD | Navigate / arrived | Address issue |
-| Proof of delivery | Recipient confirmation, photo/signature as required | Confirm delivery | Camera denied, retry |
-| COD collection | Expected amount, collected amount, method | Confirm collection | Mismatch, cash not collected |
-| Delivery result | Outcome, proof, next stop | Continue route | Delivered, failed, reschedule |
-| Earnings/COD | Collected, outstanding, handover status | Reconcile/submit | Discrepancy |
-| Vehicle/profile | Vehicle, battery/fuel, shift | Update readiness | Low battery/fuel |
-
-### Operator app screens
-
-| Screen | Primary content | Main action | Key states |
-|---|---|---|---|
-| Overview | Unassigned, active, delayed, COD summary | Review exceptions | Loading, no alerts |
-| Orders | Search/filter list, status, ETA, assignment | Open/assign | No results, bulk state |
-| Order detail | Address, constraints, history, COD | Assign/reassign | Invalid order, conflict |
-| Assignment sheet | Driver/vehicle candidates and fit factors | Confirm assignment | No candidates |
-| Drivers | Availability, workload, last location | Open driver | Offline/stale location |
-| Fleet | Truck/bike/e-bike, capacity, fuel/battery | Update readiness | Service unavailable |
-| Exceptions | Delay/failure/COD issue and owner | Resolve/escalate | Reopened, unresolved |
-| COD reconciliation | Expected, collected, handed over, discrepancy | Reconcile | Matched, mismatch |
-
-## 10. State models and product rules
-
-### Delivery lifecycle
-
-Suggested lifecycle:
-`Pending → Assigned → In transit → Arriving → Delivered`
-
-Exception states may include:
-`Delayed`, `Failed`, `Cancelled`, and `Rescheduled`.
-
-Rules:
-- State transitions must be event-driven and auditable.
-- A state should not jump to Delivered solely because GPS is near the destination.
-- Arriving is a distinct state and uses a solid blue badge.
-- Failed and Cancelled are distinct outcomes, even though both use a red semantic family.
-- Reassignment records the previous and new driver, timestamp, and actor.
-
-### Payment lifecycle
-
-Suggested lifecycle:
-`COD due → COD collected → COD handed over → COD reconciled`
-
-Exception:
-`COD discrepancy`
-
-Rules:
-- Delivery and payment states are separate dimensions.
-- Amount due and amount collected are separate values.
-- A collection confirmation is an explicit driver action.
-- A discrepancy needs a reason and a permitted resolution path.
-- Reconciliation should be auditable and restricted by role.
-
-### Assignment recommendation
-
-AI-assisted assignment should explain the main factors: workload, vehicle fit, route distance, delivery window, fuel/battery readiness, and available local knowledge. Show a recommendation with confidence/limitations rather than presenting it as guaranteed optimal. Operators can override with a reason. Never make an opaque AI score the only decision input.
-
-## 11. Motion and interaction
-
-- Use short transitions (roughly 150–220 ms) for state changes.
-- Respect reduced-motion settings.
-- A live/arriving pulse is optional and never the only status cue.
-- Use skeletons for stable layout while content loads; avoid excessive shimmer.
-- Avoid swipe-only critical actions; provide a visible button alternative.
-- Confirm destructive actions and high-impact COD transitions.
-- Do not encourage app interaction while driving; the driver should interact when safely stopped.
-- Make map pan/zoom controls large enough and avoid gesture conflicts with bottom sheets.
-
-## 12. Localization and Myanmar-specific details
-
-- Support Burmese and English labels without hard-coded widths.
-- Use a Myanmar-capable font such as Noto Sans Myanmar or a platform fallback with tested glyph coverage.
-- Do not truncate township, ward, street, building, or landmark information needed for delivery.
-- Provide structured address fields plus a free-form landmark/access note.
-- Use `MMK` consistently for currency in the interface; choose local number formatting with product stakeholders.
-- Keep phone numbers tap-to-call where allowed.
-- Use local timezone consistently for delivery events.
-- Design location permission prompts with a clear explanation of why live tracking is needed.
-- Do not assume every customer uses a map pin accurately; allow textual directions and landmarks.
-- Provide low-bandwidth and offline fallbacks for driver workflows.
-
-## 13. Privacy, trust, and safety
-
-- Customer tracking links should expire or have a defined access window.
-- Share only the minimum location and recipient details needed for the delivery.
-- Clearly show when live location is being shared and when the share link expires.
-- Limit driver access to assigned deliveries and only the recipient data required for that task.
-- Restrict operator access by organization and role.
-- Avoid exposing full addresses, phone numbers, or payment data in push notification previews by default.
-- Log assignment, delivery-state, proof-of-delivery, and COD changes.
-- Do not fabricate live location, ETA, successful payment, or proof-of-delivery evidence.
-- Provide recovery paths for a failed delivery without blaming the customer or driver.
-
-## 14. Design token implementation
-
-Use semantic token names in design files and code. Generate light/dark themes from one source of truth.
-
-```css
-:root {
-  --color-brand-orange: #F97316;
-  --color-brand-orange-action: #C2410C;
-  --color-brand-orange-action-hover: #9A3412;
-  --color-brand-navy: #172B4D;
-
-  --color-background: #F8FAFC;
-  --color-surface: #FFFFFF;
-  --color-surface-subtle: #F1F5F9;
-  --color-border: #E2E8F0;
-  --color-border-control: #64748B;
-
-  --color-text-primary: #172B4D;
-  --color-text-secondary: #64748B;
-  --color-text-secondary-subtle: #475569;
-  --color-text-inverse: #FFFFFF;
-
-  --color-success: #16A34A;
-  --color-success-text: #166534;
-  --color-warning: #D97706;
-  --color-warning-text: #92400E;
-  --color-error: #DC2626;
-  --color-error-text: #B91C1C;
-  --color-info: #2563EB;
-  --color-info-text: #1D4ED8;
-
-  --color-map-route: #2563EB;
-  --color-map-route-casing: #FFFFFF;
-  --color-map-driver: #172B4D;
-  --color-map-driver-casing: #FFFFFF;
-  --color-map-destination: #C2410C;
-
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --target-min: 48px;
-}
-
-:root[data-theme="dark"] {
-  --color-background: #0F172A;
-  --color-surface: #1E293B;
-  --color-surface-subtle: #273449;
-  --color-border: #334155;
-  --color-border-control: #8294AD;
-  --color-text-primary: #F8FAFC;
-  --color-text-secondary: #CBD5E1;
-  --color-text-secondary-subtle: #CBD5E1;
-  --color-text-inverse: #0F172A;
-  --color-brand-orange-action: #F97316;
-  --color-brand-orange-action-hover: #FB923C;
-  --color-map-route: #60A5FA;
-  --color-map-route-casing: #0F172A;
-  --color-map-driver: #F8FAFC;
-  --color-map-driver-casing: #0F172A;
-  --color-map-destination: #FB923C;
-}
-```
-
-This snippet is a starting subset; the existing Oern Color System v1.2 contains the complete contrast-checked semantic and badge mappings.
-
-## 15. Quality and acceptance checklist
-
-### Visual consistency
-- [ ] Customer, driver, and operator use the same semantic tokens.
-- [ ] One primary action is visually dominant per screen.
-- [ ] Status badges use correct icon, label, and fill/border treatment.
-- [ ] COD state is visually separate from delivery state.
-- [ ] Inputs and secondary buttons use `border.control`, not decorative borders.
-- [ ] Cards, sheets, navigation, and typography follow the shared spacing scale.
-
-### Accessibility
-- [ ] Normal text contrast is at least 4.5:1; large text at least 3:1.
-- [ ] Non-text UI elements have at least 3:1 contrast against adjacent colors.
-- [ ] `#F97316` is not paired with white small text.
-- [ ] Important touch controls are at least 48 × 48 px; adjacent controls are separated by at least 8 px.
-- [ ] Focus, pressed, disabled, loading, error, and success states are defined.
-- [ ] Screen-reader labels exist for icon-only controls.
-- [ ] Status meaning remains clear in color-vision deficiency simulations.
-
-### Flow completeness
-- [ ] Customer can find an order and understand current state, ETA limitations, driver, and COD.
-- [ ] Driver can complete a stop, capture required proof, record COD, and continue the route.
-- [ ] Failed delivery, address issue, stale GPS, low battery/fuel, and offline states are designed.
-- [ ] Operator can assign/reassign, see exceptions, and reconcile COD.
-- [ ] Every key action gives feedback and preserves valid input on error.
-- [ ] State transitions are auditable and cannot be triggered by ambiguous visual cues alone.
-
-### Real-world validation
-- [ ] Test at 320, 360, 390, and 430 px widths.
-- [ ] Test on real phones in bright outdoor light and at night.
-- [ ] Test with long Burmese addresses and mixed Burmese/English text.
-- [ ] Test weak connectivity, GPS loss, camera/location permission denial, and interrupted proof capture.
-- [ ] Validate route/driver/destination markers over realistic map tiles.
-- [ ] Conduct usability sessions with at least one customer, one driver, and one operator before locking the system.
-
-## 16. Recommended implementation order
-
-1. **Foundations:** semantic tokens, typography, spacing, surfaces, icon rules, light/dark themes.
-2. **Core components:** buttons, badges, order rows/cards, inputs, timeline, COD panel, map markers, bottom navigation, sheets.
-3. **Role-specific visual patterns:** apply the shared system consistently across customer, driver, and operator interfaces.
-4. **Validation:** accessibility, localization, visual consistency, and field testing.
-
-## 17. Final design recommendation
-
-Keep Oern's established orange/navy/blue identity. Modernize through stronger hierarchy, fewer competing actions, role-specific flows, clear operational states, and reusable components—not through decoration alone. Build a single semantic design system with three mobile task experiences, and validate the most consequential flows (tracking, delivery completion, assignment, and COD) with real users before production.
-

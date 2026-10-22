@@ -107,7 +107,11 @@ test("enrichReproducedTask increments count, escalates priority and extends buff
 
   // First reproduction
   const first = enrichReproducedTask(
-    { reproduce_count: 0, priority: "normal", estimated_delivery_at: "2026-10-23T02:30:00Z" },
+    {
+      reproduce_count: 0,
+      priority: "normal",
+      estimated_delivery_at: "2026-10-23T02:30:00Z",
+    },
     now,
   );
   assert.equal(first.reproduce_count, 1);
@@ -118,7 +122,11 @@ test("enrichReproducedTask increments count, escalates priority and extends buff
 
   // Second reproduction (escalates to urgent)
   const second = enrichReproducedTask(
-    { reproduce_count: 1, priority: "high", estimated_delivery_at: "2026-10-23T04:00:00Z" },
+    {
+      reproduce_count: 1,
+      priority: "high",
+      estimated_delivery_at: "2026-10-23T04:00:00Z",
+    },
     now,
   );
   assert.equal(second.reproduce_count, 2);
@@ -135,10 +143,7 @@ test("calculateJobPriority aggregates task priorities accurately", () => {
 });
 
 test("formatJobReproductionLabel tags labels for driver board clarity", () => {
-  assert.equal(
-    formatJobReproductionLabel("Job 3", 0, "normal"),
-    "Job 3",
-  );
+  assert.equal(formatJobReproductionLabel("Job 3", 0, "normal"), "Job 3");
   assert.equal(
     formatJobReproductionLabel("Job 3", 1, "high"),
     "⚡ Priority (R1) · Job 3",
@@ -175,7 +180,13 @@ test("SAMPLE_OPEN_JOBS populates rich Yangon delivery tasks for drivers", async 
   // straight to the load check and then starts the route.
   assert.equal(orders[0].status, "accepted");
   assert.equal(routeStops[0].sequence_number, 1);
-  assert.equal(routeStops[routeStops.length - 1].sequence_number, sampleJob.order_count);
-  const totalWeight = orders.reduce((sum, o) => sum + (o.parcel_weight_kg ?? 0), 0);
+  assert.equal(
+    routeStops[routeStops.length - 1].sequence_number,
+    sampleJob.order_count,
+  );
+  const totalWeight = orders.reduce(
+    (sum, o) => sum + (o.parcel_weight_kg ?? 0),
+    0,
+  );
   assert.ok(Math.abs(totalWeight - sampleJob.total_weight_kg) < 1.0);
 });

@@ -1,11 +1,10 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-
-import { applyTraffic } from "../src/lib/delivery/dispatch/traffic.ts";
+import test from "node:test";
 import { buildStraightLineMatrix } from "../src/lib/delivery/dispatch/matrix.ts";
 import { planDispatch } from "../src/lib/delivery/dispatch/plan.ts";
-import { recommendAssignments } from "../src/lib/delivery/intelligence.ts";
+import { applyTraffic } from "../src/lib/delivery/dispatch/traffic.ts";
 import { buildDriverRoute } from "../src/lib/delivery/driver-route.ts";
+import { recommendAssignments } from "../src/lib/delivery/intelligence.ts";
 
 test("applyTraffic layers signal and user interception delays onto travel-time matrix", () => {
   // Test points along known mapped Yangon corridors:
@@ -24,10 +23,22 @@ test("applyTraffic layers signal and user interception delays onto travel-time m
   const { matrix: trafficMatrix, summary } = applyTraffic(baseMatrix, points);
 
   assert.equal(trafficMatrix.n, 3);
-  assert.ok(summary.signalsCovered > 0, "Should detect YTSC traffic signals along Pyay Rd / Downtown corridors");
-  assert.ok(summary.interceptionsCovered > 0, "Should detect user-mapped interception points");
-  assert.ok(summary.addedDelayMin > 0, "Traffic friction should add delay in minutes");
-  assert.ok(summary.arcsWithDelay > 0, "Arcs crossing corridors should receive delay adjustments");
+  assert.ok(
+    summary.signalsCovered > 0,
+    "Should detect YTSC traffic signals along Pyay Rd / Downtown corridors",
+  );
+  assert.ok(
+    summary.interceptionsCovered > 0,
+    "Should detect user-mapped interception points",
+  );
+  assert.ok(
+    summary.addedDelayMin > 0,
+    "Traffic friction should add delay in minutes",
+  );
+  assert.ok(
+    summary.arcsWithDelay > 0,
+    "Arcs crossing corridors should receive delay adjustments",
+  );
 
   // Verify that traffic matrix travel times are strictly greater than base straight line times for affected arcs
   for (let i = 0; i < 3; i++) {
@@ -88,12 +99,24 @@ test("recommendAssignments factors in user-mapped interception waypoints", () =>
     },
   ];
 
-  const recs = recommendAssignments(order, [driver], [vehicle], pastOrders, 3, []);
+  const recs = recommendAssignments(
+    order,
+    [driver],
+    [vehicle],
+    pastOrders,
+    3,
+    [],
+  );
   assert.equal(recs.length, 1);
   const rec = recs[0];
   assert.ok(rec.score > 0);
   assert.ok(
-    rec.reasons.some((r) => r.includes("corridor") || r.includes("traffic") || r.includes("interception")),
+    rec.reasons.some(
+      (r) =>
+        r.includes("corridor") ||
+        r.includes("traffic") ||
+        r.includes("interception"),
+    ),
     "Should explain corridor alignment and traffic friction in recommendation reasons",
   );
 });
@@ -148,8 +171,14 @@ test("buildDriverRoute computes route-level traffic signal and interception coun
   });
 
   assert.equal(route.stops.length, 3);
-  assert.ok(route.signalsOnRoute != null && route.signalsOnRoute > 0, "Route should detect signals across stops");
-  assert.ok(route.interceptionsOnRoute != null && route.interceptionsOnRoute > 0, "Route should detect interception midpoints");
+  assert.ok(
+    route.signalsOnRoute != null && route.signalsOnRoute > 0,
+    "Route should detect signals across stops",
+  );
+  assert.ok(
+    route.interceptionsOnRoute != null && route.interceptionsOnRoute > 0,
+    "Route should detect interception midpoints",
+  );
 });
 
 test("applyTraffic factors in live road reports (congestion, roadworks, closures)", () => {
@@ -164,7 +193,7 @@ test("applyTraffic factors in live road reports (congestion, roadworks, closures
   // Road report: heavy congestion on Pyay Road between Kamayut and Sanchaung
   const congestionReport = {
     lat: 16.817,
-    lng: 16.817 ? 96.132 : 96.132,
+    lng: 96.132,
     category: "congestion",
     severity: "high",
   };
@@ -181,8 +210,14 @@ test("applyTraffic factors in live road reports (congestion, roadworks, closures
     reports: [congestionReport, closureReport],
   });
 
-  assert.ok(summary.reportsCovered >= 2, "Both road reports should be matched to nearby arcs");
-  assert.ok(summary.blockedArcs > 0, "Closure report should mark affected arc(s) as blocked");
+  assert.ok(
+    summary.reportsCovered >= 2,
+    "Both road reports should be matched to nearby arcs",
+  );
+  assert.ok(
+    summary.blockedArcs > 0,
+    "Closure report should mark affected arc(s) as blocked",
+  );
   assert.ok(matrix.blocked != null, "Matrix should carry blocked array");
 
   // Check arc from Kamayut (0) to Sanchaung (1) has high congestion delay
@@ -214,7 +249,11 @@ test("applyTraffic layers order-level traffic delays onto delivery destinations"
 
   const { matrix, summary } = applyTraffic(baseMatrix, points, { orders });
 
-  assert.equal(summary.ordersWithTrafficDelay, 1, "Should count 1 order with traffic delay");
+  assert.equal(
+    summary.ordersWithTrafficDelay,
+    1,
+    "Should count 1 order with traffic delay",
+  );
 
   // Arcs arriving at Node 2 (index 2) should carry the 15 min traffic delay
   const arc02 = 0 * 3 + 2; // Depot -> Node 2
@@ -330,11 +369,27 @@ test("planDispatch incorporates traffic road reports and order traffic delays", 
   );
 
   assert.equal(result.ok, true);
-  assert.ok(result.quality.traffic != null, "Quality should include traffic summary");
-  assert.ok(result.quality.traffic.signalsCovered > 0, "Should detect signals along routes");
-  assert.ok(result.quality.traffic.reportsCovered >= 1, "Should count matched traffic report");
-  assert.equal(result.quality.traffic.ordersWithTrafficDelay, 1, "Should count order with traffic delay");
-  assert.ok(result.quality.traffic.addedDelayMin > 0, "Added delay should be greater than zero");
+  assert.ok(
+    result.quality.traffic != null,
+    "Quality should include traffic summary",
+  );
+  assert.ok(
+    result.quality.traffic.signalsCovered > 0,
+    "Should detect signals along routes",
+  );
+  assert.ok(
+    result.quality.traffic.reportsCovered >= 1,
+    "Should count matched traffic report",
+  );
+  assert.equal(
+    result.quality.traffic.ordersWithTrafficDelay,
+    1,
+    "Should count order with traffic delay",
+  );
+  assert.ok(
+    result.quality.traffic.addedDelayMin > 0,
+    "Added delay should be greater than zero",
+  );
   assert.ok(
     result.warnings.some((w) => w.startsWith("traffic_reports:")),
     "Should include traffic_reports warning",
@@ -345,15 +400,16 @@ test("planDispatch incorporates traffic road reports and order traffic delays", 
   );
 });
 
-
-
 test("applyTraffic prices a report by the engine's decision, not its raw category", () => {
   // Two points in open country, away from any mapped signal
   const points = [
     { lat: 17.2, lng: 96.3 },
     { lat: 17.2, lng: 96.31 },
   ];
-  const base = buildStraightLineMatrix(points, { speedKmh: 30, roadFactor: 1.25 });
+  const base = buildStraightLineMatrix(points, {
+    speedKmh: 30,
+    roadFactor: 1.25,
+  });
   const at = { lat: 17.2, lng: 96.305 };
   const run = (report) => applyTraffic(base, points, { reports: [report] });
 
@@ -364,7 +420,12 @@ test("applyTraffic prices a report by the engine's decision, not its raw categor
     ...at,
     category: "closure",
     severity: "blocked",
-    decision: { action: "delay", severity: "high", delayMinutes: 6, radiusMeters: 120 },
+    decision: {
+      action: "delay",
+      severity: "high",
+      delayMinutes: 6,
+      radiusMeters: 120,
+    },
   });
   assert.equal(delayed.summary.blockedArcs, 0);
   assert.equal(delayed.summary.addedDelayMin, 12);
@@ -373,7 +434,12 @@ test("applyTraffic prices a report by the engine's decision, not its raw categor
     ...at,
     category: "closure",
     severity: "blocked",
-    decision: { action: "avoid", severity: "blocked", delayMinutes: 30, radiusMeters: 120 },
+    decision: {
+      action: "avoid",
+      severity: "blocked",
+      delayMinutes: 30,
+      radiusMeters: 120,
+    },
   });
   assert.equal(avoid.summary.blockedArcs, 2);
 
@@ -381,7 +447,12 @@ test("applyTraffic prices a report by the engine's decision, not its raw categor
     ...at,
     category: "congestion",
     severity: "high",
-    decision: { action: "monitor", severity: "low", delayMinutes: 0, radiusMeters: 120 },
+    decision: {
+      action: "monitor",
+      severity: "low",
+      delayMinutes: 0,
+      radiusMeters: 120,
+    },
   });
   assert.equal(monitored.summary.addedDelayMin, 0);
 });

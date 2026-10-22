@@ -6,9 +6,9 @@ import {
   formatDriveMinutes,
   needsRouteRequest,
   parseRoadRoute,
-  speedLimitAt,
   ROUTE_MAX_AGE_MS,
   ROUTE_MOVE_KM,
+  speedLimitAt,
 } from "../src/lib/delivery/mapbox.ts";
 
 const yangon = { latitude: 16.8007, longitude: 96.15 };
@@ -200,7 +200,10 @@ test("parseRoadRoute gathers speed limits across all legs in a multi-leg route",
           },
           {
             annotation: {
-              maxspeed: [{ speed: 45, unit: "km/h" }, { speed: 50, unit: "km/h" }],
+              maxspeed: [
+                { speed: 45, unit: "km/h" },
+                { speed: 50, unit: "km/h" },
+              ],
             },
           },
         ],

@@ -27,7 +27,8 @@ export function usePermissionRecovery({
 
   useEffect(() => {
     if (!enabled) return;
-    if (typeof navigator === "undefined" || !("permissions" in navigator)) return;
+    if (typeof navigator === "undefined" || !("permissions" in navigator))
+      return;
 
     let permissionStatus: PermissionStatus | null = null;
     let cancelled = false;

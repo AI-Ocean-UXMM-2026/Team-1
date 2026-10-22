@@ -91,7 +91,9 @@ test("calculateRadiusPixels computes expected pixel radius", () => {
 });
 
 test("checkRouteFloodExposure detects route passing through flood zones and reports", () => {
-  const thingangyunZone = YANGON_FLOOD_ZONES.find((z) => z.id === "flood-zone-thingangyun");
+  const thingangyunZone = YANGON_FLOOD_ZONES.find(
+    (z) => z.id === "flood-zone-thingangyun",
+  );
   assert.ok(thingangyunZone);
 
   // Route cutting through Thingangyun Canal Corridor
@@ -118,7 +120,9 @@ test("checkRouteFloodExposure detects route passing through flood zones and repo
   const exposure = checkRouteFloodExposure(route, YANGON_FLOOD_ZONES, reports);
   assert.ok(exposure.hasFloodRisk);
   assert.ok(exposure.intersectedZones.length >= 1);
-  assert.ok(exposure.intersectedZones.some((z) => z.id === "flood-zone-thingangyun"));
+  assert.ok(
+    exposure.intersectedZones.some((z) => z.id === "flood-zone-thingangyun"),
+  );
   assert.equal(exposure.nearbyFloodReports.length, 1);
   assert.ok(exposure.suggestedSlowdownPercent >= 35);
   assert.ok(exposure.warningMessage?.includes("Thingangyun Canal Corridor"));

@@ -497,6 +497,79 @@ export function TrackDetail({
         )}
       </Box>
 
+      {order.cod_amount > 0 && (
+        <Box
+          sx={{
+            mt: 1.5,
+            p: 1.5,
+            borderRadius: "12px",
+            bgcolor: codPaid ? "success.light" : "warning.light",
+            border: 1,
+            borderColor: codPaid ? "success.main" : "warning.main",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1.5,
+          }}
+        >
+          <Stack
+            direction="row"
+            spacing={1.25}
+            sx={{ alignItems: "center", minWidth: 0 }}
+          >
+            <Avatar
+              sx={{
+                ...toneSx(codPaid ? "success" : "warning"),
+                width: 36,
+                height: 36,
+              }}
+            >
+              <PaymentsOutlined sx={{ fontSize: 20 }} />
+            </Avatar>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: codPaid ? "success.dark" : "warning.dark",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  fontSize: 11,
+                  display: "block",
+                }}
+              >
+                Cash on Delivery
+              </Typography>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 800,
+                  color: codPaid ? "success.dark" : "warning.dark",
+                  lineHeight: 1.2,
+                }}
+              >
+                {currency.format(order.cod_amount)}
+              </Typography>
+            </Box>
+          </Stack>
+          <Chip
+            size="small"
+            label={
+              codPaid
+                ? "Paid"
+                : view.stage === "delivered"
+                  ? "Still due"
+                  : "Due on arrival"
+            }
+            sx={{
+              ...toneSx(codPaid ? "success" : "warning"),
+              fontWeight: 700,
+              fontSize: 12,
+            }}
+          />
+        </Box>
+      )}
+
       {(!closed || order.driver_name) && (
         <Stack
           direction="row"

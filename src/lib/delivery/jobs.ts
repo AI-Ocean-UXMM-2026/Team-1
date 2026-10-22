@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/database.types";
 import type { DeliveryOrder, RouteStop } from "@/lib/delivery/types";
+import type { Database } from "@/lib/supabase/database.types";
 
 type JobsClient = SupabaseClient<Database>;
 
@@ -8,7 +8,12 @@ type JobsClient = SupabaseClient<Database>;
 export const BATCH_INTERVAL_HOURS = 9;
 
 export type JobStatus =
-  "open" | "claimed" | "in_progress" | "completed" | "cancelled" | "superseded";
+  | "open"
+  | "claimed"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "superseded";
 
 export type JobPriority = "low" | "normal" | "high" | "urgent";
 

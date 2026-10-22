@@ -1,5 +1,5 @@
-import type { Insertion } from "./insert.ts";
-import { bestInsertion } from "./insert.ts";
+import type { Insertion, InsertionCache } from "./insert.ts";
+import { bestInsertion, createInsertionCache } from "./insert.ts";
 import { evaluateRoute } from "./route-eval.ts";
 import type { Instance, Matrix, RouteEval, Stop } from "./types.ts";
 
@@ -7,6 +7,8 @@ export type State = {
   routes: Stop[][];
   evals: RouteEval[];
   unassigned: number[];
+  /** Shared by every clone of the state; see InsertionCache. */
+  cache?: InsertionCache;
 };
 
 export function emptyState(inst: Instance, matrix: Matrix): State {
@@ -14,6 +16,7 @@ export function emptyState(inst: Instance, matrix: Matrix): State {
     routes: inst.trucks.map(() => []),
     evals: inst.trucks.map((truck) => evaluateRoute(inst, matrix, truck, [])),
     unassigned: [],
+    cache: createInsertionCache(),
   };
 }
 
@@ -58,6 +61,7 @@ export function regretInsert(
       state.routes[truckIndex],
       state.evals[truckIndex].score,
       r,
+      { cache: state.cache },
     );
 
   while (pending.size > 0) {

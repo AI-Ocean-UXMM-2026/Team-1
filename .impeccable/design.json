@@ -1,0 +1,359 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-22T14:43:47.043Z",
+  "title": "Design System: Oern",
+  "extensions": {
+    "colorMeta": {
+      "signal-orange": {
+        "role": "primary",
+        "displayName": "Signal Orange",
+        "tonalRamp": [
+          "#431407",
+          "#7c2d12",
+          "#9a3412",
+          "#c2410c",
+          "#ea580c",
+          "#f97316",
+          "#fdba74",
+          "#fff7ed"
+        ]
+      },
+      "kiln-orange": {
+        "role": "primary",
+        "displayName": "Kiln Orange",
+        "tonalRamp": [
+          "#431407",
+          "#7c2d12",
+          "#9a3412",
+          "#c2410c",
+          "#ea580c",
+          "#f97316",
+          "#fdba74",
+          "#fff7ed"
+        ]
+      },
+      "dispatch-navy": {
+        "role": "secondary",
+        "displayName": "Dispatch Navy",
+        "tonalRamp": [
+          "#0b1526",
+          "#111f38",
+          "#172b4d",
+          "#2a4370",
+          "#475f8a",
+          "#7d91b3",
+          "#bcc8dc",
+          "#eef2f8"
+        ]
+      },
+      "live-blue": {
+        "role": "tertiary",
+        "displayName": "Live Blue",
+        "tonalRamp": [
+          "#172554",
+          "#1e3a8a",
+          "#1d4ed8",
+          "#2563eb",
+          "#3b82f6",
+          "#60a5fa",
+          "#bfdbfe",
+          "#eff6ff"
+        ]
+      },
+      "delivered-green": {
+        "role": "semantic",
+        "displayName": "Delivered Green",
+        "tonalRamp": [
+          "#052e16",
+          "#14532d",
+          "#166534",
+          "#15803d",
+          "#16a34a",
+          "#4ade80",
+          "#bbf7d0",
+          "#f0fdf4"
+        ]
+      },
+      "caution-amber": {
+        "role": "semantic",
+        "displayName": "Caution Amber",
+        "tonalRamp": [
+          "#451a03",
+          "#78350f",
+          "#92400e",
+          "#b45309",
+          "#d97706",
+          "#fbbf24",
+          "#fde68a",
+          "#fffbeb"
+        ]
+      },
+      "failed-red": {
+        "role": "semantic",
+        "displayName": "Failed Red",
+        "tonalRamp": [
+          "#450a0a",
+          "#7f1d1d",
+          "#991b1b",
+          "#b91c1c",
+          "#dc2626",
+          "#f87171",
+          "#fecaca",
+          "#fef2f2"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "tonalRamp": [
+          "#0f172a",
+          "#1e293b",
+          "#334155",
+          "#475569",
+          "#64748b",
+          "#cbd5e1",
+          "#f1f5f9",
+          "#f8fafc"
+        ]
+      },
+      "control-slate": {
+        "role": "neutral",
+        "displayName": "Control Slate",
+        "tonalRamp": [
+          "#0f172a",
+          "#1e293b",
+          "#334155",
+          "#475569",
+          "#64748b",
+          "#94a3b8",
+          "#e2e8f0",
+          "#f8fafc"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Auth/welcome headings and manager page titles."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "App-bar greetings and section headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card, sheet and stop titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default 14px text."
+      },
+      "input": {
+        "displayName": "Input",
+        "purpose": "16px so mobile browsers never zoom on focus."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Floating labels, metadata; 12px floor."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Tabular ETAs, MMK amounts, counts, codes."
+      }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 6px 18px -6px rgb(23 43 77 / 0.28), 0 2px 4px rgb(23 43 77 / 0.08)",
+        "purpose": "Controls and cards floating over a map."
+      },
+      {
+        "name": "sheet",
+        "value": "0 -10px 30px -12px rgb(23 43 77 / 0.3)",
+        "purpose": "Bottom sheets rising over the map."
+      },
+      {
+        "name": "whisper",
+        "value": "0 1px 2px rgb(23 43 77 / 0.08)",
+        "purpose": "Back buttons over illustrated auth backgrounds."
+      }
+    ],
+    "motion": [
+      {
+        "name": "rf-ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default easing for state changes and sheets."
+      },
+      {
+        "name": "state",
+        "value": "120-240ms",
+        "purpose": "Color, border and size state changes."
+      },
+      {
+        "name": "sheet",
+        "value": "400ms",
+        "purpose": "Sheet and panel travel."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone-min",
+        "value": "320px"
+      },
+      {
+        "name": "phone-base",
+        "value": "390px"
+      },
+      {
+        "name": "shell-max",
+        "value": "480px"
+      },
+      {
+        "name": "workspace",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one orange action per screen; 56px pill on phone flows.",
+      "html": "<button class=\"ds-btn-primary\">Sign in</button>",
+      "css": ".ds-btn-primary{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;height:56px;padding:0 24px;min-width:240px;border:0;border-radius:999px;background:var(--color-brand-orange-action,#c2410c);color:#fff;font-size:16px;font-weight:600;line-height:24px;cursor:pointer;transition:background-color 140ms ease}.ds-btn-primary:hover,.ds-btn-primary:active{background:var(--color-brand-orange-action-hover,#9a3412)}.ds-btn-primary:focus-visible{outline:3px solid #fdba74;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined navy alternative beside a primary.",
+      "html": "<button class=\"ds-btn-secondary\">I already have an account</button>",
+      "css": ".ds-btn-secondary{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;height:56px;padding:0 24px;border:1px solid var(--color-border-control,#64748b);border-radius:999px;background:var(--color-surface,#fff);color:var(--color-text-primary,#172b4d);font-size:16px;font-weight:600;cursor:pointer;transition:background-color 140ms ease}.ds-btn-secondary:hover{background:var(--color-surface-subtle,#f1f5f9)}.ds-btn-secondary:focus-visible{outline:3px solid #fdba74;outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "52px field, slate outline, blue focus, red aria-invalid.",
+      "html": "<label class=\"ds-field\">Recipient phone<input class=\"ds-input\" placeholder=\"09 …\" inputmode=\"tel\"></label>",
+      "css": ".ds-field{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;gap:8px;width:300px;color:var(--color-text-primary,#172b4d);font-size:14px;font-weight:600;line-height:20px}.ds-input{font:inherit;min-height:52px;padding:12px 14px;border:1px solid var(--color-border-control,#64748b);border-radius:12px;background:#fff;color:var(--color-text-primary,#172b4d);font-size:16px;font-weight:400;caret-color:var(--color-brand-orange-action,#c2410c)}.ds-input::placeholder{color:#64748b}.ds-input:focus-visible{outline:3px solid var(--color-info,#2563eb);outline-offset:0;border-color:var(--color-info,#2563eb)}"
+    },
+    {
+      "name": "Status + COD Chips",
+      "kind": "chip",
+      "refersTo": "status-chip-live",
+      "description": "Delivery state and COD always as two separate chips.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip ds-live\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5m13.5-9 1.96 2.5H17V9.5zM18 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5\"/></svg>On the way</span><span class=\"ds-chip ds-cod\">COD · MMK 68,000</span><span class=\"ds-chip ds-done\">Delivered</span><span class=\"ds-chip ds-fail\">Failed</span></div>",
+      "css": ".ds-chips{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:flex;flex-wrap:wrap;gap:6px}.ds-chip{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px;border-radius:999px;font-size:13px;font-weight:650;font-variant-numeric:tabular-nums}.ds-live{background:#dbeafe;color:#1d4ed8}.ds-cod{background:#fef3c7;color:#92400e;font-weight:700}.ds-done{background:#dcfce7;color:#166534}.ds-fail{background:#fee2e2;color:#b91c1c}"
+    },
+    {
+      "name": "Delivery List Row",
+      "kind": "card",
+      "refersTo": "list-row",
+      "description": "Customer 'Today' row: tabular time column, code, address, chips.",
+      "html": "<a class=\"ds-row\" href=\"#\"><span class=\"ds-row-time\">10:48 AM</span><span class=\"ds-row-main\"><strong>OR-1001</strong><small>Bahan, near Inya Road</small><span class=\"ds-row-chip\">On the way</span></span></a>",
+      "css": ".ds-row{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;grid-template-columns:64px 1fr;align-items:center;gap:10px;width:340px;min-height:64px;padding:10px 12px;border-radius:16px;background:var(--color-surface-subtle,#f1f5f9);color:var(--color-text-primary,#172b4d);text-decoration:none;transition:background-color 140ms ease}.ds-row:hover{background:#e2e8f0}.ds-row:focus-visible{outline:3px solid #fdba74;outline-offset:2px}.ds-row-time{color:#475569;font-size:14px;font-weight:650;font-variant-numeric:tabular-nums}.ds-row-main{display:grid;gap:2px;min-width:0}.ds-row-main strong{font-size:14px;font-weight:700}.ds-row-main small{font-size:12px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ds-row-chip{justify-self:start;margin-top:6px;height:28px;padding:0 10px;display:inline-flex;align-items:center;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:13px;font-weight:650}"
+    },
+    {
+      "name": "Manager Sidebar Item",
+      "kind": "nav",
+      "refersTo": "sidebar-item-active",
+      "description": "Active item on a live-blue wash; neutral count badges.",
+      "html": "<nav class=\"ds-side\"><a class=\"ds-side-item is-active\" href=\"#\">Overview</a><a class=\"ds-side-item\" href=\"#\">Orders<span>2</span></a><a class=\"ds-side-item\" href=\"#\">COD</a></nav>",
+      "css": ".ds-side{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;gap:4px;width:212px;padding:8px;background:#fff}.ds-side-item{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 12px;border-radius:12px;color:var(--color-text-primary,#172b4d);font-size:15px;font-weight:500;text-decoration:none}.ds-side-item:hover{background:var(--color-surface-subtle,#f1f5f9)}.ds-side-item:focus-visible{outline:3px solid #fdba74;outline-offset:2px}.ds-side-item.is-active{background:#dbeafe;color:#1d4ed8;font-weight:600}.ds-side-item span{min-width:24px;height:24px;display:grid;place-items:center;border-radius:8px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600}"
+    },
+    {
+      "name": "Rider Stop Sheet",
+      "kind": "custom",
+      "refersTo": "button-primary",
+      "description": "Signature bottom sheet over the map: eyebrow, name, tabular ETA, chips, one action.",
+      "html": "<div class=\"ds-sheet\"><i></i><small>Stop 1 of 1 · Deliver parcel</small><h3>Delivering to May Thazin</h3><p>Bahan, near Inya Road</p><div class=\"ds-eta\"><b>10:48 AM</b> ETA · medium confidence</div><span class=\"ds-cod2\">COD due · MMK 68,000</span><button>I’ve arrived</button><a href=\"#\">Report a problem</a></div>",
+      "css": ".ds-sheet{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;gap:6px;width:340px;padding:12px 16px 16px;border-radius:20px 20px 0 0;background:#fff;color:#172b4d;box-shadow:0 -10px 30px -12px rgb(23 43 77 / .3)}.ds-sheet i{justify-self:center;width:36px;height:4px;border-radius:999px;background:#cbd5e1}.ds-sheet small{color:#c2410c;font-size:12px;font-weight:700}.ds-sheet h3{margin:0;font-size:22px;font-weight:700;line-height:26px}.ds-sheet p{margin:0;color:#475569;font-size:14px}.ds-eta{color:#1d4ed8;font-size:13px}.ds-eta b{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}.ds-cod2{justify-self:start;height:28px;padding:0 10px;display:inline-flex;align-items:center;border-radius:999px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:700}.ds-sheet button{font:inherit;height:56px;margin-top:8px;border:0;border-radius:12px;background:#c2410c;color:#fff;font-size:16px;font-weight:600;cursor:pointer}.ds-sheet button:hover{background:#9a3412}.ds-sheet button:focus-visible{outline:3px solid #fdba74;outline-offset:2px}.ds-sheet a{justify-self:center;min-height:48px;display:grid;place-items:center;color:#172b4d;font-size:15px;font-weight:600;text-decoration:underline}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Dispatch Board",
+    "overview": "Oern looks like a well-run dispatch board. Every surface answers the question its user is asking right now: where is my parcel, what is my next stop, what needs a rider. The structure is navy and quiet, so state can speak. A single orange marks the one action that moves a delivery forward. Blue appears only where something is live or in motion: a route, a rider dot, an \"On the way\" chip. Green, amber and red are reserved for outcomes. Nothing is ornamental, and the map exists to support a decision, not as wallpaper.\n\nThree roles share one token set but not one layout. Customers and riders get a phone-first shell: edge-to-edge on phones and centered at 480px above that, with 16px gutters, 48px targets, safe-area-aware bottom actions and labeled bottom tabs. Managers get the same language at desktop density: a white sidebar, a canvas work area, and white panels divided by hairlines instead of shadows. The app is light only: there is no dark theme, and the device's dark-mode setting does not change its colors.\n\nThe brand's warmth sits at the edges. The cheetah mascot and dashed route art appear on welcome, auth, loading and empty states. Illustrated icons (`public/icons`) appear on customer shortcuts and profile rows. Neither appears inside working surfaces, where state and figures take priority.",
+    "keyCharacteristics": [
+      "Navy structure, one orange action per screen, blue only for live things.",
+      "Delivery state and COD payment state are always two separate signals.",
+      "Flat surfaces separated by hairlines and tonal steps; shadows only on things that float over a map.",
+      "Pill-shaped primary actions (56px) on phone flows; 12px-radius controls inside dense workspaces.",
+      "Inter for Latin text, self-hosted Noto Sans Myanmar for Burmese, and tabular numerals for every time, count and amount.",
+      "Mascot and illustration at the edges of a flow, never inside a working surface."
+    ],
+    "rules": [
+      {
+        "name": "The One Orange Rule",
+        "body": "Each screen has at most one Kiln Orange fill. Secondary actions are outlined navy, and tertiary actions are underlined text. If two things are orange, one of them is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Blue Means Live Rule",
+        "body": "Live Blue is reserved for motion and live data: routes, rider position, sharing state and in-transit status. Never use it as a generic accent or for links.",
+        "section": "colors"
+      },
+      {
+        "name": "The Orange Is Not a Status Rule",
+        "body": "Orange never encodes delivery state. States use only the four semantic families plus neutral.",
+        "section": "colors"
+      },
+      {
+        "name": "The Decorative Grey Rule",
+        "body": "`#94a3b8` and Hairline are never used for text, placeholders, inactive icons or control boundaries. Use Control Slate for those.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Every time, amount, count and tracking code is set with `font-variant-numeric: tabular-nums`, so columns and live-updating ETAs don't shift.",
+        "section": "typography"
+      },
+      {
+        "name": "The Burmese Fallback Rule",
+        "body": "Every font stack places `var(--font-myanmar)` directly after Inter. Never ship a stack without it, and never depend on a remote font for essential text.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "Labels, buttons and headings use sentence case. Uppercase is reserved for the small tracked section labels in the manager sidebar (\"WORKSPACE\").",
+        "section": "typography"
+      },
+      {
+        "name": "The Thumb Zone Rule",
+        "body": "On phone flows, the action that advances the task lives in the bottom third of the screen. A primary action at the top of the screen is a layout bug.",
+        "section": "layout"
+      },
+      {
+        "name": "The Map Earns Its Space Rule",
+        "body": "Maps are full-bleed only when the user is navigating (rider) or following a live parcel (customer track). Anywhere else they are a bounded panel with a text or list alternative next to them.",
+        "section": "layout"
+      },
+      {
+        "name": "The Float-Only Shadow Rule",
+        "body": "A shadow means \"this sits above a map or above other content\". Cards, list rows and panels resting on Canvas never get one.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do reference tokens (`var(--color-*)`, `var(--radius-*)`, `var(--space-*)`) instead of repeating their hex or pixel values.",
+      "Do pair every status color with a text label, and add an icon where space allows. Status must survive color-vision deficiency.",
+      "Do show COD as its own chip or panel, in MMK, beside the delivery status and never inside it.",
+      "Do show the last-updated time and a stale-GPS state on every live map. Never invent a location or an ETA.",
+      "Do let addresses, townships and landmarks wrap. Never truncate the only copy of an address.",
+      "Do give every key screen loading, empty, error and permission-denied states, and keep cached data visible but labeled stale.",
+      "Do confirm destructive actions and irreversible COD transitions in a dialog with an explicit label."
+    ],
+    "donts": [
+      "Don't put two Kiln Orange fills on one screen, or use orange for any delivery status.",
+      "Don't use Live Blue for links, decoration or non-live emphasis.",
+      "Don't add shadows to cards or panels that rest on Canvas. Shadows are for floating map UI and sheets.",
+      "Don't use corner radii outside 8, 12, 16, 20 or pill.",
+      "Don't set meaningful text below 12px, or use `#94a3b8` or Hairline for text and control borders.",
+      "Don't put white small text on Signal Orange (`#f97316`).",
+      "Don't reintroduce the legacy forest-green and cream palette (`#275c49`, `#32443b`, `#fdf8e8`, `#d5aa4d`), which survives only in dead selectors.",
+      "Don't make a swipe the only way to complete a critical action. Every swipe has a visible button alternative.",
+      "Don't place the mascot or illustrations inside a working surface (lists, forms, maps, tables)."
+    ]
+  }
+}

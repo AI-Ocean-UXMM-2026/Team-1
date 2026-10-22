@@ -1,57 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
-import IconButton from "@mui/material/IconButton";
-import OutlinedInput from "@mui/material/OutlinedInput";
-import InputAdornment from "@mui/material/InputAdornment";
-import Alert from "@mui/material/Alert";
-import Tooltip from "@mui/material/Tooltip";
-import Divider from "@mui/material/Divider";
-import { alpha } from "@mui/material/styles";
+import AccessTimeOutlined from "@mui/icons-material/AccessTimeOutlined";
+import ArrowBack from "@mui/icons-material/ArrowBack";
+import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
+import CheckRounded from "@mui/icons-material/CheckRounded";
+import CloseRounded from "@mui/icons-material/CloseRounded";
+import ContentCopyOutlined from "@mui/icons-material/ContentCopyOutlined";
+import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
+import LocalGasStationOutlined from "@mui/icons-material/LocalGasStationOutlined";
+import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
+import LocationOnOutlined from "@mui/icons-material/LocationOnOutlined";
+import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
+import PhoneOutlined from "@mui/icons-material/PhoneOutlined";
+import PlaceRounded from "@mui/icons-material/PlaceRounded";
 
 import SearchRounded from "@mui/icons-material/SearchRounded";
-import CloseRounded from "@mui/icons-material/CloseRounded";
-import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
-import PlaceRounded from "@mui/icons-material/PlaceRounded";
-import LocationOnOutlined from "@mui/icons-material/LocationOnOutlined";
-import StorefrontOutlined from "@mui/icons-material/StorefrontOutlined";
-import PhoneOutlined from "@mui/icons-material/PhoneOutlined";
-import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
-import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
-import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
-import AccessTimeOutlined from "@mui/icons-material/AccessTimeOutlined";
 import SpeedOutlined from "@mui/icons-material/SpeedOutlined";
-import LocalGasStationOutlined from "@mui/icons-material/LocalGasStationOutlined";
+import StorefrontOutlined from "@mui/icons-material/StorefrontOutlined";
 import WarningAmber from "@mui/icons-material/WarningAmber";
-import ContentCopyOutlined from "@mui/icons-material/ContentCopyOutlined";
-import ArrowBack from "@mui/icons-material/ArrowBack";
-import CheckRounded from "@mui/icons-material/CheckRounded";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
+import OutlinedInput from "@mui/material/OutlinedInput";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import { useMemo, useState } from "react";
 
 import { LocationMap } from "@/components/delivery/location-map";
-import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
-import { confirmOrders } from "@/lib/delivery/jobs";
-import { useJobBoard } from "@/lib/delivery/use-job-board";
-import { createClient } from "@/lib/supabase/client";
-import { currency, formatTime, sentenceCase } from "@/lib/delivery/format";
 import {
+  codPending,
   isMovingOrder,
   needsRider,
-  codPending,
 } from "@/lib/delivery/dashboard";
+import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
+import { currency, formatTime, sentenceCase } from "@/lib/delivery/format";
+import { confirmOrders } from "@/lib/delivery/jobs";
 import type {
   DeliveryOrder,
   DeliveryStatus,
   VehicleOption,
 } from "@/lib/delivery/types";
+import { useJobBoard } from "@/lib/delivery/use-job-board";
 import type { useWorkspace } from "@/lib/delivery/use-workspace";
-import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import "./manager-order-view.css";
 
 type Workspace = ReturnType<typeof useWorkspace>;
@@ -95,9 +92,16 @@ export function ManagerOrderView({
     return ids;
   }, [confirmedOrderIds, board.queuedIds]);
 
+  // Sorted queue: orders that need a rider come first
+  const queueOrders = useMemo(() => {
+    return [...orders].sort(
+      (left, right) => Number(needsRider(right)) - Number(needsRider(left)),
+    );
+  }, [orders]);
+
   // Filtering orders
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
+    return queueOrders.filter((order) => {
       if (filter === "unassigned")
         return (
           needsRider(order) &&
@@ -109,7 +113,7 @@ export function ManagerOrderView({
       if (filter === "delivered") return order.status === "delivered";
       return true;
     });
-  }, [orders, filter, confirmedIds]);
+  }, [queueOrders, filter, confirmedIds]);
 
   // Searching orders
   const searchedOrders = useMemo(() => {
@@ -121,7 +125,7 @@ export function ManagerOrderView({
         order.customer_name.toLowerCase().includes(q) ||
         order.delivery_address.toLowerCase().includes(q) ||
         order.pickup_address.toLowerCase().includes(q) ||
-        (order.driver_name && order.driver_name.toLowerCase().includes(q)),
+        order.driver_name?.toLowerCase().includes(q),
     );
   }, [filteredOrders, searchQuery]);
 
@@ -130,13 +134,13 @@ export function ManagerOrderView({
     return (
       searchedOrders.find((o) => o.id === selectedId) ??
       filteredOrders.find((o) => o.id === selectedId) ??
-      orders.find((o) => o.id === selectedId) ??
+      queueOrders.find((o) => o.id === selectedId) ??
       searchedOrders[0] ??
       filteredOrders[0] ??
-      orders[0] ??
+      queueOrders[0] ??
       null
     );
-  }, [searchedOrders, filteredOrders, orders, selectedId]);
+  }, [searchedOrders, filteredOrders, queueOrders, selectedId]);
 
   // Route Energy Assessment
   const assessment = useMemo(() => {
@@ -175,7 +179,7 @@ export function ManagerOrderView({
         setConfirmedOrderIds((prev) => new Set(prev).add(order.id));
         setNotice({
           tone: "success",
-          text: `Delivery ${order.tracking_code} confirmed! Automatically dispatched to driver job board.`,
+          text: `Delivery ${order.tracking_code} confirmed! Posted to the driver job board.`,
         });
         return;
       }
@@ -186,14 +190,23 @@ export function ManagerOrderView({
 
       const result = await confirmOrders(createClient(), [order.id]);
       setConfirmedOrderIds((prev) => new Set(prev).add(order.id));
-      await workspace.refresh();
       setNotice({
         tone: "success",
         text: result.confirmed
-          ? `Delivery ${order.tracking_code} confirmed! Queued on driver job board.`
-          : `Delivery ${order.tracking_code} is already queued on the job board.`,
+          ? `Delivery ${order.tracking_code} confirmed! Posted to the driver job board.`
+          : `Delivery ${order.tracking_code} is already confirmed and posted to the driver job board.`,
       });
+      workspace.updateData((previous) => ({
+        ...previous,
+        orders: previous.orders.map((o) =>
+          o.id === order.id
+            ? { ...o, status: "assigned" as DeliveryStatus }
+            : o,
+        ),
+      }));
+      void workspace.refresh(true);
     } catch (cause) {
+      console.error("[DEBUG handleConfirmOrder] catch error:", cause);
       setNotice({
         tone: "error",
         text:
@@ -224,11 +237,11 @@ export function ManagerOrderView({
             size="small"
             label="Pending Confirm"
             sx={{
-              bgcolor: "#fef3c7",
-              color: "#92400e",
+              bgcolor: "var(--color-warning-surface)",
+              color: "var(--color-warning-text)",
               fontWeight: 650,
               fontSize: "11px",
-              border: "1px solid #fde68a",
+              border: "1px solid var(--color-warning-border)",
               height: 24,
             }}
           />
@@ -241,17 +254,17 @@ export function ManagerOrderView({
               <CheckRounded
                 sx={{
                   fontSize: "14px !important",
-                  color: "#166534 !important",
+                  color: "var(--color-success-text) !important",
                 }}
               />
             }
             label={onBoard ? "On job board" : "Confirmed"}
             sx={{
-              bgcolor: "#dcfce7",
-              color: "#166534",
+              bgcolor: "var(--color-success-surface)",
+              color: "var(--color-success-text)",
               fontWeight: 650,
               fontSize: "11px",
-              border: "1px solid #bbf7d0",
+              border: "1px solid var(--color-success-surface)",
               height: 24,
             }}
           />
@@ -263,11 +276,11 @@ export function ManagerOrderView({
             size="small"
             label="On Route"
             sx={{
-              bgcolor: "#dbeafe",
-              color: "#1e40af",
+              bgcolor: "var(--color-info-surface)",
+              color: "var(--color-info-text)",
               fontWeight: 650,
               fontSize: "11px",
-              border: "1px solid #bfdbfe",
+              border: "1px solid var(--color-info-border)",
               height: 24,
             }}
           />
@@ -278,11 +291,11 @@ export function ManagerOrderView({
             size="small"
             label="Delivered"
             sx={{
-              bgcolor: "#f0fdf4",
-              color: "#15803d",
+              bgcolor: "var(--color-success-surface)",
+              color: "var(--color-success-text)",
               fontWeight: 650,
               fontSize: "11px",
-              border: "1px solid #86efac",
+              border: "1px solid var(--color-success-surface)",
               height: 24,
             }}
           />
@@ -293,8 +306,8 @@ export function ManagerOrderView({
             size="small"
             label={sentenceCase(activeStatus)}
             sx={{
-              bgcolor: "#f1f5f9",
-              color: "#475569",
+              bgcolor: "var(--color-surface-subtle)",
+              color: "var(--color-text-secondary-subtle)",
               fontWeight: 600,
               fontSize: "11px",
               height: 24,
@@ -331,9 +344,15 @@ export function ManagerOrderView({
             textTransform: "none",
             fontWeight: 600,
             fontSize: "13px",
-            bgcolor: mobileTab === "list" ? "#1e293b" : "#ffffff",
-            color: mobileTab === "list" ? "#ffffff" : "#475569",
-            borderColor: "#cbd5e1",
+            bgcolor:
+              mobileTab === "list"
+                ? "var(--color-brand-navy)"
+                : "var(--color-surface)",
+            color:
+              mobileTab === "list"
+                ? "var(--color-text-inverse)"
+                : "var(--color-text-secondary)",
+            borderColor: "var(--color-border-control)",
           }}
         >
           Queue ({searchedOrders.length})
@@ -350,9 +369,15 @@ export function ManagerOrderView({
             textTransform: "none",
             fontWeight: 600,
             fontSize: "13px",
-            bgcolor: mobileTab === "detail" ? "#1e293b" : "#ffffff",
-            color: mobileTab === "detail" ? "#ffffff" : "#475569",
-            borderColor: "#cbd5e1",
+            bgcolor:
+              mobileTab === "detail"
+                ? "var(--color-brand-navy)"
+                : "var(--color-surface)",
+            color:
+              mobileTab === "detail"
+                ? "var(--color-text-inverse)"
+                : "var(--color-text-secondary)",
+            borderColor: "var(--color-border-control)",
           }}
         >
           {selectedOrder
@@ -371,8 +396,8 @@ export function ManagerOrderView({
             elevation={0}
             className="manager-order-panel-paper"
             sx={{
-              bgcolor: "#ffffff",
-              border: "1px solid #e2e8f0",
+              bgcolor: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
               borderRadius: "16px",
               boxShadow:
                 "0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)",
@@ -388,11 +413,11 @@ export function ManagerOrderView({
               sx={{
                 px: 2.5,
                 py: 2,
-                borderBottom: "1px solid #f1f5f9",
+                borderBottom: "1px solid var(--color-border)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                bgcolor: "#ffffff",
+                bgcolor: "var(--color-surface)",
               }}
             >
               <Stack
@@ -402,7 +427,11 @@ export function ManagerOrderView({
               >
                 <Typography
                   variant="h6"
-                  sx={{ fontWeight: 700, fontSize: "16px", color: "#0f172a" }}
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: "16px",
+                    color: "var(--color-text-primary)",
+                  }}
                 >
                   Delivery queue
                 </Typography>
@@ -410,8 +439,8 @@ export function ManagerOrderView({
                   size="small"
                   label={searchedOrders.length}
                   sx={{
-                    bgcolor: "#f1f5f9",
-                    color: "#475569",
+                    bgcolor: "var(--color-surface-subtle)",
+                    color: "var(--color-text-secondary-subtle)",
                     fontWeight: 700,
                     fontSize: "12px",
                     height: 22,
@@ -421,17 +450,23 @@ export function ManagerOrderView({
             </Box>
 
             {/* Material Outlined Search */}
-            <Box sx={{ px: 2, pt: 1.5, pb: 1, bgcolor: "#ffffff" }}>
+            <Box
+              sx={{ px: 2, pt: 1.5, pb: 1, bgcolor: "var(--color-surface)" }}
+            >
               <OutlinedInput
                 fullWidth
                 size="small"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search tracking ID, customer, address…"
+                inputProps={{ "aria-label": "Search deliveries" }}
                 startAdornment={
                   <InputAdornment position="start">
                     <SearchRounded
-                      sx={{ color: "#94a3b8", fontSize: "20px" }}
+                      sx={{
+                        color: "var(--color-text-secondary)",
+                        fontSize: "20px",
+                      }}
                     />
                   </InputAdornment>
                 }
@@ -440,24 +475,30 @@ export function ManagerOrderView({
                     <InputAdornment position="end">
                       <IconButton
                         size="small"
+                        aria-label="Clear input"
                         onClick={() => setSearchQuery("")}
                         edge="end"
                       >
                         <CloseRounded
-                          sx={{ fontSize: "16px", color: "#64748b" }}
+                          sx={{
+                            fontSize: "16px",
+                            color: "var(--color-text-secondary)",
+                          }}
                         />
                       </IconButton>
                     </InputAdornment>
                   ) : null
                 }
                 sx={{
-                  bgcolor: "#ffffff",
+                  bgcolor: "var(--color-surface)",
                   borderRadius: "10px",
                   fontSize: "13.5px",
-                  "& fieldset": { borderColor: "#e2e8f0" },
-                  "&:hover fieldset": { borderColor: "#cbd5e1" },
+                  "& fieldset": { borderColor: "var(--color-border)" },
+                  "&:hover fieldset": {
+                    borderColor: "var(--color-border-control)",
+                  },
                   "&.Mui-focused fieldset": {
-                    borderColor: "#2563eb",
+                    borderColor: "var(--color-info)",
                     borderWidth: "1.5px",
                   },
                 }}
@@ -469,13 +510,13 @@ export function ManagerOrderView({
               sx={{
                 px: 2,
                 py: 1,
-                borderBottom: "1px solid #f1f5f9",
+                borderBottom: "1px solid var(--color-border)",
                 display: "flex",
                 gap: 1,
                 overflowX: "auto",
                 scrollbarWidth: "none",
                 "&::-webkit-scrollbar": { display: "none" },
-                bgcolor: "#ffffff",
+                bgcolor: "var(--color-surface)",
               }}
             >
               {[
@@ -506,14 +547,20 @@ export function ManagerOrderView({
                       fontSize: "12.5px",
                       height: 30,
                       px: 0.5,
-                      bgcolor: isActive ? "#0f172a" : "#f8fafc",
-                      color: isActive ? "#ffffff" : "#475569",
+                      bgcolor: isActive
+                        ? "var(--color-brand-navy)"
+                        : "var(--color-surface-subtle)",
+                      color: isActive
+                        ? "var(--color-text-inverse)"
+                        : "var(--color-text-secondary)",
                       border: isActive
-                        ? "1px solid #0f172a"
-                        : "1px solid #e2e8f0",
+                        ? "1px solid var(--color-brand-navy)"
+                        : "1px solid var(--color-border)",
                       transition: "all 150ms ease",
                       "&:hover": {
-                        bgcolor: isActive ? "#1e293b" : "#f1f5f9",
+                        bgcolor: isActive
+                          ? "var(--color-brand-navy)"
+                          : "var(--color-surface-subtle)",
                       },
                     }}
                   />
@@ -531,16 +578,17 @@ export function ManagerOrderView({
                 display: "flex",
                 flexDirection: "column",
                 gap: 1.25,
-                bgcolor: "#fcfdfe",
+                bgcolor: "var(--color-background)",
               }}
             >
               {searchedOrders.map((order) => {
                 const isSelected = selectedOrder?.id === order.id;
-                const confirmed = isOrderConfirmed(order);
+                const _confirmed = isOrderConfirmed(order);
 
                 return (
                   <Card
                     key={order.id}
+                    className={`manager-order-row ${isSelected ? "is-selected" : ""}`}
                     elevation={0}
                     onClick={() => {
                       setSelectedId(order.id);
@@ -552,15 +600,19 @@ export function ManagerOrderView({
                       cursor: "pointer",
                       borderRadius: "12px",
                       border: isSelected
-                        ? "2px solid #2563eb"
-                        : "1px solid #e2e8f0",
-                      bgcolor: isSelected ? "#f8faff" : "#ffffff",
+                        ? "2px solid var(--color-info)"
+                        : "1px solid var(--color-border)",
+                      bgcolor: isSelected
+                        ? "var(--color-info-surface)"
+                        : "var(--color-surface)",
                       boxShadow: isSelected
-                        ? "0 4px 12px rgba(37, 99, 235, 0.08)"
+                        ? "0 4px 12px color-mix(in srgb, var(--color-info) 10%, transparent)"
                         : "0 1px 2px rgba(0,0,0,0.04)",
                       transition: "all 140ms ease",
                       "&:hover": {
-                        borderColor: isSelected ? "#2563eb" : "#cbd5e1",
+                        borderColor: isSelected
+                          ? "var(--color-info)"
+                          : "var(--color-border-control)",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                         transform: "translateY(-1px)",
                       },
@@ -586,7 +638,7 @@ export function ManagerOrderView({
                             fontFamily: "monospace",
                             fontWeight: 700,
                             fontSize: "14px",
-                            color: "#0f172a",
+                            color: "var(--color-text-primary)",
                           }}
                         >
                           {order.tracking_code}
@@ -596,8 +648,8 @@ export function ManagerOrderView({
                             size="small"
                             label="Viewing"
                             sx={{
-                              bgcolor: "#dbeafe",
-                              color: "#1d4ed8",
+                              bgcolor: "var(--color-info-surface)",
+                              color: "var(--color-info-text)",
                               fontWeight: 700,
                               fontSize: "10px",
                               height: 18,
@@ -613,7 +665,7 @@ export function ManagerOrderView({
                       variant="body2"
                       sx={{
                         fontWeight: 650,
-                        color: "#1e293b",
+                        color: "var(--color-text-primary)",
                         fontSize: "13.5px",
                         mb: 0.75,
                       }}
@@ -639,7 +691,7 @@ export function ManagerOrderView({
                             width: 8,
                             height: 8,
                             borderRadius: "50%",
-                            bgcolor: "#16a34a",
+                            bgcolor: "var(--color-success)",
                             mt: "5px",
                             flexShrink: 0,
                           }}
@@ -647,7 +699,7 @@ export function ManagerOrderView({
                         <Typography
                           variant="caption"
                           sx={{
-                            color: "#64748b",
+                            color: "var(--color-text-secondary)",
                             fontSize: "12px",
                             lineHeight: 1.3,
                           }}
@@ -668,7 +720,7 @@ export function ManagerOrderView({
                             width: 8,
                             height: 8,
                             borderRadius: "50%",
-                            bgcolor: "#dc2626",
+                            bgcolor: "var(--color-brand-orange-action)",
                             mt: "5px",
                             flexShrink: 0,
                           }}
@@ -676,7 +728,7 @@ export function ManagerOrderView({
                         <Typography
                           variant="caption"
                           sx={{
-                            color: "#334155",
+                            color: "var(--color-text-primary)",
                             fontSize: "12px",
                             lineHeight: 1.3,
                             fontWeight: 500,
@@ -692,7 +744,7 @@ export function ManagerOrderView({
                     <Box
                       sx={{
                         pt: 1,
-                        borderTop: "1px dashed #f1f5f9",
+                        borderTop: "1px dashed var(--color-border)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
@@ -715,8 +767,8 @@ export function ManagerOrderView({
                             }
                             label={currency.format(order.cod_amount)}
                             sx={{
-                              bgcolor: "#fef3c7",
-                              color: "#92400e",
+                              bgcolor: "var(--color-warning-surface)",
+                              color: "var(--color-warning-text)",
                               fontWeight: 650,
                               fontSize: "11px",
                               height: 20,
@@ -726,7 +778,10 @@ export function ManagerOrderView({
                         {order.parcel_weight_kg && (
                           <Typography
                             variant="caption"
-                            sx={{ color: "#64748b", fontSize: "11px" }}
+                            sx={{
+                              color: "var(--color-text-secondary)",
+                              fontSize: "11px",
+                            }}
                           >
                             {order.parcel_weight_kg} kg
                           </Typography>
@@ -738,11 +793,17 @@ export function ManagerOrderView({
                         sx={{ alignItems: "center" }}
                       >
                         <AccessTimeOutlined
-                          sx={{ fontSize: "12px", color: "#94a3b8" }}
+                          sx={{
+                            fontSize: "12px",
+                            color: "var(--color-text-secondary-subtle)",
+                          }}
                         />
                         <Typography
                           variant="caption"
-                          sx={{ color: "#64748b", fontSize: "11px" }}
+                          sx={{
+                            color: "var(--color-text-secondary)",
+                            fontSize: "11px",
+                          }}
                         >
                           {formatTime(order.estimated_delivery_at)}
                         </Typography>
@@ -755,17 +816,25 @@ export function ManagerOrderView({
               {!searchedOrders.length && (
                 <Box sx={{ py: 6, px: 3, textAlign: "center" }}>
                   <Inventory2Outlined
-                    sx={{ fontSize: 40, color: "#cbd5e1", mb: 1.5 }}
+                    sx={{
+                      fontSize: 40,
+                      color: "var(--color-border-control)",
+                      mb: 1.5,
+                    }}
                   />
                   <Typography
                     variant="subtitle2"
-                    sx={{ fontWeight: 600, color: "#475569" }}
+                    sx={{ fontWeight: 600, color: "var(--color-text-primary)" }}
                   >
                     No deliveries match this view
                   </Typography>
                   <Typography
                     variant="caption"
-                    sx={{ color: "#94a3b8", display: "block", mt: 0.5 }}
+                    sx={{
+                      color: "var(--color-text-secondary)",
+                      display: "block",
+                      mt: 0.5,
+                    }}
                   >
                     {searchQuery
                       ? `No results for "${searchQuery}"`
@@ -801,8 +870,8 @@ export function ManagerOrderView({
               elevation={0}
               className="manager-order-map-paper"
               sx={{
-                bgcolor: "#ffffff",
-                border: "1px solid #e2e8f0",
+                bgcolor: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
                 borderRadius: "16px",
                 boxShadow:
                   "0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)",
@@ -819,11 +888,11 @@ export function ManagerOrderView({
                 sx={{
                   px: 2.5,
                   py: 1.75,
-                  borderBottom: "1px solid #f1f5f9",
+                  borderBottom: "1px solid var(--color-border)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  bgcolor: "#ffffff",
+                  bgcolor: "var(--color-surface)",
                 }}
               >
                 <Stack
@@ -841,7 +910,11 @@ export function ManagerOrderView({
                   </Box>
                   <Typography
                     variant="h6"
-                    sx={{ fontWeight: 700, fontSize: "16px", color: "#0f172a" }}
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: "16px",
+                      color: "var(--color-text-primary)",
+                    }}
                   >
                     Delivery information & route map
                   </Typography>
@@ -850,9 +923,9 @@ export function ManagerOrderView({
                   size="small"
                   label={`${movingCount} active in Yangon`}
                   sx={{
-                    bgcolor: "#ecfdf5",
-                    color: "#047857",
-                    border: "1px solid #a7f3d0",
+                    bgcolor: "var(--color-success-surface)",
+                    color: "var(--color-success-text)",
+                    border: "1px solid var(--color-success-surface)",
                     fontWeight: 650,
                     fontSize: "11px",
                     height: 22,
@@ -864,13 +937,13 @@ export function ManagerOrderView({
               <Box
                 sx={{
                   flex: 1,
-                  overflowY: "auto",
+                  overflowY: { xs: "visible", md: "auto" },
                   overscrollBehavior: "contain",
                   p: { xs: 2, sm: 2.5 },
                   display: "flex",
                   flexDirection: "column",
                   gap: 2.5,
-                  bgcolor: "#ffffff",
+                  bgcolor: "var(--color-surface)",
                   "& > *": { flexShrink: 0 },
                 }}
               >
@@ -894,7 +967,7 @@ export function ManagerOrderView({
                   sx={{
                     borderRadius: "14px",
                     overflow: "hidden",
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--color-border)",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
                     position: "relative",
                   }}
@@ -903,7 +976,7 @@ export function ManagerOrderView({
                     sx={{
                       height: { xs: "280px", sm: "340px" },
                       width: "100%",
-                      bgcolor: "#f1f5f9",
+                      bgcolor: "var(--color-surface-subtle)",
                     }}
                   >
                     <LocationMap
@@ -920,7 +993,7 @@ export function ManagerOrderView({
                       position: "absolute",
                       bottom: 10,
                       left: 12,
-                      bgcolor: "rgba(255, 255, 255, 0.95)",
+                      bgcolor: "var(--color-surface)",
                       backdropFilter: "blur(6px)",
                       px: 1.5,
                       py: 0.5,
@@ -931,20 +1004,36 @@ export function ManagerOrderView({
                       gap: 1,
                     }}
                   >
-                    <PlaceRounded sx={{ fontSize: 16, color: "#16a34a" }} />
+                    <PlaceRounded
+                      sx={{ fontSize: 16, color: "var(--color-success)" }}
+                    />
                     <Typography
                       variant="caption"
-                      sx={{ fontWeight: 600, color: "#334155" }}
+                      sx={{
+                        fontWeight: 600,
+                        color: "var(--color-text-primary)",
+                      }}
                     >
                       Pickup
                     </Typography>
-                    <Typography variant="caption" sx={{ color: "#94a3b8" }}>
-                      →
-                    </Typography>
-                    <PlaceRounded sx={{ fontSize: 16, color: "#dc2626" }} />
                     <Typography
                       variant="caption"
-                      sx={{ fontWeight: 600, color: "#334155" }}
+                      sx={{ color: "var(--color-text-secondary)" }}
+                    >
+                      →
+                    </Typography>
+                    <PlaceRounded
+                      sx={{
+                        fontSize: 16,
+                        color: "var(--color-brand-orange-action)",
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 600,
+                        color: "var(--color-text-primary)",
+                      }}
                     >
                       Drop-off
                     </Typography>
@@ -957,8 +1046,8 @@ export function ManagerOrderView({
                   sx={{
                     p: 2.25,
                     borderRadius: "14px",
-                    border: "1px solid #e2e8f0",
-                    bgcolor: "#fafbfc",
+                    border: "1px solid var(--color-border)",
+                    bgcolor: "var(--color-surface-subtle)",
                     display: "flex",
                     flexDirection: { xs: "column", sm: "row" },
                     alignItems: { xs: "flex-start", sm: "center" },
@@ -978,7 +1067,7 @@ export function ManagerOrderView({
                           fontFamily: "monospace",
                           fontWeight: 800,
                           fontSize: "20px",
-                          color: "#0f172a",
+                          color: "var(--color-text-primary)",
                           letterSpacing: "-0.02em",
                         }}
                       >
@@ -993,8 +1082,12 @@ export function ManagerOrderView({
                             copyTracking(selectedOrder.tracking_code)
                           }
                           sx={{
-                            color: copiedId ? "#16a34a" : "#64748b",
-                            bgcolor: copiedId ? "#dcfce7" : "#f1f5f9",
+                            color: copiedId
+                              ? "var(--color-success)"
+                              : "var(--color-text-secondary)",
+                            bgcolor: copiedId
+                              ? "var(--color-success-surface)"
+                              : "var(--color-surface-subtle)",
                             width: 28,
                             height: 28,
                           }}
@@ -1010,10 +1103,13 @@ export function ManagerOrderView({
                     </Stack>
                     <Typography
                       variant="body2"
-                      sx={{ color: "#64748b", fontSize: "13px" }}
+                      sx={{
+                        color: "var(--color-text-secondary)",
+                        fontSize: "13px",
+                      }}
                     >
                       Estimated arrival:{" "}
-                      <strong style={{ color: "#1e293b" }}>
+                      <strong style={{ color: "var(--color-text-primary)" }}>
                         {formatTime(selectedOrder.estimated_delivery_at)}
                       </strong>
                     </Typography>
@@ -1034,8 +1130,8 @@ export function ManagerOrderView({
                         }
                         sx={{
                           width: { xs: "100%", sm: "auto" },
-                          bgcolor: "#16a34a !important",
-                          color: "#ffffff !important",
+                          bgcolor: "var(--color-success) !important",
+                          color: "var(--color-text-inverse) !important",
                           opacity: "0.95 !important",
                           cursor: "not-allowed !important",
                           pointerEvents: "none !important",
@@ -1058,17 +1154,18 @@ export function ManagerOrderView({
                         startIcon={<CheckRounded sx={{ fontSize: "18px" }} />}
                         sx={{
                           width: { xs: "100%", sm: "auto" },
-                          bgcolor: "#2563eb",
-                          color: "#ffffff",
+                          bgcolor: "var(--color-brand-orange-action)",
+                          color: "var(--color-text-inverse)",
                           fontWeight: 700,
                           fontSize: "14px",
                           textTransform: "none",
                           borderRadius: "10px",
                           py: 1.1,
                           px: 2.75,
-                          boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+                          boxShadow:
+                            "0 2px 8px color-mix(in srgb, var(--color-brand-orange-action) 25%, transparent)",
                           "&:hover": {
-                            bgcolor: "#1d4ed8",
+                            bgcolor: "var(--color-brand-orange-action-hover)",
                           },
                         }}
                       >
@@ -1084,12 +1181,16 @@ export function ManagerOrderView({
                 {isOrderConfirmed(selectedOrder) ? (
                   <Alert
                     severity="success"
-                    icon={<CheckCircleOutlined sx={{ color: "#16a34a" }} />}
+                    icon={
+                      <CheckCircleOutlined
+                        sx={{ color: "var(--color-success)" }}
+                      />
+                    }
                     sx={{
                       borderRadius: "12px",
-                      bgcolor: "#f0fdf4",
-                      color: "#166534",
-                      border: "1px solid #bbf7d0",
+                      bgcolor: "var(--color-success-surface)",
+                      color: "var(--color-success-text)",
+                      border: "1px solid var(--color-success-surface)",
                       fontSize: "13px",
                       fontWeight: 500,
                     }}
@@ -1104,28 +1205,33 @@ export function ManagerOrderView({
                     sx={{
                       p: 2,
                       borderRadius: "12px",
-                      border: "1px solid #fed7aa",
-                      bgcolor: "#fffaf5",
+                      border: "1px solid var(--color-warning-border)",
+                      bgcolor: "var(--color-warning-surface)",
                     }}
                   >
                     <Typography
                       variant="subtitle2"
-                      sx={{ fontWeight: 700, color: "#9a3412", mb: 0.5 }}
+                      sx={{
+                        fontWeight: 700,
+                        color: "var(--color-warning-text)",
+                        mb: 0.5,
+                      }}
                     >
-                      Awaiting Manager Confirmation
+                      Check and confirm
                     </Typography>
                     <Typography
                       variant="body2"
                       sx={{
-                        color: "#7c2d12",
+                        color: "var(--color-warning-text)",
                         fontSize: "13px",
                         lineHeight: 1.45,
                       }}
                     >
-                      Review the pickup address, destination, parcel
-                      specifications, and COD payment details. Click{" "}
-                      <strong>Confirm order</strong> to immediately cluster and
-                      post this job to the driver board.
+                      Review the pickup and delivery details, then confirm.
+                      Nearby orders are clustered into one job that drivers can
+                      take from the job board. Riders are not assigned by hand.
+                      Click <strong>Confirm order</strong> to immediately
+                      cluster and post this job to the driver board.
                     </Typography>
                   </Box>
                 )}
@@ -1156,8 +1262,8 @@ export function ManagerOrderView({
                     sx={{
                       p: 2,
                       borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      bgcolor: "#ffffff",
+                      border: "1px solid var(--color-border)",
+                      bgcolor: "var(--color-surface)",
                     }}
                   >
                     <Stack
@@ -1170,8 +1276,8 @@ export function ManagerOrderView({
                           width: 28,
                           height: 28,
                           borderRadius: "8px",
-                          bgcolor: "#dcfce7",
-                          color: "#15803d",
+                          bgcolor: "var(--color-success-surface)",
+                          color: "var(--color-success-text)",
                           display: "grid",
                           placeItems: "center",
                         }}
@@ -1183,7 +1289,7 @@ export function ManagerOrderView({
                         sx={{
                           fontWeight: 750,
                           letterSpacing: "0.06em",
-                          color: "#15803d",
+                          color: "var(--color-success-text)",
                           textTransform: "uppercase",
                         }}
                       >
@@ -1194,7 +1300,7 @@ export function ManagerOrderView({
                       variant="body2"
                       sx={{
                         fontWeight: 650,
-                        color: "#0f172a",
+                        color: "var(--color-text-primary)",
                         fontSize: "14px",
                         mb: 0.5,
                       }}
@@ -1203,7 +1309,10 @@ export function ManagerOrderView({
                     </Typography>
                     <Typography
                       variant="caption"
-                      sx={{ color: "#64748b", display: "block" }}
+                      sx={{
+                        color: "var(--color-text-secondary)",
+                        display: "block",
+                      }}
                     >
                       Sender / Shop:{" "}
                       {selectedOrder.pickup_contact_name ||
@@ -1216,14 +1325,17 @@ export function ManagerOrderView({
                         sx={{ alignItems: "center", mt: 1 }}
                       >
                         <PhoneOutlined
-                          sx={{ fontSize: 13, color: "#64748b" }}
+                          sx={{
+                            fontSize: 13,
+                            color: "var(--color-text-secondary-subtle)",
+                          }}
                         />
                         <Typography
                           component="a"
                           href={`tel:${selectedOrder.pickup_contact_phone}`}
                           variant="caption"
                           sx={{
-                            color: "#2563eb",
+                            color: "var(--color-info-text)",
                             textDecoration: "none",
                             fontWeight: 600,
                           }}
@@ -1240,8 +1352,8 @@ export function ManagerOrderView({
                     sx={{
                       p: 2,
                       borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      bgcolor: "#ffffff",
+                      border: "1px solid var(--color-border)",
+                      bgcolor: "var(--color-surface)",
                     }}
                   >
                     <Stack
@@ -1254,8 +1366,8 @@ export function ManagerOrderView({
                           width: 28,
                           height: 28,
                           borderRadius: "8px",
-                          bgcolor: "#fee2e2",
-                          color: "#b91c1c",
+                          bgcolor: "var(--color-orange-surface)",
+                          color: "var(--color-brand-orange-action)",
                           display: "grid",
                           placeItems: "center",
                         }}
@@ -1267,7 +1379,7 @@ export function ManagerOrderView({
                         sx={{
                           fontWeight: 750,
                           letterSpacing: "0.06em",
-                          color: "#b91c1c",
+                          color: "var(--color-brand-orange-action)",
                           textTransform: "uppercase",
                         }}
                       >
@@ -1278,7 +1390,7 @@ export function ManagerOrderView({
                       variant="body2"
                       sx={{
                         fontWeight: 650,
-                        color: "#0f172a",
+                        color: "var(--color-text-primary)",
                         fontSize: "14px",
                         mb: 0.5,
                       }}
@@ -1287,7 +1399,10 @@ export function ManagerOrderView({
                     </Typography>
                     <Typography
                       variant="caption"
-                      sx={{ color: "#64748b", display: "block" }}
+                      sx={{
+                        color: "var(--color-text-secondary)",
+                        display: "block",
+                      }}
                     >
                       Recipient:{" "}
                       {selectedOrder.recipient_name ||
@@ -1300,14 +1415,17 @@ export function ManagerOrderView({
                         sx={{ alignItems: "center", mt: 1 }}
                       >
                         <PhoneOutlined
-                          sx={{ fontSize: 13, color: "#64748b" }}
+                          sx={{
+                            fontSize: 13,
+                            color: "var(--color-text-secondary-subtle)",
+                          }}
                         />
                         <Typography
                           component="a"
                           href={`tel:${selectedOrder.recipient_phone}`}
                           variant="caption"
                           sx={{
-                            color: "#2563eb",
+                            color: "var(--color-info-text)",
                             textDecoration: "none",
                             fontWeight: 600,
                           }}
@@ -1333,8 +1451,8 @@ export function ManagerOrderView({
                     sx={{
                       p: 2,
                       borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      bgcolor: "#ffffff",
+                      border: "1px solid var(--color-border)",
+                      bgcolor: "var(--color-surface)",
                     }}
                   >
                     <Stack
@@ -1343,11 +1461,17 @@ export function ManagerOrderView({
                       sx={{ alignItems: "center", mb: 1 }}
                     >
                       <Inventory2Outlined
-                        sx={{ fontSize: 18, color: "#64748b" }}
+                        sx={{
+                          fontSize: 18,
+                          color: "var(--color-text-secondary-subtle)",
+                        }}
                       />
                       <Typography
                         variant="caption"
-                        sx={{ fontWeight: 700, color: "#475569" }}
+                        sx={{
+                          fontWeight: 700,
+                          color: "var(--color-text-secondary)",
+                        }}
                       >
                         PARCEL GOODS
                       </Typography>
@@ -1356,7 +1480,7 @@ export function ManagerOrderView({
                       variant="body2"
                       sx={{
                         fontWeight: 650,
-                        color: "#1e293b",
+                        color: "var(--color-text-primary)",
                         fontSize: "13.5px",
                       }}
                     >
@@ -1364,7 +1488,11 @@ export function ManagerOrderView({
                     </Typography>
                     <Typography
                       variant="caption"
-                      sx={{ color: "#64748b", display: "block", mt: 0.5 }}
+                      sx={{
+                        color: "var(--color-text-secondary)",
+                        display: "block",
+                        mt: 0.5,
+                      }}
                     >
                       Weight:{" "}
                       {selectedOrder.parcel_weight_kg
@@ -1379,8 +1507,8 @@ export function ManagerOrderView({
                     sx={{
                       p: 2,
                       borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      bgcolor: "#ffffff",
+                      border: "1px solid var(--color-border)",
+                      bgcolor: "var(--color-surface)",
                     }}
                   >
                     <Stack
@@ -1389,11 +1517,17 @@ export function ManagerOrderView({
                       sx={{ alignItems: "center", mb: 1 }}
                     >
                       <PaymentsOutlined
-                        sx={{ fontSize: 18, color: "#64748b" }}
+                        sx={{
+                          fontSize: 18,
+                          color: "var(--color-text-secondary-subtle)",
+                        }}
                       />
                       <Typography
                         variant="caption"
-                        sx={{ fontWeight: 700, color: "#475569" }}
+                        sx={{
+                          fontWeight: 700,
+                          color: "var(--color-text-secondary)",
+                        }}
                       >
                         CASH TO COLLECT
                       </Typography>
@@ -1403,7 +1537,9 @@ export function ManagerOrderView({
                       sx={{
                         fontWeight: 700,
                         color:
-                          selectedOrder.cod_amount > 0 ? "#b45309" : "#166534",
+                          selectedOrder.cod_amount > 0
+                            ? "var(--color-warning-text)"
+                            : "var(--color-success-text)",
                         fontSize: "15px",
                       }}
                     >
@@ -1413,7 +1549,11 @@ export function ManagerOrderView({
                     </Typography>
                     <Typography
                       variant="caption"
-                      sx={{ color: "#64748b", display: "block", mt: 0.5 }}
+                      sx={{
+                        color: "var(--color-text-secondary)",
+                        display: "block",
+                        mt: 0.5,
+                      }}
                     >
                       Status: {sentenceCase(selectedOrder.cod_status)}
                     </Typography>
@@ -1425,8 +1565,8 @@ export function ManagerOrderView({
                     sx={{
                       p: 2,
                       borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      bgcolor: "#ffffff",
+                      border: "1px solid var(--color-border)",
+                      bgcolor: "var(--color-surface)",
                     }}
                   >
                     <Stack
@@ -1435,11 +1575,17 @@ export function ManagerOrderView({
                       sx={{ alignItems: "center", mb: 1 }}
                     >
                       <LocalShippingOutlined
-                        sx={{ fontSize: 18, color: "#64748b" }}
+                        sx={{
+                          fontSize: 18,
+                          color: "var(--color-text-secondary-subtle)",
+                        }}
                       />
                       <Typography
                         variant="caption"
-                        sx={{ fontWeight: 700, color: "#475569" }}
+                        sx={{
+                          fontWeight: 700,
+                          color: "var(--color-text-secondary)",
+                        }}
                       >
                         RIDER DISPATCH
                       </Typography>
@@ -1448,15 +1594,23 @@ export function ManagerOrderView({
                       variant="body2"
                       sx={{
                         fontWeight: 650,
-                        color: "#1e293b",
+                        color: "var(--color-text-primary)",
                         fontSize: "13.5px",
                       }}
                     >
-                      {selectedOrder.driver_name || "Available on Driver Board"}
+                      {selectedOrder.driver_name
+                        ? `${selectedOrder.driver_name} · Rider assigned`
+                        : selectedOrder.driver_id
+                          ? "Rider assigned"
+                          : "Available on Driver Board"}
                     </Typography>
                     <Typography
                       variant="caption"
-                      sx={{ color: "#64748b", display: "block", mt: 0.5 }}
+                      sx={{
+                        color: "var(--color-text-secondary)",
+                        display: "block",
+                        mt: 0.5,
+                      }}
                     >
                       {selectedOrder.vehicle_label ||
                         (isOrderConfirmed(selectedOrder)
@@ -1473,8 +1627,8 @@ export function ManagerOrderView({
                     sx={{
                       p: 2,
                       borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      bgcolor: "#f8fafc",
+                      border: "1px solid var(--color-border)",
+                      bgcolor: "var(--color-surface-subtle)",
                     }}
                   >
                     <Stack
@@ -1482,10 +1636,18 @@ export function ManagerOrderView({
                       spacing={1}
                       sx={{ alignItems: "center", mb: 1.25 }}
                     >
-                      <SpeedOutlined sx={{ fontSize: 17, color: "#475569" }} />
+                      <SpeedOutlined
+                        sx={{
+                          fontSize: 17,
+                          color: "var(--color-text-secondary)",
+                        }}
+                      />
                       <Typography
                         variant="caption"
-                        sx={{ fontWeight: 700, color: "#475569" }}
+                        sx={{
+                          fontWeight: 700,
+                          color: "var(--color-text-secondary)",
+                        }}
                       >
                         ROUTE EFFICIENCY & ENERGY ESTIMATE
                       </Typography>
@@ -1498,8 +1660,8 @@ export function ManagerOrderView({
                         }
                         label={`${assessment.distanceKm} km trip`}
                         sx={{
-                          bgcolor: "#ffffff",
-                          border: "1px solid #cbd5e1",
+                          bgcolor: "var(--color-surface)",
+                          border: "1px solid var(--color-border-control)",
                           fontWeight: 650,
                           fontSize: "12px",
                         }}
@@ -1514,8 +1676,8 @@ export function ManagerOrderView({
                           }
                           label={`${assessment.fuelLitresEstimated} L fuel estimated`}
                           sx={{
-                            bgcolor: "#ffffff",
-                            border: "1px solid #cbd5e1",
+                            bgcolor: "var(--color-surface)",
+                            border: "1px solid var(--color-border-control)",
                             fontWeight: 650,
                             fontSize: "12px",
                           }}
@@ -1531,8 +1693,8 @@ export function ManagerOrderView({
                           }
                           label={`${assessment.signalsOnRoute} traffic signals`}
                           sx={{
-                            bgcolor: "#ffffff",
-                            border: "1px solid #cbd5e1",
+                            bgcolor: "var(--color-surface)",
+                            border: "1px solid var(--color-border-control)",
                             fontWeight: 650,
                             fontSize: "12px",
                           }}
@@ -1543,7 +1705,11 @@ export function ManagerOrderView({
                       assessment.signalBypasses.length > 0 && (
                         <Typography
                           variant="caption"
-                          sx={{ color: "#64748b", display: "block", mt: 1.25 }}
+                          sx={{
+                            color: "var(--color-text-secondary)",
+                            display: "block",
+                            mt: 1.25,
+                          }}
                         >
                           Tip: Rotation bypass recommended via{" "}
                           {assessment.signalBypasses[0].recommendedRotation}
@@ -1559,21 +1725,28 @@ export function ManagerOrderView({
               sx={{
                 p: 6,
                 borderRadius: "16px",
-                border: "1px solid #e2e8f0",
-                bgcolor: "#ffffff",
+                border: "1px solid var(--color-border)",
+                bgcolor: "var(--color-surface)",
                 textAlign: "center",
               }}
             >
               <LocationOnOutlined
-                sx={{ fontSize: 48, color: "#cbd5e1", mb: 1.5 }}
+                sx={{
+                  fontSize: 48,
+                  color: "var(--color-border-control)",
+                  mb: 1.5,
+                }}
               />
               <Typography
                 variant="h6"
-                sx={{ fontWeight: 650, color: "#475569" }}
+                sx={{ fontWeight: 650, color: "var(--color-text-primary)" }}
               >
                 Select a delivery
               </Typography>
-              <Typography variant="body2" sx={{ color: "#94a3b8", mt: 0.5 }}>
+              <Typography
+                variant="body2"
+                sx={{ color: "var(--color-text-secondary)", mt: 0.5 }}
+              >
                 Choose a parcel from the queue to view its route map and confirm
                 dispatch.
               </Typography>

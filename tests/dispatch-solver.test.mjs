@@ -5,7 +5,10 @@ import {
   totalScore,
 } from "../src/lib/delivery/dispatch/construct.ts";
 import { satisfiesPrecedence } from "../src/lib/delivery/dispatch/improve.ts";
-import { bestInsertion } from "../src/lib/delivery/dispatch/insert.ts";
+import {
+  bestInsertion,
+  createInsertionCache,
+} from "../src/lib/delivery/dispatch/insert.ts";
 import {
   buildStraightLineMatrix,
   nodePoints,
@@ -387,4 +390,56 @@ test("bestInsertion pruning matches an exhaustive scan", () => {
       assert.equal(fast?.eval.score ?? null, best, `seed ${seed} truck ${k}`);
     }
   }
+});
+
+test("a cached insertion matches a fresh search and a repeat is a hit", () => {
+  const inst = generateSynthetic({ seed: 11, orders: 12, trucks: 2 });
+  const matrix = matrixFor(inst);
+  const state = construct(inst, matrix);
+  const truck = inst.trucks[0];
+  const seq = state.routes[0];
+  const score = state.evals[0].score;
+  const cache = createInsertionCache();
+  const fresh = bestInsertion(inst, matrix, truck, seq, score, 0);
+  const first = bestInsertion(inst, matrix, truck, seq, score, 0, { cache });
+  const again = bestInsertion(inst, matrix, truck, seq, score, 0, { cache });
+  assert.deepEqual(first?.seq, fresh?.seq);
+  assert.equal(first?.delta, fresh?.delta);
+  assert.deepEqual(again?.seq, fresh?.seq);
+  assert.equal(again?.delta, fresh?.delta);
+  assert.equal(cache.misses, 1);
+  assert.equal(cache.hits, 1);
+});
+
+test("an order heavier than the truck is rejected without a route search", () => {
+  const inst = tiny({ weightKg: 1e6 });
+  const cache = createInsertionCache();
+  const result = bestInsertion(
+    inst,
+    matrixFor(inst),
+    inst.trucks[0],
+    [],
+    0,
+    0,
+    { cache },
+  );
+  assert.equal(result, null);
+  assert.equal(cache.evaluations, 0);
+});
+
+test("solving reports metrics and patience stops ruin-and-recreate early", () => {
+  const make = (over) =>
+    generateSynthetic({ seed: 5, orders: 30, trucks: 4, params: over });
+  const full = make({ ruinIterations: 300, ruinPatience: 0 });
+  const quick = make({ ruinIterations: 300, ruinPatience: 15 });
+  const a = solve(full, matrixFor(full), { nowMs: clock });
+  const b = solve(quick, matrixFor(quick), { nowMs: clock });
+  assert.ok(a.metrics.cacheHits > 0);
+  assert.ok(a.metrics.routeEvaluations > 0);
+  assert.equal(a.metrics.ruinIterations, 300);
+  assert.equal(b.metrics.ruinStopReason, "stagnated");
+  assert.ok(b.metrics.ruinIterations < 300);
+  const repeat = solve(quick, matrixFor(quick), { nowMs: clock });
+  assert.equal(repeat.hash, b.hash);
+  assert.deepEqual(validateSolution(quick, matrixFor(quick), b), []);
 });

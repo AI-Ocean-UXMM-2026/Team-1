@@ -1,6 +1,6 @@
 "use client";
 
-import type { MapLayerMouseEvent, Marker as MapboxMarker } from "mapbox-gl";
+import type { Marker as MapboxMarker, MapLayerMouseEvent } from "mapbox-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/delivery/icons";
 import type { LocationMapProps } from "@/components/delivery/location-map";
@@ -12,14 +12,13 @@ import {
   labelElement,
   lngLat,
   mapPalette,
-  prefersDark,
   removePolygonLayers,
   svgMarker,
   useMapboxMap,
 } from "@/components/delivery/mapbox-kit";
 import {
-  type LiveFloodConditions,
   fetchLiveFloodConditions,
+  type LiveFloodConditions,
 } from "@/lib/delivery/dispatch/open-meteo";
 import {
   dispatchRows,
@@ -27,8 +26,8 @@ import {
   locationStatusText,
 } from "@/lib/delivery/dispatch-rows";
 import {
-  type FloodZone,
   checkRouteFloodExposure,
+  type FloodZone,
   generateCirclePolygon,
   getYangonFloodZones,
 } from "@/lib/delivery/flood-zones";
@@ -77,7 +76,7 @@ function riderMarker(
 function hazardMarker(report: RoadReport) {
   const isSevere = report.severity === "high" || report.severity === "blocked";
   const color = isSevere ? "#DC2626" : "#D97706";
-  const bg = isSevere ? "#FEF2F2" : "#FFFBEB";
+  const bg = isSevere ? "#fee2e2" : "#fef3c7";
   const icon = `<path d="M0 -6 L6 5 L-6 5 Z" fill="${color}"/><circle cx="0" cy="2.5" r="0.8" fill="#FFFFFF"/>`;
   const el = svgMarker(
     `<circle r="12" fill="${bg}" stroke="${color}" stroke-width="1.5"/>${icon}`,
@@ -92,11 +91,11 @@ function hazardMarker(report: RoadReport) {
 
 function floodHazardMarker(report: RoadReport) {
   const isSevere = report.severity === "high" || report.severity === "blocked";
-  const color = isSevere ? "#DC2626" : "#0284C7";
-  const bg = isSevere ? "#FEF2F2" : "#F0F9FF";
+  const color = isSevere ? "#DC2626" : "#2563eb";
+  const bg = isSevere ? "#fee2e2" : "#eff6ff";
   const halo = isSevere
     ? `<circle class="flood-pulse" r="22" fill="#DC2626" fill-opacity="0.25"/>`
-    : `<circle class="flood-pulse" r="18" fill="#0284C7" fill-opacity="0.2"/>`;
+    : `<circle class="flood-pulse" r="18" fill="#2563eb" fill-opacity="0.2"/>`;
   const el = svgMarker(
     `${halo}<circle r="13" fill="${bg}" stroke="${color}" stroke-width="1.8"/><path d="M-5 1 C-3 -1 -1 3 1 1 C3 -1 5 3 7 1" stroke="${color}" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M-5 -2 C-3 -4 -1 0 1 -2 C3 -4 5 0 7 -2" stroke="${color}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
     44,
@@ -105,9 +104,7 @@ function floodHazardMarker(report: RoadReport) {
     `Flood hazard: ${report.description}`,
   );
   el.classList.add("mapbox-flood-marker");
-  el.append(
-    labelElement(isSevere ? "FLOOD (BLOCKED)" : "FLOOD HAZARD"),
-  );
+  el.append(labelElement(isSevere ? "FLOOD (BLOCKED)" : "FLOOD HAZARD"));
   return el;
 }
 
@@ -166,9 +163,13 @@ export function MapboxLocationMap({
   const [activeHazardPopup, setActiveHazardPopup] = useState<RoadReport | null>(
     null,
   );
-  const [activeFloodZone, setActiveFloodZone] = useState<FloodZone | null>(null);
+  const [activeFloodZone, setActiveFloodZone] = useState<FloodZone | null>(
+    null,
+  );
   const [showWeatherModal, setShowWeatherModal] = useState(false);
-  const [otherRoutes, setOtherRoutes] = useState<Record<string, Coordinate[]>>({});
+  const [otherRoutes, setOtherRoutes] = useState<Record<string, Coordinate[]>>(
+    {},
+  );
   const flownTo = useRef<string | null>(null);
 
   useEffect(() => {
@@ -275,14 +276,17 @@ export function MapboxLocationMap({
     }
   }, [markerRows, order?.id, otherRoutes]);
 
-  const fitPoints: MapPoint[] = markerRows.length
-    ? markerRows.flatMap((row) =>
-        row.destination ? [row.rider, row.destination] : [row.rider],
-      )
-    : [pickupPoint, destinationPoint].filter(
-        (point): point is MapPoint => point !== null,
-      );
-  const fitKey = fitPoints.map((p) => `${p.latitude},${p.longitude}`).join("|");
+  const fitPoints: MapPoint[] = useMemo(
+    () =>
+      markerRows.length
+        ? markerRows.flatMap((row) =>
+            row.destination ? [row.rider, row.destination] : [row.rider],
+          )
+        : [pickupPoint, destinationPoint].filter(
+            (point): point is MapPoint => point !== null,
+          ),
+    [markerRows, pickupPoint, destinationPoint],
+  );
 
   useEffect(() => {
     if (!map) return;
@@ -306,7 +310,7 @@ export function MapboxLocationMap({
       { x: 56, top: 92, bottom: 92 },
       mode === "customer" ? 14 : 15,
     );
-  }, [map, moved, fitKey, mode]);
+  }, [map, moved, fitPoints, mode]);
 
   useEffect(() => {
     if (!map || !selectedRow || flownTo.current === order?.id) return;
@@ -338,9 +342,9 @@ export function MapboxLocationMap({
     }));
 
     drawPolygons(map, "flood-hazard-zones", zonePolygons, {
-      fillColor: "#0284C7",
+      fillColor: "#2563eb",
       fillOpacity: 0.28,
-      lineColor: "#0369A1",
+      lineColor: "#1d4ed8",
       lineWidth: 2,
       lineDash: [3, 2],
     });
@@ -359,9 +363,9 @@ export function MapboxLocationMap({
     }));
 
     drawPolygons(map, "flood-report-buffers", bufferPolygons, {
-      fillColor: "#0284C7",
+      fillColor: "#2563eb",
       fillOpacity: 0.16,
-      lineColor: "#0284C7",
+      lineColor: "#2563eb",
       lineWidth: 1.5,
       lineDash: [2, 2],
     });
@@ -392,7 +396,7 @@ export function MapboxLocationMap({
 
   useEffect(() => {
     if (!map || !gl) return;
-    const palette = mapPalette(prefersDark());
+    const palette = mapPalette();
     const markers: MapboxMarker[] = [];
     const place = (
       element: HTMLElement,
@@ -475,8 +479,14 @@ export function MapboxLocationMap({
     if (selectedRow?.rider && selectedRow?.destination) {
       return [lngLat(selectedRow.rider), lngLat(selectedRow.destination)];
     }
+    if (livePoint && destinationPoint) {
+      return [lngLat(livePoint), lngLat(destinationPoint)];
+    }
+    if (pickupPoint && destinationPoint) {
+      return [lngLat(pickupPoint), lngLat(destinationPoint)];
+    }
     return [];
-  }, [road, selectedRow]);
+  }, [road, selectedRow, livePoint, pickupPoint, destinationPoint]);
 
   const routeFloodRisk = useMemo(
     () =>
@@ -490,7 +500,7 @@ export function MapboxLocationMap({
 
   useEffect(() => {
     if (!map) return;
-    const palette = mapPalette(prefersDark());
+    const palette = mapPalette();
     const connectors: Coordinate[][] = markerRows.flatMap((row) => {
       if (row.order.id === order?.id || !row.destination) return [];
       const coords = otherRoutes[row.order.id];
@@ -509,14 +519,22 @@ export function MapboxLocationMap({
         ? [lngLat(selectedRow.rider), lngLat(selectedRow.destination)]
         : [];
     drawLines(map, "dispatch-route-casing", [selectedLine], {
-      color: routeFloodRisk.hasFloodRisk ? "#F59E0B" : palette.casing,
+      color: routeFloodRisk.hasFloodRisk ? "#d97706" : palette.casing,
       width: 9,
     });
     drawLines(map, "dispatch-route", [selectedLine], {
       color: palette.route,
       width: 5,
     });
-  }, [map, markerRows, order?.id, road, selectedRow, otherRoutes, routeFloodRisk.hasFloodRisk]);
+  }, [
+    map,
+    markerRows,
+    order?.id,
+    road,
+    selectedRow,
+    otherRoutes,
+    routeFloodRisk.hasFloodRisk,
+  ]);
 
   const handleRecenter = () => {
     if (!map || !fitPoints.length) return;
@@ -567,7 +585,9 @@ export function MapboxLocationMap({
                 title="Open-Meteo live hydrology & rain conditions"
                 aria-label="Live weather & flood telemetry"
               >
-                <span className={`live-weather-dot dot-${liveFlood.severity}`} />
+                <span
+                  className={`live-weather-dot dot-${liveFlood.severity}`}
+                />
                 <span className="live-weather-text">
                   {liveFlood.precipitationMm > 0
                     ? `${liveFlood.precipitationMm} mm/h rain`
@@ -675,7 +695,7 @@ export function MapboxLocationMap({
 
         {/* Flood Legend for Manager Map */}
         {showFlood && mode === "manager" && (
-          <div className="map-flood-legend" aria-label="Flood risk legend">
+          <aside className="map-flood-legend" aria-label="Flood risk legend">
             <div className="flood-legend-header">
               <span className="flood-legend-title">
                 <Icon name="flood" size={13} />
@@ -696,7 +716,7 @@ export function MapboxLocationMap({
                 <i className="legend-swatch class-3" /> Class 3 (&gt;50cm)
               </span>
             </div>
-          </div>
+          </aside>
         )}
 
         {activeRiderPopup && (
@@ -776,7 +796,9 @@ export function MapboxLocationMap({
             </div>
             <div className="map-popover-body">
               <strong>{activeFloodZone.name}</strong>
-              <p className="hazard-description">{activeFloodZone.description}</p>
+              <p className="hazard-description">
+                {activeFloodZone.description}
+              </p>
               <div className="flood-popover-meta">
                 <span>
                   Est. depth:{" "}
@@ -847,7 +869,9 @@ export function MapboxLocationMap({
             aria-label="Open-Meteo weather details"
           >
             <div className="map-popover-header">
-              <span className={`weather-badge-pill weather-${liveFlood.severity}`}>
+              <span
+                className={`weather-badge-pill weather-${liveFlood.severity}`}
+              >
                 <span className="live-weather-dot" />
                 LIVE HYDROLOGY · OPEN-METEO
               </span>
@@ -882,12 +906,15 @@ export function MapboxLocationMap({
                 </div>
                 <div className="weather-metric-item">
                   <span>ETA Slowdown</span>
-                  <strong>+{Math.round(liveFlood.suggestedSlowdown * 100)}%</strong>
+                  <strong>
+                    +{Math.round(liveFlood.suggestedSlowdown * 100)}%
+                  </strong>
                 </div>
               </div>
               <p className="weather-source-note">
-                Live open data from Copernicus GloFAS & Open-Meteo. Automatically
-                factored into route feasibility and dispatch planning.
+                Live open data from Copernicus GloFAS & Open-Meteo.
+                Automatically factored into route feasibility and dispatch
+                planning.
               </p>
             </div>
           </div>

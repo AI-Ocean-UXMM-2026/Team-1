@@ -3,6 +3,7 @@ import {
   countTrafficSignalsBetween,
   distanceToSegmentKm,
 } from "../energy-routing.ts";
+import { priceRoadReport, signalCostMin } from "../routing-cost.ts";
 import type { Matrix, Point } from "./types.ts";
 
 export type TrafficReport = {
@@ -14,7 +15,7 @@ export type TrafficReport = {
   severity?: string;
   /** The engine's reading of the note; replaces the raw category/severity table. */
   decision?: {
-    action: "avoid" | "delay" | "monitor";
+    action: "avoid" | "delay" | "monitor" | "ignore";
     severity: string;
     delayMinutes: number;
     radiusMeters: number;
@@ -42,33 +43,7 @@ export type ApplyTrafficOptions = {
   reports?: TrafficReport[];
   orders?: TrafficOrder[];
   corridorThresholdKm?: number;
-};
-
-const REPORT_DELAY_MIN: Record<string, Record<string, number>> = {
-  congestion: {
-    low: 2.0,
-    medium: 5.0,
-    high: 10.0,
-    blocked: 20.0,
-  },
-  roadwork: {
-    low: 1.5,
-    medium: 3.5,
-    high: 7.0,
-    blocked: 15.0,
-  },
-  hazard: {
-    low: 1.0,
-    medium: 2.5,
-    high: 5.0,
-    blocked: 10.0,
-  },
-  closure: {
-    low: 5.0,
-    medium: 10.0,
-    high: 20.0,
-    blocked: 30.0,
-  },
+  nowMs?: number;
 };
 
 const TRAFFIC_CATEGORIES = new Set([
@@ -89,33 +64,6 @@ function reportPoint(
 function isTrafficReport(report: TrafficReport): boolean {
   if (!report.category) return true;
   return TRAFFIC_CATEGORIES.has(report.category);
-}
-
-function getReportDelay(report: TrafficReport): number {
-  const decision = report.decision;
-  if (decision) {
-    if (decision.action === "monitor") return 0;
-    return decision.action === "avoid"
-      ? Math.max(8, decision.delayMinutes)
-      : decision.delayMinutes;
-  }
-  const cat = report.category || "congestion";
-  const sev = report.severity || "medium";
-  return (
-    REPORT_DELAY_MIN[cat]?.[sev] ??
-    (sev === "blocked" ? 20.0 : sev === "high" ? 8.0 : sev === "low" ? 2.0 : 4.0)
-  );
-}
-
-function isReportBlocking(report: TrafficReport): boolean {
-  if (report.decision)
-    return (
-      report.decision.action === "avoid" && report.decision.severity === "blocked"
-    );
-  return (
-    report.severity === "blocked" ||
-    (report.category === "closure" && report.severity === "high")
-  );
 }
 
 /**
@@ -144,6 +92,7 @@ export function applyTraffic(
       : (optionsOrThreshold ?? {});
 
   const corridorThresholdKm = options.corridorThresholdKm ?? 0.45;
+  const nowMs = options.nowMs ?? Date.now();
   const reports = options.reports ?? [];
   const orders = options.orders ?? [];
 
@@ -165,7 +114,8 @@ export function applyTraffic(
   for (const order of orders) {
     const delay = order.traffic_delay_minutes ?? 0;
     if (delay <= 0) continue;
-    if (order.delivery_latitude == null || order.delivery_longitude == null) continue;
+    if (order.delivery_latitude == null || order.delivery_longitude == null)
+      continue;
 
     // Find corresponding node index in points
     for (let idx = 0; idx < points.length; idx++) {
@@ -185,9 +135,29 @@ export function applyTraffic(
   const validTrafficReports = reports
     .filter(isTrafficReport)
     .map((r) => ({ report: r, point: reportPoint(r) }))
-    .filter((entry): entry is { report: TrafficReport; point: { latitude: number; longitude: number } } =>
-      entry.point != null,
+    .filter(
+      (
+        entry,
+      ): entry is {
+        report: TrafficReport;
+        point: { latitude: number; longitude: number };
+      } => entry.point != null,
     );
+
+  // Reports do not vary by arc, so price each once.
+  const prices = new Map(
+    validTrafficReports.map(({ report }) => [
+      report,
+      priceRoadReport(
+        {
+          ...report,
+          category: report.category ?? "congestion",
+          severity: report.severity ?? "medium",
+        },
+        nowMs,
+      ),
+    ]),
+  );
 
   for (let i = 0; i < n; i++) {
     const from = { latitude: points[i].lat, longitude: points[i].lng };
@@ -196,12 +166,16 @@ export function applyTraffic(
       const arc = i * n + j;
       const to = { latitude: points[j].lat, longitude: points[j].lng };
 
-      const intResult = countInterceptionPointsBetween(from, to, corridorThresholdKm);
+      const intResult = countInterceptionPointsBetween(
+        from,
+        to,
+        corridorThresholdKm,
+      );
       const userPoints = intResult.points;
       const ints = intResult.count;
       // An arterial signal at the same junction as a hand-mapped light is one
       // stop, not two
-      const sigs = countTrafficSignalsBetween(
+      const signals = countTrafficSignalsBetween(
         from,
         to,
         corridorThresholdKm,
@@ -213,7 +187,8 @@ export function applyTraffic(
               Math.abs(pt.latitude - signal.latitude) < 0.0011 &&
               Math.abs(pt.longitude - signal.longitude) < 0.0012,
           ),
-      ).length;
+      );
+      const sigs = signals.length;
 
       // Base signal and user traffic point delay:
       // Traffic lights apply cycle-calibrated red-light and deceleration delay;
@@ -233,33 +208,36 @@ export function applyTraffic(
           if (hasBypass) {
             userPointsDelay += 0.2; // Minor side-turn friction instead of full red-light queue
           } else {
-            userPointsDelay += Math.max(0.45, (pt.estimatedCycleSeconds * 0.55) / 60 + 0.2);
+            userPointsDelay += signalCostMin(pt.estimatedCycleSeconds);
           }
         } else {
           userPointsDelay += 0.35;
         }
       }
 
-      let arcDelay = sigs * 0.95 + userPointsDelay;
+      // Arterial signals are priced by cycle, exactly as navigation prices them
+      let arcDelay = userPointsDelay;
+      for (const signal of signals)
+        arcDelay += signalCostMin(signal.estimatedCycleSeconds);
       signalsCovered += sigs;
       interceptionsCovered += ints;
 
       // Check live traffic road reports along the corridor
       for (const { report, point } of validTrafficReports) {
-        const dist = distanceToSegmentKm(point, from, to);
+        const price = prices.get(report);
+        if (!price) continue;
+        // No road geometry here, only the straight line: a wider corridor
+        // stands in for the true path navigation measures against.
         const reach = report.decision
-          ? Math.max(0.15, report.decision.radiusMeters / 1000)
+          ? Math.max(0.15, price.reachKm)
           : corridorThresholdKm;
-        if (dist <= reach) {
-          const reportDelay = getReportDelay(report);
-          arcDelay += reportDelay;
-          matchedReports.add(report);
-
-          if (isReportBlocking(report)) {
-            if (!blocked) blocked = new Uint8Array(n * n);
-            blocked[arc] = 1;
-            blockedArcs++;
-          }
+        if (distanceToSegmentKm(point, from, to) > reach) continue;
+        arcDelay += price.delayMin;
+        matchedReports.add(report);
+        if (price.blocked) {
+          if (!blocked) blocked = new Uint8Array(n * n);
+          blocked[arc] = 1;
+          blockedArcs++;
         }
       }
 

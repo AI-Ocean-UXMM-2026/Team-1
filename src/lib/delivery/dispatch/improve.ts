@@ -79,6 +79,7 @@ export function improve(
           state.routes[k],
           state.evals[k].score,
           r,
+          { cache: state.cache },
         );
         if (ins && (best == null || ins.delta < best.ins.delta))
           best = { k, ins };
@@ -120,6 +121,7 @@ export function improve(
           baseSeq,
           baseScore,
           r,
+          { cache: state.cache },
         );
         if (!ins) continue;
         const gain =
@@ -262,6 +264,7 @@ export function improve(
               aw,
               aEval.score,
               y,
+              { cache: state.cache },
             );
             const insX = bestInsertion(
               inst,
@@ -270,6 +273,7 @@ export function improve(
               bw,
               bEval.score,
               x,
+              { cache: state.cache },
             );
             if (!insX || !insY) continue;
             const gain =
