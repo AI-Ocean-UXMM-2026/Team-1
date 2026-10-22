@@ -90,12 +90,17 @@ Use role-based access so users only see relevant actions and data. A customer mu
 
 ### Customer
 
-- **Home:** active delivery, tracking shortcut, recent orders, notifications.
-- **Track:** live map, ETA, driver details, delivery timeline, sharing controls.
-- **Orders:** active and past deliveries, search by order ID, status filters.
-- **Order detail:** destination, carrier, timeline, COD status, delivery proof when appropriate.
-- **Help:** delivery issue categories, contact options, order context.
-- **Profile:** saved addresses, notification preferences, privacy and account settings.
+The customer app is a mobile-first shell: edge-to-edge on phones, a centered 480px canvas on larger screens, 16px gutters, 48px touch targets, and safe-area-aware bottom actions. Signed-in screens carry no logo.
+
+- **Bottom tabs:** Home, Orders, Pickup, Profile. The tab bar shows on the four tab roots and hides on focused steps: order details, pickup steps 2–3, map selection and notifications. Every hidden-tab screen has a Back control that stays inside Oern.
+- **Home:** the next active parcel (status, ETA, destination, COD, one tracking action) with other active parcels as compact rows. With no active parcel, Request pickup is the primary action. Finished parcels never appear here; a "Delivery history" row links to Orders → History.
+- **Orders:** an Active / History segmented control. Search is scoped to the selected tab; History adds an outcome filter (Delivered, Failed, Cancelled) and is sorted by the latest terminal status event, falling back to the order's creation time. COD is shown beside, never inside, the delivery status. The tab, search and outcome live in the URL (`/orders?tab=history&q=…&outcome=failed`), so Back from a delivery restores them.
+- **Track:** the map and a bottom summary (status, ETA, freshness, call and help). Route, progress timeline, parcel notes and COD sit behind labeled expandable sections. Stale GPS, missing location, delay and failure each get their own explanation and recovery action.
+- **Pickup:** three steps — Addresses (`/pickup`), Parcel and contacts (`/pickup/details`), Review and request (`/pickup/review`). The map screens read and write the same stored draft, so addresses, pins and contacts survive navigation, sign-in and failed requests. One primary action per step, inline validation on blur or attempt, numeric/phone keyboards, optional details behind a disclosure. The requested time is written into the parcel description in the form the database turns into a stored pickup window; the app describes it as a request and never promises a time the data does not hold. Success shows the tracking code and a "View order" action.
+- **Notifications:** one compact chronological list, newest first, with unread markers.
+- **Help:** attached to the selected parcel; when none is selected an order picker comes first.
+- **Profile:** initials avatar, name and phone, then grouped rows (Delivery history, Notifications with unread badge, Help and support) and a separate Sign out row that asks for confirmation and reports failure. No control appears without working behavior behind it.
+- **Sign-in and sign-up** return the customer to the task they started (`?next=`, same-origin paths only).
 
 ### Driver
 
@@ -389,12 +394,13 @@ Do not leave a blank map or spinner indefinitely. Keep cached order details visi
 
 | Screen | Primary content | Main action | Key states |
 |---|---|---|---|
-| Home | Active delivery, search, recent orders | Track delivery | No active orders, loading |
-| Track detail | Map, ETA, driver, timeline, COD | Contact / share | Live, stale GPS, delayed |
-| Orders | Active/past list, search, filters | Open order | Empty, no results |
-| Order detail | Status history, destination, payment | Track / get help | Delivered, failed |
-| Help | Issue categories, order context | Submit issue/contact | Submitted, unavailable |
-| Profile | Address, notification, privacy settings | Save preference | Validation, success |
+| Home | Next active parcel, other active parcels | Track delivery (Request pickup when none) | No active orders, loading |
+| Orders | Active / History tabs, search, outcome filter | Open order | Empty, no results, many orders |
+| Track detail | Map, status and ETA summary, expandable route/timeline/notes/COD | Contact / get help | Live, stale GPS, no location, delayed, failed |
+| Pickup | Addresses, parcel and contacts, review | Next / Request pickup | Validation, signed out, request failed, sent |
+| Notifications | Chronological list, unread markers | Open order | Empty, all read |
+| Help | Order picker, issue topics | Send to support | Submitted, unavailable |
+| Profile | Avatar, name, phone, grouped rows | Open row / Sign out | Signed out, sign-out failed |
 
 ### Driver app screens
 

@@ -72,7 +72,7 @@ The test suite uses Node's built-in test runner. A successful run currently cove
 bun run test:e2e
 ```
 
-Playwright starts `next dev` on port 3100 and runs at 360×640, 390×844, 430×932, and 768×1024. Every Supabase request is answered by `e2e/support/supabase-mock.ts`, which signs in an unsigned synthetic session per role. No test reaches a real project, payment, or customer. Specs cover viewport overflow for every workspace, the sign-in dialog layering, ETA and COD readability, and the rider outcome and offline flows.
+Playwright starts `next dev` on port 3100 and runs at 360×640, 390×844, 430×932, and 768×1024. Every Supabase request is answered by `e2e/support/supabase-mock.ts`, which signs in an unsigned synthetic session per role. No test reaches a real project, payment, or customer. Specs cover viewport overflow for every workspace, ETA and COD readability, and the rider outcome and offline flows. Customer specs add: Orders Active/History with URL state and Realtime completion (`customer-orders.spec.ts`), Track states (`customer-track.spec.ts`), the three-step pickup flow including draft persistence, validation, failed requests and sign-in return (`customer-pickup.spec.ts`), axe on every customer screen (`customer-a11y.spec.ts`), and 320px/desktop canvas, 200% text and reduced-motion checks (`customer-responsive.spec.ts`). `bun run typecheck:e2e` type-checks the browser tests separately from the app build. Regenerate customer baselines with `bunx playwright test e2e/visual.spec.ts --project=mobile-390 --update-snapshots -g customer` and review every PNG.
 
 ## Database workflow checks
 
@@ -130,10 +130,10 @@ The seed requires one manager profile, two customer profiles, and at least one d
 
 ### Customer and manager
 
-1. Sign in as a customer at `/`.
+1. Sign in as a customer at `/signin`.
 2. Sign in as a manager at `/manager` in another browser profile.
-3. Open `/pickup` as the customer and submit pickup, destination, recipient, parcel, and COD details.
-4. Confirm the real tracking code appears and the order is `pending`.
+3. Open `/pickup` as the customer. Enter the addresses, continue to Parcel and contacts (recipient, pickup time, optional parcel and COD details), review, and choose Request pickup. Reload or leave mid-way and confirm the draft is still there.
+4. Confirm the real tracking code appears with a View order action, and that the order is `pending` and appears under Orders → Active.
 5. Confirm the order appears in the manager dashboard as unassigned without exposing another customer's orders.
 6. Review the recommended rider and vehicle, then save the assignment.
 
