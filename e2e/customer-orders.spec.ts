@@ -215,3 +215,48 @@ test("Profile shows the account and asks before signing out", async ({
   );
   await expect(page).toHaveURL(/\/profile/);
 });
+
+test("closing Help returns focus to the control that opened it", async ({
+  page,
+  context,
+}) => {
+  await signInAs(context, "customer", tables());
+  await page.goto("/profile");
+  const trigger = page
+    .getByRole("navigation", { name: "Account" })
+    .getByRole("button", { name: /Help and support/ });
+  await trigger.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+});
+
+test("signing in from Orders brings the customer back to Orders", async ({
+  page,
+}) => {
+  await page.goto("/orders?tab=history");
+  await page
+    .getByRole("button", { name: /sign in/i })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/signin\?.*next=%2Forders%3Ftab%3Dhistory/);
+  await expect(page.getByRole("link", { name: "Back" })).toHaveAttribute(
+    "href",
+    "/orders?tab=history",
+  );
+  await expect(
+    page.getByRole("link", { name: "Create an account" }),
+  ).toHaveAttribute("href", /next=%2Forders%3Ftab%3Dhistory/);
+});
+
+test("a sign-in link cannot send the customer to another site", async ({
+  page,
+}) => {
+  await page.goto("/signin?next=https%3A%2F%2Fevil.example%2Fphish");
+  await expect(page.getByRole("link", { name: "Back" })).toHaveAttribute(
+    "href",
+    "/welcome",
+  );
+});
