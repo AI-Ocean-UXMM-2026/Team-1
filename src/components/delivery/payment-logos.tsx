@@ -37,6 +37,7 @@ export function PaymentLogo({
           stroke="currentColor"
           strokeWidth="2"
           strokeLinejoin="round"
+          aria-hidden="true"
         >
           <rect x="3" y="3" width="7" height="7" rx="1" />
           <rect x="14" y="3" width="7" height="7" rx="1" />

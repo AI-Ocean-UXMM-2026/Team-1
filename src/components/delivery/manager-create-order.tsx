@@ -2,15 +2,20 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import "./manager-business.css";
 import { Icon } from "@/components/delivery/icons";
+import {
+  FeeBreakdown,
+  PaymentMethodPicker,
+} from "@/components/delivery/payment-picker";
 import {
   createManualDeliveryOrder,
   type ManualOrderItem,
 } from "@/lib/delivery/actions";
 import {
-  FeeBreakdown,
-  PaymentMethodPicker,
-} from "@/components/delivery/payment-picker";
+  loadBusinessProfile,
+  type PickupLocation,
+} from "@/lib/delivery/business-profile";
 import { estimateDeliveryFee } from "@/lib/delivery/delivery-fee";
 import { currency } from "@/lib/delivery/format";
 import {
@@ -34,6 +39,8 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
   const [method, setMethod] = useState<PaymentMethod>("cod");
   const [distanceKm, setDistanceKm] = useState<number | string>(3);
   const [urgent, setUrgent] = useState(false);
+  const [locations, setLocations] = useState<PickupLocation[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
   const nextItemId = useRef(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +58,29 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
       ),
     [items],
   );
+
+  useEffect(() => {
+    const profile = loadBusinessProfile();
+    setLocations(profile.pickupLocations);
+    setMethod(profile.defaultPayment);
+  }, []);
+
+  function applyLocation(location: PickupLocation) {
+    const fields = formRef.current?.elements;
+    if (!fields) return;
+    const set = (name: string, value: string) => {
+      const field = fields.namedItem(name);
+      if (
+        (field instanceof HTMLInputElement ||
+          field instanceof HTMLTextAreaElement) &&
+        value
+      )
+        field.value = value;
+    };
+    set("pickupAddress", location.address);
+    set("senderName", location.contactName || location.label);
+    set("senderPhone", location.contactPhone);
+  }
 
   useEffect(() => {
     if (created) {
@@ -164,6 +194,7 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
 
   return (
     <form
+      ref={formRef}
       className="operations-panel operations-form manual-order-form"
       onSubmit={submit}
       aria-label="Create manual order"
@@ -172,6 +203,22 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
       <p className="manual-order-required-note">
         <span aria-hidden="true">*</span> Required fields
       </p>
+      {locations.length > 0 && (
+        <fieldset className="manual-saved-locations">
+          <legend className="visually-hidden">Saved pickup locations</legend>
+          <span>Saved pickup</span>
+          {locations.map((location) => (
+            <button
+              key={location.id}
+              type="button"
+              className="button button-small button-outline"
+              onClick={() => applyLocation(location)}
+            >
+              {location.label}
+            </button>
+          ))}
+        </fieldset>
+      )}
       <fieldset disabled={saving} className="manual-order-fields">
         <legend>
           <span>Pickup contact</span>

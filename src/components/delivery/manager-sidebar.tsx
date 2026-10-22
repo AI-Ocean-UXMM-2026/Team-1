@@ -11,7 +11,8 @@ export type ManagerNavId =
   | "profile"
   | "jobs"
   | "vehicles"
-  | "cod";
+  | "cod"
+  | "business";
 
 type NavItem = {
   id: ManagerNavId;
@@ -89,6 +90,12 @@ export function ManagerSidebar({
       label: "Financials",
       items: [
         { id: "cod", label: "COD ledger", href: "/manager/cod", icon: "coin" },
+        {
+          id: "business",
+          label: "Business",
+          href: "/manager/business",
+          icon: "store",
+        },
       ],
     },
   ];

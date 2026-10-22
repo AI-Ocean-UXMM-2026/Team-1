@@ -27,27 +27,27 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { CustomerHeader } from "@/components/delivery/customer-home";
 import { CustomerBottomNav } from "@/components/delivery/customer-pages";
 import { Loader } from "@/components/delivery/loader";
-import { useBackNavigation } from "@/components/delivery/use-back-navigation";
-import { usePickupDraft } from "@/components/delivery/use-pickup-draft";
-import { createCustomerPickupOrder } from "@/lib/delivery/actions";
 import {
   FeeBreakdown,
   PaymentMethodPicker,
   PrepaidStub,
 } from "@/components/delivery/payment-picker";
+import { useBackNavigation } from "@/components/delivery/use-back-navigation";
+import { usePickupDraft } from "@/components/delivery/use-pickup-draft";
+import { createCustomerPickupOrder } from "@/lib/delivery/actions";
 import {
   estimateDeliveryFee,
   PARCEL_WEIGHT_KG,
   roadDistanceKm,
 } from "@/lib/delivery/delivery-fee";
 import { currency } from "@/lib/delivery/format";
+import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
 import {
   defaultPaymentMethod,
   isAwayFromHome,
   type PaymentMethod,
   paymentNote,
 } from "@/lib/delivery/payment-methods";
-import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
 import {
   availableWindows,
   describeParcel,

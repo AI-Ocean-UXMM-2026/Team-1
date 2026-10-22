@@ -19,6 +19,7 @@ import { CodLedgerView } from "@/components/delivery/manager-cod";
 import { ManagerCreateOrder } from "@/components/delivery/manager-create-order";
 import { useRoadNoteAnalysis } from "@/lib/delivery/road-intel/use-road-intel";
 import "@/components/delivery/manager-create-order.css";
+import { ManagerBusiness } from "@/components/delivery/manager-business";
 import { ManagerHomeView } from "@/components/delivery/manager-home-view";
 import { ManagerOrderView } from "@/components/delivery/manager-order-view";
 import { ManagerSidebar } from "@/components/delivery/manager-sidebar";
@@ -68,7 +69,10 @@ const managerNavItems = [
 
 const _managerMobileNav = managerNavItems;
 
-export type ManagerView = (typeof managerNavItems)[number]["id"] | "create";
+export type ManagerView =
+  | (typeof managerNavItems)[number]["id"]
+  | "create"
+  | "business";
 
 type OrderFilter = "all" | "unassigned" | "moving" | "cod";
 
@@ -526,6 +530,11 @@ export function ManagerDashboard({
       title: "Orders",
       description: "Work through the queue and assign riders in one step.",
     },
+    business: {
+      title: "Business",
+      description:
+        "Settlement, saved pickup locations, fee rules and payment preferences.",
+    },
     create: {
       title: "Create order",
       description:
@@ -711,6 +720,13 @@ export function ManagerDashboard({
 
           {!signedOut && view === "cod" && (
             <CodLedgerView
+              orders={orders}
+              live={workspace.canUseLiveData && !workspace.isDemo}
+            />
+          )}
+
+          {!signedOut && view === "business" && (
+            <ManagerBusiness
               orders={orders}
               live={workspace.canUseLiveData && !workspace.isDemo}
             />

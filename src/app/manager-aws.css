@@ -410,7 +410,7 @@
 
 /* Cloudscape rounding for Overview, Orders and Live track:
    containers 16px, cards and inputs 8px, buttons and chips 20px. */
-.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"], [data-view="business"])
   :is(
     .dash-card,
     .mh-card,
@@ -428,7 +428,7 @@
   overflow: hidden;
 }
 
-.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"], [data-view="business"])
   :is(
     .manager-order-row,
     .manager-queue-card,
@@ -441,12 +441,12 @@
   border-radius: 8px !important;
 }
 
-.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"], [data-view="business"])
   :is(.button, .icon-button, .MuiButton-root) {
   border-radius: 20px !important;
 }
 
-.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"], [data-view="business"])
   :is(
     input:not([type="checkbox"]):not([type="radio"]),
     select,
@@ -458,7 +458,7 @@
   border-radius: 8px;
 }
 
-.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"], [data-view="business"])
   :is(
     .status-badge,
     .MuiChip-root,
@@ -471,14 +471,14 @@
 }
 
 /* Header strips on the rounded overview containers match the corner. */
-.manager-app[data-view="home"] .mh-card-head {
+.manager-app:is([data-view="home"], [data-view="business"]) .mh-card-head {
   border-radius: 16px 16px 0 0;
 }
 
-.manager-app[data-view="home"] .mh-card {
+.manager-app:is([data-view="home"], [data-view="business"]) .mh-card {
   box-shadow: 0 1px 1px rgba(0, 28, 36, 0.2), 0 1px 4px rgba(0, 28, 36, 0.08);
 }
 
-.manager-app[data-view="home"] .mh-table-wrap {
+.manager-app:is([data-view="home"], [data-view="business"]) .mh-table-wrap {
   border-radius: 0 !important;
 }

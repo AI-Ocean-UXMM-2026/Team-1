@@ -4,8 +4,8 @@ import {
   defaultPaymentMethod,
   isAwayFromHome,
   orderPaymentMethod,
-  paymentNote,
   paymentBadge,
+  paymentNote,
 } from "../src/lib/delivery/payment-methods.ts";
 
 const home = { latitude: 16.8409, longitude: 96.1735 };
