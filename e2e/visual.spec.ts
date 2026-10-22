@@ -78,11 +78,13 @@ test("welcome", async ({ page }) => {
   await shoot(page, "welcome", false);
 });
 
-test("sign-in dialog", async ({ page }) => {
+test("customer sign-in page", async ({ page }) => {
   await page.clock.setFixedTime(NOW);
-  await page.goto("/home?signin=1");
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await shoot(page, "auth-dialog", false);
+  await page.goto("/signin?next=%2Fpickup%2Freview");
+  await expect(
+    page.getByRole("heading", { name: "Your parcel, in view." }),
+  ).toBeVisible();
+  await shoot(page, "customer-signin", false);
 });
 
 test("customer track, in transit", async ({ page, context }) => {
