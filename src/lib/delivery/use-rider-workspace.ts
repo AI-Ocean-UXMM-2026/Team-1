@@ -76,7 +76,13 @@ import { useStoredState } from "@/lib/delivery/use-stored-state";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
-export type Panel = "menu" | "cautions" | "problem" | "location" | "exception";
+export type Panel =
+  | "menu"
+  | "cautions"
+  | "problem"
+  | "location"
+  | "exception"
+  | "fuel";
 
 export function useRiderWorkspace() {
   const live = useWorkspace("driver");
@@ -630,12 +636,14 @@ export function useRiderWorkspace() {
     run("pause", async () => {
       await saveSession("paused");
       setPanel(null);
+      setFlash("Route paused. Take a break.");
     });
 
   const resumeRoute = () =>
     run("resume", async () => {
       await saveSession("in_progress");
       setPanel(null);
+      setFlash("Route resumed. Drive safely!");
     });
 
   const closeRoute = (declared: number) =>
@@ -781,9 +789,17 @@ export function useRiderWorkspace() {
       }
       const collected = allocation ? Number(current.codAmount) : target.codDue;
       finishStop(target);
-      setFlash(
-        `Stop ${target.number} delivered · ${target.open.length} ${target.open.length === 1 ? "parcel" : "parcels"}${target.codDue > 0 ? ` · ${currency.format(collected)} COD recorded` : ""}${duplicates ? " · already saved on the first try" : ""}.`,
-      );
+      if (queuedPitStop) {
+        setActivePitStop(queuedPitStop);
+        setQueuedPitStop(null);
+        setFlash(
+          `Stop ${target.number} delivered! Routing to scheduled fuel stop: ${queuedPitStop.name} (${queuedPitStop.distanceKm} km away).`,
+        );
+      } else {
+        setFlash(
+          `Stop ${target.number} delivered · ${target.open.length} ${target.open.length === 1 ? "parcel" : "parcels"}${target.codDue > 0 ? ` · ${currency.format(collected)} COD recorded` : ""}${duplicates ? " · already saved on the first try" : ""}.`,
+        );
+      }
     });
 
   const collectStop = () =>
@@ -824,9 +840,17 @@ export function useRiderWorkspace() {
       }
       finishStop(target);
       const count = target.collect.length;
-      setFlash(
-        `Pickup ${target.number} collected · ${count} ${count === 1 ? "parcel" : "parcels"}${overweight ? ` · ${overweight}` : ""}${duplicates ? " · already saved on the first try" : ""}.`,
-      );
+      if (queuedPitStop) {
+        setActivePitStop(queuedPitStop);
+        setQueuedPitStop(null);
+        setFlash(
+          `Pickup ${target.number} collected! Routing to scheduled fuel stop: ${queuedPitStop.name} (${queuedPitStop.distanceKm} km away).`,
+        );
+      } else {
+        setFlash(
+          `Pickup ${target.number} collected · ${count} ${count === 1 ? "parcel" : "parcels"}${overweight ? ` · ${overweight}` : ""}${duplicates ? " · already saved on the first try" : ""}.`,
+        );
+      }
     });
 
   const cannotCollect = (reason: PickupReasonOption["id"], note: string) =>
@@ -927,6 +951,55 @@ export function useRiderWorkspace() {
   const [activePitStop, setActivePitStop] = useState<
     (FuelStation & { distanceKm: number }) | null
   >(null);
+  const [queuedPitStop, setQueuedPitStop] = useState<
+    (FuelStation & { distanceKm: number }) | null
+  >(null);
+
+  const routeToPitStop = useCallback(
+    (
+      station: FuelStation & { distanceKm: number },
+      mode: "urgent" | "after_stop",
+    ) => {
+      if (mode === "urgent") {
+        setActivePitStop(station);
+        setQueuedPitStop(null);
+        setFlash(
+          `Navigating to nearest fuel station: ${station.name} (${station.distanceKm} km away).`,
+        );
+      } else {
+        setQueuedPitStop(station);
+        setFlash(
+          `Fuel stop scheduled: ${station.name} after stop ${stop?.number ?? "current"}.`,
+        );
+      }
+      setPanel(null);
+
+      if (driverId && !isPreview) {
+        void requestRiderAssistance(createClient(), {
+          driverId,
+          orderId: (stop ? stopParcels(stop)[0]?.id : undefined) ?? null,
+          vehicleId: vehicle?.id ?? null,
+          category:
+            vehicle?.energy_source === "electric" ? "recharge" : "refuel",
+          note: `[Pitstop: ${mode === "urgent" ? "Urgent detour" : "Queued after stop"}] Station: ${station.name}, ${station.road} (${station.distanceKm} km away)`,
+          energyLevelPercent:
+            vehicle?.fuel_level_percent ??
+            vehicle?.battery_level_percent ??
+            null,
+          latitude: station.latitude,
+          longitude: station.longitude,
+        }).catch((err) => console.warn("Failed to log fuel telemetry:", err));
+      }
+    },
+    [driverId, isPreview, stop, vehicle],
+  );
+
+  const clearPitStop = useCallback(() => {
+    setActivePitStop(null);
+    setQueuedPitStop(null);
+    setFlash("Pitstop cleared. Resumed route to delivery stop.");
+    setPanel(null);
+  }, []);
 
   const requestHelp = (
     category: RiderRequestCategory,
@@ -1097,6 +1170,10 @@ export function useRiderWorkspace() {
     openPanel,
     activePitStop,
     setActivePitStop,
+    queuedPitStop,
+    setQueuedPitStop,
+    routeToPitStop,
+    clearPitStop,
     requestHelp,
     sendRoadReport,
   };

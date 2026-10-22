@@ -28,7 +28,6 @@ colors:
   failed-red-text: "#b91c1c"
   failed-red-wash: "#fee2e2"
   failed-red-border: "#fca5a5"
-  focus-apricot: "#fdba74"
 typography:
   display:
     fontFamily: "Inter, Noto Sans Myanmar, -apple-system, Segoe UI, sans-serif"
@@ -219,7 +218,7 @@ Status tone mapping as shipped: pending is neutral; assigned and accepted are am
 - **Hairline** (`hairline`): dividers and decorative card edges only.
 - **Control Slate** (`control-slate`): input and secondary-button outlines, placeholders, and supporting text on white.
 - **Slate Text** (`text-secondary-subtle`): supporting text on Surface Subtle, MUI `text.secondary`, and neutral chip text.
-- **Focus Apricot** (`focus-apricot`): the 3px keyboard focus ring on buttons and links.
+- **Focus ring:** a 3px Live Blue (`live-blue`) outline on buttons, links and fields, with a 2px offset. It shows keyboard focus only.
 
 ### Named Rules
 **The One Orange Rule.** Each screen has at most one Kiln Orange fill. Secondary actions are outlined navy, and tertiary actions are underlined text. If two things are orange, one of them is wrong.
@@ -227,6 +226,8 @@ Status tone mapping as shipped: pending is neutral; assigned and accepted are am
 **The Blue Means Live Rule.** Live Blue is reserved for motion and live data: routes, rider position, sharing state and in-transit status. Never use it as a generic accent or for links.
 
 **The Orange Is Not a Status Rule.** Orange never encodes delivery state. States use only the four semantic families plus neutral.
+
+**The Subtle Text Rule.** Supporting text on Surface Subtle uses `#586579` (5.40:1 on `#f1f5f9`), because Control Slate `#64748b` gives only 4.34:1. Control Slate stays for borders, icons and text on white.
 
 **The Decorative Grey Rule.** `#94a3b8` and Hairline are never used for text, placeholders, inactive icons or control boundaries. Use Control Slate for those.
 
@@ -251,6 +252,8 @@ Status tone mapping as shipped: pending is neutral; assigned and accepted are am
 
 ### Named Rules
 **The Tabular Figures Rule.** Every time, amount, count and tracking code is set with `font-variant-numeric: tabular-nums`, so columns and live-updating ETAs don't shift.
+
+**The Burmese Line Rule.** Burmese text uses a line-height of 1.6 (for example 14px/24px body, 12px/20px labels). Tag Burmese text with `lang="my"` or the `.lang-my` class so the rule applies. Latin line-heights clip stacked Burmese diacritics. Never give Burmese text a fixed-height container that is tighter than that line-height.
 
 **The Burmese Fallback Rule.** Every font stack places `var(--font-myanmar)` directly after Inter. Never ship a stack without it, and never depend on a remote font for essential text.
 
@@ -302,11 +305,11 @@ Confident and unmissable on phones; compact and quiet in workspaces.
 - **Secondary:** Surface fill with a 1px Control Slate outline and navy text, same height and shape as the primary it accompanies.
 - **Navy:** Dispatch Navy fill with white text. Used for a strong non-brand action in workspaces.
 - **Tertiary:** underlined navy text links ("Report a problem", "View delivery details") stacked under the primary. Each is a 48px target.
-- **Focus:** 3px Focus Apricot outline with a 2px offset. MUI focus ripples are disabled, so the ring is the only focus signal.
+- **Focus:** 3px Live Blue outline with a 2px offset, shared by native and MUI controls. MUI focus ripples are disabled, so the ring is the only focus signal.
 - **Disabled:** 55% opacity and `cursor: not-allowed`. Never color alone.
 
 ### Chips
-- **Status chip:** a 28px pill with a semantic wash fill and the matching `-text` color (neutral uses a white fill with a Hairline border). Labels are short ("On the way", "Delivered"). Where space allows, a 16px leading icon in the current text color repeats the meaning.
+- **Status chip:** a 28px pill with a semantic wash fill and the matching `-text` color (neutral uses a white fill with a Hairline border). Labels are short ("On the way", "Delivered"). Every status chip carries a 16px leading icon in the current text color, so meaning never rests on color alone.
 - **COD chip:** always a separate chip next to the status chip, with a payments or coin icon and "COD · MMK 68,000" in amber. It never merges with delivery state.
 - **Filter or parcel chip:** an outlined 1px Control Slate pill. When selected it becomes a Dispatch Navy fill with white text.
 
@@ -340,7 +343,7 @@ State changes run at 120–240ms on `--rf-ease` (`cubic-bezier(0.16, 1, 0.3, 1)`
 
 ### Do:
 - **Do** reference tokens (`var(--color-*)`, `var(--radius-*)`, `var(--space-*)`) instead of repeating their hex or pixel values.
-- **Do** pair every status color with a text label, and add an icon where space allows. Status must survive color-vision deficiency.
+- **Do** pair every status color with a text label, and add an icon to every status chip. Status must survive color-vision deficiency.
 - **Do** show COD as its own chip or panel, in MMK, beside the delivery status and never inside it.
 - **Do** show the last-updated time and a stale-GPS state on every live map. Never invent a location or an ETA.
 - **Do** let addresses, townships and landmarks wrap. Never truncate the only copy of an address.

@@ -888,6 +888,82 @@
   transform: scale(0.97);
 }
 
+/* ---------- fuel stop panel ---------- */
+
+.rf-fuel-card {
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.rf-fuel-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rf-fuel-brand-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-bottom: 6px;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rf-fuel-station-name {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.rf-fuel-station-address {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.rf-fuel-distance-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 60px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.rf-fuel-distance-badge strong {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.rf-fuel-distance-badge span {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rf-fuel-active-box {
+  padding: 14px 16px;
+  border: 1px solid var(--color-info-border);
+  border-radius: var(--radius-lg);
+  background: #eff6ff;
+}
+
+
 .rf-caution-banner > svg {
   flex: none;
 }

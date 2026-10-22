@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-22T14:43:47.043Z",
+  "generatedAt": "2026-10-22T15:53:24.006Z",
   "title": "Design System: Oern",
   "extensions": {
     "colorMeta": {
@@ -14,7 +14,7 @@
           "#c2410c",
           "#ea580c",
           "#f97316",
-          "#fdba74",
+          "#2563eb",
           "#fff7ed"
         ]
       },
@@ -28,7 +28,7 @@
           "#c2410c",
           "#ea580c",
           "#f97316",
-          "#fdba74",
+          "#2563eb",
           "#fff7ed"
         ]
       },
@@ -221,7 +221,7 @@
       "refersTo": "button-primary",
       "description": "The one orange action per screen; 56px pill on phone flows.",
       "html": "<button class=\"ds-btn-primary\">Sign in</button>",
-      "css": ".ds-btn-primary{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;height:56px;padding:0 24px;min-width:240px;border:0;border-radius:999px;background:var(--color-brand-orange-action,#c2410c);color:#fff;font-size:16px;font-weight:600;line-height:24px;cursor:pointer;transition:background-color 140ms ease}.ds-btn-primary:hover,.ds-btn-primary:active{background:var(--color-brand-orange-action-hover,#9a3412)}.ds-btn-primary:focus-visible{outline:3px solid #fdba74;outline-offset:2px}"
+      "css": ".ds-btn-primary{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;height:56px;padding:0 24px;min-width:240px;border:0;border-radius:999px;background:var(--color-brand-orange-action,#c2410c);color:#fff;font-size:16px;font-weight:600;line-height:24px;cursor:pointer;transition:background-color 140ms ease}.ds-btn-primary:hover,.ds-btn-primary:active{background:var(--color-brand-orange-action-hover,#9a3412)}.ds-btn-primary:focus-visible{outline:3px solid #2563eb;outline-offset:2px}"
     },
     {
       "name": "Secondary Button",
@@ -229,7 +229,7 @@
       "refersTo": "button-secondary",
       "description": "Outlined navy alternative beside a primary.",
       "html": "<button class=\"ds-btn-secondary\">I already have an account</button>",
-      "css": ".ds-btn-secondary{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;height:56px;padding:0 24px;border:1px solid var(--color-border-control,#64748b);border-radius:999px;background:var(--color-surface,#fff);color:var(--color-text-primary,#172b4d);font-size:16px;font-weight:600;cursor:pointer;transition:background-color 140ms ease}.ds-btn-secondary:hover{background:var(--color-surface-subtle,#f1f5f9)}.ds-btn-secondary:focus-visible{outline:3px solid #fdba74;outline-offset:2px}"
+      "css": ".ds-btn-secondary{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;height:56px;padding:0 24px;border:1px solid var(--color-border-control,#64748b);border-radius:999px;background:var(--color-surface,#fff);color:var(--color-text-primary,#172b4d);font-size:16px;font-weight:600;cursor:pointer;transition:background-color 140ms ease}.ds-btn-secondary:hover{background:var(--color-surface-subtle,#f1f5f9)}.ds-btn-secondary:focus-visible{outline:3px solid #2563eb;outline-offset:2px}"
     },
     {
       "name": "Text Field",
@@ -253,7 +253,7 @@
       "refersTo": "list-row",
       "description": "Customer 'Today' row: tabular time column, code, address, chips.",
       "html": "<a class=\"ds-row\" href=\"#\"><span class=\"ds-row-time\">10:48 AM</span><span class=\"ds-row-main\"><strong>OR-1001</strong><small>Bahan, near Inya Road</small><span class=\"ds-row-chip\">On the way</span></span></a>",
-      "css": ".ds-row{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;grid-template-columns:64px 1fr;align-items:center;gap:10px;width:340px;min-height:64px;padding:10px 12px;border-radius:16px;background:var(--color-surface-subtle,#f1f5f9);color:var(--color-text-primary,#172b4d);text-decoration:none;transition:background-color 140ms ease}.ds-row:hover{background:#e2e8f0}.ds-row:focus-visible{outline:3px solid #fdba74;outline-offset:2px}.ds-row-time{color:#475569;font-size:14px;font-weight:650;font-variant-numeric:tabular-nums}.ds-row-main{display:grid;gap:2px;min-width:0}.ds-row-main strong{font-size:14px;font-weight:700}.ds-row-main small{font-size:12px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ds-row-chip{justify-self:start;margin-top:6px;height:28px;padding:0 10px;display:inline-flex;align-items:center;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:13px;font-weight:650}"
+      "css": ".ds-row{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;grid-template-columns:64px 1fr;align-items:center;gap:10px;width:340px;min-height:64px;padding:10px 12px;border-radius:16px;background:var(--color-surface-subtle,#f1f5f9);color:var(--color-text-primary,#172b4d);text-decoration:none;transition:background-color 140ms ease}.ds-row:hover{background:#e2e8f0}.ds-row:focus-visible{outline:3px solid #2563eb;outline-offset:2px}.ds-row-time{color:#475569;font-size:14px;font-weight:650;font-variant-numeric:tabular-nums}.ds-row-main{display:grid;gap:2px;min-width:0}.ds-row-main strong{font-size:14px;font-weight:700}.ds-row-main small{font-size:12px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ds-row-chip{justify-self:start;margin-top:6px;height:28px;padding:0 10px;display:inline-flex;align-items:center;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:13px;font-weight:650}"
     },
     {
       "name": "Manager Sidebar Item",
@@ -261,7 +261,7 @@
       "refersTo": "sidebar-item-active",
       "description": "Active item on a live-blue wash; neutral count badges.",
       "html": "<nav class=\"ds-side\"><a class=\"ds-side-item is-active\" href=\"#\">Overview</a><a class=\"ds-side-item\" href=\"#\">Orders<span>2</span></a><a class=\"ds-side-item\" href=\"#\">COD</a></nav>",
-      "css": ".ds-side{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;gap:4px;width:212px;padding:8px;background:#fff}.ds-side-item{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 12px;border-radius:12px;color:var(--color-text-primary,#172b4d);font-size:15px;font-weight:500;text-decoration:none}.ds-side-item:hover{background:var(--color-surface-subtle,#f1f5f9)}.ds-side-item:focus-visible{outline:3px solid #fdba74;outline-offset:2px}.ds-side-item.is-active{background:#dbeafe;color:#1d4ed8;font-weight:600}.ds-side-item span{min-width:24px;height:24px;display:grid;place-items:center;border-radius:8px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600}"
+      "css": ".ds-side{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;gap:4px;width:212px;padding:8px;background:#fff}.ds-side-item{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 12px;border-radius:12px;color:var(--color-text-primary,#172b4d);font-size:15px;font-weight:500;text-decoration:none}.ds-side-item:hover{background:var(--color-surface-subtle,#f1f5f9)}.ds-side-item:focus-visible{outline:3px solid #2563eb;outline-offset:2px}.ds-side-item.is-active{background:#dbeafe;color:#1d4ed8;font-weight:600}.ds-side-item span{min-width:24px;height:24px;display:grid;place-items:center;border-radius:8px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600}"
     },
     {
       "name": "Rider Stop Sheet",
@@ -269,7 +269,7 @@
       "refersTo": "button-primary",
       "description": "Signature bottom sheet over the map: eyebrow, name, tabular ETA, chips, one action.",
       "html": "<div class=\"ds-sheet\"><i></i><small>Stop 1 of 1 · Deliver parcel</small><h3>Delivering to May Thazin</h3><p>Bahan, near Inya Road</p><div class=\"ds-eta\"><b>10:48 AM</b> ETA · medium confidence</div><span class=\"ds-cod2\">COD due · MMK 68,000</span><button>I’ve arrived</button><a href=\"#\">Report a problem</a></div>",
-      "css": ".ds-sheet{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;gap:6px;width:340px;padding:12px 16px 16px;border-radius:20px 20px 0 0;background:#fff;color:#172b4d;box-shadow:0 -10px 30px -12px rgb(23 43 77 / .3)}.ds-sheet i{justify-self:center;width:36px;height:4px;border-radius:999px;background:#cbd5e1}.ds-sheet small{color:#c2410c;font-size:12px;font-weight:700}.ds-sheet h3{margin:0;font-size:22px;font-weight:700;line-height:26px}.ds-sheet p{margin:0;color:#475569;font-size:14px}.ds-eta{color:#1d4ed8;font-size:13px}.ds-eta b{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}.ds-cod2{justify-self:start;height:28px;padding:0 10px;display:inline-flex;align-items:center;border-radius:999px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:700}.ds-sheet button{font:inherit;height:56px;margin-top:8px;border:0;border-radius:12px;background:#c2410c;color:#fff;font-size:16px;font-weight:600;cursor:pointer}.ds-sheet button:hover{background:#9a3412}.ds-sheet button:focus-visible{outline:3px solid #fdba74;outline-offset:2px}.ds-sheet a{justify-self:center;min-height:48px;display:grid;place-items:center;color:#172b4d;font-size:15px;font-weight:600;text-decoration:underline}"
+      "css": ".ds-sheet{font-family: var(--font-inter), var(--font-myanmar), Inter, 'Noto Sans Myanmar', -apple-system, 'Segoe UI', sans-serif;display:grid;gap:6px;width:340px;padding:12px 16px 16px;border-radius:20px 20px 0 0;background:#fff;color:#172b4d;box-shadow:0 -10px 30px -12px rgb(23 43 77 / .3)}.ds-sheet i{justify-self:center;width:36px;height:4px;border-radius:999px;background:#cbd5e1}.ds-sheet small{color:#c2410c;font-size:12px;font-weight:700}.ds-sheet h3{margin:0;font-size:22px;font-weight:700;line-height:26px}.ds-sheet p{margin:0;color:#475569;font-size:14px}.ds-eta{color:#1d4ed8;font-size:13px}.ds-eta b{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}.ds-cod2{justify-self:start;height:28px;padding:0 10px;display:inline-flex;align-items:center;border-radius:999px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:700}.ds-sheet button{font:inherit;height:56px;margin-top:8px;border:0;border-radius:12px;background:#c2410c;color:#fff;font-size:16px;font-weight:600;cursor:pointer}.ds-sheet button:hover{background:#9a3412}.ds-sheet button:focus-visible{outline:3px solid #2563eb;outline-offset:2px}.ds-sheet a{justify-self:center;min-height:48px;display:grid;place-items:center;color:#172b4d;font-size:15px;font-weight:600;text-decoration:underline}"
     }
   ],
   "narrative": {
@@ -300,6 +300,11 @@
         "section": "colors"
       },
       {
+        "name": "The Subtle Text Rule",
+        "body": "Supporting text on Surface Subtle uses `#586579` (5.40:1 on `#f1f5f9`), because Control Slate `#64748b` gives only 4.34:1. Control Slate stays for borders, icons and text on white.",
+        "section": "colors"
+      },
+      {
         "name": "The Decorative Grey Rule",
         "body": "`#94a3b8` and Hairline are never used for text, placeholders, inactive icons or control boundaries. Use Control Slate for those.",
         "section": "colors"
@@ -307,6 +312,11 @@
       {
         "name": "The Tabular Figures Rule",
         "body": "Every time, amount, count and tracking code is set with `font-variant-numeric: tabular-nums`, so columns and live-updating ETAs don't shift.",
+        "section": "typography"
+      },
+      {
+        "name": "The Burmese Line Rule",
+        "body": "Burmese text uses a line-height of 1.6 (for example 14px/24px body, 12px/20px labels). Tag Burmese text with `lang=\"my\"` or the `.lang-my` class so the rule applies. Latin line-heights clip stacked Burmese diacritics. Never give Burmese text a fixed-height container that is tighter than that line-height.",
         "section": "typography"
       },
       {
@@ -337,7 +347,7 @@
     ],
     "dos": [
       "Do reference tokens (`var(--color-*)`, `var(--radius-*)`, `var(--space-*)`) instead of repeating their hex or pixel values.",
-      "Do pair every status color with a text label, and add an icon where space allows. Status must survive color-vision deficiency.",
+      "Do pair every status color with a text label, and add an icon to every status chip. Status must survive color-vision deficiency.",
       "Do show COD as its own chip or panel, in MMK, beside the delivery status and never inside it.",
       "Do show the last-updated time and a stale-GPS state on every live map. Never invent a location or an ETA.",
       "Do let addresses, townships and landmarks wrap. Never truncate the only copy of an address.",

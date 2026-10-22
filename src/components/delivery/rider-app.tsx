@@ -15,6 +15,7 @@ import { RouteRevisionNotice } from "@/components/delivery/rider-revision";
 import { RiderSheets } from "@/components/delivery/rider-sheets";
 import { Notice } from "@/components/delivery/rider-tools";
 import { finishEstimate } from "@/lib/delivery/driver-route";
+import { findNearestFuelStation } from "@/lib/delivery/energy-routing";
 import type { DeliveryJob } from "@/lib/delivery/jobs";
 import type { RiderRequest } from "@/lib/delivery/types";
 import { useRiderLocation } from "@/lib/delivery/use-rider-location";
@@ -88,6 +89,34 @@ export function RiderApp() {
     ? nav.legBearing
     : (loc.position?.heading ?? nav.legBearing);
 
+  const nearestFuelStation = useMemo(() => {
+    const origin = loc.riderPoint ??
+      (ws.stop?.point
+        ? {
+            latitude: ws.stop.point.latitude,
+            longitude: ws.stop.point.longitude,
+          }
+        : null) ?? { latitude: 16.8409, longitude: 96.1735 };
+    return findNearestFuelStation(origin);
+  }, [loc.riderPoint, ws.stop?.point]);
+
+  const myRequests = useMemo(
+    () =>
+      ws.data.riderRequests.filter(
+        (request: RiderRequest) => request.driver_id === ws.driverId,
+      ),
+    [ws.data.riderRequests, ws.driverId],
+  );
+
+  const openEnergyRequest = useMemo(
+    () =>
+      myRequests.find(
+        (request: RiderRequest) =>
+          request.kind === "energy" && request.status !== "resolved",
+      ) ?? null,
+    [myRequests],
+  );
+
   /* ---------------- render checks ---------------- */
 
   if (!ws.now || !ws.previewChecked || (!ws.isPreview && ws.live.isLoading))
@@ -143,15 +172,6 @@ export function RiderApp() {
     />
   );
 
-  const myRequests = ws.data.riderRequests.filter(
-    (request: RiderRequest) => request.driver_id === ws.driverId,
-  );
-  const openEnergyRequest =
-    myRequests.find(
-      (request: RiderRequest) =>
-        request.kind === "energy" && request.status !== "resolved",
-    ) ?? null;
-
   const sheets = (
     <RiderSheets
       panel={ws.panel}
@@ -165,15 +185,13 @@ export function RiderApp() {
       openEnergyRequest={openEnergyRequest}
       busy={ws.busy}
       panelDone={ws.panelDone}
+      nearestFuelStation={nearestFuelStation}
+      activePitStop={ws.activePitStop}
+      queuedPitStop={ws.queuedPitStop}
+      onRouteToPitStop={ws.routeToPitStop}
+      onClearPitStop={ws.clearPitStop}
       onOpenPanel={ws.openPanel}
-      onRequestFuel={() =>
-        void ws.requestHelp(
-          nav.routeEnergy.source === "battery" ? "recharge" : "refuel",
-          "",
-          loc.riderPoint,
-          nav.routeEnergy.levelPercent,
-        )
-      }
+      onRequestFuel={() => ws.openPanel("fuel")}
       onPauseRoute={() => void ws.pauseRoute()}
       onResumeRoute={() => void ws.resumeRoute()}
       now={ws.now}
@@ -237,7 +255,10 @@ export function RiderApp() {
     );
   }
 
-  if (ws.route.state === "IN_PROGRESS" && ws.stop) {
+  if (
+    (ws.route.state === "IN_PROGRESS" || ws.route.state === "PAUSED") &&
+    ws.stop
+  ) {
     return (
       <RiderActiveScreen
         route={ws.route}
@@ -245,6 +266,7 @@ export function RiderApp() {
         riderPoint={loc.riderPoint}
         currentTargetPoint={nav.currentTargetPoint}
         activePitStop={ws.activePitStop}
+        queuedPitStop={ws.queuedPitStop}
         legDistance={nav.legDistance}
         legBearing={nav.legBearing}
         atTarget={nav.atTarget}
@@ -284,6 +306,8 @@ export function RiderApp() {
         position={loc.position}
         setActivePitStop={ws.setActivePitStop}
         setFlash={ws.setFlash}
+        onResumeRoute={() => void ws.resumeRoute()}
+        onPauseRoute={() => void ws.pauseRoute()}
         sheets={sheets}
         previewBar={previewBar}
       />

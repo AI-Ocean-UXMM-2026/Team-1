@@ -239,3 +239,20 @@ test("findNearestFuelStation locates the closest station from Google Places data
   );
   assert.ok(nearest.road.length > 0);
 });
+
+test("fuel stations can be queried directly for urgent detour and queued route pitstops", () => {
+  // Driver at Kamayut needing urgent fuel
+  const driverPos = { latitude: 16.8288, longitude: 96.129 };
+  const urgentStation = findNearestFuelStation(driverPos);
+  assert.ok(urgentStation != null);
+  assert.ok(urgentStation.distanceKm < 2.0);
+  assert.ok(urgentStation.name.length > 0);
+
+  // Delivery stop at Tamwe
+  const deliveryStop = { latitude: 16.81, longitude: 96.17 };
+  const nextStop = { latitude: 16.83, longitude: 96.18 };
+  const optimalStation = findOptimalFuelStation(deliveryStop, nextStop);
+  assert.ok(optimalStation != null);
+  assert.ok(optimalStation.detourKm >= 0);
+  assert.ok(optimalStation.name.length > 0);
+});

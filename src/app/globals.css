@@ -100,7 +100,7 @@
   --color-border: #e2e8f0;
   --color-border-control: #64748b;
   --color-text-primary: #172b4d;
-  --color-text-secondary: #64748b;
+  --color-text-secondary: #586579;
   --color-text-secondary-subtle: #475569;
   --color-text-inverse: #ffffff;
   --color-success: #16a34a;
@@ -452,6 +452,11 @@ input,
 select,
 textarea {
   font: inherit;
+}
+/* Burmese stacks diacritics above the line; Latin line-heights clip it. */
+:lang(my),
+.lang-my {
+  line-height: 1.6;
 }
 button,
 a {

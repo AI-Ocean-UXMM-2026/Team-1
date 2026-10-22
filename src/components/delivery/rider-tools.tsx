@@ -8,6 +8,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { Icon, type IconName } from "@/components/delivery/icons";
 import type { GpsState } from "@/components/delivery/rider-active";
+import type { FuelStation } from "@/lib/delivery/energy-routing";
 import { currency } from "@/lib/delivery/format";
 import {
   cautionCopy,
@@ -191,7 +192,7 @@ export function Sheet({
 
 /* ---------------------------------------------------------------- menu */
 
-export type ToolPanel = "menu" | "cautions" | "problem";
+export type ToolPanel = "menu" | "cautions" | "problem" | "fuel";
 
 export function ShiftMenu({
   name,
@@ -203,6 +204,8 @@ export function ShiftMenu({
   fuelDone,
   canPause,
   paused,
+  activePitStop,
+  queuedPitStop,
   onOpen,
   onRequestFuel,
   onPause,
@@ -220,6 +223,8 @@ export function ShiftMenu({
   fuelDone: string | null;
   canPause: boolean;
   paused: boolean;
+  activePitStop?: (FuelStation & { distanceKm: number }) | null;
+  queuedPitStop?: (FuelStation & { distanceKm: number }) | null;
   onOpen: (panel: Exclude<ToolPanel, "menu">) => void;
   onRequestFuel: () => void;
   onPause: () => void;
@@ -265,9 +270,8 @@ export function ShiftMenu({
       )}
       <Button
         fullWidth
-        variant="outlined"
+        variant={activePitStop || queuedPitStop ? "contained" : "outlined"}
         color="primary"
-        disabled={fuelBusy || fuelRequest != null}
         onClick={onRequestFuel}
         startIcon={
           <Icon
@@ -275,15 +279,15 @@ export function ShiftMenu({
             size={18}
           />
         }
-        sx={{ minHeight: 48, borderRadius: 999, mb: 1.5 }}
+        sx={{ minHeight: 48, borderRadius: 999, mb: 1.5, fontWeight: 700 }}
       >
-        {fuelRequest
-          ? `${energy.source === "battery" ? "Charging" : "Fuel"} stop requested`
-          : fuelBusy
-            ? "Requesting…"
+        {activePitStop
+          ? `Pitstop active: ${activePitStop.name}`
+          : queuedPitStop
+            ? `Pitstop queued: ${queuedPitStop.name}`
             : energy.source === "battery"
-              ? "Request charging stop"
-              : "Request fuel stop"}
+              ? "Find charging stop"
+              : "Find fuel stop"}
       </Button>
       <ul className="rf-issue-list">
         {items.map((item) => (
@@ -302,10 +306,11 @@ export function ShiftMenu({
       {paused ? (
         <Button
           fullWidth
-          variant="outlined"
-          color="secondary"
+          variant="contained"
+          color="primary"
           onClick={onResume}
-          sx={{ minHeight: 48, borderRadius: 999, mt: 1 }}
+          startIcon={<Icon name="arrow-right" size={18} />}
+          sx={{ minHeight: 48, borderRadius: 999, mt: 1, fontWeight: 700 }}
         >
           Resume route
         </Button>
@@ -315,6 +320,7 @@ export function ShiftMenu({
           variant="outlined"
           color="secondary"
           onClick={onPause}
+          startIcon={<Icon name="history" size={18} />}
           sx={{ minHeight: 48, borderRadius: 999, mt: 1 }}
         >
           Pause route
@@ -334,6 +340,208 @@ export function ShiftMenu({
       >
         Sign out
       </Button>
+    </Sheet>
+  );
+}
+
+export function FuelStopPanel({
+  energy,
+  vehicle,
+  nearestStation,
+  activePitStop,
+  queuedPitStop,
+  stopNumber,
+  onDirectNow,
+  onDirectAfterStop,
+  onClearPitStop,
+  onClose,
+}: {
+  energy: ReturnType<typeof energyForRoute>;
+  vehicle: VehicleOption | null;
+  nearestStation: (FuelStation & { distanceKm: number }) | null;
+  activePitStop: (FuelStation & { distanceKm: number }) | null;
+  queuedPitStop: (FuelStation & { distanceKm: number }) | null;
+  stopNumber: number | null;
+  onDirectNow: (station: FuelStation & { distanceKm: number }) => void;
+  onDirectAfterStop: (station: FuelStation & { distanceKm: number }) => void;
+  onClearPitStop: () => void;
+  onClose: () => void;
+}) {
+  const isBattery = energy.source === "battery";
+  const title = isBattery ? "Charging stop" : "Fuel stop";
+  const subtitle = vehicle
+    ? `${vehicle.registration_number} · ${vehicle.vehicle_type.replace("_", "-")}${energy.levelPercent != null ? ` · ${energy.levelPercent}% remaining` : ""}`
+    : energy.levelPercent != null
+      ? `${energy.levelPercent}% remaining`
+      : undefined;
+
+  return (
+    <Sheet title={title} subtitle={subtitle} onClose={onClose}>
+      {activePitStop ? (
+        <div className="rf-fuel-active-box">
+          <div className="rf-pitstop-title-row">
+            <span className="rf-pitstop-pill">
+              <Icon name={isBattery ? "battery" : "fuel"} size={14} /> Active
+              pitstop
+            </span>
+            <strong>{activePitStop.name}</strong>
+          </div>
+          <p
+            className="rf-muted"
+            style={{ margin: "6px 0 14px", fontSize: 13 }}
+          >
+            {activePitStop.road}, {activePitStop.township} ·{" "}
+            {formatDistance(activePitStop.distanceKm)} away
+          </p>
+          <div style={{ display: "grid", gap: 10 }}>
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              onClick={onClearPitStop}
+              startIcon={<Icon name="check" size={18} />}
+              sx={{ minHeight: 48, borderRadius: 999, fontWeight: 700 }}
+            >
+              Done refueling · Resume route
+            </Button>
+            <Button
+              fullWidth
+              variant="outlined"
+              color="inherit"
+              component="a"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${activePitStop.latitude},${activePitStop.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              startIcon={<Icon name="navigation" size={16} />}
+              sx={{ minHeight: 44, borderRadius: 999 }}
+            >
+              Open Google Maps
+            </Button>
+          </div>
+        </div>
+      ) : queuedPitStop ? (
+        <div className="rf-fuel-active-box">
+          <div className="rf-pitstop-title-row">
+            <span className="rf-pitstop-pill">
+              <Icon name={isBattery ? "battery" : "fuel"} size={14} /> Scheduled
+            </span>
+            <strong>{queuedPitStop.name}</strong>
+          </div>
+          <p
+            className="rf-muted"
+            style={{ margin: "6px 0 14px", fontSize: 13 }}
+          >
+            Scheduled to navigate automatically after stop{" "}
+            {stopNumber ?? "current"}.
+          </p>
+          <div style={{ display: "grid", gap: 10 }}>
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              onClick={() => onDirectNow(queuedPitStop)}
+              startIcon={<Icon name="navigation" size={18} />}
+              sx={{ minHeight: 48, borderRadius: 999, fontWeight: 700 }}
+            >
+              Detour now instead
+            </Button>
+            <Button
+              fullWidth
+              variant="outlined"
+              color="inherit"
+              onClick={onClearPitStop}
+              sx={{ minHeight: 44, borderRadius: 999 }}
+            >
+              Cancel scheduled pitstop
+            </Button>
+          </div>
+        </div>
+      ) : nearestStation ? (
+        <div style={{ display: "grid", gap: 16 }}>
+          <div className="rf-fuel-card">
+            <div className="rf-fuel-card-top">
+              <div>
+                <span className="rf-fuel-brand-chip">
+                  {nearestStation.brand}
+                </span>
+                <h3 className="rf-fuel-station-name">{nearestStation.name}</h3>
+                <p className="rf-fuel-station-address">
+                  {nearestStation.road}, {nearestStation.township}
+                </p>
+              </div>
+              <div className="rf-fuel-distance-badge">
+                <strong>{nearestStation.distanceKm}</strong>
+                <span>km away</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: 10 }}>
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              size="large"
+              onClick={() => onDirectNow(nearestStation)}
+              startIcon={<Icon name="navigation" size={18} />}
+              sx={{
+                minHeight: 52,
+                borderRadius: 999,
+                fontWeight: 700,
+                fontSize: 15,
+              }}
+            >
+              Urgent · Detour now
+            </Button>
+            <p
+              className="rf-muted"
+              style={{
+                fontSize: 12,
+                textAlign: "center",
+                margin: "-4px 0 6px",
+              }}
+            >
+              Directs your navigation immediately to this station.
+            </p>
+
+            {stopNumber != null && (
+              <>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  color="primary"
+                  size="large"
+                  onClick={() => onDirectAfterStop(nearestStation)}
+                  startIcon={<Icon name="check" size={18} />}
+                  sx={{
+                    minHeight: 52,
+                    borderRadius: 999,
+                    fontWeight: 700,
+                    fontSize: 15,
+                  }}
+                >
+                  Can wait · After stop {stopNumber}
+                </Button>
+                <p
+                  className="rf-muted"
+                  style={{
+                    fontSize: 12,
+                    textAlign: "center",
+                    margin: "-4px 0 6px",
+                  }}
+                >
+                  Deliver stop {stopNumber} first, then automatically direct to
+                  this station.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <Notice tone="info" icon="help">
+          No fuel or charging stations found nearby.
+        </Notice>
+      )}
     </Sheet>
   );
 }

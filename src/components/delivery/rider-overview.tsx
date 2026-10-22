@@ -535,7 +535,9 @@ export function RouteOverview({
                 ? "Waiting for connection"
                 : state === "ASSIGNED"
                   ? "Confirm route"
-                  : `Resume at stop ${route.current?.number ?? ""}`}
+                  : state === "PAUSED"
+                    ? `Resume route · Stop ${route.current?.number ?? ""}`
+                    : `Resume at stop ${route.current?.number ?? ""}`}
           </Button>
         )}
       </div>
@@ -582,8 +584,8 @@ export function RouteOverview({
               <StopRow key={stop.key} stop={stop} />
             ))}
           </ol>
-          {dock}
         </section>
+        {dock}
       </main>
     );
   }
@@ -681,8 +683,20 @@ export function RouteOverview({
                 </Notice>
               )}
               {state === "PAUSED" && route.current && (
-                <Notice tone="warning" icon="history">
-                  <strong>Paused at stop {route.current.number}.</strong>{" "}
+                <Notice
+                  tone="warning"
+                  icon="history"
+                  action={
+                    <button
+                      type="button"
+                      className="rf-link"
+                      onClick={onResume}
+                    >
+                      Resume
+                    </button>
+                  }
+                >
+                  <strong>Route paused at stop {route.current.number}.</strong>{" "}
                   Customers still see their parcels as on the way. Resume when
                   you’re back on the road.
                 </Notice>

@@ -43,7 +43,7 @@ const themeOptions = {
         root: {
           "& .MuiTouchRipple-ripplePulsate": { display: "none" },
           "&.Mui-focusVisible": {
-            outline: "3px solid #fdba74",
+            outline: "3px solid #2563eb",
             outlineOffset: "2px",
           },
         },

@@ -40,6 +40,7 @@ export function RiderActiveScreen({
   riderPoint,
   currentTargetPoint,
   activePitStop,
+  queuedPitStop,
   legDistance,
   legBearing,
   atTarget,
@@ -76,6 +77,8 @@ export function RiderActiveScreen({
   position,
   setActivePitStop,
   setFlash,
+  onResumeRoute,
+  onPauseRoute,
   sheets,
   previewBar,
 }: {
@@ -84,6 +87,7 @@ export function RiderActiveScreen({
   riderPoint: GeoPoint | null;
   currentTargetPoint: GeoPoint | null;
   activePitStop: (FuelStation & { distanceKm: number }) | null;
+  queuedPitStop?: (FuelStation & { distanceKm: number }) | null;
   legDistance: number | null;
   legBearing: number | null;
   atTarget: boolean;
@@ -120,67 +124,77 @@ export function RiderActiveScreen({
   position: { speedKmh: number | null } | null;
   setActivePitStop: (val: null) => void;
   setFlash: (msg: string | null) => void;
+  onResumeRoute?: () => void;
+  onPauseRoute?: () => void;
   sheets: ReactNode;
   previewBar: ReactNode;
 }) {
   const arrivedHere =
     stop.state === "ARRIVED" || stop.state === "HANDOVER_IN_PROGRESS";
+  const isPaused = route.state === "PAUSED";
 
-  const instruction: Instruction = activePitStop
+  const instruction: Instruction = isPaused
     ? {
-        title: `Pitstop: ${activePitStop.name}`,
-        sub: `${legDistance != null ? `${formatDistance(legDistance)} · ` : ""}${activePitStop.road}, ${activePitStop.township}`,
+        title: "Route paused",
+        sub: "Take a break. Tap Resume route when you’re ready to continue.",
         arrow: null,
-        turnSymbol: "turn-right",
+        turnSymbol: "location",
       }
-    : !stop.point
+    : activePitStop
       ? {
-          title: "No map pin for this address",
-          sub: "Use the address below, or call the recipient",
+          title: `Pitstop: ${activePitStop.name}`,
+          sub: `${legDistance != null ? `${formatDistance(legDistance)} · ` : ""}${activePitStop.road}, ${activePitStop.township}`,
           arrow: null,
-          turnSymbol: "location",
+          turnSymbol: "turn-right",
         }
-      : arrivedHere
+      : !stop.point
         ? {
-            title: `At stop ${stop.number}`,
-            sub: "Park safely, then confirm arrival",
+            title: "No map pin for this address",
+            sub: "Use the address below, or call the recipient",
             arrow: null,
-            turnSymbol: "arrive",
+            turnSymbol: "location",
           }
-        : !riderPoint
+        : arrivedHere
           ? {
-              title:
-                gpsState === "denied" || gpsState === "unavailable"
-                  ? "Live position unavailable"
-                  : "Finding your location…",
-              sub: "Route shown from stop pins. Check the address below.",
+              title: `At stop ${stop.number}`,
+              sub: "Park safely, then confirm arrival",
               arrow: null,
-              turnSymbol: "straight",
+              turnSymbol: "arrive",
             }
-          : atTarget
+          : !riderPoint
             ? {
-                title: "You’re at the stop",
-                sub: "Park safely, then tap I’ve arrived",
+                title:
+                  gpsState === "denied" || gpsState === "unavailable"
+                    ? "Live position unavailable"
+                    : "Finding your location…",
+                sub: "Route shown from stop pins. Check the address below.",
                 arrow: null,
-                turnSymbol: "arrive",
+                turnSymbol: "straight",
               }
-            : legRoute?.firstStep
+            : atTarget
               ? {
-                  title: legRoute.firstStep.instruction,
-                  sub: `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} by road to stop ${stop.number}`,
+                  title: "You’re at the stop",
+                  sub: "Park safely, then tap I’ve arrived",
                   arrow: null,
-                  turnSymbol: resolveTurnSymbol(
-                    legRoute.firstStep.instruction,
-                    legRoute.firstStep.maneuverModifier,
-                    legRoute.firstStep.maneuverType,
-                  ),
+                  turnSymbol: "arrive",
                 }
-              : {
-                  title: `Head ${compassDirection(legBearing ?? 0)}`,
-                  sub: `${formatDistance(legDistance)} straight-line to stop ${stop.number}`,
-                  arrow: 0,
-                  turnSymbol: "straight",
-                };
+              : legRoute?.firstStep
+                ? {
+                    title: legRoute.firstStep.instruction,
+                    sub: `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} by road to stop ${stop.number}`,
+                    arrow: null,
+                    turnSymbol: resolveTurnSymbol(
+                      legRoute.firstStep.instruction,
+                      legRoute.firstStep.maneuverModifier,
+                      legRoute.firstStep.maneuverType,
+                    ),
+                  }
+                : {
+                    title: `Head ${compassDirection(legBearing ?? 0)}`,
+                    sub: `${formatDistance(legDistance)} straight-line to stop ${stop.number}`,
+                    arrow: 0,
+                    turnSymbol: "straight",
+                  };
 
   if (instruction.arrow != null)
     instruction.arrow = (legBearing ?? 0) - (heading ?? 0);
@@ -290,6 +304,9 @@ export function RiderActiveScreen({
         onCloseHandover={() => setHandoverKey(null)}
         onMenu={() => openPanel("menu")}
         onLocationHelp={() => openPanel("location")}
+        onResumeRoute={onResumeRoute}
+        onPauseRoute={onPauseRoute}
+        queuedPitStop={queuedPitStop}
         liveEtaAt={liveEtaAt}
         speed={
           riderPoint && !arrivedHere

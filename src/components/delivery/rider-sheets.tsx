@@ -7,6 +7,7 @@ import {
 } from "@/components/delivery/rider-handover";
 import {
   CautionsPanel,
+  FuelStopPanel,
   LocationHelpSheet,
   type ProblemChoice,
   ProblemPanel,
@@ -18,6 +19,7 @@ import type {
   DriverRoute,
   ExceptionReason,
 } from "@/lib/delivery/driver-route";
+import type { FuelStation } from "@/lib/delivery/energy-routing";
 import type {
   GeoPoint,
   RoadCaution,
@@ -38,6 +40,11 @@ export function RiderSheets({
   openEnergyRequest,
   busy,
   panelDone,
+  nearestFuelStation,
+  activePitStop,
+  queuedPitStop,
+  onRouteToPitStop,
+  onClearPitStop,
   onOpenPanel,
   onRequestFuel,
   onPauseRoute,
@@ -66,6 +73,14 @@ export function RiderSheets({
   openEnergyRequest: RiderRequest | null;
   busy: string | null;
   panelDone: string | null;
+  nearestFuelStation?: (FuelStation & { distanceKm: number }) | null;
+  activePitStop?: (FuelStation & { distanceKm: number }) | null;
+  queuedPitStop?: (FuelStation & { distanceKm: number }) | null;
+  onRouteToPitStop?: (
+    station: FuelStation & { distanceKm: number },
+    mode: "urgent" | "after_stop",
+  ) => void;
+  onClearPitStop?: () => void;
   onOpenPanel: (next: Panel) => void;
   onRequestFuel: () => void;
   onPauseRoute: () => void;
@@ -99,11 +114,28 @@ export function RiderSheets({
           fuelDone={panelDone}
           canPause={canPause}
           paused={route.state === "PAUSED"}
+          activePitStop={activePitStop}
+          queuedPitStop={queuedPitStop}
           onOpen={onOpenPanel}
           onRequestFuel={onRequestFuel}
           onPause={onPauseRoute}
           onResume={onResumeRoute}
           onSignOut={() => void signOut()}
+          onClose={onClose}
+        />
+      );
+    case "fuel":
+      return (
+        <FuelStopPanel
+          energy={routeEnergy}
+          vehicle={vehicle}
+          nearestStation={nearestFuelStation ?? null}
+          activePitStop={activePitStop ?? null}
+          queuedPitStop={queuedPitStop ?? null}
+          stopNumber={stop?.number ?? null}
+          onDirectNow={(st) => onRouteToPitStop?.(st, "urgent")}
+          onDirectAfterStop={(st) => onRouteToPitStop?.(st, "after_stop")}
+          onClearPitStop={() => onClearPitStop?.()}
           onClose={onClose}
         />
       );

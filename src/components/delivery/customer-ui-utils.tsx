@@ -1,7 +1,15 @@
 "use client";
 
 import Chip from "@mui/material/Chip";
+import type { ReactElement } from "react";
 import { timeUntil } from "@/lib/delivery/format";
+import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
+import BlockOutlined from "@mui/icons-material/BlockOutlined";
+import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
+import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
+import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
+import ReportOutlined from "@mui/icons-material/ReportOutlined";
+import TaskAltOutlined from "@mui/icons-material/TaskAltOutlined";
 import type { DeliveryStatus } from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
 
@@ -29,12 +37,28 @@ export const statusTone: Record<DeliveryStatus, Tone> = {
   cancelled: "error",
 };
 
+const statusIcons: Record<DeliveryStatus, ReactElement> = {
+  pending: <Inventory2Outlined />,
+  assigned: <AssignmentOutlined />,
+  accepted: <TaskAltOutlined />,
+  picked_up: <Inventory2Outlined />,
+  in_transit: <LocalShippingOutlined />,
+  delivered: <CheckCircleOutlined />,
+  failed: <ReportOutlined />,
+  cancelled: <BlockOutlined />,
+};
+
 export function StatusChip({ status }: { status: DeliveryStatus }) {
   return (
     <Chip
       size="small"
+      icon={statusIcons[status]}
       label={STATUS_LABELS[status]}
-      sx={{ ...toneSx(statusTone[status]), height: 28 }}
+      sx={{
+        ...toneSx(statusTone[status]),
+        height: 28,
+        "& .MuiChip-icon": { color: "inherit", fontSize: 16 },
+      }}
     />
   );
 }

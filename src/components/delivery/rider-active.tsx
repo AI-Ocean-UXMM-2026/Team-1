@@ -27,6 +27,7 @@ import {
   type DriverRoute,
   stopParcels,
 } from "@/lib/delivery/driver-route";
+import type { FuelStation } from "@/lib/delivery/energy-routing";
 import { formatTime } from "@/lib/delivery/format";
 import {
   formatDistance,
@@ -249,6 +250,9 @@ export function ActiveDelivery({
   onCloseHandover,
   onMenu,
   onLocationHelp,
+  onResumeRoute,
+  onPauseRoute,
+  queuedPitStop,
   cautionBanner,
   liveEtaAt,
   speed,
@@ -273,6 +277,9 @@ export function ActiveDelivery({
   onCloseHandover: () => void;
   onMenu: () => void;
   onLocationHelp: () => void;
+  onResumeRoute?: () => void;
+  onPauseRoute?: () => void;
+  queuedPitStop?: (FuelStation & { distanceKm: number }) | null;
   cautionBanner: ReactNode;
   /** Arrival time from the live road route, when there is one. */
   liveEtaAt: string | null;
@@ -285,6 +292,7 @@ export function ActiveDelivery({
 }) {
   const stage = stop.state;
   const arrived = stage === "ARRIVED" || stage === "HANDOVER_IN_PROGRESS";
+  const isPaused = route.state === "PAUSED";
   const sheetState = [
     handover ? "is-handover" : expanded ? "is-open" : "",
     arrived ? "is-arrived" : "is-navigating",
@@ -336,6 +344,25 @@ export function ActiveDelivery({
         {!handover && cautionBanner}
         <div className="dv-top-row">
           <div className="dv-chips">
+            {isPaused && (
+              <Chip
+                size="small"
+                color="warning"
+                icon={<Icon name="history" size={14} />}
+                label="Paused · Tap to resume"
+                onClick={onResumeRoute}
+                sx={{ fontWeight: 700, borderRadius: 999, cursor: "pointer" }}
+              />
+            )}
+            {queuedPitStop && (
+              <Chip
+                size="small"
+                color="info"
+                icon={<Icon name="fuel" size={14} />}
+                label={`Pitstop queued: ${queuedPitStop.name}`}
+                sx={{ fontWeight: 650, borderRadius: 999 }}
+              />
+            )}
             {gps === "denied" || gps === "unavailable" ? (
               <Chip
                 size="small"
@@ -560,7 +587,27 @@ export function ActiveDelivery({
             )}
 
             {error}
-            {!arrived && (
+            {isPaused ? (
+              <div className="dv-sheet-actions">
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  onClick={onResumeRoute}
+                  disabled={busy || !online}
+                  startIcon={<Icon name="arrow-right" size={20} />}
+                  sx={{
+                    minHeight: 56,
+                    borderRadius: 999,
+                    fontWeight: 700,
+                    fontSize: 16,
+                  }}
+                >
+                  Resume route · Stop {stop.number}
+                </Button>
+              </div>
+            ) : !arrived ? (
               <div className="dv-sheet-actions">
                 {confirmFar && far ? (
                   <div className="dv-confirm" role="alert">
@@ -600,7 +647,7 @@ export function ActiveDelivery({
                   </Button>
                 )}
               </div>
-            )}
+            ) : null}
           </>
         )}
       </section>
