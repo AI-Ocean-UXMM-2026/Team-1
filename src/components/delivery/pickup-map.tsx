@@ -198,7 +198,8 @@ export function PickupMapPage({
             pickupAddress: address.trim() || current.pickupAddress,
           },
     );
-    router.push("/pickup");
+    // Replace, not push: the form remounts and reads the draft just saved.
+    router.replace("/pickup");
   }
 
   const showResults = query.trim().length >= 3;
@@ -256,7 +257,7 @@ export function PickupMapPage({
         >
           <IconButton
             aria-label="Back to the form"
-            onClick={() => router.push("/pickup")}
+            onClick={() => router.replace("/pickup")}
             sx={{ width: 48, height: 48, color: "text.primary" }}
           >
             <ArrowBack />
@@ -267,7 +268,9 @@ export function PickupMapPage({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search a street, shop or landmark"
             inputProps={{
-              "aria-label": "Search for a pickup place",
+              "aria-label": isDelivery
+                ? "Search for a delivery place"
+                : "Search for a pickup place",
               style: { fontSize: 16 },
             }}
           />
@@ -405,7 +408,7 @@ export function PickupMapPage({
         )}
         {!hasMapbox && (
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            The map isn’t available. Go back and type the pickup address.
+            The map isn’t available. Go back and type the address.
           </Typography>
         )}
 

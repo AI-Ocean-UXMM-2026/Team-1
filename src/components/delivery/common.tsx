@@ -304,6 +304,12 @@ export async function signOut(): Promise<string | null> {
     const { createClient } = await import("@/lib/supabase/client");
     const { error } = await createClient().auth.signOut();
     if (error) return error.message;
+    // A shared phone must not keep the last customer's unsent request.
+    try {
+      window.localStorage.removeItem("oern.pickup-draft.v1");
+    } catch {
+      // Storage can be blocked.
+    }
   } catch (cause) {
     return cause instanceof Error ? cause.message : "Could not sign out.";
   }

@@ -3,10 +3,11 @@
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
+import { safeReturnTo, signInHref } from "@/lib/delivery/return-to";
 import { createClient } from "@/lib/supabase/client";
 
 function formatAuthError(error: unknown): string {
@@ -27,6 +28,8 @@ function formatAuthError(error: unknown): string {
 
 export function SigninForm() {
   const router = useRouter();
+  const nextParam = useSearchParams().get("next");
+  const returnTo = safeReturnTo(nextParam);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +43,7 @@ export function SigninForm() {
       const { error: signInError } =
         await createClient().auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
-      router.push("/home");
+      router.push(returnTo);
     } catch (cause) {
       setError(formatAuthError(cause));
     } finally {
@@ -51,8 +54,12 @@ export function SigninForm() {
   return (
     <main className="auth-page auth-signin-page">
       <section className="auth-dialog auth-page-card auth-signin-card">
-        <Link className="auth-page-back" href="/signup">
-          <Icon name="arrow-left" size={16} /> Back to sign up
+        <Link
+          className="auth-page-back"
+          href={nextParam ? safeReturnTo(nextParam, "/welcome") : "/signup"}
+        >
+          <Icon name="arrow-left" size={16} />{" "}
+          {nextParam ? "Back" : "Back to sign up"}
         </Link>
         <span className="eyebrow">Sign in to Oern</span>
         <h1>Your parcel, in view.</h1>
@@ -103,7 +110,10 @@ export function SigninForm() {
           </Button>
         </form>
         <div className="auth-switch">
-          New to Oern? <Link href="/signup">Create an account</Link>
+          New to Oern?{" "}
+          <Link href={signInHref(nextParam ?? "", "signup")}>
+            Create an account
+          </Link>
         </div>
         <div className="auth-note">
           <Icon name="shield" size={15} /> Your orders stay private to your
