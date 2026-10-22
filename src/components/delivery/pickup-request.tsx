@@ -562,7 +562,7 @@ function DetailsStep({
               sx={{ minHeight: 48, flexDirection: "column", lineHeight: 1.2 }}
             >
               {window.value}
-              <Typography variant="caption" sx={{ opacity: 0.75 }}>
+              <Typography variant="caption" sx={{ color: "inherit" }}>
                 {window.hours}
               </Typography>
             </ToggleButton>
@@ -674,7 +674,7 @@ function DetailsStep({
                   }}
                 >
                   {size.value}
-                  <Typography variant="caption" sx={{ opacity: 0.75 }}>
+                  <Typography variant="caption" sx={{ color: "inherit" }}>
                     {size.hint}
                   </Typography>
                 </ToggleButton>

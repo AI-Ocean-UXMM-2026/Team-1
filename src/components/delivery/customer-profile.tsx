@@ -148,24 +148,26 @@ export function ProfilePage({
       )}
 
       <Divider />
-      <List disablePadding component="nav" aria-label="Account">
-        {isAuthenticated && (
-          <ListItem disablePadding>
-            <AccountRow
-              href={ordersHref({ tab: "history" })}
-              icon={<HistoryRounded />}
-              title="Delivery history"
-              detail={
-                historyCount > 0
-                  ? `${historyCount} finished ${historyCount === 1 ? "delivery" : "deliveries"}`
-                  : "Delivered and past parcels"
-              }
-            />
-          </ListItem>
-        )}
-        {isAuthenticated && (
-          <>
-            <Divider component="li" />
+      <Box component="nav" aria-label="Account">
+        <List
+          disablePadding
+          sx={{ "& > li + li": { borderTop: 1, borderColor: "divider" } }}
+        >
+          {isAuthenticated && (
+            <ListItem disablePadding>
+              <AccountRow
+                href={ordersHref({ tab: "history" })}
+                icon={<HistoryRounded />}
+                title="Delivery history"
+                detail={
+                  historyCount > 0
+                    ? `${historyCount} finished ${historyCount === 1 ? "delivery" : "deliveries"}`
+                    : "Delivered and past parcels"
+                }
+              />
+            </ListItem>
+          )}
+          {isAuthenticated && (
             <ListItem disablePadding>
               <AccountRow
                 href="/notifications"
@@ -179,23 +181,22 @@ export function ProfilePage({
                 badge={unreadCount}
               />
             </ListItem>
-          </>
-        )}
-        <Divider component="li" />
-        <ListItem disablePadding>
-          <AccountRow
-            onClick={onOpenHelp}
-            icon={<HelpOutlineRounded />}
-            title="Help and support"
-            detail="Report a problem with a parcel"
-          />
-        </ListItem>
-      </List>
+          )}
+
+          <ListItem disablePadding>
+            <AccountRow
+              onClick={onOpenHelp}
+              icon={<HelpOutlineRounded />}
+              title="Help and support"
+              detail="Report a problem with a parcel"
+            />
+          </ListItem>
+        </List>
+      </Box>
       <Divider />
 
       {isAuthenticated && (
         <List disablePadding sx={{ mt: 3 }}>
-          <Divider />
           <ListItem disablePadding>
             <ListItemButton onClick={onSignOut} sx={{ minHeight: 56, px: 2 }}>
               <ListItemIcon sx={{ minWidth: 40, color: "error.main" }}>
@@ -212,7 +213,6 @@ export function ProfilePage({
               />
             </ListItemButton>
           </ListItem>
-          <Divider />
         </List>
       )}
     </Box>
