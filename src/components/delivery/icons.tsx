@@ -4,6 +4,7 @@ export type IconName =
   | "arrow-down"
   | "arrow-left"
   | "arrow-right"
+  | "battery"
   | "bell"
   | "box"
   | "check"
@@ -15,6 +16,7 @@ export type IconName =
   | "delivery"
   | "external"
   | "filter"
+  | "fuel"
   | "help"
   | "home"
   | "history"
@@ -23,9 +25,11 @@ export type IconName =
   | "more"
   | "navigation"
   | "list"
+  | "message"
   | "package"
   | "phone"
   | "plus"
+  | "refresh"
   | "search"
   | "settings"
   | "shield"
@@ -41,6 +45,9 @@ const pathByName: Record<IconName, ReactNode> = {
   "arrow-down": <path d="M12 5v14m-7-7 7 7 7-7" />,
   "arrow-left": <path d="m15 18-6-6 6-6M9 12h12" />,
   "arrow-right": <path d="M5 12h14m-7-7 7 7-7 7" />,
+  battery: (
+    <path d="M4 7h13a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Zm17 3v4M7 10v4m3-4v4" />
+  ),
   bell: (
     <>
       <path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9Z" />
@@ -84,6 +91,9 @@ const pathByName: Record<IconName, ReactNode> = {
     <path d="M14 4h6v6m0-6-9 9M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
   ),
   filter: <path d="M4 7h16M7 12h10m-7 5h4" />,
+  fuel: (
+    <path d="M4 20V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v15M3 20h11M4 10h9m0 1h2a1 1 0 0 1 1 1v4a1.5 1.5 0 0 0 3 0V9l-2.5-2.5" />
+  ),
   help: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -107,6 +117,9 @@ const pathByName: Record<IconName, ReactNode> = {
     </>
   ),
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+  message: (
+    <path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 3V6a1 1 0 0 1 1-1Z" />
+  ),
   more: (
     <>
       <circle cx="5" cy="12" r="1" />
@@ -130,6 +143,7 @@ const pathByName: Record<IconName, ReactNode> = {
     <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  refresh: <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />,
   search: (
     <>
       <circle cx="10.8" cy="10.8" r="6.8" />

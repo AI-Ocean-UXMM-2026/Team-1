@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { RoadReport } from "@/lib/delivery/types";
+import type {
+  RiderRequest,
+  RiderRequestCategory,
+  RoadReport,
+} from "@/lib/delivery/types";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type DeliveryActionClient = SupabaseClient<Database>;
@@ -56,7 +60,7 @@ export async function sendDriverLocation(
     longitude,
     accuracy_meters: accuracy,
   });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 export async function collectCod(
@@ -70,7 +74,7 @@ export async function collectCod(
     payment_method: "cash",
     status: "collected",
   });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 export async function createDelivery(
@@ -222,6 +226,67 @@ export async function submitRoadReport(
     .single();
   if (error) throw new Error(error.message);
   return data.id;
+}
+
+/** A missing table reads as "not set up yet" rather than a raw database error. */
+function riderRequestError(message: string) {
+  return /rider_assistance_requests/.test(message) &&
+    /(does not exist|schema cache)/.test(message)
+    ? "Requests to operations aren’t set up yet. Call your dispatcher instead."
+    : message;
+}
+
+export async function requestRiderAssistance(
+  supabase: DeliveryActionClient,
+  input: {
+    driverId: string;
+    orderId: string | null;
+    vehicleId: string | null;
+    category: RiderRequestCategory;
+    note: string;
+    energyLevelPercent: number | null;
+    latitude: number | null;
+    longitude: number | null;
+  },
+) {
+  const note = input.note.trim();
+  if (input.category === "other" && note.length < 3)
+    throw new Error("Tell operations what happened in a few words.");
+  if (note.length > 500) throw new Error("Keep the note under 500 characters.");
+  validateMapPin("request", input.latitude, input.longitude);
+  const kind =
+    input.category === "refuel" || input.category === "recharge"
+      ? "energy"
+      : "issue";
+  const { data, error } = await supabase
+    .from("rider_assistance_requests")
+    .insert({
+      driver_id: input.driverId,
+      order_id: input.orderId,
+      vehicle_id: input.vehicleId,
+      kind,
+      category: input.category,
+      note: note || null,
+      energy_level_percent: input.energyLevelPercent,
+      latitude: input.latitude,
+      longitude: input.longitude,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(riderRequestError(error.message));
+  return data.id;
+}
+
+export async function updateRiderRequestStatus(
+  supabase: DeliveryActionClient,
+  requestId: string,
+  status: Exclude<RiderRequest["status"], "open">,
+) {
+  const { error } = await supabase
+    .from("rider_assistance_requests")
+    .update({ status })
+    .eq("id", requestId);
+  if (error) throw new Error(riderRequestError(error.message));
 }
 
 export async function reviewRoadReport(

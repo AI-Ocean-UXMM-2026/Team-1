@@ -1,5 +1,6 @@
 "use client";
 
+import ArrowBack from "@mui/icons-material/ArrowBack";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import ChevronRight from "@mui/icons-material/ChevronRight";
@@ -8,10 +9,8 @@ import ContentPasteOutlined from "@mui/icons-material/ContentPasteOutlined";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import HistoryToggleOff from "@mui/icons-material/HistoryToggleOff";
 import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
-import IosShare from "@mui/icons-material/IosShare";
 import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
 import NavigationOutlined from "@mui/icons-material/NavigationOutlined";
-import NotificationsNoneOutlined from "@mui/icons-material/NotificationsNoneOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import PhoneOutlined from "@mui/icons-material/PhoneOutlined";
@@ -28,7 +27,6 @@ import Avatar from "@mui/material/Avatar";
 import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import ButtonBase from "@mui/material/ButtonBase";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import Chip from "@mui/material/Chip";
@@ -37,7 +35,6 @@ import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
-import ListItemAvatar from "@mui/material/ListItemAvatar";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import OutlinedInput from "@mui/material/OutlinedInput";
@@ -45,14 +42,11 @@ import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  type ChangeEvent,
   type FormEvent,
   type ReactElement,
   type ReactNode,
@@ -64,10 +58,8 @@ import {
 
 import {
   buildTodayItems,
-  type ContextAction,
   type CustomerNotification,
   codDue,
-  contextualActions,
   describeDelay,
   normaliseCode,
   pickNextParcel,
@@ -88,16 +80,15 @@ import type {
   DeliveryOrder,
   DeliveryStatus,
   StatusEvent,
-  WorkspaceProfile,
 } from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
 import { createClient } from "@/lib/supabase/client";
 
 /* ----------------------------------------------------------------- shared */
 
-type Tone = "error" | "warning" | "info" | "success" | "neutral";
+export type Tone = "error" | "warning" | "info" | "success" | "neutral";
 
-function toneSx(tone: Tone) {
+export function toneSx(tone: Tone) {
   return tone === "neutral"
     ? { bgcolor: "grey.100", color: "text.secondary" }
     : { bgcolor: `${tone}.light`, color: `${tone}.dark` };
@@ -114,7 +105,7 @@ const statusTone: Record<DeliveryStatus, Tone> = {
   cancelled: "error",
 };
 
-function StatusChip({ status }: { status: DeliveryStatus }) {
+export function StatusChip({ status }: { status: DeliveryStatus }) {
   return (
     <Chip
       size="small"
@@ -128,20 +119,32 @@ const pageGutter = { px: 2 } as const;
 
 /* ---------------------------------------------------------------- top bar */
 
-export function CustomerTopBar({
-  profile,
+/**
+ * Shared header for every customer page: a large title with an optional
+ * supporting line and the notifications bell. Pages one level deep get a
+ * back button instead of the bell. Sign-in lives in each page body, next to
+ * what it unlocks, so the header never repeats it.
+ */
+export function CustomerHeader({
+  title,
+  subtitle,
   isAuthenticated,
   unreadCount,
-  onSignIn,
-  onOpenNotifications,
+  onBack,
+  action,
+  showBell = true,
 }: {
-  profile: WorkspaceProfile | null;
+  title: string;
+  subtitle?: string;
   isAuthenticated: boolean;
   unreadCount: number;
-  onSignIn: () => void;
-  onOpenNotifications: () => void;
+  /** Shows a back button instead of the bell. */
+  onBack?: () => void;
+  /** Replaces the bell, e.g. "Mark all read" on Notifications. */
+  action?: ReactNode;
+  /** Off where the page body already links to notifications. */
+  showBell?: boolean;
 }) {
-  const firstName = profile?.full_name?.split(" ")[0];
   return (
     <AppBar
       position="sticky"
@@ -149,82 +152,61 @@ export function CustomerTopBar({
       elevation={0}
       sx={{ bgcolor: "background.default", pt: "env(safe-area-inset-top)" }}
     >
-      <Toolbar disableGutters sx={{ minHeight: 64, px: 2, gap: 1.5 }}>
-        {isAuthenticated ? (
+      <Toolbar
+        disableGutters
+        sx={{ minHeight: 72, px: 2, gap: 1, alignItems: "center" }}
+      >
+        {onBack && (
           <IconButton
-            component={Link}
-            href="/profile"
-            aria-label="Your profile"
-            sx={{ p: 0 }}
+            onClick={onBack}
+            aria-label="Back"
+            edge="start"
+            sx={{ width: 48, height: 48, color: "text.primary" }}
           >
-            <Avatar
-              sx={{
-                width: 40,
-                height: 40,
-                fontSize: 16,
-                fontWeight: 700,
-                ...toneSx("info"),
-              }}
-            >
-              <PersonOutlined />
-            </Avatar>
+            <ArrowBack />
           </IconButton>
-        ) : (
-          <Avatar sx={{ width: 40, height: 40, ...toneSx("neutral") }}>
-            <PersonOutlined />
-          </Avatar>
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography
-            variant="subtitle1"
+            variant="h5"
+            component="h1"
             noWrap
-            sx={{ fontWeight: 750, lineHeight: "22px" }}
+            sx={{ fontWeight: 750, lineHeight: "30px" }}
           >
-            {isAuthenticated && firstName ? `Hi, ${firstName}` : "Welcome"}
+            {title}
           </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              display: "block",
-              color: "text.secondary",
-              lineHeight: "16px",
-            }}
-          >
-            {isAuthenticated
-              ? "Where is your parcel?"
-              : "Sign in to see your deliveries"}
-          </Typography>
-        </Box>
-        {isAuthenticated ? (
-          <IconButton
-            color="inherit"
-            onClick={onOpenNotifications}
-            aria-label={
-              unreadCount > 0
-                ? `Notifications, ${unreadCount} unread`
-                : "Notifications"
-            }
-            sx={{ width: 48, height: 48 }}
-          >
-            <Badge
-              variant="dot"
-              color="error"
-              invisible={unreadCount === 0}
-              overlap="circular"
+          {subtitle && (
+            <Typography
+              variant="body2"
+              noWrap
+              sx={{ color: "text.secondary", lineHeight: "20px" }}
             >
-              <NotificationsNoneOutlined />
-            </Badge>
-          </IconButton>
-        ) : (
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={onSignIn}
-            sx={{ px: 2, minHeight: 40, flex: "none" }}
-          >
-            Sign in
-          </Button>
-        )}
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+        {action ??
+          (!onBack && showBell && isAuthenticated ? (
+            <IconButton
+              component={Link}
+              href="/notifications"
+              aria-label={
+                unreadCount > 0
+                  ? `Notifications, ${unreadCount} unread`
+                  : "Notifications"
+              }
+              sx={{ width: 48, height: 48 }}
+            >
+              <Badge badgeContent={unreadCount} color="error" max={9}>
+                <Box
+                  component="img"
+                  src="/icons/notifications.svg"
+                  alt=""
+                  sx={{ display: "block", width: 32, height: 32 }}
+                />
+              </Badge>
+            </IconButton>
+          ) : null)}
       </Toolbar>
     </AppBar>
   );
@@ -281,7 +263,6 @@ const todayIcons: Record<TodayState, ReactElement> = {
 
 function heroCopy(order: DeliveryOrder, now: number) {
   const eta = order.estimated_delivery_at;
-  const delay = describeDelay(order, now);
   const outNow = order.status === "picked_up" || order.status === "in_transit";
   if (!outNow) {
     return {
@@ -306,219 +287,130 @@ function heroCopy(order: DeliveryOrder, now: number) {
   const until = timeUntil(eta);
   return {
     main: until === "Arriving now" ? until : `Arriving in ${until}`,
-    sub: `Estimated around ${formatTime(eta)}${delay.isDelayed ? ` · traffic adds about ${delay.minutes} min` : ""}`,
+    sub: `Estimated around ${formatTime(eta)}`,
   };
 }
 
-function QuickAction({
-  label,
-  badge,
+/** Secondary shortcut: a quiet filled row, no outline, so the next parcel stays primary. */
+function ShortcutRow({
   illustration,
+  title,
+  detail,
   ...rest
 }: {
-  label: string;
-  badge?: number;
   illustration: string;
-} & (
-  | { component: typeof Link; href: string }
-  | { component: "a"; href: string }
-  | { component: "button"; onClick: () => void }
-)) {
+  title: string;
+  detail: string;
+} & ({ component: typeof Link; href: string } | { onClick: () => void })) {
   return (
-    <ButtonBase
+    <ListItemButton
       {...rest}
-      sx={{
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "flex-start",
-        gap: 0.5,
-        minHeight: 96,
-        borderRadius: "16px",
-        px: 0.5,
-        py: 1,
-        typography: "caption",
-        fontWeight: 600,
-        lineHeight: "16px",
-        textAlign: "center",
-        color: "text.primary",
-      }}
+      sx={{ gap: 1.5, minHeight: 72, px: 1.5, borderRadius: "16px" }}
     >
-      <Badge badgeContent={badge} color="error" max={9}>
-        <Box
-          component="img"
-          src={illustration}
-          alt=""
-          sx={{ display: "block", width: 64, height: 64 }}
-        />
-      </Badge>
-      {label}
-    </ButtonBase>
+      <Box
+        component="img"
+        src={illustration}
+        alt=""
+        sx={{ display: "block", width: 48, height: 48, flex: "none" }}
+      />
+      <ListItemText
+        primary={title}
+        secondary={detail}
+        slotProps={{ primary: { sx: { fontWeight: 700, fontSize: 14 } } }}
+        sx={{ m: 0 }}
+      />
+      <ChevronRight color="disabled" />
+    </ListItemButton>
   );
 }
 
-function QuickActions({
-  isAuthenticated,
-  arrivingCount,
-  onSignIn,
-  onOpenHelp,
-}: {
-  isAuthenticated: boolean;
-  arrivingCount: number;
-  onSignIn: () => void;
-  onOpenHelp: () => void;
-}) {
+/** Home's primary action: one full-width card, the whole surface opens /pickup. */
+function PickupHero() {
+  return (
+    <Card
+      elevation={0}
+      sx={{
+        mx: 2,
+        mt: 1,
+        borderRadius: "24px",
+        bgcolor: "#FFF7ED",
+        border: 1,
+        borderColor: "#FED7AA",
+      }}
+    >
+      <CardActionArea component={Link} href="/pickup" sx={{ p: 2.5 }}>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="h5"
+              component="h2"
+              sx={{ fontWeight: 750, lineHeight: 1.2 }}
+            >
+              Request a pickup
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "text.secondary", mt: 0.75 }}
+            >
+              A rider collects your parcel from your door, anywhere in Yangon.
+            </Typography>
+            <Box
+              component="span"
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 0.75,
+                mt: 2,
+                minHeight: 44,
+                px: 2.25,
+                borderRadius: "999px",
+                bgcolor: "primary.main",
+                color: "primary.contrastText",
+                typography: "body2",
+                fontWeight: 700,
+              }}
+            >
+              Request pickup <ArrowForward fontSize="small" />
+            </Box>
+          </Box>
+          <Box
+            component="img"
+            src="/icons/pickup.svg"
+            alt=""
+            sx={{ display: "block", width: 88, height: 88, flex: "none" }}
+          />
+        </Stack>
+      </CardActionArea>
+    </Card>
+  );
+}
+
+function MoreShortcuts({ onOpenHelp }: { onOpenHelp: () => void }) {
   return (
     <Box
       component="nav"
-      aria-label="Common tasks"
+      aria-label="More"
       sx={{
-        px: 2,
-        mt: 1.5,
-        display: "grid",
-        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-        gap: 1,
+        mx: 2,
+        mt: 3,
+        borderRadius: "16px",
+        bgcolor: "grey.100",
+        overflow: "hidden",
       }}
     >
-      {isAuthenticated ? (
-        <QuickAction
-          component="a"
-          href="#arriving-today"
-          label="Today's deliveries"
-          badge={arrivingCount}
-          illustration="/icons/arriving-today.svg"
-        />
-      ) : (
-        <QuickAction
-          component="button"
-          onClick={onSignIn}
-          label="Today's deliveries"
-          illustration="/icons/arriving-today.svg"
-        />
-      )}
-      <QuickAction
+      <ShortcutRow
         component={Link}
         href="/track"
-        label="Track by ID"
         illustration="/icons/track-parcel.svg"
+        title="Track a parcel"
+        detail="Enter a tracking code or scan it."
       />
-      <QuickAction
-        component="button"
+      <ShortcutRow
         onClick={onOpenHelp}
-        label="Report a problem"
         illustration="/icons/get-help.svg"
+        title="Help and support"
+        detail="Delivery questions and issues."
       />
-    </Box>
-  );
-}
-
-function ContextChips({
-  actions,
-  order,
-  etaAt,
-}: {
-  actions: ContextAction[];
-  order: DeliveryOrder;
-  etaAt: string | null;
-}) {
-  const [note, setNote] = useState("");
-  if (actions.length === 0) return null;
-
-  async function share() {
-    const text = `Parcel ${order.tracking_code} is on its way${etaAt ? `, arriving around ${formatTime(etaAt)}` : ""}.`;
-    try {
-      if (typeof navigator.share === "function") {
-        await navigator.share({ title: "Oern delivery", text });
-      } else {
-        await navigator.clipboard.writeText(text);
-        setNote("Tracking details copied.");
-      }
-    } catch {
-      // Sharing was cancelled or is unavailable; nothing to recover.
-    }
-  }
-
-  const chipSx = {
-    flex: "none",
-    height: 48,
-    borderRadius: "999px",
-    bgcolor: "background.paper",
-    "& .MuiChip-label": { py: 0 },
-  } as const;
-
-  return (
-    <Box sx={{ ...pageGutter, mt: 1.5 }}>
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{
-          mx: -2,
-          px: 2,
-          overflowX: "auto",
-          scrollbarWidth: "none",
-          "&::-webkit-scrollbar": { display: "none" },
-        }}
-      >
-        {actions.map((action) => {
-          const label = (
-            <Box sx={{ lineHeight: 1.2, textAlign: "left" }}>
-              <Typography variant="body2" sx={{ fontWeight: 650 }}>
-                {action.label}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{ color: "inherit", opacity: 0.8 }}
-              >
-                {action.detail}
-              </Typography>
-            </Box>
-          );
-          if (action.id === "cod")
-            return (
-              <Chip
-                key={action.id}
-                component={Link}
-                href={`/track?order=${encodeURIComponent(action.orderId)}`}
-                clickable
-                icon={<PaymentsOutlined />}
-                label={label}
-                sx={{ ...chipSx, ...toneSx("warning") }}
-              />
-            );
-          if (action.id === "driver")
-            return (
-              <Chip
-                key={action.id}
-                component="a"
-                href={`tel:${action.phone}`}
-                clickable
-                variant="outlined"
-                icon={<PhoneOutlined />}
-                label={label}
-                sx={chipSx}
-              />
-            );
-          return (
-            <Chip
-              key={action.id}
-              clickable
-              variant="outlined"
-              onClick={() => void share()}
-              icon={<IosShare />}
-              label={label}
-              sx={chipSx}
-            />
-          );
-        })}
-      </Stack>
-      {note && (
-        <Typography
-          component="output"
-          variant="body2"
-          sx={{ color: "text.secondary", display: "block", mt: 1 }}
-        >
-          {note}
-        </Typography>
-      )}
     </Box>
   );
 }
@@ -532,7 +424,7 @@ function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
       elevation={0}
       sx={{
         mx: 2,
-        mt: 2,
+        mt: 1.5,
         borderRadius: "20px",
         bgcolor: "secondary.main",
         color: "secondary.contrastText",
@@ -675,10 +567,10 @@ function TodayRow({ item }: { item: TodayItem }) {
           gap: 1.25,
           minHeight: 64,
           px: 1.5,
-          border: 1,
           borderRadius: "16px",
-          borderColor: missed ? "error.main" : "divider",
-          bgcolor: missed ? "error.light" : "background.paper",
+          border: missed ? 1 : 0,
+          borderColor: "error.main",
+          bgcolor: missed ? "error.light" : "grey.100",
         }}
       >
         <Typography
@@ -861,7 +753,7 @@ export function TrackingLookup({
           onClear={() => setCode("")}
           onPaste={() => void paste()}
           onScan={onOpenScan}
-          placeholder="Tracking ID"
+          placeholder="Tracking code"
           ariaLabel="Tracking number"
         />
       </Box>
@@ -896,7 +788,10 @@ export function TrackingLookup({
 
 function SignedOutPrompt({ onSignIn }: { onSignIn: () => void }) {
   return (
-    <Paper variant="outlined" sx={{ mx: 2, mt: 2, borderRadius: "16px" }}>
+    <Paper
+      elevation={0}
+      sx={{ mx: 2, mt: 1.5, borderRadius: "16px", bgcolor: "grey.100" }}
+    >
       <ListItemButton
         onClick={onSignIn}
         sx={{ gap: 1.5, minHeight: 64, borderRadius: "16px" }}
@@ -922,7 +817,6 @@ export function CustomerHome({
   isAuthenticated,
   now,
   onSignIn,
-  onOpenScan,
   onOpenCod,
   onOpenHelp,
 }: {
@@ -932,36 +826,33 @@ export function CustomerHome({
   isAuthenticated: boolean;
   now: number;
   onSignIn: () => void;
-  onOpenScan: () => void;
   onOpenCod: () => void;
   onOpenHelp: () => void;
 }) {
   const next = pickNextParcel(orders);
   const today = buildTodayItems(orders, statusEvents, now);
   const rest = today.filter((item) => item.order.id !== next?.id);
-  const nextToday = today.find((item) => item.order.id === next?.id);
-  const actions = contextualActions(next).filter((item) => item.id !== "cod");
-  const remaining = today.filter((item) => item.state !== "delivered").length;
-  const codCount = codDue(orders).length;
+  const codOrders = codDue(orders);
+  const codCount = codOrders.length;
+  // The next parcel's card already shows its own COD, so the summary chip
+  // only earns its place when more than that one payment is due.
+  const showCodChip =
+    codCount > 1 || (codCount === 1 && codOrders[0]?.id !== next?.id);
+
+  const activeCount = orders.filter((order) =>
+    ["pending", "assigned", "accepted", "picked_up", "in_transit"].includes(
+      order.status,
+    ),
+  ).length;
+  const latest = [...orders].sort((x, y) =>
+    y.created_at.localeCompare(x.created_at),
+  )[0];
 
   return (
     <>
-      <Box component="h1" className="sr-only">
-        Home
-      </Box>
+      <PickupHero />
 
-      <TrackingLookup onOpenScan={onOpenScan} />
-
-      {isAuthenticated && next && <NextParcelCard order={next} now={now} />}
-
-      <QuickActions
-        isAuthenticated={isAuthenticated}
-        arrivingCount={remaining}
-        onSignIn={onSignIn}
-        onOpenHelp={onOpenHelp}
-      />
-
-      {isAuthenticated && codCount > 0 && (
+      {isAuthenticated && showCodChip && (
         <Box sx={{ px: 2, mt: 1.5 }}>
           <Chip
             clickable
@@ -973,62 +864,52 @@ export function CustomerHome({
         </Box>
       )}
 
-      {next && (
-        <ContextChips
-          actions={actions}
-          order={next}
-          etaAt={nextToday?.etaAt ?? next.estimated_delivery_at}
-        />
-      )}
-
-      {isAuthenticated ? (
-        orders.length === 0 ? (
-          <Paper
-            variant="outlined"
-            sx={{ mx: 2, mt: 3, p: 2, borderRadius: "16px" }}
+      <Box
+        component="section"
+        id="active-deliveries"
+        aria-labelledby="active-deliveries-title"
+        sx={{ mt: 3, scrollMarginTop: 72 }}
+      >
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: "center", px: 2, minHeight: 40 }}
+        >
+          <Typography
+            id="active-deliveries-title"
+            variant="h6"
+            component="h2"
+            sx={{ fontWeight: 750 }}
           >
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 750 }}>
-              No deliveries yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Deliveries linked to this customer account will appear here.
-            </Typography>
-          </Paper>
-        ) : (
-          rest.length > 0 && (
-            <Box
-              component="section"
-              id="arriving-today"
-              aria-labelledby="arriving-today-title"
-              sx={{ px: 2, mt: 3, scrollMarginTop: 72 }}
+            Active deliveries
+          </Typography>
+          {isAuthenticated && activeCount > 0 && (
+            <Chip size="small" label={activeCount} sx={toneSx("info")} />
+          )}
+          {isAuthenticated && orders.length > 0 && (
+            <Button
+              component={Link}
+              href="/orders"
+              color="secondary"
+              endIcon={<ArrowForward />}
+              sx={{ ml: "auto", minHeight: 40, fontWeight: 700 }}
             >
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <Typography
-                  id="arriving-today-title"
-                  variant="h6"
-                  component="h2"
-                  sx={{ fontWeight: 750 }}
-                >
-                  Arriving today
-                </Typography>
-                <Chip
-                  size="small"
-                  label={remaining > 0 ? `${remaining} to go` : "All done"}
-                  sx={toneSx("info")}
-                />
-                <Button
-                  component={Link}
-                  href="/orders"
-                  color="secondary"
-                  endIcon={<ArrowForward />}
-                  sx={{ ml: "auto", minHeight: 40, fontWeight: 700 }}
-                >
-                  See all
-                </Button>
-              </Stack>
+              See all
+            </Button>
+          )}
+        </Stack>
+
+        {!isAuthenticated ? (
+          <SignedOutPrompt onSignIn={onSignIn} />
+        ) : next ? (
+          <>
+            <NextParcelCard order={next} now={now} />
+            {rest.length > 0 && (
               <List
                 disablePadding
+                aria-label="Also arriving today"
                 sx={{
+                  px: 2,
                   mt: 1.5,
                   display: "grid",
                   gridTemplateColumns: "minmax(0, 1fr)",
@@ -1039,12 +920,73 @@ export function CustomerHome({
                   <TodayRow key={item.order.id} item={item} />
                 ))}
               </List>
-            </Box>
-          )
-        )
-      ) : (
-        <SignedOutPrompt onSignIn={onSignIn} />
-      )}
+            )}
+          </>
+        ) : latest ? (
+          <Box sx={{ px: 2, mt: 1 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
+              Nothing on the way right now. Your latest delivery:
+            </Typography>
+            <ListItemButton
+              component={Link}
+              href={`/track?order=${encodeURIComponent(latest.id)}`}
+              sx={{
+                gap: 1.5,
+                minHeight: 64,
+                px: 1.5,
+                borderRadius: "16px",
+                bgcolor: "grey.100",
+              }}
+            >
+              <ListItemText
+                sx={{ m: 0, minWidth: 0 }}
+                primary={latest.delivery_address}
+                secondary={`${latest.tracking_code} · ${formatDateTime(latest.created_at)}`}
+                slotProps={{
+                  primary: {
+                    noWrap: true,
+                    sx: { fontWeight: 700, fontSize: 14 },
+                  },
+                  secondary: { noWrap: true, sx: { fontSize: 12 } },
+                }}
+              />
+              <StatusChip status={latest.status} />
+            </ListItemButton>
+          </Box>
+        ) : (
+          <Box sx={{ px: 2, mt: 1 }}>
+            <ListItemButton
+              component={Link}
+              href="/track"
+              sx={{
+                gap: 1.5,
+                minHeight: 72,
+                px: 1.5,
+                borderRadius: "16px",
+                bgcolor: "grey.100",
+              }}
+            >
+              <Box
+                component="img"
+                src="/icons/arriving-today.svg"
+                alt=""
+                sx={{ display: "block", width: 48, height: 48, flex: "none" }}
+              />
+              <ListItemText
+                primary="No active deliveries"
+                secondary="Parcels on their way to you appear here. Have a code? Track it."
+                slotProps={{
+                  primary: { sx: { fontWeight: 700, fontSize: 14 } },
+                }}
+                sx={{ m: 0 }}
+              />
+              <ChevronRight color="disabled" />
+            </ListItemButton>
+          </Box>
+        )}
+      </Box>
+
+      <MoreShortcuts onOpenHelp={onOpenHelp} />
     </>
   );
 }
@@ -1169,183 +1111,301 @@ const notifyIcon: Record<CustomerNotification["kind"], ReactNode> = {
   collected: <LocalShippingOutlined />,
 };
 
-export function NotificationsSheet({
-  open,
-  notifications,
-  unreadIds,
-  isAuthenticated,
-  onSignIn,
-  onClose,
+const notifyLabel: Record<CustomerNotification["kind"], string> = {
+  missed: "Delivery issue",
+  cod_due: "Payment",
+  delivered: "Delivered",
+  assigned: "Rider assigned",
+  arriving: "Arriving",
+  out_for_delivery: "On the way",
+  collected: "Collected",
+};
+
+function NotificationRow({
+  item,
+  unread,
+  onOpen,
 }: {
-  open: boolean;
-  notifications: CustomerNotification[];
-  unreadIds: ReadonlySet<string>;
-  isAuthenticated: boolean;
-  onSignIn: () => void;
-  onClose: () => void;
+  item: CustomerNotification;
+  unread: boolean;
+  onOpen: (id: string) => void;
 }) {
-  const [filter, setFilter] = useState<"all" | "unread">("all");
-  const visible =
-    filter === "unread"
-      ? notifications.filter((item) => unreadIds.has(item.id))
-      : notifications;
-
-  function close() {
-    setFilter("all");
-    onClose();
-  }
-
+  const high = item.priority === "high";
   return (
-    <Sheet
-      open={open}
-      onClose={close}
-      titleId="notifications-title"
-      title="Notifications"
-      dock={
-        isAuthenticated && notifications.length > 0 ? (
-          <Button
-            fullWidth
-            variant="contained"
-            size="large"
-            onClick={close}
-            sx={{ minHeight: 52 }}
-          >
-            Done
-          </Button>
-        ) : undefined
-      }
-    >
-      {isAuthenticated && unreadIds.size > 0 && (
-        <ToggleButtonGroup
-          exclusive
-          fullWidth
-          value={filter}
-          onChange={(_, value: "all" | "unread" | null) => {
-            if (value) setFilter(value);
-          }}
-          aria-label="Filter notifications"
-          sx={{ mb: 1, p: 0.5, borderRadius: "999px", bgcolor: "grey.100" }}
+    <ListItem disablePadding>
+      <ListItemButton
+        component={Link}
+        href={`/track?order=${encodeURIComponent(item.orderId)}`}
+        onClick={() => onOpen(item.id)}
+        alignItems="flex-start"
+        sx={{
+          gap: 1.5,
+          px: 1.5,
+          py: 1.5,
+          borderRadius: "16px",
+          bgcolor: unread ? "background.paper" : "grey.100",
+          boxShadow: unread ? 1 : 0,
+        }}
+      >
+        <Badge
+          variant="dot"
+          color="error"
+          invisible={!unread}
+          overlap="circular"
+          sx={{ flex: "none" }}
         >
-          {(["all", "unread"] as const).map((value) => (
-            <ToggleButton
-              key={value}
-              value={value}
-              sx={{
-                minHeight: 44,
-                border: 0,
-                borderRadius: "999px !important",
-                "&.Mui-selected": { bgcolor: "background.paper", boxShadow: 1 },
-              }}
-            >
-              {value === "all" ? "All" : `Unread · ${unreadIds.size}`}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-      )}
-
-      {!isAuthenticated ? (
-        <Stack spacing={1.5} sx={{ alignItems: "flex-start", py: 1, pb: 2 }}>
-          <Typography sx={{ color: "text.secondary" }}>
-            Sign in to get updates about your deliveries.
-          </Typography>
-          <Button
-            variant="contained"
-            onClick={() => {
-              close();
-              onSignIn();
+          <Avatar
+            sx={{
+              ...toneSx(high ? "warning" : "neutral"),
+              width: 40,
+              height: 40,
             }}
           >
-            Sign in
-          </Button>
-        </Stack>
-      ) : visible.length === 0 ? (
-        <Stack spacing={1} sx={{ alignItems: "center", py: 2, pb: 3 }}>
+            {notifyIcon[item.kind]}
+          </Avatar>
+        </Badge>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack
+            direction="row"
+            spacing={0.75}
+            sx={{ alignItems: "center", flexWrap: "wrap" }}
+          >
+            <Chip
+              size="small"
+              label={notifyLabel[item.kind]}
+              sx={{
+                ...toneSx(high ? "warning" : "neutral"),
+                height: 22,
+                fontWeight: 650,
+              }}
+            />
+            <Typography
+              variant="caption"
+              sx={{ color: "text.secondary", ml: "auto !important" }}
+            >
+              {formatTime(item.at)}
+            </Typography>
+          </Stack>
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: unread ? 750 : 650, mt: 0.75 }}
+          >
+            {item.title}
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ color: "text.secondary", mt: 0.25 }}
+          >
+            {item.body}
+          </Typography>
+        </Box>
+      </ListItemButton>
+    </ListItem>
+  );
+}
+
+type NotificationFilter = "all" | "unread" | "important";
+
+/** Full-page notification inbox with unread and category badges. */
+export function NotificationsPage({
+  notifications,
+  isUnread,
+  isAuthenticated,
+  now,
+  onOpen,
+  onSignIn,
+}: {
+  notifications: CustomerNotification[];
+  isUnread: (item: CustomerNotification) => boolean;
+  isAuthenticated: boolean;
+  now: number;
+  onOpen: (id: string) => void;
+  onSignIn: () => void;
+}) {
+  const [filter, setFilter] = useState<NotificationFilter>("all");
+  const unreadCount = notifications.filter(isUnread).length;
+  const importantCount = notifications.filter(
+    (item) => item.priority === "high",
+  ).length;
+  const visible = notifications.filter((item) =>
+    filter === "unread"
+      ? isUnread(item)
+      : filter === "important"
+        ? item.priority === "high"
+        : true,
+  );
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const groups = [
+    {
+      id: "today",
+      title: "Today",
+      items: visible.filter(
+        (item) => Date.parse(item.at) >= startOfToday.getTime(),
+      ),
+    },
+    {
+      id: "earlier",
+      title: "Earlier",
+      items: visible.filter(
+        (item) => Date.parse(item.at) < startOfToday.getTime(),
+      ),
+    },
+  ].filter((group) => group.items.length > 0);
+
+  if (!isAuthenticated)
+    return (
+      <Stack
+        spacing={1.5}
+        sx={{ alignItems: "center", px: 2, py: 6, textAlign: "center" }}
+      >
+        <Box
+          component="img"
+          src="/icons/notifications.svg"
+          alt=""
+          sx={{ display: "block", width: 96, height: 96 }}
+        />
+        <Typography variant="h6" component="h2" sx={{ fontWeight: 750 }}>
+          Sign in for delivery updates
+        </Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Arrivals, payments and delivery issues show up here.
+        </Typography>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={onSignIn}
+          sx={{ minHeight: 44 }}
+        >
+          Sign in
+        </Button>
+      </Stack>
+    );
+
+  const filters: { id: NotificationFilter; label: string; count: number }[] = [
+    { id: "all", label: "All", count: 0 },
+    { id: "unread", label: "Unread", count: unreadCount },
+    { id: "important", label: "Important", count: importantCount },
+  ];
+
+  return (
+    <Box sx={{ px: 2, pb: 3 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        role="group"
+        aria-label="Filter notifications"
+        sx={{ mt: 0.5 }}
+      >
+        {filters.map((item) => {
+          const selected = filter === item.id;
+          return (
+            <Chip
+              key={item.id}
+              clickable
+              onClick={() => setFilter(item.id)}
+              aria-pressed={selected}
+              label={
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  sx={{ alignItems: "center" }}
+                >
+                  <span>{item.label}</span>
+                  {item.count > 0 && (
+                    <Box
+                      component="span"
+                      sx={{
+                        minWidth: 20,
+                        height: 20,
+                        px: 0.5,
+                        borderRadius: "999px",
+                        display: "inline-grid",
+                        placeItems: "center",
+                        typography: "caption",
+                        fontWeight: 750,
+                        bgcolor: selected ? "background.paper" : "error.main",
+                        color: selected
+                          ? "secondary.main"
+                          : "error.contrastText",
+                      }}
+                    >
+                      {item.count > 9 ? "9+" : item.count}
+                    </Box>
+                  )}
+                </Stack>
+              }
+              sx={{
+                height: 40,
+                borderRadius: "999px",
+                fontWeight: 650,
+                bgcolor: selected ? "secondary.main" : "grey.100",
+                color: selected ? "secondary.contrastText" : "text.primary",
+                "&:hover": {
+                  bgcolor: selected ? "secondary.main" : "grey.200",
+                },
+              }}
+            />
+          );
+        })}
+      </Stack>
+
+      {groups.length === 0 ? (
+        <Stack
+          spacing={1}
+          sx={{ alignItems: "center", py: 6, textAlign: "center" }}
+        >
           <Box
             component="img"
             src="/icons/notifications.svg"
             alt=""
-            sx={{
-              display: "block",
-              width: 96,
-              height: 96,
-            }}
+            sx={{ display: "block", width: 96, height: 96 }}
           />
-          <Typography sx={{ color: "text.secondary", textAlign: "center" }}>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {notifications.length === 0
               ? "You’re all caught up. Delivery updates will appear here."
-              : "No unread notifications."}
+              : filter === "unread"
+                ? "No unread notifications."
+                : "Nothing needs your attention."}
           </Typography>
         </Stack>
       ) : (
-        <List
-          disablePadding
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr)",
-            gap: 1,
-          }}
-        >
-          {visible.map((item) => {
-            const high = item.priority === "high";
-            return (
-              <ListItem disablePadding key={item.id}>
-                <ListItemButton
-                  component={Link}
-                  href={`/track?order=${encodeURIComponent(item.orderId)}`}
-                  onClick={close}
-                  alignItems="flex-start"
-                  sx={{
-                    gap: 1.5,
-                    border: 1,
-                    borderRadius: "16px",
-                    borderColor: high ? "warning.main" : "divider",
-                  }}
-                >
-                  <ListItemAvatar sx={{ minWidth: 0 }}>
-                    <Avatar sx={toneSx(high ? "warning" : "neutral")}>
-                      {notifyIcon[item.kind]}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={item.title}
-                    secondary={
-                      <>
-                        {item.body}
-                        <Typography
-                          variant="caption"
-                          sx={{ display: "block", color: "text.secondary" }}
-                        >
-                          {formatDateTime(item.at)}
-                        </Typography>
-                      </>
-                    }
-                    slotProps={{
-                      primary: { sx: { fontWeight: 700 } },
-                      secondary: { component: "span", variant: "body2" },
-                    }}
-                    sx={{ m: 0 }}
-                  />
-                  {unreadIds.has(item.id) && (
-                    <Box
-                      role="img"
-                      aria-label="Unread"
-                      sx={{
-                        width: 10,
-                        height: 10,
-                        mt: 0.75,
-                        flex: "none",
-                        borderRadius: "50%",
-                        bgcolor: "error.main",
-                      }}
-                    />
-                  )}
-                </ListItemButton>
-              </ListItem>
-            );
-          })}
-        </List>
+        groups.map((group) => (
+          <Box
+            component="section"
+            key={group.id}
+            aria-labelledby={`notifications-${group.id}`}
+            sx={{ mt: 2.5 }}
+          >
+            <Typography
+              id={`notifications-${group.id}`}
+              variant="subtitle2"
+              component="h2"
+              sx={{ color: "text.secondary", fontWeight: 700, mb: 1 }}
+            >
+              {group.title}
+            </Typography>
+            <List
+              disablePadding
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr)",
+                gap: 1,
+              }}
+            >
+              {group.items.map((item) => (
+                <NotificationRow
+                  key={item.id}
+                  item={item}
+                  unread={isUnread(item)}
+                  onOpen={onOpen}
+                />
+              ))}
+            </List>
+          </Box>
+        ))
       )}
-    </Sheet>
+    </Box>
   );
 }
 
@@ -1364,202 +1424,238 @@ const faqs = [
   },
 ];
 
-const ISSUE_CATEGORIES = [
-  "Parcel is late",
-  "Wrong or incomplete address",
-  "Parcel damaged or missing",
-  "Problem with the rider",
-  "Cash on delivery question",
+const HELP_TOPICS = [
+  "Late or missing parcel",
+  "Wrong address or landmark",
+  "Damaged parcel",
+  "Cash on delivery",
   "Something else",
 ] as const;
 
-function IssueForm({
-  order,
-  profileId,
-}: {
-  order: DeliveryOrder | null;
-  profileId: string | null;
-}) {
-  const [category, setCategory] = useState<string>(ISSUE_CATEGORIES[0]);
-  const [details, setDetails] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(
-    "idle",
-  );
-
-  if (!profileId)
-    return (
-      <Typography variant="body2" sx={{ color: "text.secondary", mt: 1.75 }}>
-        Sign in to report a problem with a delivery.
-      </Typography>
-    );
-  if (state === "sent")
-    return (
-      <Alert severity="success" sx={{ mt: 1.75 }}>
-        Thanks. Support has your report
-        {order ? ` for ${order.tracking_code}` : ""} and will follow up.
-      </Alert>
-    );
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (state === "sending" || !profileId) return;
-    setState("sending");
-    try {
-      await createSupportCase(createClient(), {
-        requesterId: profileId,
-        orderId: order?.id,
-        subject: order ? `${category} · ${order.tracking_code}` : category,
-        description: details || category,
-        priority: "normal",
-      });
-      setState("sent");
-    } catch {
-      setState("error");
-    }
-  }
-
-  return (
-    <Box
-      component="form"
-      onSubmit={submit}
-      sx={{ mt: 2, display: "grid", gap: 1.25 }}
-    >
-      <Typography variant="subtitle2" component="h3" sx={{ fontWeight: 700 }}>
-        Tell support what happened
-      </Typography>
-      <Box component="label" sx={{ display: "grid", gap: 0.5, fontSize: 12 }}>
-        What is the problem?
-        <Box
-          component="select"
-          value={category}
-          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-            setCategory(event.target.value)
-          }
-          sx={{
-            minHeight: 48,
-            px: 1.5,
-            fontSize: 16,
-            borderRadius: "12px",
-            border: 1,
-            borderColor: "text.secondary",
-            bgcolor: "background.paper",
-          }}
-        >
-          {ISSUE_CATEGORIES.map((item) => (
-            <option key={item}>{item}</option>
-          ))}
-        </Box>
-      </Box>
-      <Box component="label" sx={{ display: "grid", gap: 0.5, fontSize: 12 }}>
-        Details (optional)
-        <Box
-          component="textarea"
-          rows={3}
-          value={details}
-          onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-            setDetails(event.target.value)
-          }
-          sx={{
-            p: 1.5,
-            fontSize: 16,
-            borderRadius: "12px",
-            border: 1,
-            borderColor: "text.secondary",
-            font: "inherit",
-          }}
-        />
-      </Box>
-      {state === "error" && (
-        <Alert severity="error">
-          We couldn’t send your report. Check your connection and try again.
-        </Alert>
-      )}
-      <Button
-        type="submit"
-        variant="contained"
-        disabled={state === "sending"}
-        sx={{ minHeight: 52 }}
-      >
-        {state === "sending" ? "Sending…" : "Send report"}
-      </Button>
-    </Box>
-  );
-}
-
+/**
+ * One place for help: quick fixes first (call the rider, check status), then
+ * a request that reaches the support team's case queue with the parcel
+ * attached, so nobody has to retype the tracking code.
+ */
 export function HelpSheet({
   open,
   order,
-  profileId,
+  requesterId,
+  showStatusLink = true,
+  onSignIn,
   onClose,
 }: {
   open: boolean;
   order: DeliveryOrder | null;
-  profileId: string | null;
+  /** Signed-in customer's id; requests need an account to follow up on. */
+  requesterId: string | null;
+  /** Off on the parcel's own Track page, where the status is already shown. */
+  showStatusLink?: boolean;
+  onSignIn: () => void;
   onClose: () => void;
 }) {
+  const [topic, setTopic] = useState<(typeof HELP_TOPICS)[number] | null>(null);
+  const [details, setDetails] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(
+    "idle",
+  );
+  const [error, setError] = useState<string | null>(null);
+  const realOrder = order && !order.id.startsWith("demo-") ? order : null;
+  const canCall =
+    !!order?.driver_phone &&
+    !!order.driver_id &&
+    !["delivered", "failed", "cancelled"].includes(order.status);
+
+  function close() {
+    if (state === "sent") {
+      setTopic(null);
+      setDetails("");
+      setState("idle");
+    }
+    setError(null);
+    onClose();
+  }
+
+  async function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!requesterId || !topic || !details.trim()) return;
+    setState("sending");
+    setError(null);
+    try {
+      await createSupportCase(createClient(), {
+        requesterId,
+        orderId: realOrder?.id,
+        subject: realOrder ? `${topic} · ${realOrder.tracking_code}` : topic,
+        description: details,
+        priority: topic === "Late or missing parcel" ? "high" : "normal",
+      });
+      setState("sent");
+    } catch (cause) {
+      setState("error");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "We couldn’t send your request. Try again.",
+      );
+    }
+  }
+
+  const rowSx = {
+    minHeight: 60,
+    gap: 1.5,
+    border: 1,
+    borderColor: "divider",
+    borderRadius: "16px",
+  } as const;
+
   return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      titleId="help-title"
-      title="Report a problem"
-    >
+    <Sheet open={open} onClose={close} titleId="help-title" title="Get help">
       {order && (
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
           About parcel <strong>{order.tracking_code}</strong>
         </Typography>
       )}
-      <List
-        disablePadding
-        sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 1 }}
-      >
-        {order?.driver_phone && order.driver_id && (
-          <ListItem disablePadding>
-            <ListItemButton
-              component="a"
-              href={`tel:${order.driver_phone}`}
-              sx={{
-                minHeight: 60,
-                gap: 1.5,
-                border: 1,
-                borderColor: "divider",
-                borderRadius: "16px",
-              }}
-            >
-              <PhoneOutlined />
-              <ListItemText
-                primary="Call your rider"
-                secondary={order.driver_name ?? "Assigned rider"}
-                slotProps={{ primary: { sx: { fontWeight: 700 } } }}
-              />
-            </ListItemButton>
-          </ListItem>
-        )}
-        <ListItem disablePadding>
-          <ListItemButton
-            component={Link}
-            href={
-              order ? `/track?order=${encodeURIComponent(order.id)}` : "/track"
-            }
-            onClick={onClose}
-            sx={{
-              minHeight: 60,
-              gap: 1.5,
-              border: 1,
-              borderColor: "divider",
-              borderRadius: "16px",
-            }}
+      {(canCall || (order && showStatusLink)) && (
+        <List
+          disablePadding
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr)",
+            gap: 1,
+            mb: 2,
+          }}
+        >
+          {canCall && order?.driver_phone && (
+            <ListItem disablePadding>
+              <ListItemButton
+                component="a"
+                href={`tel:${order.driver_phone}`}
+                sx={rowSx}
+              >
+                <PhoneOutlined />
+                <ListItemText
+                  primary="Call your rider"
+                  secondary={order.driver_name ?? "Assigned rider"}
+                  slotProps={{ primary: { sx: { fontWeight: 700 } } }}
+                />
+              </ListItemButton>
+            </ListItem>
+          )}
+          {order && showStatusLink && (
+            <ListItem disablePadding>
+              <ListItemButton
+                component={Link}
+                href={`/track?order=${encodeURIComponent(order.id)}`}
+                onClick={close}
+                sx={rowSx}
+              >
+                <TrackChangesOutlined />
+                <ListItemText
+                  primary="Check the latest status"
+                  secondary="Timeline, estimate and rider location"
+                  slotProps={{ primary: { sx: { fontWeight: 700 } } }}
+                />
+              </ListItemButton>
+            </ListItem>
+          )}
+        </List>
+      )}
+
+      {state === "sent" ? (
+        <Alert
+          severity="success"
+          icon={<CheckCircleOutlined />}
+          sx={{ borderRadius: "12px" }}
+        >
+          Request sent. Our support team will follow up on your account
+          {realOrder ? ` about ${realOrder.tracking_code}` : ""}.
+        </Alert>
+      ) : (
+        <Box component="form" onSubmit={send}>
+          <Typography
+            variant="subtitle1"
+            component="h3"
+            sx={{ fontWeight: 750 }}
           >
-            <TrackChangesOutlined />
-            <ListItemText
-              primary="Check the latest status"
-              secondary="Timeline, estimate and rider location"
-              slotProps={{ primary: { sx: { fontWeight: 700 } } }}
-            />
-          </ListItemButton>
-        </ListItem>
-      </List>
-      <Box sx={{ mt: 1.5, borderTop: 1, borderColor: "divider" }}>
+            Contact support
+          </Typography>
+          <Stack
+            direction="row"
+            role="radiogroup"
+            aria-label="What’s the problem?"
+            sx={{ flexWrap: "wrap", gap: 1, mt: 1 }}
+          >
+            {HELP_TOPICS.map((item) => {
+              const selected = topic === item;
+              return (
+                <Chip
+                  key={item}
+                  role="radio"
+                  aria-checked={selected}
+                  clickable
+                  label={item}
+                  onClick={() => setTopic(item)}
+                  icon={selected ? <CheckCircleOutlined /> : undefined}
+                  sx={{
+                    height: 40,
+                    borderRadius: "999px",
+                    fontWeight: 650,
+                    bgcolor: selected ? "secondary.main" : "grey.100",
+                    color: selected ? "secondary.contrastText" : "text.primary",
+                    "& .MuiChip-icon": { color: "inherit" },
+                    "&:hover": {
+                      bgcolor: selected ? "secondary.main" : "grey.200",
+                    },
+                  }}
+                />
+              );
+            })}
+          </Stack>
+          <OutlinedInput
+            fullWidth
+            multiline
+            minRows={3}
+            value={details}
+            onChange={(event) => setDetails(event.target.value)}
+            placeholder="What happened? Add anything the rider or support should know."
+            inputProps={{
+              "aria-label": "Describe the problem",
+              maxLength: 1000,
+            }}
+            sx={{ mt: 1.5, bgcolor: "background.paper" }}
+          />
+          {error && (
+            <Alert severity="error" sx={{ mt: 1.5, borderRadius: "12px" }}>
+              {error}
+            </Alert>
+          )}
+          {requesterId ? (
+            <Button
+              fullWidth
+              type="submit"
+              variant="contained"
+              size="large"
+              disabled={!topic || !details.trim() || state === "sending"}
+              sx={{ mt: 1.5, minHeight: 52 }}
+            >
+              {state === "sending" ? "Sending…" : "Send to support"}
+            </Button>
+          ) : (
+            <Button
+              fullWidth
+              variant="contained"
+              color="secondary"
+              size="large"
+              onClick={onSignIn}
+              sx={{ mt: 1.5, minHeight: 52 }}
+            >
+              Sign in to contact support
+            </Button>
+          )}
+        </Box>
+      )}
+
+      <Box sx={{ mt: 2.5, borderTop: 1, borderColor: "divider" }}>
         {faqs.map((faq) => (
           <Accordion
             key={faq.q}
@@ -1586,11 +1682,6 @@ export function HelpSheet({
           </Accordion>
         ))}
       </Box>
-      <IssueForm
-        key={order?.id ?? "none"}
-        order={order}
-        profileId={profileId}
-      />
     </Sheet>
   );
 }
@@ -1683,8 +1774,8 @@ function ScanView({ onDetected }: { onDetected: (code: string) => void }) {
     return (
       <Alert severity="info" icon={false} sx={{ borderRadius: "12px", mb: 2 }}>
         {status === "blocked"
-          ? "Camera access was blocked. Allow it in your browser settings, or type the tracking number on Home."
-          : "This browser can’t scan codes. Type or paste the tracking number on Home instead."}
+          ? "Camera access was blocked. Allow it in your browser settings, or type the tracking number instead."
+          : "This browser can’t scan codes. Type or paste the tracking number instead."}
       </Alert>
     );
 
@@ -1869,36 +1960,12 @@ export function CodSheet({
 
 /* ------------------------------------------------------------- track extras */
 
-export function TrackLookupNotice({
-  code,
-  isAuthenticated,
-  onSignIn,
-}: {
-  code: string;
-  isAuthenticated: boolean;
-  onSignIn: () => void;
-}) {
+export function TrackLookupNotice({ code }: { code: string }) {
   return (
     <Box sx={{ px: 2, mt: 1.5 }}>
-      <Alert
-        icon={false}
-        severity="info"
-        sx={{ borderRadius: "12px", alignItems: "center" }}
-        action={
-          isAuthenticated ? (
-            <Button color="inherit" size="small" component={Link} href="/home">
-              Try again
-            </Button>
-          ) : (
-            <Button color="inherit" size="small" onClick={onSignIn}>
-              Sign in
-            </Button>
-          )
-        }
-      >
-        {isAuthenticated
-          ? `No delivery found for “${code}”. Check the number and try again.`
-          : "Tracking by number needs an account for now. Sign in to track parcels linked to you."}
+      <Alert icon={false} severity="info" sx={{ borderRadius: "12px" }}>
+        No delivery found for “{code}”. Check the code on your receipt or
+        message and try again.
       </Alert>
     </Box>
   );
@@ -1913,33 +1980,42 @@ export function ParcelSwitcher({
   selectedId: string;
   onSelect: (order: DeliveryOrder) => void;
 }) {
-  if (orders.length < 2) return null;
+  if (orders.length === 0) return null;
   return (
-    <Stack
-      direction="row"
-      spacing={1}
-      component="nav"
-      aria-label="Your parcels"
-      sx={{
-        mt: 1.5,
-        px: 2,
-        overflowX: "auto",
-        scrollbarWidth: "none",
-        "&::-webkit-scrollbar": { display: "none" },
-      }}
-    >
-      {orders.slice(0, 8).map((order) => (
-        <Chip
-          key={order.id}
-          clickable
-          label={order.tracking_code}
-          onClick={() => onSelect(order)}
-          color={order.id === selectedId ? "secondary" : "default"}
-          variant={order.id === selectedId ? "filled" : "outlined"}
-          sx={{ flex: "none", height: 40, borderRadius: "999px" }}
-        />
-      ))}
-    </Stack>
+    <Box component="nav" aria-labelledby="your-parcels" sx={{ mt: 2 }}>
+      <Typography
+        id="your-parcels"
+        variant="subtitle2"
+        component="h2"
+        sx={{ px: 2, color: "text.secondary", fontWeight: 700 }}
+      >
+        Your parcels
+      </Typography>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          mt: 1,
+          px: 2,
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
+        }}
+      >
+        {orders.slice(0, 8).map((order) => (
+          <Chip
+            key={order.id}
+            clickable
+            label={order.tracking_code}
+            onClick={() => onSelect(order)}
+            aria-pressed={order.id === selectedId}
+            color={order.id === selectedId ? "secondary" : "default"}
+            variant={order.id === selectedId ? "filled" : "outlined"}
+            sx={{ flex: "none", height: 40, borderRadius: "999px" }}
+          />
+        ))}
+      </Stack>
+    </Box>
   );
 }
 
@@ -1954,20 +2030,7 @@ export function HomeSkeleton() {
         height={188}
         sx={{ mt: 2, borderRadius: "20px" }}
       />
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 1,
-          mt: 2,
-          mb: 3,
-        }}
-      >
-        {[0, 1, 2, 3].map((item) => (
-          <Skeleton key={item} variant="rounded" height={76} />
-        ))}
-      </Box>
-      <Skeleton variant="rounded" height={64} sx={{ mb: 1 }} />
+      <Skeleton variant="rounded" height={64} sx={{ mt: 3, mb: 1 }} />
       <Skeleton variant="rounded" height={64} />
     </Box>
   );

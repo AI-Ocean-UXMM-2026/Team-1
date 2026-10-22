@@ -4,16 +4,17 @@ import { type FormEvent, useMemo, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
+  ActionToast,
   Brand,
   DemoBadge,
   LoadingBlock,
   MobileNav,
-  SignInRequired,
+  PageHeader,
+  SignInGate,
   StatusBadge,
   signOut,
   UserActions,
 } from "@/components/delivery/common";
-import { Icon } from "@/components/delivery/icons";
 import { createDelivery } from "@/lib/delivery/actions";
 import {
   createCommerceIntegration,
@@ -51,6 +52,14 @@ const sellerNavItems = [
   },
 ] as const;
 
+const BEFORE_TRANSIT = ["pending", "accepted", "picked_up"];
+
+function previewOrLoadingNotice(isDemo: boolean) {
+  return isDemo
+    ? "Preview mode: sign in with a seller account to save this change."
+    : "Your seller account is still loading. Try again in a moment.";
+}
+
 export function SellerApp() {
   const workspace = useOperationsWorkspace("seller");
   const [authOpen, setAuthOpen] = useState(false);
@@ -70,12 +79,11 @@ export function SellerApp() {
     [workspace.data.integrations],
   );
 
+  /** Resolves true once saved, so the form can clear for the next entry. */
   async function runAction(action: () => Promise<unknown>, message: string) {
     if (workspace.isDemo) {
-      setNotice(
-        "Preview mode: sign in with a seller account to save this change.",
-      );
-      return;
+      setNotice(previewOrLoadingNotice(true));
+      return false;
     }
     setSaving(true);
     setNotice(null);
@@ -83,10 +91,12 @@ export function SellerApp() {
       await action();
       await workspace.refresh();
       setNotice(message);
+      return true;
     } catch (cause) {
       setNotice(
         cause instanceof Error ? cause.message : "Could not save the change.",
       );
+      return false;
     } finally {
       setSaving(false);
     }
@@ -95,9 +105,13 @@ export function SellerApp() {
   async function connectChannel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const profile = workspace.profile;
-    if (!profile) return;
-    const form = new FormData(event.currentTarget);
-    await runAction(
+    if (!profile) {
+      setNotice(previewOrLoadingNotice(workspace.isDemo));
+      return;
+    }
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const saved = await runAction(
       () =>
         createCommerceIntegration(createClient(), {
           sellerId: profile.id,
@@ -111,18 +125,23 @@ export function SellerApp() {
         }),
       "Sales channel connected.",
     );
+    if (saved) formElement.reset();
   }
 
   async function importShipment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const profile = workspace.profile;
-    if (!profile) return;
-    const form = new FormData(event.currentTarget);
+    if (!profile) {
+      setNotice(previewOrLoadingNotice(workspace.isDemo));
+      return;
+    }
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const provider = String(form.get("provider"));
     const integration = workspace.data.integrations.find(
       (item) => item.provider_name === provider,
     );
-    await runAction(
+    const saved = await runAction(
       () =>
         importExternalShipment(createClient(), {
           sellerId: profile.id,
@@ -136,14 +155,19 @@ export function SellerApp() {
         }),
       "External order imported.",
     );
+    if (saved) formElement.reset();
   }
 
   async function requestDelivery(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const profile = workspace.profile;
-    if (!profile) return;
-    const form = new FormData(event.currentTarget);
-    await runAction(
+    if (!profile) {
+      setNotice(previewOrLoadingNotice(workspace.isDemo));
+      return;
+    }
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const saved = await runAction(
       () =>
         createDelivery(createClient(), {
           managerId: profile.id,
@@ -157,10 +181,12 @@ export function SellerApp() {
         }),
       "Delivery request submitted to operations.",
     );
+    if (saved) formElement.reset();
   }
 
   if (workspace.isLoading)
     return <LoadingBlock title="Opening seller operations…" />;
+  const signedOut = !workspace.isAuthenticated && !workspace.isDemo;
 
   return (
     <main className="operations-app seller-app">
@@ -168,285 +194,285 @@ export function SellerApp() {
         <div className="workspace-header-inner">
           <Brand href="/seller" />
           <span className="workspace-role-label">Seller console</span>
-          <UserActions
-            profile={workspace.profile}
-            isAuthenticated={workspace.isAuthenticated}
-            onSignIn={() => setAuthOpen(true)}
-            onSignOut={() => void signOut()}
-            label="Seller"
-          />
+          {/* Signed out, the page body already offers sign-in. */}
+          {!signedOut && (
+            <UserActions
+              profile={workspace.profile}
+              isAuthenticated={workspace.isAuthenticated}
+              onSignIn={() => setAuthOpen(true)}
+              onSignOut={() => void signOut()}
+              label="Seller"
+            />
+          )}
         </div>
       </header>
 
-      {!workspace.isAuthenticated && !workspace.isDemo ? (
-        <div className="operations-shell">
-          <SignInRequired
-            title="Sign in to manage seller orders"
-            description="Submit deliveries, connect sales channels and track provider shipments with a seller account."
+      <div className="operations-shell" id="seller-overview">
+        <PageHeader
+          title="Deliveries"
+          description="Request Oern deliveries and follow orders from other carriers in one queue."
+        />
+
+        {workspace.isDemo && (
+          <div className="workspace-demo">
+            <DemoBadge>Seller preview</DemoBadge>
+            <span>
+              Forms and shipment changes are illustrative until a seller account
+              signs in.
+            </span>
+          </div>
+        )}
+        {workspace.error && (
+          <div className="error-notice" role="alert">
+            {workspace.error}
+          </div>
+        )}
+
+        {signedOut ? (
+          <SignInGate
+            title="Sign in to the seller console"
+            body="Seller accounts are set up by Oern operations. Sign in to request deliveries and import carrier orders."
             onSignIn={() => setAuthOpen(true)}
           />
-        </div>
-      ) : (
-        <div className="operations-shell" id="seller-overview">
-          <section className="operations-hero">
-            <div>
-              <span className="eyebrow">SELLER OPERATIONS</span>
-              <h1>Orders from storefront to doorstep.</h1>
-              <p>
-                Submit Oern deliveries and keep outside carrier orders visible
-                in one queue.
-              </p>
-            </div>
-            <div className="operations-health">
-              <Icon name="track" size={20} />
-              <span>
-                <strong>{activeShipments.length}</strong> active provider
-                shipments
-              </span>
-            </div>
-          </section>
-
-          {workspace.isDemo && (
-            <div className="workspace-demo">
-              <DemoBadge>Seller preview</DemoBadge>
-              <span>
-                Forms and shipment changes are illustrative until a seller
-                account signs in.
-              </span>
-            </div>
-          )}
-          {notice && <output className="operations-notice">{notice}</output>}
-          {workspace.error && (
-            <div className="error-notice" role="alert">
-              {workspace.error}
-            </div>
-          )}
-
-          <section className="operations-kpis" aria-label="Seller summary">
-            <div>
-              <span>Connected channels</span>
-              <strong>{workspace.data.integrations.length}</strong>
-            </div>
-            <div>
-              <span>Local requests</span>
-              <strong>{localOrders.length}</strong>
-            </div>
-            <div>
-              <span>Active shipments</span>
-              <strong>{activeShipments.length}</strong>
-            </div>
-            <div>
-              <span>Delivered</span>
-              <strong>{deliveredCount}</strong>
-            </div>
-          </section>
-
-          <section className="operations-grid" id="seller-orders">
-            <div className="operations-panel operations-panel-wide">
-              <div className="section-head-inline">
-                <h2>Unified order queue</h2>
-                <span>Local and provider deliveries</span>
+        ) : (
+          <>
+            <section className="operations-kpis" aria-label="Seller summary">
+              <div>
+                <span>Connected channels</span>
+                <strong>{workspace.data.integrations.length}</strong>
               </div>
-              <div className="operations-list">
-                {workspace.data.externalShipments.map((shipment) => (
-                  <article className="operations-list-item" key={shipment.id}>
-                    <span className="operations-provider-mark">
-                      {shipment.provider_name.slice(0, 2).toUpperCase()}
-                    </span>
-                    <div>
-                      <strong>{shipment.tracking_code}</strong>
-                      <span>
-                        {shipment.provider_name} ·{" "}
-                        {shipment.destination_label || "Destination pending"}
-                      </span>
-                    </div>
-                    <StatusBadge status={shipment.status as DeliveryStatus} />
-                    {!["delivered", "failed", "cancelled"].includes(
-                      shipment.status,
-                    ) && (
-                      <button
-                        className="button button-outline button-small"
-                        type="button"
-                        disabled={saving}
-                        onClick={() =>
-                          void runAction(
-                            () =>
-                              updateExternalShipmentStatus(
-                                createClient(),
-                                shipment.id,
-                                "in_transit",
-                              ),
-                            "Shipment status updated.",
-                          )
-                        }
-                      >
-                        Mark moving
-                      </button>
-                    )}
-                  </article>
-                ))}
-                {localOrders.map((order) => (
-                  <article className="operations-list-item" key={order.id}>
-                    <span className="operations-provider-mark operations-provider-local">
-                      OE
-                    </span>
-                    <div>
-                      <strong>{order.tracking_code}</strong>
-                      <span>Oern · {order.delivery_address}</span>
-                    </div>
-                    <StatusBadge status={order.status as DeliveryStatus} />
-                  </article>
-                ))}
+              <div>
+                <span>Oern deliveries</span>
+                <strong>{localOrders.length}</strong>
               </div>
-            </div>
+              <div>
+                <span>Carrier orders in progress</span>
+                <strong>{activeShipments.length}</strong>
+              </div>
+              <div>
+                <span>Delivered</span>
+                <strong>{deliveredCount}</strong>
+              </div>
+            </section>
 
-            <form
-              className="operations-panel operations-form"
-              onSubmit={requestDelivery}
-            >
-              <div className="section-head-inline">
-                <h2>Request an Oern delivery</h2>
-              </div>
-              <label>
-                Pickup address
-                <input name="pickup" required />
-              </label>
-              <label>
-                Delivery address
-                <input name="delivery" required />
-              </label>
-              <div className="operations-form-row">
-                <label>
-                  Recipient
-                  <input name="recipient" required />
-                </label>
-                <label>
-                  Phone
-                  <input name="phone" inputMode="tel" required />
-                </label>
-              </div>
-              <label>
-                Parcel description
-                <input name="parcel" required />
-              </label>
-              <label>
-                COD amount
-                <input
-                  name="cod"
-                  type="number"
-                  min="0"
-                  step="100"
-                  defaultValue="0"
-                />
-              </label>
-              <button
-                className="button button-primary"
-                type="submit"
-                disabled={saving || !workspace.isAuthenticated}
-              >
-                Submit delivery
-              </button>
-            </form>
-          </section>
-
-          <section className="operations-grid" id="seller-channels">
-            <form
-              className="operations-panel operations-form"
-              onSubmit={connectChannel}
-            >
-              <div className="section-head-inline">
-                <h2>Connect a sales channel</h2>
-              </div>
-              <label>
-                Provider
-                <input
-                  name="provider"
-                  placeholder="Shopify, WooCommerce, marketplace"
-                  required
-                />
-              </label>
-              <label>
-                Store name
-                <input name="store" required />
-              </label>
-              <div className="operations-form-row">
-                <label>
-                  Channel type
-                  <select name="type" defaultValue="ecommerce">
-                    <option value="ecommerce">E-commerce</option>
-                    <option value="marketplace">Marketplace</option>
-                    <option value="carrier">Carrier</option>
-                  </select>
-                </label>
-                <label>
-                  External account ID
-                  <input name="account" />
-                </label>
-              </div>
-              <button
-                className="button button-dark"
-                type="submit"
-                disabled={saving || !workspace.isAuthenticated}
-              >
-                Connect channel
-              </button>
-            </form>
-
-            <div className="operations-panel" id="seller-import">
-              <form className="operations-form" onSubmit={importShipment}>
+            <section className="operations-grid" id="seller-orders">
+              <div className="operations-panel operations-panel-wide">
                 <div className="section-head-inline">
-                  <h2>Import a provider order</h2>
+                  <h2>Unified order queue</h2>
+                  <span>Local and provider deliveries</span>
+                </div>
+                <div className="operations-list">
+                  {workspace.data.externalShipments.map((shipment) => (
+                    <article className="operations-list-item" key={shipment.id}>
+                      <span className="operations-provider-mark">
+                        {shipment.provider_name.slice(0, 2).toUpperCase()}
+                      </span>
+                      <div>
+                        <strong>{shipment.tracking_code}</strong>
+                        <span>
+                          {shipment.provider_name} ·{" "}
+                          {shipment.destination_label || "Destination pending"}
+                        </span>
+                      </div>
+                      <StatusBadge status={shipment.status as DeliveryStatus} />
+                      {/* Only offered while it would change something. */}
+                      {BEFORE_TRANSIT.includes(shipment.status) && (
+                        <button
+                          className="button button-outline button-small"
+                          type="button"
+                          disabled={saving}
+                          onClick={() =>
+                            void runAction(
+                              () =>
+                                updateExternalShipmentStatus(
+                                  createClient(),
+                                  shipment.id,
+                                  "in_transit",
+                                ),
+                              "Shipment status updated.",
+                            )
+                          }
+                        >
+                          Mark in transit
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                  {localOrders.map((order) => (
+                    <article className="operations-list-item" key={order.id}>
+                      <span className="operations-provider-mark operations-provider-local">
+                        OE
+                      </span>
+                      <div>
+                        <strong>{order.tracking_code}</strong>
+                        <span>Oern · {order.delivery_address}</span>
+                      </div>
+                      <StatusBadge status={order.status as DeliveryStatus} />
+                    </article>
+                  ))}
+                  {!workspace.data.externalShipments.length &&
+                    !localOrders.length && (
+                      <p className="empty-small-copy">
+                        No orders yet. Request an Oern delivery or import a
+                        carrier order to see it here.
+                      </p>
+                    )}
+                </div>
+              </div>
+
+              <form
+                className="operations-panel operations-form"
+                onSubmit={requestDelivery}
+              >
+                <div className="section-head-inline">
+                  <h2>Request an Oern delivery</h2>
                 </div>
                 <label>
-                  Provider
-                  <input name="provider" list="seller-provider-list" required />
+                  Pickup address
+                  <input name="pickup" required />
                 </label>
-                <datalist id="seller-provider-list">
-                  {providerOptions.map((item) => (
-                    <option value={item} key={item} />
-                  ))}
-                </datalist>
+                <label>
+                  Delivery address
+                  <input name="delivery" required />
+                </label>
                 <div className="operations-form-row">
                   <label>
-                    Tracking code
-                    <input
-                      name="tracking"
-                      required
-                      autoCapitalize="characters"
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
+                    Recipient
+                    <input name="recipient" required />
                   </label>
                   <label>
-                    Order reference
-                    <input name="reference" />
+                    Phone
+                    <input name="phone" inputMode="tel" required />
                   </label>
                 </div>
                 <label>
-                  Origin
-                  <input name="origin" />
+                  Parcel description
+                  <input name="parcel" required />
                 </label>
                 <label>
-                  Destination
-                  <input name="destination" />
-                </label>
-                <label>
-                  Carrier tracking URL
-                  <input name="trackingUrl" type="url" />
+                  COD amount
+                  <input
+                    name="cod"
+                    type="number"
+                    min="0"
+                    step="100"
+                    defaultValue="0"
+                  />
                 </label>
                 <button
                   className="button button-primary"
                   type="submit"
-                  disabled={saving || !workspace.isAuthenticated}
+                  disabled={saving}
                 >
-                  Import order
+                  Submit delivery
                 </button>
               </form>
-            </div>
-          </section>
-        </div>
-      )}
-      <MobileNav label="Seller app" items={sellerNavItems} />
+            </section>
+
+            <section className="operations-grid" id="seller-channels">
+              <form
+                className="operations-panel operations-form"
+                onSubmit={connectChannel}
+              >
+                <div className="section-head-inline">
+                  <h2>Connect a sales channel</h2>
+                </div>
+                <label>
+                  Provider
+                  <input
+                    name="provider"
+                    placeholder="Shopify, WooCommerce, marketplace"
+                    required
+                  />
+                </label>
+                <label>
+                  Store name
+                  <input name="store" required />
+                </label>
+                <div className="operations-form-row">
+                  <label>
+                    Channel type
+                    <select name="type" defaultValue="ecommerce">
+                      <option value="ecommerce">E-commerce</option>
+                      <option value="marketplace">Marketplace</option>
+                      <option value="carrier">Carrier</option>
+                    </select>
+                  </label>
+                  <label>
+                    External account ID
+                    <input name="account" />
+                  </label>
+                </div>
+                <button
+                  className="button button-dark"
+                  type="submit"
+                  disabled={saving}
+                >
+                  Connect channel
+                </button>
+              </form>
+
+              <div className="operations-panel" id="seller-import">
+                <form className="operations-form" onSubmit={importShipment}>
+                  <div className="section-head-inline">
+                    <h2>Import a provider order</h2>
+                  </div>
+                  <label>
+                    Provider
+                    <input
+                      name="provider"
+                      list="seller-provider-list"
+                      required
+                    />
+                  </label>
+                  <datalist id="seller-provider-list">
+                    {providerOptions.map((item) => (
+                      <option value={item} key={item} />
+                    ))}
+                  </datalist>
+                  <div className="operations-form-row">
+                    <label>
+                      Tracking code
+                      <input
+                        name="tracking"
+                        required
+                        autoCapitalize="characters"
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </label>
+                    <label>
+                      Order reference
+                      <input name="reference" />
+                    </label>
+                  </div>
+                  <label>
+                    Origin
+                    <input name="origin" />
+                  </label>
+                  <label>
+                    Destination
+                    <input name="destination" />
+                  </label>
+                  <label>
+                    Carrier tracking URL
+                    <input name="trackingUrl" type="url" />
+                  </label>
+                  <button
+                    className="button button-primary"
+                    type="submit"
+                    disabled={saving}
+                  >
+                    Import order
+                  </button>
+                </form>
+              </div>
+            </section>
+          </>
+        )}
+      </div>
+      {!signedOut && <MobileNav label="Seller app" items={sellerNavItems} />}
+      <ActionToast message={notice} onDismiss={() => setNotice(null)} />
       <AuthDialog
         open={authOpen}
         audience="team"

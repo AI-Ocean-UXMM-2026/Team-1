@@ -19,6 +19,11 @@ export function needsRider(order: DeliveryOrder) {
   );
 }
 
+/** Cash still owed by the recipient or not yet handed over by the rider. */
+export function codPending(order: DeliveryOrder) {
+  return order.cod_amount > 0 && order.cod_status === "pending";
+}
+
 export function hourlyBuckets(
   orders: DeliveryOrder[],
   hours = 12,
@@ -43,9 +48,7 @@ export function attentionSummary(
     delayed: orders.filter(
       (order) => isActiveOrder(order) && order.traffic_delay_minutes > 0,
     ).length,
-    codPending: orders.filter(
-      (order) => order.cod_amount > 0 && order.cod_status === "pending",
-    ).length,
+    codPending: orders.filter(codPending).length,
     // Cash the rider holds that the office has not yet received.
     codToSettle: orders.filter(
       (order) => order.cod_amount > 0 && order.cod_status === "collected",

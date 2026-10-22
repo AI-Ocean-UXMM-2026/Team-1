@@ -74,6 +74,15 @@ export function progressPercent(order: DeliveryOrder) {
   return 18;
 }
 
+/** One-line, state-aware summary for the greeting. */
+export function homeSummary(orders: DeliveryOrder[]) {
+  const active = orders.filter((order) => isActive(order.status)).length;
+  if (active === 0) return "No deliveries on the way";
+  return active === 1
+    ? "1 delivery on the way"
+    : `${active} deliveries on the way`;
+}
+
 export function pickNextParcel(orders: DeliveryOrder[]) {
   const rank: Partial<Record<DeliveryStatus, number>> = {
     in_transit: 0,

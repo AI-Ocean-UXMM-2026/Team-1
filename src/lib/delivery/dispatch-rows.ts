@@ -80,15 +80,13 @@ export function locationStatusText({
   order: DeliveryOrder | null;
 }) {
   if (isDemo) return "Simulated location";
-  const locationTime = latestTimestamp
-    ? Math.max(
-        0,
-        Math.floor((now - new Date(latestTimestamp).getTime()) / 60_000),
-      )
-    : null;
-  if (locationTime === null)
+  if (!latestTimestamp) {
     return order && hasCollectedParcel(order.status)
       ? "Waiting for GPS"
       : "Available after pickup";
+  }
+  const parsed = new Date(latestTimestamp).getTime();
+  if (Number.isNaN(parsed)) return "Location unknown";
+  const locationTime = Math.max(0, Math.floor((now - parsed) / 60_000));
   return locationTime < 1 ? "Just updated" : `Updated ${locationTime}m ago`;
 }

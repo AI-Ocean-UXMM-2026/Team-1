@@ -80,7 +80,11 @@ export function AuthDialog({
         <Icon name="delivery" size={22} />
       </div>
       <span className="eyebrow">
-        {audience === "team" ? "Oern team access" : "Oern customer account"}
+        {audience === "team"
+          ? "Oern team access"
+          : mode === "sign_in"
+            ? "Sign in to Oern"
+            : "New customer account"}
       </span>
       <h2 id="auth-title">
         {audience === "team"

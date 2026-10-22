@@ -12,6 +12,9 @@ export async function proxy(request: NextRequest) {
     const redirect = NextResponse.redirect(new URL(destination, request.url));
     for (const cookie of response.cookies.getAll())
       redirect.cookies.set(cookie);
+    for (const [key, value] of response.headers.entries()) {
+      if (!redirect.headers.has(key)) redirect.headers.set(key, value);
+    }
     return redirect;
   }
 

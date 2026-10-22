@@ -88,6 +88,36 @@ export type RoadReport = {
   expires_at: string;
 };
 
+export type RiderRequestKind = "energy" | "issue";
+
+export type RiderRequestCategory =
+  | "refuel"
+  | "recharge"
+  | "vehicle_problem"
+  | "accident"
+  | "parcel_damaged"
+  | "unsafe_area"
+  | "other";
+
+/** A rider asking operations for a fuel or charging stop, or help with an issue. */
+export type RiderRequest = {
+  id: string;
+  driver_id: string;
+  driver_name: string;
+  order_id: string | null;
+  vehicle_id: string | null;
+  kind: RiderRequestKind;
+  category: RiderRequestCategory;
+  note: string | null;
+  energy_level_percent: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: "open" | "acknowledged" | "resolved";
+  created_at: string;
+  acknowledged_at: string | null;
+  resolved_at: string | null;
+};
+
 export type AssignmentRecommendation = {
   driverId: string;
   vehicleId: string | null;
@@ -139,6 +169,7 @@ export type WorkspaceData = {
   vehicles: VehicleOption[];
   statusEvents: StatusEvent[];
   roadReports: RoadReport[];
+  riderRequests: RiderRequest[];
   routes: DeliveryRoute[];
   routeStops: RouteStop[];
 };

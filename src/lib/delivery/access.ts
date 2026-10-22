@@ -3,8 +3,11 @@ export function workspaceHome(role: string) {
   if (role === "driver") return "/rider";
   if (role === "seller") return "/seller";
   if (role === "support") return "/support";
-  return "/";
+  return "/home";
 }
+
+/** Signed-in people skip onboarding and land in their own workspace. */
+const ONBOARDING_PATHS = new Set(["/", "/welcome"]);
 
 export function workspaceRedirect(pathname: string, role: string | null) {
   if (!role) return null;
@@ -20,6 +23,6 @@ export function workspaceRedirect(pathname: string, role: string | null) {
             ? "support"
             : null;
   if (requestedRole && requestedRole !== role) return home;
-  if (pathname === "/" && home !== "/") return home;
+  if (ONBOARDING_PATHS.has(pathname)) return home;
   return null;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useEffectEvent, useState } from "react";
 
 import { Icon, type IconName } from "@/components/delivery/icons";
 import { Mascot } from "@/components/delivery/mascot";
@@ -19,15 +19,11 @@ const iconByStatus: Record<DeliveryStatus, IconName> = {
   cancelled: "close",
 };
 
+/** Plain product name; Oern has no logo mark yet, so none is drawn. */
 export function Brand({ href = "/" }: { href?: string }) {
   return (
     <Link href={href} className="brand-lockup" aria-label="Oern home">
-      <span className="brand-symbol">
-        <Icon name="delivery" size={19} strokeWidth={2} />
-      </span>
-      <span>
-        oern<span className="brand-period">.</span>
-      </span>
+      Oern
     </Link>
   );
 }
@@ -84,7 +80,7 @@ export function UserActions({
   return isAuthenticated ? (
     <div className="user-actions">
       <div className="user-avatar">
-        {(profile?.full_name?.[0] ?? label[0]).toUpperCase()}
+        {(profile?.full_name?.[0] ?? label?.[0] ?? "?").toUpperCase()}
       </div>
       <div className="user-meta">
         <span>{profile?.full_name || "Team member"}</span>
@@ -108,6 +104,84 @@ export function UserActions({
     >
       Sign in <Icon name="arrow-right" size={16} />
     </button>
+  );
+}
+
+/** Plain workspace title: tools state what the page is, not a slogan. */
+export function PageHeader({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children?: ReactNode;
+}) {
+  return (
+    <header className="dash-page-header operations-page-header">
+      <div>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+      {children}
+    </header>
+  );
+}
+
+/**
+ * Shown instead of a workspace's forms when nobody is signed in, so the page
+ * explains what is needed rather than offering buttons that can't work.
+ */
+export function SignInGate({
+  title,
+  body,
+  onSignIn,
+}: {
+  title: string;
+  body: string;
+  onSignIn: () => void;
+}) {
+  return (
+    <section className="operations-panel operations-signin">
+      <h2>{title}</h2>
+      <p>{body}</p>
+      <button
+        type="button"
+        className="button button-primary"
+        onClick={onSignIn}
+      >
+        Sign in <Icon name="arrow-right" size={16} />
+      </button>
+    </section>
+  );
+}
+
+/**
+ * Save feedback pinned to the bottom of the screen: forms sit far below the
+ * top of these pages, where an inline notice would scroll out of view.
+ */
+export function ActionToast({
+  message,
+  onDismiss,
+}: {
+  message: string | null;
+  onDismiss: () => void;
+}) {
+  const dismiss = useEffectEvent(onDismiss);
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => dismiss(), 6000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
+  if (!message) return null;
+  return (
+    <output className="operations-notice" aria-live="polite">
+      <span>{message}</span>
+      <button type="button" onClick={onDismiss} aria-label="Dismiss">
+        <Icon name="close" size={16} />
+      </button>
+    </output>
   );
 }
 
@@ -153,7 +227,13 @@ export function MobileNav({
   }, [items]);
 
   return (
-    <nav className="mobile-bottom-nav" aria-label={label}>
+    <nav
+      className="mobile-bottom-nav"
+      aria-label={label}
+      style={{
+        gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
+      }}
+    >
       {items.map((item) => {
         const active = item.id === (activeId ?? hashActiveId);
         const content = (
@@ -194,29 +274,4 @@ export async function signOut() {
   const supabase = createClient();
   await supabase.auth.signOut();
   window.location.assign("/");
-}
-
-export function SignInRequired({
-  title,
-  description,
-  onSignIn,
-}: {
-  title: string;
-  description: string;
-  onSignIn: () => void;
-}) {
-  return (
-    <section className="dash-card dash-signin" aria-label="Sign in required">
-      <h1>{title}</h1>
-      <p>{description}</p>
-      <button
-        type="button"
-        className="button button-primary"
-        onClick={onSignIn}
-      >
-        Sign in
-        <Icon name="arrow-right" size={16} />
-      </button>
-    </section>
-  );
 }

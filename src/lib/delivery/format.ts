@@ -8,20 +8,25 @@ export const currency = new Intl.NumberFormat("en-US", {
 
 export function formatTime(value: string | null) {
   if (!value) return "Being arranged";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
     timeZone: "Asia/Yangon",
-  }).format(new Date(value));
+  }).format(d);
 }
 
-export function formatDateTime(value: string) {
+export function formatDateTime(value: string | null | undefined) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",
     timeZone: "Asia/Yangon",
-  }).format(new Date(value));
+  }).format(d);
 }
 
 /** Minutes past the estimate before a parcel is reported as running late. */
@@ -29,7 +34,9 @@ export const LATE_AFTER_MINUTES = 5;
 
 export function timeUntil(value: string | null, now = Date.now()) {
   if (!value) return "Soon";
-  const raw = Math.round((new Date(value).getTime() - now) / 60_000);
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Soon";
+  const raw = Math.round((d.getTime() - now) / 60_000);
   if (raw < -LATE_AFTER_MINUTES) return "Running late";
   const minutes = Math.max(0, raw);
   if (minutes < 1) return "Arriving now";
@@ -54,7 +61,9 @@ export function nextCustomerAction(status: DeliveryStatus, delayed = false) {
 
 export function relativeUpdatedAt(value: string | null, now = Date.now()) {
   if (!value) return "Not updated yet";
-  const minutes = Math.max(0, Math.round((now - Date.parse(value)) / 60_000));
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Not updated yet";
+  const minutes = Math.max(0, Math.round((now - d.getTime()) / 60_000));
   if (minutes < 1) return "Updated just now";
   if (minutes === 1) return "Updated 1 min ago";
   if (minutes < 60) return `Updated ${minutes} min ago`;
@@ -81,4 +90,10 @@ export function prioritiseOrders(orders: DeliveryOrder[]) {
     cancelled: 7,
   };
   return [...orders].sort((a, b) => rank[a.status] - rank[b.status]);
+}
+
+/** Database enums ("in_progress", "high") as interface labels ("In progress"). */
+export function sentenceCase(value: string) {
+  const text = value.replaceAll("_", " ").trim();
+  return text ? text[0].toUpperCase() + text.slice(1) : text;
 }

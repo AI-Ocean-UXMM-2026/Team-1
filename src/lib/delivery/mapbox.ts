@@ -34,10 +34,12 @@ export type RouteRequest = {
   at: number;
 };
 
-export function mapStyle(dark: boolean) {
-  return dark
-    ? "mapbox://styles/mapbox/dark-v11"
-    : "mapbox://styles/mapbox/light-v11";
+/** Oern's own Mapbox Studio style, used for every map. */
+export const MAP_STYLE =
+  "mapbox://styles/happer64bit/clnpqzscu00dj01qqhgrkhawy";
+
+export function mapStyle() {
+  return MAP_STYLE;
 }
 
 export function parseRoadRoute(body: DirectionsBody): RoadRoute | null {
@@ -74,7 +76,35 @@ export async function fetchRoadRoute(points: MapPoint[], signal?: AbortSignal) {
   if (!hasMapbox || points.length < 2) return null;
   const response = await fetch(directionsUrl(points), { signal });
   if (!response.ok) return null;
-  return parseRoadRoute((await response.json()) as DirectionsBody);
+  try {
+    return parseRoadRoute((await response.json()) as DirectionsBody);
+  } catch {
+    return null;
+  }
+}
+
+export function reverseGeocodeUrl(point: MapPoint) {
+  const params = new URLSearchParams({
+    access_token: MAPBOX_TOKEN,
+    types: "address,place",
+    limit: "1",
+  });
+  return `https://api.mapbox.com/geocoding/v5/mapbox.places/${point.longitude},${point.latitude}.json?${params}`;
+}
+
+type GeocodeBody = { features?: { place_name?: string }[] };
+
+/** A human-readable place name for a picked point, or null if it can't be resolved. */
+export async function reverseGeocode(point: MapPoint, signal?: AbortSignal) {
+  if (!hasMapbox) return null;
+  try {
+    const response = await fetch(reverseGeocodeUrl(point), { signal });
+    if (!response.ok) return null;
+    const body = (await response.json()) as GeocodeBody;
+    return body.features?.[0]?.place_name ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function destinationKeyFor(points: MapPoint[]) {

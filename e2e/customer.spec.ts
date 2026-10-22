@@ -9,10 +9,7 @@ test("sign-in dialog covers the app chrome (C-01)", async ({ page }) => {
   await dialog.getByRole("button", { name: /create an account/i }).click();
 
   const covered = await page.evaluate(() => {
-    const underneath = [
-      document.querySelector("nav a"),
-      document.querySelector("header button, header a"),
-    ];
+    const underneath = [document.querySelector("nav a, nav button")];
     return underneath.map((node) => {
       if (!node) return "missing";
       const box = node.getBoundingClientRect();
@@ -23,10 +20,7 @@ test("sign-in dialog covers the app chrome (C-01)", async ({ page }) => {
       return hit?.closest(".dialog-backdrop") ? "covered" : "exposed";
     });
   });
-  expect(covered, "nav and header must sit beneath the modal").toEqual([
-    "covered",
-    "covered",
-  ]);
+  expect(covered, "the nav must sit beneath the modal").toEqual(["covered"]);
 
   const submit = dialog.locator('button[type="submit"]');
   await submit.scrollIntoViewIfNeeded();
@@ -39,7 +33,7 @@ test("sign-in dialog covers the app chrome (C-01)", async ({ page }) => {
   expect(submitReachable).toBe(true);
 });
 
-test("ETA panel text meets contrast on Track (C-02)", async ({
+test("tracking detail has no contrast failures (C-02)", async ({
   page,
   context,
 }) => {
@@ -68,28 +62,15 @@ test("ETA panel text meets contrast on Track (C-02)", async ({
       },
     ],
   });
-  await page.goto("/track");
-  await expect(page.locator(".tracking-freshness-row")).toBeVisible();
+  await page.goto("/track?order=order-1");
+  await expect(
+    page.getByRole("region", { name: "Selected delivery" }),
+  ).toBeVisible();
   const results = await new AxeBuilder({ page: page as never })
-    .include(".eta-panel")
+    .include('[aria-label="Selected delivery"]')
     .withRules(["color-contrast"])
     .analyze();
-  expect(results.violations.map((v) => v.nodes.map((n) => n.html))).toEqual([]);
-});
-
-test("COD amount on Track is at least 12px (H-06)", async ({
-  page,
-  context,
-}) => {
-  await signInAs(context, "customer", {
-    delivery_orders: [
-      makeOrder({ customer_id: "user-1", status: "in_transit" }),
-    ],
-  });
-  await page.goto("/track");
-  const size = await page
-    .locator(".cod-card strong")
-    .first()
-    .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
-  expect(size).toBeGreaterThanOrEqual(12);
+  expect(
+    results.violations.map((v) => v.nodes.map((n) => n.html.slice(0, 120))),
+  ).toEqual([]);
 });

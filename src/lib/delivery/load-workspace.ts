@@ -7,6 +7,7 @@ import type {
   DeliveryStatus,
   DriverOption,
   ProfileOption,
+  RiderRequest,
   RoadReport,
   RouteStop,
   StatusEvent,
@@ -22,6 +23,23 @@ type ProfileRow = Tables<"profiles">;
 type LocationRow = Tables<"delivery_locations">;
 type VehicleRow = Tables<"vehicles">;
 type RoadReportRow = Tables<"road_reports">;
+type RiderRequestRow = Pick<
+  Tables<"rider_assistance_requests">,
+  | "id"
+  | "driver_id"
+  | "order_id"
+  | "vehicle_id"
+  | "kind"
+  | "category"
+  | "note"
+  | "energy_level_percent"
+  | "latitude"
+  | "longitude"
+  | "status"
+  | "created_at"
+  | "acknowledged_at"
+  | "resolved_at"
+>;
 
 export type LoadedWorkspace = {
   profile: WorkspaceProfile;
@@ -70,6 +88,7 @@ export async function loadWorkspace(
         vehicles: [],
         statusEvents: [],
         roadReports: [],
+        riderRequests: [],
         routes: [],
         routeStops: [],
       },
@@ -88,6 +107,7 @@ export async function loadWorkspace(
     roadReportsResult,
     routesResult,
     routeStopsResult,
+    riderRequestsResult,
   ] = await Promise.all([
     supabase
       .from("delivery_orders")
@@ -115,11 +135,23 @@ export async function loadWorkspace(
         "id, driver_id, order_id, category, severity, description, latitude, longitude, status, reported_at, expires_at",
       )
       .order("reported_at", { ascending: false }),
-    supabase.from("delivery_routes").select("*").order("planned_at", { ascending: true }),
+    supabase
+      .from("delivery_routes")
+      .select("*")
+      .order("planned_at", { ascending: true }),
     supabase
       .from("route_stops")
       .select("*")
       .order("sequence_number", { ascending: true }),
+    requestedRole === "manager" || requestedRole === "driver"
+      ? supabase
+          .from("rider_assistance_requests")
+          .select(
+            "id, driver_id, order_id, vehicle_id, kind, category, note, energy_level_percent, latitude, longitude, status, created_at, acknowledged_at, resolved_at",
+          )
+          .order("created_at", { ascending: false })
+          .limit(100)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const firstError =
@@ -154,6 +186,23 @@ export async function loadWorkspace(
     }));
   const profiles = (profilesResult.data ?? []) as ProfileRow[];
   const profileById = new Map(profiles.map((item) => [item.id, item]));
+  // Rider requests are additive: a project without that migration yet still
+  // loads every delivery, it just shows no requests.
+  const riderRequests: RiderRequest[] = riderRequestsResult.error
+    ? []
+    : ((riderRequestsResult.data ?? []) as RiderRequestRow[]).map(
+        (request) => ({
+          ...request,
+          driver_name: profileById.get(request.driver_id)?.full_name ?? "Rider",
+          kind: request.kind as RiderRequest["kind"],
+          category: request.category as RiderRequest["category"],
+          status: request.status as RiderRequest["status"],
+        }),
+      );
+  // Managers see the whole fleet; riders see what row-level security lets
+  // them read: their assigned vehicle and verified reports near their work.
+  const seesFleetData =
+    requestedRole === "manager" || requestedRole === "driver";
   const roadReports: RoadReport[] = (
     (roadReportsResult.data ?? []) as RoadReportRow[]
   ).map((report) => ({
@@ -185,26 +234,26 @@ export async function loadWorkspace(
             phone: item.phone,
           })),
         drivers: requestedRole === "manager" ? registeredDrivers : [],
-        vehicles:
-          requestedRole === "manager"
-            ? vehicles.map((item) => ({
-                id: item.id,
-                registration_number: item.registration_number,
-                vehicle_type: item.vehicle_type,
-                status: item.status,
-                energy_source:
-                  item.energy_source as VehicleOption["energy_source"],
-                fuel_level_percent: item.fuel_level_percent,
-                battery_level_percent: item.battery_level_percent,
-                range_km_at_full: item.range_km_at_full,
-                reserve_percent: item.reserve_percent,
-                odometer_km: item.odometer_km,
-                service_due_at_km: item.service_due_at_km,
-                capacity_kg: item.capacity_kg,
-              }))
-            : [],
+        vehicles: seesFleetData
+          ? vehicles.map((item) => ({
+              id: item.id,
+              registration_number: item.registration_number,
+              vehicle_type: item.vehicle_type,
+              status: item.status,
+              energy_source:
+                item.energy_source as VehicleOption["energy_source"],
+              fuel_level_percent: item.fuel_level_percent,
+              battery_level_percent: item.battery_level_percent,
+              range_km_at_full: item.range_km_at_full,
+              reserve_percent: item.reserve_percent,
+              odometer_km: item.odometer_km,
+              service_due_at_km: item.service_due_at_km,
+              capacity_kg: item.capacity_kg,
+            }))
+          : [],
         statusEvents: [],
-        roadReports: requestedRole === "manager" ? roadReports : [],
+        roadReports: seesFleetData ? roadReports : [],
+        riderRequests,
         routes: (routesResult.data ?? []) as DeliveryRoute[],
         routeStops: (routeStopsResult.data ?? []) as RouteStop[],
       },
@@ -213,7 +262,9 @@ export async function loadWorkspace(
 
   const assignments = (assignmentsResult.data ?? []) as AssignmentRow[];
   const vehicles = (vehiclesResult.data ?? []) as VehicleRow[];
-  const locations = (locationsResult.data ?? []) as LocationRow[];
+  const locations = (locationsResult.data ?? []).filter(
+    (loc) => loc.latitude !== null && loc.longitude !== null,
+  ) as LocationRow[];
   const events = (eventsResult.data ?? []) as StatusEvent[];
   const routes = (routesResult.data ?? []) as DeliveryRoute[];
   const routeStops = (routeStopsResult.data ?? []) as RouteStop[];
@@ -314,13 +365,14 @@ export async function loadWorkspace(
     data: {
       orders: mappedOrders,
       customers,
-      drivers: registeredDrivers,
-      vehicles: vehicleOptions,
+      drivers: requestedRole === "manager" ? registeredDrivers : [],
+      vehicles: seesFleetData ? vehicleOptions : [],
       statusEvents: events.map((event) => ({
         ...event,
         status: event.status as DeliveryStatus,
       })),
-      roadReports,
+      roadReports: seesFleetData ? roadReports : [],
+      riderRequests,
       routes,
       routeStops,
     },

@@ -255,7 +255,7 @@
 }
 
 .road-report-title strong {
-  text-transform: capitalize;
+  text-transform: none;
 }
 
 .road-severity {
@@ -5048,7 +5048,7 @@ summary:focus-visible {
   background: var(--color-info-surface);
 }
 
-.support-order-context span:last-child {
+.support-order-context > span:last-child {
   color: var(--color-info-text);
   font-size: 12px;
 }

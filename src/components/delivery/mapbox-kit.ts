@@ -19,11 +19,12 @@ export async function loadMapbox() {
   return mapboxgl;
 }
 
+/**
+ * Oern's custom map style is a single (light) style, so route and marker
+ * colours stay on the light palette whatever the device theme.
+ */
 export function prefersDark() {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-  );
+  return false;
 }
 
 /** Route colours from DESIGN.md §6.3 (map tokens), light and dark. */
@@ -75,7 +76,7 @@ export function useMapboxMap(
       if (cancelled || !container.current) return;
       map = new gl.Map({
         container: container.current,
-        style: mapStyle(prefersDark()),
+        style: mapStyle(),
         center: lngLat(YANGON),
         zoom: 14,
         interactive,

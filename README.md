@@ -23,7 +23,7 @@ The three interfaces share Supabase Auth and delivery data, with separate URLs:
 
 The default interface is the customer app. Next.js Proxy redirects signed-in team accounts to the workspace matching their profile role; Supabase row-level security controls which records each account can read or change. Managers, riders, sellers, and support staff use accounts provisioned through a trusted administrative process. A rider needs both a `driver` profile role and a `driver_profiles` record before assignment.
 
-Signed-out visitors and accounts with no orders see empty states; the workspaces load live Supabase data only (the in-memory sample workspace in `src/lib/delivery/demo-data.ts` is no longer wired in). Browser tests answer every Supabase request from synthetic fixtures (`e2e/support/supabase-mock.ts`), so they never touch a real project.
+Signed-out visitors and accounts with no records see live empty states. Workspace data is loaded from Supabase; browser-only demo records are not substituted for missing data. Browser tests answer every Supabase request from synthetic fixtures (`e2e/support/supabase-mock.ts`), so they never touch a real project.
 
 ## Customer tracking flow
 

@@ -22,18 +22,30 @@ import {
   assignDelivery,
   reviewRoadReport,
   setDriverAvailability,
+  updateRiderRequestStatus,
 } from "@/lib/delivery/actions";
 import {
   attentionSummary,
+  codPending,
   hourlyBuckets,
   isActiveOrder,
   isMovingOrder,
   needsRider,
   recentOrders,
 } from "@/lib/delivery/dashboard";
-import { currency, formatTime, prioritiseOrders } from "@/lib/delivery/format";
+import {
+  currency,
+  formatTime,
+  prioritiseOrders,
+  sentenceCase,
+} from "@/lib/delivery/format";
 import { recommendAssignments } from "@/lib/delivery/intelligence";
-import type { DriverOption, WorkspaceData } from "@/lib/delivery/types";
+import type {
+  DeliveryOrder,
+  DriverOption,
+  RiderRequest,
+  WorkspaceData,
+} from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
@@ -49,12 +61,42 @@ const managerMobileNav = managerNavItems;
 
 export type ManagerView = (typeof managerNavItems)[number]["id"];
 
-type OrderFilter = "all" | "unassigned" | "moving";
+type OrderFilter = "all" | "unassigned" | "moving" | "cod";
+
+const ORDER_FILTERS: { id: OrderFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "unassigned", label: "Needs rider" },
+  { id: "moving", label: "On route" },
+  { id: "cod", label: "COD due" },
+];
+
+function matchesFilter(order: DeliveryOrder, filter: OrderFilter) {
+  if (filter === "unassigned") return needsRider(order);
+  if (filter === "moving") return isMovingOrder(order);
+  if (filter === "cod") return codPending(order);
+  return true;
+}
+
+function initialFilter(value: string | null): OrderFilter {
+  return ORDER_FILTERS.some((item) => item.id === value)
+    ? (value as OrderFilter)
+    : "all";
+}
 type Workspace = ReturnType<typeof useWorkspace>;
 type Notice = {
-  scope: "assign" | "reports" | "riders";
+  scope: "assign" | "reports" | "riders" | "requests";
   tone: "success" | "error";
   text: string;
+};
+
+const RIDER_REQUEST_LABELS: Record<RiderRequest["category"], string> = {
+  refuel: "Needs fuel",
+  recharge: "Needs a charge",
+  vehicle_problem: "Vehicle problem",
+  accident: "Accident",
+  parcel_damaged: "Parcel damaged",
+  unsafe_area: "Feels unsafe",
+  other: "Needs help",
 };
 
 function vehicleText(value: string) {
@@ -92,7 +134,7 @@ export function ManagerDashboard({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [filter, setFilter] = useState<OrderFilter>(
-    searchParams.get("filter") === "unassigned" ? "unassigned" : "all",
+    initialFilter(searchParams.get("filter")),
   );
 
   const orders = useMemo(
@@ -110,11 +152,9 @@ export function ManagerDashboard({
         : orders,
     [orders, view],
   );
-  const filteredOrders = queueOrders.filter((order) => {
-    if (filter === "unassigned") return needsRider(order);
-    if (filter === "moving") return isMovingOrder(order);
-    return true;
-  });
+  const filteredOrders = queueOrders.filter((order) =>
+    matchesFilter(order, filter),
+  );
   const selectedOrder =
     filteredOrders.find((order) => order.id === selectedId) ??
     filteredOrders[0] ??
@@ -372,12 +412,60 @@ export function ManagerDashboard({
     }
   }
 
+  async function handleRequest(
+    request: RiderRequest,
+    status: "acknowledged" | "resolved",
+  ) {
+    setSaving(true);
+    setNotice(null);
+    try {
+      if (workspace.isDemo || request.id.startsWith("demo-")) {
+        workspace.updateData((previous) => ({
+          ...previous,
+          riderRequests: previous.riderRequests.map((item) =>
+            item.id === request.id ? { ...item, status } : item,
+          ),
+        }));
+      } else if (workspace.canUseLiveData) {
+        await updateRiderRequestStatus(createClient(), request.id, status);
+        await workspace.refresh();
+      } else {
+        throw new Error(
+          "Refresh the manager workspace before handling requests.",
+        );
+      }
+      setNotice({
+        scope: "requests",
+        tone: "success",
+        text:
+          status === "resolved"
+            ? `${request.driver_name}'s request is resolved.`
+            : `${request.driver_name} can see you're on it.`,
+      });
+    } catch (cause) {
+      setNotice({
+        scope: "requests",
+        tone: "error",
+        text:
+          cause instanceof Error
+            ? cause.message
+            : "Could not update this request.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const signedOut = !workspace.isAuthenticated && !workspace.isDemo;
+  const openRequests = workspace.data.riderRequests.filter(
+    (request) => request.status !== "resolved",
+  );
   const attentionTotal =
     summary.needsRider +
     summary.delayed +
     summary.codToSettle +
-    summary.pendingReports;
+    summary.pendingReports +
+    openRequests.length;
 
   const pageCopy = {
     home: {
@@ -399,8 +487,8 @@ export function ManagerDashboard({
       description: "Work through the queue and assign riders in one step.",
     },
     profile: {
-      title: "Team & fleet",
-      description: "Rider availability and the vehicles supporting dispatch.",
+      title: "Team",
+      description: "Rider availability for dispatch.",
     },
   }[view];
 
@@ -428,18 +516,10 @@ export function ManagerDashboard({
             </Link>
           ))}
           <Link href="/manager/insights">
-            <Icon name="coin" size={17} />
-            Fleet insights
+            <Icon name="truck" size={17} />
+            Fleet
           </Link>
         </nav>
-        <div className="manager-sidebar-bottom">
-          <span className="sidebar-avatar">OP</span>
-          <div>
-            <strong>Oern Dispatch</strong>
-            <small>Yangon operations</small>
-          </div>
-          <Icon name="more" size={16} />
-        </div>
       </aside>
 
       <MobileNav
@@ -466,7 +546,7 @@ export function ManagerDashboard({
               onClick={() => void workspace.refresh()}
               disabled={saving || signedOut}
             >
-              <Icon name="history" size={16} />
+              <Icon name="refresh" size={16} />
             </button>
             <UserActions
               profile={workspace.profile}
@@ -483,7 +563,9 @@ export function ManagerDashboard({
             <div className="workspace-demo manager-demo">
               <DemoBadge>Demo operations</DemoBadge>
               <span>
-                Sample deliveries are for preview. Changes stay on this device.
+                {workspace.canUseLiveData
+                  ? "Live deliveries from Supabase. Create a delivery to start your dispatch board."
+                  : "Sign in to view live orders, riders, and fleet records."}
               </span>
             </div>
           )}
@@ -648,6 +730,11 @@ export function ManagerDashboard({
                         ["Delayed on route", summary.delayed, "/manager/track"],
                         ["COD to settle", summary.codToSettle, "/manager/cod"],
                         [
+                          "Rider requests",
+                          openRequests.length,
+                          "/manager/track#rider-requests",
+                        ],
+                        [
                           "Road reports",
                           summary.pendingReports,
                           "/manager/track#road-knowledge",
@@ -723,48 +810,31 @@ export function ManagerDashboard({
                   <div>
                     <h2>Delivery queue</h2>
                   </div>
-                  <button
-                    type="button"
-                    className="icon-button manager-filter-button"
-                    aria-label="Refresh orders"
-                    onClick={() => void workspace.refresh()}
-                    disabled={saving}
-                  >
-                    <Icon name="history" size={17} />
-                  </button>
                 </div>
                 <div
                   className="order-filter-tabs"
                   role="tablist"
                   aria-label="Filter delivery orders"
                 >
-                  <button
-                    type="button"
-                    className={filter === "all" ? "is-active" : ""}
-                    role="tab"
-                    aria-selected={filter === "all"}
-                    onClick={() => setFilter("all")}
-                  >
-                    All <span>{orders.length}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={filter === "unassigned" ? "is-active" : ""}
-                    role="tab"
-                    aria-selected={filter === "unassigned"}
-                    onClick={() => setFilter("unassigned")}
-                  >
-                    Needs rider
-                  </button>
-                  <button
-                    type="button"
-                    className={filter === "moving" ? "is-active" : ""}
-                    role="tab"
-                    aria-selected={filter === "moving"}
-                    onClick={() => setFilter("moving")}
-                  >
-                    On route
-                  </button>
+                  {ORDER_FILTERS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={filter === item.id ? "is-active" : ""}
+                      role="tab"
+                      aria-selected={filter === item.id}
+                      onClick={() => setFilter(item.id)}
+                    >
+                      {item.label}{" "}
+                      <span>
+                        {
+                          orders.filter((order) =>
+                            matchesFilter(order, item.id),
+                          ).length
+                        }
+                      </span>
+                    </button>
+                  ))}
                 </div>
                 <div className="manager-order-list">
                   {filteredOrders.map((order) => (
@@ -941,7 +1011,7 @@ export function ManagerDashboard({
                         <strong>
                           {currency.format(selectedOrder.cod_amount)}
                         </strong>
-                        <small>{selectedOrder.cod_status}</small>
+                        <small>{sentenceCase(selectedOrder.cod_status)}</small>
                       </div>
                     )}
                     {selectedRoute && (
@@ -988,16 +1058,6 @@ export function ManagerDashboard({
                   <Icon name="shield" size={13} /> Manager access
                 </span>
               </article>
-              <Link className="manager-insights-card" href="/manager/insights">
-                <Icon name="coin" size={20} />
-                <span>
-                  <strong>Open fleet insights</strong>
-                  <small>
-                    Review maintenance, utilization, and delivery costs.
-                  </small>
-                </span>
-                <Icon name="arrow-right" size={17} />
-              </Link>
             </section>
           )}
 
@@ -1111,6 +1171,116 @@ export function ManagerDashboard({
           )}
 
           {!signedOut && view === "track" && (
+            <section
+              className="road-knowledge-panel rider-requests-panel"
+              id="rider-requests"
+            >
+              <div className="road-knowledge-heading">
+                <div>
+                  <span className="section-kicker">From riders on route</span>
+                  <h2>Rider requests</h2>
+                </div>
+                <span className="manager-live-tag">
+                  {openRequests.length} open
+                </span>
+              </div>
+              <p className="road-knowledge-intro">
+                Fuel and charging stops, breakdowns and other problems riders
+                raise from the road. Acknowledge so the rider knows someone is
+                on it.
+              </p>
+              <NoticeStrip notice={notice} scope="requests" />
+              <div className="road-report-list">
+                {openRequests.map((request) => {
+                  const order = request.order_id
+                    ? orders.find((item) => item.id === request.order_id)
+                    : null;
+                  const vehicle = request.vehicle_id
+                    ? workspace.data.vehicles.find(
+                        (item) => item.id === request.vehicle_id,
+                      )
+                    : null;
+                  return (
+                    <article
+                      className={`road-report-card rider-request-card is-${request.kind}`}
+                      key={request.id}
+                    >
+                      <div className="road-report-title">
+                        <span
+                          className={`road-severity ${request.kind === "energy" ? "road-severity-medium" : "road-severity-high"}`}
+                        >
+                          {request.kind === "energy" ? "Energy" : "Issue"}
+                        </span>
+                        <strong>
+                          {RIDER_REQUEST_LABELS[request.category]} ·{" "}
+                          {request.driver_name}
+                        </strong>
+                        <small>{formatTime(request.created_at)}</small>
+                      </div>
+                      {request.note && <p>{request.note}</p>}
+                      <span className="road-report-meta">
+                        {[
+                          order?.tracking_code,
+                          vehicle?.registration_number,
+                          request.energy_level_percent != null
+                            ? `${request.energy_level_percent}% left`
+                            : null,
+                          request.status === "acknowledged"
+                            ? "Acknowledged"
+                            : "Waiting",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                      <div className="road-report-actions">
+                        {request.latitude != null &&
+                          request.longitude != null && (
+                            <a
+                              className="button button-outline button-small"
+                              href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Open location
+                            </a>
+                          )}
+                        {request.status === "open" && (
+                          <button
+                            type="button"
+                            className="button button-outline button-small"
+                            onClick={() =>
+                              void handleRequest(request, "acknowledged")
+                            }
+                            disabled={saving}
+                          >
+                            Acknowledge
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="button button-dark button-small"
+                          onClick={() =>
+                            void handleRequest(request, "resolved")
+                          }
+                          disabled={saving}
+                        >
+                          Resolve
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+                {!openRequests.length && (
+                  <div className="road-report-empty">
+                    <Icon name="check" size={18} /> No rider is waiting on
+                    operations.
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {!signedOut && view === "track" && (
             <section className="road-knowledge-panel" id="road-knowledge">
               <div className="road-knowledge-heading">
                 <div>
@@ -1135,9 +1305,9 @@ export function ManagerDashboard({
                         <span
                           className={`road-severity road-severity-${report.severity}`}
                         >
-                          {report.severity}
+                          {sentenceCase(report.severity)}
                         </span>
-                        <strong>{report.category.replace("_", " ")}</strong>
+                        <strong>{sentenceCase(report.category)}</strong>
                         <small>{formatTime(report.reported_at)}</small>
                       </div>
                       <p>{report.description}</p>

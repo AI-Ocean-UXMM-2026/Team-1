@@ -14,14 +14,18 @@ import {
   svgMarker,
   useMapboxMap,
 } from "@/components/delivery/mapbox-kit";
-import type {
-  NavStop,
-  RiderNavMapProps,
+import {
+  CAUTION_PATH,
+  type NavCaution,
+  type NavStop,
+  type RiderNavMapProps,
 } from "@/components/delivery/rider-nav-map";
 import type { MapPoint } from "@/lib/delivery/map-projection";
 
 const MAX_ZOOM = 17;
-const MIN_ZOOM = 11;
+/** Navigation view: close enough to read the next turn, tilted ahead. */
+const FOLLOW_ZOOM = 16.6;
+const FOLLOW_PITCH = 55;
 
 function stopMarker(stop: NavStop) {
   const inner =
@@ -34,6 +38,14 @@ function stopMarker(stop: NavStop) {
     `<g class="rnav-stop rnav-stop-${stop.state}"><circle r="13"/>${inner}</g>`,
     32,
     "-16 -16 32 32",
+  );
+}
+
+function cautionMarker(severity: NavCaution["severity"]) {
+  return svgMarker(
+    `<g class="rnav-caution rnav-caution-${severity}"><path d="${CAUTION_PATH}"/><text y="5">!</text></g>`,
+    30,
+    "-15 -15 30 30",
   );
 }
 
@@ -53,25 +65,23 @@ function targetMarker(kind: "pickup" | "dropoff") {
   );
 }
 
-function driverMarker(heading: number | null) {
-  const cone =
-    heading == null
-      ? ""
-      : `<path class="rnav-driver-cone" transform="rotate(${heading})" d="M0 0-15-36A39 39 0 0 1 15-36Z"/>`;
-  const arrow =
-    heading == null
-      ? `<path class="rnav-driver-arrow" d="M0-5a5 5 0 1 1 0 10A5 5 0 0 1 0-5Z"/>`
-      : `<path class="rnav-driver-arrow" transform="rotate(${heading})" d="M0-9.5 7 7.5 0 3.5-7 7.5Z"/>`;
+/**
+ * The rider's own marker always points "up" in its own frame; the marker is
+ * rotated to the heading in map space, so it keeps pointing the right way
+ * whether the map is north-up or turned to the rider's direction.
+ */
+function driverMarker() {
   return svgMarker(
-    `<g class="rnav-driver"><circle class="rnav-driver-halo" r="24"/>${cone}<circle class="rnav-driver-body" r="15"/>${arrow}</g>`,
+    `<g class="rnav-driver"><circle class="rnav-driver-halo" r="24"/><path class="rnav-driver-cone" d="M0 0-15-36A39 39 0 0 1 15-36Z"/><circle class="rnav-driver-body" r="15"/><path class="rnav-driver-arrow" d="M0-9.5 7 7.5 0 3.5-7 7.5Z"/></g>`,
     80,
     "-40 -40 80 80",
   );
 }
 
 /**
- * Full-bleed rider map on Mapbox GL. Draws the road route when Mapbox returns
- * one, and otherwise the same straight line the OSM fallback draws.
+ * Rider map on Mapbox GL. In `follow` mode the camera trails the rider with
+ * the map turned to their heading and tilted, like Google Maps navigation;
+ * dragging or rotating hands control back until "Re-centre" is pressed.
  */
 export function MapboxRiderNavMap({
   driver,
@@ -82,15 +92,20 @@ export function MapboxRiderNavMap({
   targetId = null,
   routeThroughStops = false,
   interactive = true,
+  follow = false,
   label,
   road = null,
+  upcoming = [],
+  cautions = [],
 }: RiderNavMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapState = useMapboxMap(container, interactive);
   const [moved, setMoved] = useState(false);
-  const [zoom, setZoom] = useState(16);
+  const driverMarkerRef = useRef<MapboxMarker | null>(null);
+  const followedOnce = useRef(false);
   const map = mapState?.map ?? null;
   const gl: MapboxGl | null = mapState?.gl ?? null;
+  const following = follow && driver != null;
 
   const focus: MapPoint[] = [];
   if (driver) focus.push(driver);
@@ -98,7 +113,7 @@ export function MapboxRiderNavMap({
     for (const stop of stops) if (stop.state !== "done") focus.push(stop.point);
   if (target) focus.push(target);
   if (!focus.length) for (const stop of stops) focus.push(stop.point);
-  const focusKey = focus.map((point) => `${point.latitude},${point.longitude}`);
+  const focusKey = focus.map((point) => `${point.longitude},${point.latitude}`);
 
   const straightPath: MapPoint[] = [];
   if (driver) straightPath.push(driver);
@@ -111,36 +126,86 @@ export function MapboxRiderNavMap({
     ? road.coordinates
     : straightPath.map((point) => lngLat(point));
 
+  // Taking over the map (drag, rotate, tilt) stops the camera following.
   useEffect(() => {
     if (!map) return;
-    const onDrag = () => setMoved(true);
-    const onUserZoom = (event: { type: string; originalEvent?: unknown }) => {
-      if (event.originalEvent) setMoved(true);
+    // Only gestures carry an originalEvent; the camera's own easing does not.
+    const onUser = (event: object) => {
+      if ("originalEvent" in event && event.originalEvent) setMoved(true);
     };
-    const onZoomEnd = () => setZoom(map.getZoom());
-    map.on("dragstart", onDrag);
-    map.on("zoomstart", onUserZoom);
-    map.on("zoomend", onZoomEnd);
-    setZoom(map.getZoom());
+    map.on("dragstart", onUser);
+    map.on("rotatestart", onUser);
+    map.on("pitchstart", onUser);
+    map.on("zoomstart", onUser);
     return () => {
-      map.off("dragstart", onDrag);
-      map.off("zoomstart", onUserZoom);
-      map.off("zoomend", onZoomEnd);
+      map.off("dragstart", onUser);
+      map.off("rotatestart", onUser);
+      map.off("pitchstart", onUser);
+      map.off("zoomstart", onUser);
     };
   }, [map]);
 
-  // Keep the focus points in view until the rider takes manual control.
+  // Overview: north-up, flat, everything in view.
   // biome-ignore lint/correctness/useExhaustiveDependencies: focusKey tracks focus
   useEffect(() => {
-    if (!map || moved || !focusKey.length) return;
+    if (!map || following || moved || !focusKey.length) return;
+    followedOnce.current = false;
+    map.easeTo({ bearing: 0, pitch: 0, duration: 0 });
     fitToPoints(
       map,
       focus,
       { x: padding.x, top: padding.top, bottom: padding.bottom },
       MAX_ZOOM,
     );
-    // `focus` is derived from the props above; `focusKey` carries its identity.
-  }, [map, moved, focusKey.join("|"), padding.x, padding.top, padding.bottom]);
+  }, [
+    map,
+    following,
+    moved,
+    focusKey.join("|"),
+    padding.x,
+    padding.top,
+    padding.bottom,
+  ]);
+
+  // Navigation: keep the rider in the open band between the cards, turn the
+  // map to their heading, and tilt it so the road ahead fills the screen.
+  const driverLng = driver?.longitude;
+  const driverLat = driver?.latitude;
+  const turn = heading == null ? null : Math.round(heading / 4) * 4;
+  useEffect(() => {
+    if (!map || !following || moved) return;
+    if (driverLng == null || driverLat == null) return;
+    map.easeTo({
+      center: [driverLng, driverLat],
+      bearing: turn ?? map.getBearing(),
+      pitch: FOLLOW_PITCH,
+      ...(followedOnce.current ? {} : { zoom: FOLLOW_ZOOM }),
+      padding: {
+        top: padding.top,
+        bottom: padding.bottom,
+        left: padding.x,
+        right: padding.x,
+      },
+      duration: followedOnce.current ? 900 : 1400,
+      essential: true,
+    });
+    followedOnce.current = true;
+  }, [
+    map,
+    following,
+    moved,
+    driverLng,
+    driverLat,
+    turn,
+    padding.top,
+    padding.bottom,
+    padding.x,
+  ]);
+
+  // Back to the overview (or off to another screen) clears manual control.
+  useEffect(() => {
+    if (!follow) setMoved(false);
+  }, [follow]);
 
   useEffect(() => {
     if (!map || !gl) return;
@@ -167,21 +232,59 @@ export function MapboxRiderNavMap({
   }, [map, gl, stops, target, targetId]);
 
   useEffect(() => {
-    if (!map || !gl || !driver) return;
-    const marker = new gl.Marker({
-      element: driverMarker(heading),
-      anchor: "center",
-    })
-      .setLngLat(lngLat(driver))
-      .addTo(map);
+    if (!map || !gl) return;
+    const markers = cautions.map((caution) =>
+      new gl.Marker({
+        element: cautionMarker(caution.severity),
+        anchor: "center",
+      })
+        .setLngLat(lngLat(caution.point))
+        .addTo(map),
+    );
     return () => {
-      marker.remove();
+      for (const marker of markers) marker.remove();
     };
-  }, [map, gl, driver, heading]);
+  }, [map, gl, cautions]);
+
+  // One rider marker, moved and turned in place so it glides with the camera.
+  useEffect(() => {
+    if (!map || !gl || driverLng == null || driverLat == null) return;
+    if (!driverMarkerRef.current) {
+      driverMarkerRef.current = new gl.Marker({
+        element: driverMarker(),
+        anchor: "center",
+        rotationAlignment: "map",
+        pitchAlignment: "map",
+      })
+        .setLngLat([driverLng, driverLat])
+        .addTo(map);
+    }
+    driverMarkerRef.current
+      .setLngLat([driverLng, driverLat])
+      .setRotation(heading ?? 0);
+  }, [map, gl, driverLng, driverLat, heading]);
+  useEffect(
+    () => () => {
+      driverMarkerRef.current?.remove();
+      driverMarkerRef.current = null;
+    },
+    [],
+  );
+
+  const upcomingCoordinates =
+    target && upcoming.length
+      ? [lngLat(target), ...upcoming.map((point) => lngLat(point))]
+      : [];
 
   useEffect(() => {
     if (!map) return;
     const palette = mapPalette(prefersDark());
+    // Later legs first, so the current leg draws on top of them.
+    drawLines(map, "rnav-route-upcoming", [upcomingCoordinates], {
+      color: palette.origin,
+      width: 4,
+      dash: [1.5, 1.5],
+    });
     drawLines(map, "rnav-route-casing", [routeCoordinates], {
       color: palette.casing,
       width: 11,
@@ -190,14 +293,7 @@ export function MapboxRiderNavMap({
       color: palette.route,
       width: 6,
     });
-  }, [map, routeCoordinates]);
-
-  function zoomBy(step: number) {
-    if (!map) return;
-    setMoved(true);
-    if (step > 0) map.zoomIn();
-    else map.zoomOut();
-  }
+  }, [map, routeCoordinates, upcomingCoordinates]);
 
   return (
     <div className="rnav-map" aria-label={label} role="img">
@@ -205,55 +301,15 @@ export function MapboxRiderNavMap({
         ref={container}
         className={`rnav-viewport ${interactive ? "is-interactive" : ""}`}
       />
-      {interactive && (
-        <div className="rnav-zoom">
-          <button
-            type="button"
-            className="rnav-fab"
-            onClick={() => zoomBy(1)}
-            disabled={zoom >= MAX_ZOOM}
-            aria-label="Zoom in"
-          >
-            <Icon name="plus" size={20} />
-          </button>
-          <button
-            type="button"
-            className="rnav-fab"
-            onClick={() => zoomBy(-1)}
-            disabled={zoom <= MIN_ZOOM}
-            aria-label="Zoom out"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M5 12h14"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className={`rnav-fab rnav-fab-large ${moved ? "is-off-centre" : ""}`}
-            onClick={() => setMoved(false)}
-            aria-label="Recenter map on your route"
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <circle cx="12" cy="12" r="6.5" />
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-            </svg>
-          </button>
-        </div>
+      {interactive && moved && (
+        <button
+          type="button"
+          className="rnav-recenter"
+          onClick={() => setMoved(false)}
+          aria-label="Re-centre the map on you"
+        >
+          <Icon name="navigation" size={18} /> Re-centre
+        </button>
       )}
     </div>
   );

@@ -24,7 +24,7 @@ export async function updateSession(request: NextRequest) {
           response.cookies.set(name, value, options);
         }
 
-        for (const [name, value] of Object.entries(headers)) {
+        for (const [name, value] of Object.entries(headers ?? {})) {
           response.headers.set(name, value);
         }
       },
