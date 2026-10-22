@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LATE_AFTER_MINUTES, timeUntil } from "../src/lib/delivery/format.ts";
+import {
+  LATE_AFTER_MINUTES,
+  relativeAgo,
+  timeUntil,
+} from "../src/lib/delivery/format.ts";
 
 const now = Date.parse("2026-10-20T03:30:00Z");
 const at = (minutes) => new Date(now + minutes * 60_000).toISOString();
@@ -23,4 +27,13 @@ test("timeUntil reports a parcel past its estimate as running late", () => {
 
 test("timeUntil handles a missing estimate", () => {
   assert.equal(timeUntil(null, now), "Soon");
+});
+
+test("relativeAgo reads naturally and falls back to a date", () => {
+  assert.equal(relativeAgo(at(0), now), "Just now");
+  assert.equal(relativeAgo(at(-12), now), "12 min ago");
+  assert.equal(relativeAgo(at(-180), now), "3 h ago");
+  assert.match(relativeAgo(at(-60 * 48), now), /\d/);
+  assert.equal(relativeAgo(null, now), "");
+  assert.equal(relativeAgo("nonsense", now), "");
 });

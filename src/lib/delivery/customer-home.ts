@@ -163,7 +163,7 @@ export function describeDelay(order: DeliveryOrder, now: number) {
 
 export function buildTodayItems(
   orders: DeliveryOrder[],
-  events: StatusEvent[],
+  _events: StatusEvent[],
   now: number,
 ): TodayItem[] {
   const today = yangonDay(now);
@@ -400,10 +400,9 @@ export function buildNotifications(
     }
   }
 
-  return list.sort((a, b) => {
-    if (a.priority !== b.priority) return a.priority === "high" ? -1 : 1;
-    return b.at.localeCompare(a.at);
-  });
+  // A plain timeline, newest first. Priority is shown on the row, not by
+  // reordering, so the list reads in the order things happened.
+  return list.sort((a, b) => b.at.localeCompare(a.at));
 }
 
 export type ContextAction =

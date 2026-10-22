@@ -2,7 +2,7 @@
 
 import Button from "@mui/material/Button";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Suspense,
   useCallback,
@@ -48,18 +48,13 @@ import {
   type CustomerNotification,
   codDue,
   homeSummary,
+  isActiveStatus,
   isTerminalStatus,
   matchOrders,
   normaliseCode,
-  pickNextParcel,
   rememberTrackingCode,
 } from "@/lib/delivery/customer-home";
 import { prioritiseOrders } from "@/lib/delivery/format";
-import {
-  hasCollectedParcel,
-  isRecentLocation,
-  parcelLocationState,
-} from "@/lib/delivery/location-state";
 import {
   fromTrackingPayload,
   type PublicTracking,
@@ -76,6 +71,37 @@ export type CustomerView =
 
 type ReadState = { upTo: number; ids: string[] };
 
+/**
+ * Applies ?order= and ?code= whenever they change. Notifications, scans and
+ * Help links can all navigate to /track while it is already open, and each
+ * must switch to that parcel.
+ */
+function UrlSelection({
+  ready,
+  orders,
+  onOrder,
+  onCode,
+}: {
+  ready: boolean;
+  orders: { id: string }[];
+  onOrder: (id: string) => void;
+  onCode: (code: string) => void;
+}) {
+  const params = useSearchParams();
+  const key = params.toString();
+  const applied = useRef("");
+  useEffect(() => {
+    if (!ready || !key || applied.current === key) return;
+    applied.current = key;
+    const requested = params.get("order");
+    if (requested && orders.some((order) => order.id === requested))
+      onOrder(requested);
+    const code = params.get("code");
+    if (code) onCode(code);
+  }, [ready, key, params, orders, onOrder, onCode]);
+  return null;
+}
+
 export function CustomerApp({ view }: { view: CustomerView }) {
   const workspace = useWorkspace("customer");
   const [selectedId, setSelectedId] = useState("");
@@ -87,7 +113,6 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   const [demoDismissed, setDemoDismissed] = useState(false);
   const [lookupMiss, setLookupMiss] = useState<string | null>(null);
   const [publicHit, setPublicHit] = useState<PublicTracking | null>(null);
-  const urlHandled = useRef(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -166,7 +191,12 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   }
 
   function markAllRead() {
-    saveReadState({ upTo: Date.now(), ids: [] });
+    // Never behind the newest update, even if the server clock runs ahead.
+    const newest = Math.max(
+      Date.now(),
+      ...notifications.map((item) => Date.parse(item.at)),
+    );
+    saveReadState({ upTo: newest, ids: [] });
   }
 
   // The welcome screen's "I already have an account" button links here with
@@ -195,26 +225,11 @@ export function CustomerApp({ view }: { view: CustomerView }) {
     }
   }, []);
 
-  // Runs once, when the data first arrives, to apply ?order= and ?code=.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: one-shot URL handling
-  useEffect(() => {
-    if (urlHandled.current || workspace.isLoading) return;
-    urlHandled.current = true;
-    const params = new URLSearchParams(window.location.search);
-    const requestedOrder = params.get("order");
-    if (requestedOrder && orders.some((order) => order.id === requestedOrder)) {
-      setSelectedId(requestedOrder);
-      setLinkedOrder(true);
-    }
-    const code = params.get("code");
-    if (code) void lookupCode(code);
-  }, [orders, workspace.isLoading]);
-
   /**
    * Your own parcels match locally; any other code is looked up by its exact
    * value, so tracking works without an account.
    */
-  async function lookupCode(value: string) {
+  async function lookupCode(value: string, linked = false) {
     const code = value.trim();
     if (!normaliseCode(code)) return;
     const hits = matchOrders(realOrders, code);
@@ -226,6 +241,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       setPublicHit(null);
       setSelectedId(hit.id);
       setLookupMiss(null);
+      if (linked) setLinkedOrder(true);
       rememberTrackingCode(hit.tracking_code);
       return;
     }
@@ -238,6 +254,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         setPublicHit(found);
         setSelectedId(found.order.id);
         setLookupMiss(null);
+        if (linked) setLinkedOrder(true);
         rememberTrackingCode(found.order.tracking_code);
         return;
       }
@@ -271,42 +288,22 @@ export function CustomerApp({ view }: { view: CustomerView }) {
     return () => window.clearInterval(timer);
   }, [view]);
 
-  const locationState = parcelLocationState(selectedOrder, now);
   const showsDemo = workspace.isDemo && !publicHit;
-  const locationHeading = showsDemo
-    ? "Simulated tracking"
-    : locationState === "live"
-      ? "Your rider’s latest location"
-      : locationState === "closed"
-        ? "Location sharing has ended"
-        : locationState === "stale"
-          ? isRecentLocation(selectedOrder, now)
-            ? "Your rider’s latest location"
-            : "Showing the last known location"
-          : selectedOrder && hasCollectedParcel(selectedOrder.status)
-            ? "Waiting for the rider’s first location"
-            : "Live location starts at pickup";
-  const locationDescription = showsDemo
-    ? "A sample route for illustration only. Enter your tracking code to follow your own parcel."
-    : locationState === "live"
-      ? "Location points update automatically while the rider keeps their app open."
-      : locationState === "closed"
-        ? "Your delivery’s final status remains available below."
-        : locationState === "stale"
-          ? isRecentLocation(selectedOrder, now)
-            ? "The map refreshes on its own every few seconds."
-            : "No new GPS point for a few minutes. The rider may have lost connection."
-          : selectedOrder && hasCollectedParcel(selectedOrder.status)
-            ? "Your parcel is collected. The map will update when your rider shares a GPS point."
-            : "Your rider’s location becomes available after they receive the parcel.";
 
   const goBack = useBackNavigation(
     view === "track" && linkedOrder ? "/orders" : "/home",
   );
   const trackDetailOnly = view === "track" && linkedOrder && !!selectedOrder;
   const isRootTab = view === "home" || view === "orders" || view === "profile";
+  // Help follows the parcel on screen. Elsewhere it only assumes a parcel
+  // when there is exactly one in progress; otherwise the sheet asks which.
+  const liveOrders = realOrders.filter((order) => isActiveStatus(order.status));
   const helpOrder =
-    view === "track" ? selectedOrder : pickNextParcel(realOrders);
+    view === "track"
+      ? selectedOrder
+      : liveOrders.length === 1
+        ? liveOrders[0]
+        : null;
   const firstName = workspace.profile?.full_name?.split(" ")[0];
   const header = {
     home: {
@@ -354,6 +351,17 @@ export function CustomerApp({ view }: { view: CustomerView }) {
 
   return (
     <main className="customer-app">
+      <Suspense fallback={null}>
+        <UrlSelection
+          ready={!workspace.isLoading}
+          orders={orders}
+          onOrder={(id) => {
+            setSelectedId(id);
+            setLinkedOrder(true);
+          }}
+          onCode={(code) => void lookupCode(code, true)}
+        />
+      </Suspense>
       <CustomerHeader
         title={header.title}
         subtitle={header.subtitle}
@@ -424,8 +432,6 @@ export function CustomerApp({ view }: { view: CustomerView }) {
                 events={trackEvents}
                 isDemo={showsDemo}
                 now={now}
-                locationHeading={locationHeading}
-                locationDescription={locationDescription}
                 onOpenHelp={() => setSheet("help")}
               />
             ) : (
@@ -489,6 +495,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       <HelpSheet
         open={sheet === "help"}
         order={helpOrder}
+        orders={realOrders}
         requesterId={
           workspace.isAuthenticated ? (workspace.profile?.id ?? null) : null
         }

@@ -96,25 +96,28 @@ test("out-for-delivery parcels without an ETA show no time", () => {
   assert.equal(item.state, "on_the_way");
 });
 
-test("notifications rank urgent alerts above routine updates", () => {
+test("notifications read as a newest-first timeline", () => {
   const list = buildNotifications(
     [
       order({ id: "d", status: "delivered", created_at: at(-60) }),
-      order({ id: "t", cod_amount: 5000, cod_status: "pending" }),
+      order({
+        id: "t",
+        cod_amount: 5000,
+        cod_status: "pending",
+        created_at: at(-5),
+      }),
     ],
     [],
     now,
   );
+  const times = list.map((item) => item.at);
+  assert.deepEqual(times, [...times].sort().reverse());
+  assert.equal(list.at(-1)?.kind, "delivered");
+  // Urgency stays on the item rather than reordering the list.
   assert.deepEqual(
-    list.map((item) => item.priority),
-    ["high", "high", "normal"],
+    new Set(list.slice(0, -1).map((item) => item.priority)),
+    new Set(["high"]),
   );
-  assert.deepEqual(
-    new Set(list.slice(0, 2).map((item) => item.kind)),
-    new Set(["cod_due", "out_for_delivery"]),
-  );
-  assert.equal(list[2].kind, "delivered");
-  assert.equal(list.at(-1)?.priority, "normal");
 });
 
 test("contextual actions appear only when they apply", () => {

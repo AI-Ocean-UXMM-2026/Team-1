@@ -66,7 +66,6 @@ import {
 } from "@/lib/delivery/customer-home";
 import {
   currency,
-  formatDateTime,
   formatTime,
   nextCustomerAction,
   timeUntil,
@@ -1022,7 +1021,6 @@ export {
   type HelpTopic,
 } from "@/components/delivery/help-sheet";
 export {
-  type NotificationFilter,
   NotificationRow,
   NotificationsPage,
   type NotificationsPageProps,

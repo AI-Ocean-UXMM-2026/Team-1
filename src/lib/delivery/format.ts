@@ -97,3 +97,19 @@ export function sentenceCase(value: string) {
   const text = value.replaceAll("_", " ").trim();
   return text ? text[0].toUpperCase() + text.slice(1) : text;
 }
+
+/** "Just now", "12 min ago", "3 h ago", then the date for anything older. */
+export function relativeAgo(
+  value: string | null | undefined,
+  now = Date.now(),
+) {
+  if (!value) return "";
+  const time = Date.parse(value);
+  if (Number.isNaN(time)) return "";
+  const minutes = Math.round((now - time) / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return formatDateTime(value);
+}

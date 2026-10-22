@@ -54,6 +54,8 @@ export type HelpTopic = (typeof HELP_TOPICS)[number];
 export type HelpSheetProps = {
   open: boolean;
   order: DeliveryOrder | null;
+  /** The customer's own parcels, offered as a picker when no parcel is selected. */
+  orders?: DeliveryOrder[];
   /** Signed-in customer's id; requests need an account to follow up on. */
   requesterId: string | null;
   /** Off on the parcel's own Track page, where the status is already shown. */
@@ -69,7 +71,8 @@ export type HelpSheetProps = {
  */
 export function HelpSheet({
   open,
-  order,
+  order: orderProp,
+  orders = [],
   requesterId,
   showStatusLink = true,
   onSignIn,
@@ -81,6 +84,14 @@ export function HelpSheet({
     "idle",
   );
   const [error, setError] = useState<string | null>(null);
+  // With no parcel in context, ask which one (or none) before the form.
+  const [picked, setPicked] = useState<string | null>(null);
+  const needsPicker = !orderProp && orders.length > 0;
+  const order =
+    orderProp ??
+    (picked && picked !== "none"
+      ? (orders.find((item) => item.id === picked) ?? null)
+      : null);
   const realOrder = order && !order.id.startsWith("demo-") ? order : null;
   const canCall =
     !!order?.driver_phone &&
@@ -91,6 +102,7 @@ export function HelpSheet({
     if (state === "sent") {
       setTopic(null);
       setDetails("");
+      setPicked(null);
       setState("idle");
     }
     setError(null);
@@ -131,6 +143,64 @@ export function HelpSheet({
 
   return (
     <Sheet open={open} onClose={close} titleId="help-title" title="Get help">
+      {needsPicker && (
+        <Box component="section" sx={{ mb: 2 }}>
+          <Typography
+            variant="subtitle1"
+            component="h3"
+            id="help-parcel-label"
+            sx={{ fontWeight: 750 }}
+          >
+            Which parcel is this about?
+          </Typography>
+          <List
+            disablePadding
+            role="radiogroup"
+            aria-labelledby="help-parcel-label"
+            sx={{ display: "grid", gap: 1, mt: 1 }}
+          >
+            {[
+              ...orders.slice(0, 5).map((item) => ({
+                id: item.id,
+                title: item.tracking_code,
+                detail: item.delivery_address,
+              })),
+              { id: "none", title: "Not about a parcel", detail: "" },
+            ].map((item) => {
+              const selected = picked === item.id;
+              return (
+                <ListItem disablePadding key={item.id}>
+                  <ListItemButton
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setPicked(item.id)}
+                    sx={{
+                      ...rowSx,
+                      minHeight: 56,
+                      borderColor: selected ? "secondary.main" : "divider",
+                      bgcolor: selected ? "action.selected" : undefined,
+                    }}
+                  >
+                    {selected ? (
+                      <CheckCircleOutlined color="secondary" />
+                    ) : (
+                      <Box sx={{ width: 24, height: 24, flex: "none" }} />
+                    )}
+                    <ListItemText
+                      primary={item.title}
+                      secondary={item.detail || undefined}
+                      slotProps={{
+                        primary: { sx: { fontWeight: 700 } },
+                        secondary: { sx: { overflowWrap: "anywhere" } },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </List>
+        </Box>
+      )}
       {order && (
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
           About parcel <strong>{order.tracking_code}</strong>
@@ -256,7 +326,12 @@ export function HelpSheet({
               type="submit"
               variant="contained"
               size="large"
-              disabled={!topic || !details.trim() || state === "sending"}
+              disabled={
+                !topic ||
+                !details.trim() ||
+                state === "sending" ||
+                (needsPicker && picked === null)
+              }
               sx={{ mt: 1.5, minHeight: 52 }}
             >
               {state === "sending" ? "Sending…" : "Send to support"}
