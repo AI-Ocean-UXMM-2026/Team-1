@@ -140,3 +140,29 @@ test.describe("reduced motion", () => {
     expect(longest).toBeLessThan(0.05);
   });
 });
+
+test("the tab bar shows on the four tab roots and hides on focused screens", async ({
+  context,
+  page,
+}) => {
+  await page.addInitScript(
+    ([key, draft]) => localStorage.setItem(key, draft),
+    ["oern.pickup-draft.v1", JSON.stringify(DRAFT)],
+  );
+  await signInAs(context, "customer", tables());
+  const bar = page.getByLabel("Customer app");
+  for (const path of ["/home", "/orders", "/pickup", "/profile"]) {
+    await page.goto(path);
+    await expect(bar).toBeVisible();
+  }
+  for (const path of [
+    "/track?order=order-1",
+    "/notifications",
+    "/pickup/details",
+    "/pickup/review",
+  ]) {
+    await page.goto(path);
+    await expect(page.locator("main").first()).toBeVisible();
+    await expect(bar).toBeHidden();
+  }
+});

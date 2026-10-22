@@ -786,9 +786,11 @@
   html:has(.customer-app) *,
   html:has(.customer-app) *::before,
   html:has(.customer-app) *::after {
+    /* biome-ignore-start lint/complexity/noImportantStyles: must beat MUI's emotion styles */
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+    /* biome-ignore-end lint/complexity/noImportantStyles: must beat MUI's emotion styles */
   }
 }
