@@ -83,13 +83,12 @@ export function HandoverPanel({
   const receiverDone = draft.receivedBy.trim().length > 0;
   const infoDone = parcelDone && receiverDone;
   const hasCash = stop.codDue > 0;
-  const cashDone = requirements.find((item) => item.key === "cod")?.met ?? true;
 
   return (
     <div className="dv-handover">
       <p className="dv-progress" role="status">
         <strong>Page {page} of 2</strong>{" "}
-        {page === 1 ? "Delivery information" : "Amount to collect"}
+        {page === 1 ? "Delivery information" : "Cash to collect"}
       </p>
 
       {page === 1 && (
@@ -199,7 +198,7 @@ export function HandoverPanel({
               {!infoDone
                 ? "Check the parcels and receiver"
                 : hasCash
-                  ? "Next · amount to collect"
+                  ? "Next · cash to collect"
                   : "Next · confirm delivery"}
             </Button>
           </div>
@@ -207,62 +206,51 @@ export function HandoverPanel({
       )}
 
       {page === 2 && (
-        <>
-          {hasCash ? (
-            <fieldset className="dv-step dv-cash-step">
-              <legend>
-                <StepBadge n={3} done={cashDone} />
-                Amount to collect
-              </legend>
-              <div className="dv-cash-card">
-                <div className="dv-cash-due">
-                  <span>Total to collect</span>
-                  <div className="dv-collect-amount-block">
-                    <div className="dv-collect-amount-row">
-                      <span className="dv-collect-currency">MMK</span>
-                      <span className="dv-collect-amount">
-                        {stop.codDue.toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="dv-collect-subtitle">From {stop.recipient}</p>
-                  </div>
-                </div>
-                <div className="dv-seg">
-                  <label
-                    className={draft.codMode === "full" ? "is-on" : undefined}
-                  >
-                    <input
-                      type="radio"
-                      name="cod-mode"
-                      checked={draft.codMode === "full"}
-                      onChange={() => onChange({ codMode: "full" })}
-                    />
-                    <span>I received the full amount in cash</span>
-                  </label>
-                </div>
-              </div>
-            </fieldset>
-          ) : (
-            <section className="dv-step">
-              <p className="rf-muted">No cash to collect at this stop.</p>
-            </section>
-          )}
+        <div className="dv-collect-page">
+          <div className="dv-collect-body">
+            {hasCash ? (
+              <>
+                <p className="dv-collect-label">Total to collect</p>
+                <p className="dv-collect-figure" aria-label={`MMK ${stop.codDue}`}>
+                  <span>MMK</span> {stop.codDue.toLocaleString()}
+                </p>
+                <p className="dv-collect-from">From {stop.recipient}</p>
+                <label
+                  className={`dv-collect-confirm${draft.codMode === "full" ? " is-on" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="cod-mode"
+                    checked={draft.codMode === "full"}
+                    onChange={() => onChange({ codMode: "full" })}
+                  />
+                  <span className="dv-check-box" aria-hidden="true">
+                    <Icon name="check" size={16} strokeWidth={2.6} />
+                  </span>
+                  <span>I received the full amount in cash</span>
+                </label>
+              </>
+            ) : (
+              <p className="dv-collect-from">No cash to collect at this stop.</p>
+            )}
 
-          <details className="dv-note">
-            <summary>
-              <Icon name="message" size={16} /> Add a note
-            </summary>
-            <textarea
-              aria-label="Handover note"
-              value={draft.note}
-              maxLength={500}
-              placeholder="For example: authorized building security"
-              onChange={(event) => onChange({ note: event.target.value })}
-            />
-          </details>
+            <details className="dv-note">
+              <summary>
+                <Icon name="message" size={16} /> Add a note
+              </summary>
+              <textarea
+                aria-label="Delivery note"
+                value={draft.note}
+                maxLength={500}
+                placeholder="For example: authorized building security"
+                onChange={(event) => onChange({ note: event.target.value })}
+              />
+            </details>
 
-          {error}
-          <div className="dv-sheet-actions">
+            {error}
+          </div>
+
+          <div className="dv-collect-foot">
             {!online && (
               <p className="rf-dock-note">
                 Your entries are kept on this phone. Completion is sent when
@@ -292,7 +280,7 @@ export function HandoverPanel({
               Back to delivery information
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -361,40 +349,46 @@ export function ExceptionPanel({
     (reason !== "other" || note.trim().length >= 3) &&
     (!needsServer || online);
 
+  const submit = () => {
+    if (ready && option && action)
+      onSubmit({ reason: option.id, parcelIds, nextAction: action, note });
+  };
+  const hint = !option
+    ? "Choose a reason"
+    : reason === "other" && note.trim().length < 3
+      ? "Describe what happened"
+      : needsServer && !online
+        ? "Waiting for connection"
+        : "Swipe to record";
+
   return (
     <Sheet
-      title={option ? option.label : "Can’t deliver"}
+      title="Can’t deliver this stop"
       subtitle={`Stop ${stop.number} · ${stop.recipient} · ${stop.address}`}
       onClose={onClose}
     >
-      {!option ? (
-        <ul className="rf-issue-list">
+      <fieldset className="dv-step">
+        <legend>Why can’t you deliver?</legend>
+        <div className="dv-chips">
           {EXCEPTION_OPTIONS.map((item) => (
-            <li key={item.id}>
-              <button type="button" onClick={() => setReason(item.id)}>
-                <span>
-                  <strong>{item.label}</strong>
-                  <small>{item.detail}</small>
-                </span>
-                <Icon name="arrow-right" size={18} />
-              </button>
-            </li>
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={reason === item.id}
+              className={`dv-chip${reason === item.id ? " is-on" : ""}`}
+              onClick={() => {
+                setReason(item.id);
+                setNextAction(null);
+              }}
+            >
+              {item.label}
+            </button>
           ))}
-        </ul>
-      ) : (
-        <form
-          className="rf-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (ready && action)
-              onSubmit({
-                reason: option.id,
-                parcelIds,
-                nextAction: action,
-                note,
-              });
-          }}
-        >
+        </div>
+      </fieldset>
+
+      {option && (
+        <>
           {chooseParcels && (
             <fieldset className="dv-group">
               <legend>Which parcels?</legend>
@@ -420,84 +414,83 @@ export function ExceptionPanel({
                   <ParcelLine order={order} />
                 </label>
               ))}
-              {parcelIds.length < stop.open.length && parcelIds.length > 0 && (
-                <p className="rf-muted">
-                  The other parcels stay at this stop for you to hand over.
-                </p>
-              )}
             </fieldset>
           )}
-          <fieldset className="rf-reasons">
-            <legend>What happens next?</legend>
-            {option.actions.map((item) => (
-              <label
-                key={item}
-                className={`rf-reason ${action === item ? "is-selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="next-action"
-                  checked={action === item}
-                  onChange={() => setNextAction(item)}
-                />
-                <span>
-                  <strong>{NEXT_ACTION_LABELS[item]}</strong>
-                  <small>{NEXT_ACTION_DETAIL[item]}</small>
-                </span>
-              </label>
-            ))}
-          </fieldset>
-          <label className="rf-field">
-            <span>
-              {reason === "other"
-                ? "Describe what happened"
-                : "Note for operations (optional)"}
-            </span>
-            <textarea
-              value={note}
-              maxLength={500}
-              placeholder="Called twice, no answer. Gate locked."
-              onChange={(event) => setNote(event.target.value)}
-            />
-          </label>
+
+          {option.actions.length > 1 ? (
+            <fieldset className="rf-reasons">
+              <legend>What happens next?</legend>
+              {option.actions.map((item) => (
+                <label
+                  key={item}
+                  className={`rf-reason ${action === item ? "is-selected" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="next-action"
+                    checked={action === item}
+                    onChange={() => setNextAction(item)}
+                  />
+                  <span>
+                    <strong>{NEXT_ACTION_LABELS[item]}</strong>
+                    <small>{NEXT_ACTION_DETAIL[item]}</small>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          ) : (
+            action && (
+              <p className="rf-muted">
+                <strong>{NEXT_ACTION_LABELS[action]}.</strong>{" "}
+                {NEXT_ACTION_DETAIL[action]}
+              </p>
+            )
+          )}
+
+          {reason === "other" ? (
+            <label className="rf-field">
+              <span>Describe what happened</span>
+              <textarea
+                value={note}
+                maxLength={500}
+                placeholder="Called twice, no answer. Gate locked."
+                onChange={(event) => setNote(event.target.value)}
+              />
+            </label>
+          ) : (
+            <details className="dv-note">
+              <summary>
+                <Icon name="message" size={16} /> Add a note
+              </summary>
+              <textarea
+                aria-label="Note for operations"
+                value={note}
+                maxLength={500}
+                placeholder="Called twice, no answer. Gate locked."
+                onChange={(event) => setNote(event.target.value)}
+              />
+            </details>
+          )}
+
           {needsServer && !online && (
             <Notice tone="warning" icon="warning">
               You’re offline. This needs a connection to record.
             </Notice>
           )}
           {error}
-          <Button
-            fullWidth
-            type="submit"
-            variant="contained"
-            color="primary"
-            size="large"
-            disabled={!ready || busy}
-            sx={{ minHeight: 52, borderRadius: 999 }}
-          >
-            {busy
-              ? "Saving…"
-              : action === "retry_later"
+          <SwipeConfirm
+            label={
+              action === "retry_later"
                 ? "Move to end of route"
                 : parcelIds.length > 1
                   ? `Record ${parcelIds.length} parcels not delivered`
-                  : "Record not delivered"}
-          </Button>
-          <Button
-            fullWidth
-            variant="text"
-            color="inherit"
-            onClick={() => setReason(null)}
-            sx={{
-              minHeight: 44,
-              borderRadius: 999,
-              mt: 1,
-              color: "text.secondary",
-            }}
-          >
-            Choose a different reason
-          </Button>
-        </form>
+                  : "Record not delivered"
+            }
+            hint={busy ? "Saving…" : hint}
+            disabled={!ready || busy}
+            onConfirm={submit}
+          />
+        </>
       )}
     </Sheet>
   );

@@ -23,7 +23,7 @@ const STOP_STATE_LABELS: Record<DeliveryStop["state"], string> = {
   PENDING: "Upcoming",
   NAVIGATING: "Current stop",
   ARRIVED: "Arrived",
-  HANDOVER_IN_PROGRESS: "Handing over",
+  HANDOVER_IN_PROGRESS: "Delivering",
   COMPLETED: "Delivered",
   FAILED: "Not delivered",
   RESCHEDULED: "Rescheduled",
@@ -186,7 +186,7 @@ function MetricGrid({
       </div>
       <div className="dv-metric-cod">
         <dt>
-          <Icon name="coin" size={14} /> COD to collect
+          <Icon name="coin" size={14} /> Cash to collect
         </dt>
         <dd>{currency.format(route.codToCollect)}</dd>
       </div>
@@ -207,128 +207,93 @@ function MetricGrid({
 }
 
 /** The manifest grouped by stop, with a tick per parcel loaded onto the truck. */
-function LoadCheck({
+/**
+ * Start of the route in one swipe: every parcel on the truck goes out with it.
+ * A parcel that is not on the truck is ticked under "Missing a parcel?", which
+ * tells operations and leaves it out of the swipe.
+ */
+function StartDock({
   route,
   busy,
   online,
-  onConfirm,
-  onReportMissing,
+  onStart,
 }: {
   route: DriverRoute;
   busy: boolean;
   online: boolean;
-  onConfirm: (orderIds: string[]) => void;
-  onReportMissing: (orderIds: string[]) => void;
+  onStart: (loadIds: string[], missingIds: string[]) => void;
 }) {
-  const [checked, setChecked] = useState<string[]>([]);
-  const toLoad = new Set(route.toLoad.map((order) => order.id));
+  const [missing, setMissing] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const toLoad = route.toLoad.map((order) => order.id);
+  const loadIds = toLoad.filter((id) => !missing.includes(id));
   const stops = route.stops.filter((stop) =>
-    stop.parcels.some((order) => toLoad.has(order.id)),
+    stop.parcels.some((order) => toLoad.includes(order.id)),
   );
-  const missing = route.toLoad
-    .map((order) => order.id)
-    .filter((id) => !checked.includes(id));
+  const count = loadIds.length;
   return (
-    <section className="dv-load" aria-labelledby="dv-load-title">
-      <div className="dv-section-head">
-        <h2 id="dv-load-title">Check your load</h2>
-        <span className="dv-count">
-          {checked.length} of {route.toLoad.length}
-        </span>
-      </div>
-      <p className="rf-muted">
-        Tick each parcel as it goes on the truck. Match the code on the label.
-      </p>
-      <button
-        type="button"
-        className="rf-link"
-        onClick={() =>
-          setChecked(
-            checked.length === route.toLoad.length
-              ? []
-              : route.toLoad.map((order) => order.id),
-          )
-        }
-      >
-        {checked.length === route.toLoad.length ? "Clear all" : "Tick all"}
-      </button>
-      {stops.map((stop) => (
-        <fieldset key={stop.key} className="dv-group">
-          <legend>
-            <StopMark stop={stop} /> {stop.recipient} · {stop.address}
-          </legend>
-          {stop.parcels
-            .filter((order) => toLoad.has(order.id))
-            .map((order) => (
-              <label
-                key={order.id}
-                className={`dv-check ${checked.includes(order.id) ? "is-checked" : ""}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked.includes(order.id)}
-                  onChange={() =>
-                    setChecked((ids) =>
-                      ids.includes(order.id)
-                        ? ids.filter((id) => id !== order.id)
-                        : [...ids, order.id],
-                    )
-                  }
-                />
-                <span className="dv-check-box" aria-hidden="true">
-                  <Icon name="check" size={16} strokeWidth={2.6} />
-                </span>
-                <span className="dv-parcel-copy">
-                  <strong>{order.tracking_code}</strong>
-                  <small>
-                    {order.parcel_description ?? "No description"}
-                    {order.parcel_weight_kg
-                      ? ` · ${order.parcel_weight_kg} kg`
-                      : ""}
-                  </small>
-                </span>
-              </label>
-            ))}
-        </fieldset>
-      ))}
-      <div className="rf-dock">
-        <Button
-          fullWidth
-          variant="contained"
-          color="primary"
-          size="large"
-          disabled={!checked.length || busy || !online}
-          onClick={() => onConfirm(checked)}
-          sx={{ minHeight: 52, borderRadius: 999 }}
-        >
-          {busy
-            ? "Saving…"
+    <div className="rf-dock rf-dock-stack">
+      {open && (
+        <div className="dv-missing">
+          <p className="rf-muted">Tick any parcel that is not on the truck.</p>
+          {stops.map((stop) => (
+            <fieldset key={stop.key} className="dv-group">
+              <legend>
+                <StopMark stop={stop} /> {stop.recipient}
+              </legend>
+              {stop.parcels
+                .filter((order) => toLoad.includes(order.id))
+                .map((order) => (
+                  <label
+                    key={order.id}
+                    className={`dv-check ${missing.includes(order.id) ? "is-checked" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={missing.includes(order.id)}
+                      onChange={() =>
+                        setMissing((ids) =>
+                          ids.includes(order.id)
+                            ? ids.filter((id) => id !== order.id)
+                            : [...ids, order.id],
+                        )
+                      }
+                    />
+                    <span className="dv-check-box" aria-hidden="true">
+                      <Icon name="check" size={16} strokeWidth={2.6} />
+                    </span>
+                    <span className="dv-parcel-copy">
+                      <strong>{order.tracking_code}</strong>
+                      <small>{order.parcel_description ?? "No description"}</small>
+                    </span>
+                  </label>
+                ))}
+            </fieldset>
+          ))}
+        </div>
+      )}
+      <SwipeConfirm
+        label={`Start route · ${count} ${count === 1 ? "parcel" : "parcels"} loaded`}
+        hint={
+          busy
+            ? "Starting…"
             : !online
               ? "Waiting for connection"
-              : checked.length === route.toLoad.length
-                ? `Confirm ${checked.length} ${checked.length === 1 ? "parcel" : "parcels"} loaded`
-                : `Confirm ${checked.length} of ${route.toLoad.length} loaded`}
-        </Button>
-        {checked.length > 0 && missing.length > 0 && (
-          <Button
-            fullWidth
-            variant="text"
-            color="inherit"
-            disabled={busy || !online}
-            onClick={() => onReportMissing(missing)}
-            sx={{
-              minHeight: 44,
-              borderRadius: 999,
-              mt: 1,
-              color: "text.secondary",
-            }}
-          >
-            Tell operations {missing.length}{" "}
-            {missing.length === 1 ? "parcel is" : "parcels are"} missing
-          </Button>
-        )}
-      </div>
-    </section>
+              : count === 0
+                ? "Tick at least one parcel on the truck"
+                : `Swipe to start · ${count} ${count === 1 ? "parcel" : "parcels"} loaded${missing.length ? ` · ${missing.length} missing` : ""}`
+        }
+        disabled={busy || !online || count === 0}
+        onConfirm={() => onStart(loadIds, missing)}
+      />
+      <button
+        type="button"
+        className="rf-link dv-missing-toggle"
+        onClick={() => setOpen((value) => !value)}
+      >
+        {open ? "Done" : "Missing a parcel?"}
+      </button>
+    </div>
   );
 }
 
@@ -350,13 +315,8 @@ function RouteClose({
   /** Back to the board for another job; closing ends the shift instead. */
   onNextJob?: () => void;
 }) {
-  const [cash, setCash] = useState(String(route.codCollected));
-  const declared = Number(cash);
-  const awaiting = route.parcels
-    .filter((order) => order.cod_status === "collected")
-    .reduce((sum, order) => sum + order.cod_amount, 0);
-  const valid =
-    cash.trim() !== "" && Number.isFinite(declared) && declared >= 0;
+  // The hand-in is what the driver recorded as collected: no typed amount.
+  const declared = route.codCollected;
   return (
     <>
       <section className="dv-summary">
@@ -416,23 +376,10 @@ function RouteClose({
             </dd>
           </div>
         </dl>
-        <label className="rf-field">
-          <span>Cash you are handing in (MMK)</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            value={cash}
-            onChange={(event) => setCash(event.target.value)}
-          />
-        </label>
-        {valid && declared !== awaiting && (
-          <Notice tone="warning" icon="warning">
-            {currency.format(declared)} differs from the{" "}
-            {currency.format(awaiting)} recorded as collected. Operations will
-            check it when you hand in.
-          </Notice>
-        )}
+        <p className="rf-hand-in">
+          <span>Cash you are handing in</span>
+          <strong>{currency.format(declared)}</strong>
+        </p>
       </section>
       {!sessionSaved && (
         <Notice tone="neutral" icon="shield">
@@ -460,7 +407,7 @@ function RouteClose({
           variant={onNextJob ? "outlined" : "contained"}
           color="primary"
           size="large"
-          disabled={!valid || busy || !online || !sessionSaved}
+          disabled={busy || !online || !sessionSaved}
           onClick={() => onClose(declared)}
           sx={{ minHeight: 52, borderRadius: 999 }}
         >
@@ -468,7 +415,7 @@ function RouteClose({
             ? "Closing…"
             : !online
               ? "Waiting for connection"
-              : `End shift · hand in ${currency.format(valid ? declared : 0)}`}
+              : `Confirm hand-in · ${currency.format(declared)}`}
         </Button>
       </div>
     </>
@@ -492,9 +439,8 @@ export function RouteOverview({
   declaredCod,
   onMenu,
   onAcknowledge,
-  onLoad,
-  onReportMissing,
   onStart,
+  onStartWithLoad,
   onResume,
   onCloseRoute,
 }: {
@@ -516,9 +462,8 @@ export function RouteOverview({
   declaredCod: number | null;
   onMenu: () => void;
   onAcknowledge: () => void;
-  onLoad: (orderIds: string[]) => void;
-  onReportMissing: (orderIds: string[]) => void;
   onStart: () => void;
+  onStartWithLoad: (loadIds: string[], missingIds: string[]) => void;
   onResume: () => void;
   onCloseRoute: (declared: number) => void;
 }) {
@@ -541,14 +486,24 @@ export function RouteOverview({
     COMPLETED: "Job done",
     CLOSED: "Closed",
   };
-  const showList = state !== "MANIFEST_VERIFICATION" && route.stops.length > 0;
+  const showList = route.stops.length > 0;
   // Before the route starts, the map fills the screen and the stops sit in a sheet.
   const fullScreenMap =
-    (state === "ASSIGNED" || state === "READY" || state === "PAUSED") &&
+    (state === "ASSIGNED" ||
+      state === "MANIFEST_VERIFICATION" ||
+      state === "READY" ||
+      state === "PAUSED") &&
     route.stops.length > 0 &&
     map != null;
   const dock =
-    state === "ASSIGNED" || state === "READY" || state === "PAUSED" ? (
+    state === "MANIFEST_VERIFICATION" ? (
+      <StartDock
+        route={route}
+        busy={busy != null}
+        online={online}
+        onStart={onStartWithLoad}
+      />
+    ) : state === "ASSIGNED" || state === "READY" || state === "PAUSED" ? (
           <div className="rf-dock">
             {state === "READY" ? (
               <SwipeConfirm
@@ -577,7 +532,7 @@ export function RouteOverview({
                   : !online
                     ? "Waiting for connection"
                     : state === "ASSIGNED"
-                      ? "Acknowledge route"
+                      ? "Confirm route"
                       : `Resume at stop ${route.current?.number ?? ""}`}
               </Button>
             )}
@@ -725,7 +680,7 @@ export function RouteOverview({
                   </strong>{" "}
                   {route.onBoard.length === 0
                     ? "Nothing to load at the depot, so you can set off empty."
-                    : "Check your depot load, then collect the rest at the stops."}
+                    : "Check your depot load, then pick up the rest at the stops."}
                 </Notice>
               )}
               {state === "PAUSED" && route.current && (
@@ -756,17 +711,8 @@ export function RouteOverview({
                   Find a job
                 </Button>
               )}
-              {map && state !== "MANIFEST_VERIFICATION" && (
+              {map && (
                 <div className="rf-preview-map">{map}</div>
-              )}
-              {state === "MANIFEST_VERIFICATION" && (
-                <LoadCheck
-                  route={route}
-                  busy={busy === "load"}
-                  online={online}
-                  onConfirm={onLoad}
-                  onReportMissing={onReportMissing}
-                />
               )}
               {state === "COMPLETED" && (
                 <RouteClose
@@ -785,9 +731,7 @@ export function RouteOverview({
                     <h2 id="dv-stops-title">
                       {state === "COMPLETED" || state === "CLOSED"
                         ? "Stops today"
-                        : route.stops.some((stop) => stop.kind === "pickup")
-                          ? "Stop order"
-                          : "Delivery order"}
+                        : "Stop order"}
                     </h2>
                     <span className="dv-count">
                       {route.stops.length} stops · {route.parcels.length}{" "}

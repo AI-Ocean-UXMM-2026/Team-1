@@ -1155,7 +1155,7 @@
 .dv-preview-bar {
   position: fixed;
   right: max(16px, calc((100vw - 430px) / 2 + 16px));
-  top: 72px;
+  top: 46%;
   z-index: 60;
   max-width: 240px;
   border: 1px dashed var(--color-border-control);
@@ -1892,4 +1892,143 @@
 
 .dv-overview:has(.rf-dock-stack) {
   padding-bottom: calc(180px + env(safe-area-inset-bottom));
+}
+
+/* Amount page of the handover, Grab-style: amount centred, swipe pinned to
+   the bottom of the sheet. */
+.dv-collect-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(88dvh - 110px);
+  gap: 16px;
+}
+
+.dv-collect-body {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px 8px 0;
+  text-align: center;
+}
+
+.dv-collect-label {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.dv-collect-figure {
+  margin: 0;
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -1px;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dv-collect-figure span {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin-right: 4px;
+}
+
+.dv-collect-from {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.dv-collect-confirm {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  margin-top: 24px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dv-collect-confirm input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dv-collect-confirm.is-on {
+  border-color: #00b14f;
+  background: color-mix(in srgb, #00b14f 10%, var(--color-surface));
+}
+
+.dv-collect-confirm .dv-check-box {
+  flex: none;
+}
+
+.dv-collect-foot {
+  display: grid;
+  gap: 8px;
+  margin: auto -16px 0;
+  padding: 12px 16px calc(var(--rf-safe-bottom) + 8px);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.dv-collect-foot .dv-text-btn {
+  justify-self: center;
+}
+
+.dv-pickup-codes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-pickup-codes li {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 13px;
+}
+
+/* Reason chips for "Can't deliver": one tap to pick, the selected one stays filled. */
+.dv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dv-chip {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dv-chip.is-on {
+  border-color: var(--color-text-primary);
+  background: var(--color-text-primary);
+  color: var(--color-surface);
 }

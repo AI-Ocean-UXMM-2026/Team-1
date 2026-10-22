@@ -129,7 +129,7 @@ export function RouteRevisionNotice({
         ))}
         {revision?.reordered && (
           <li>
-            <strong>Delivery order changed</strong>
+            <strong>Stop order changed</strong>
             <span>The stop list below shows the new order.</span>
           </li>
         )}
@@ -184,7 +184,7 @@ export function RouteRevisionNotice({
           onClick={onAcknowledge}
           sx={{ minHeight: 48, borderRadius: 999 }}
         >
-          {busy === "acknowledge" ? "Saving…" : "Acknowledge changes"}
+          {busy === "acknowledge" ? "Saving…" : "Confirm changes"}
         </Button>
       ) : waitingToLoad.length ? (
         <Button

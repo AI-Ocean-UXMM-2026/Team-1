@@ -18,7 +18,6 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import type {
-  CSSProperties,
   ReactNode,
   PointerEvent as ReactPointerEvent,
 } from "react";
@@ -170,42 +169,6 @@ function SheetHandle({
  * so a long address stays whole without taking extra rows. With reduced
  * motion it wraps instead (see rider-delivery.css).
  */
-function MarqueeText({ children }: { children: ReactNode }) {
-  const box = useRef<HTMLSpanElement>(null);
-  const text = useRef<HTMLSpanElement>(null);
-  const [shift, setShift] = useState(0);
-  useEffect(() => {
-    const outer = box.current;
-    const inner = text.current;
-    if (!outer || !inner) return;
-    const measure = () =>
-      setShift(Math.max(0, inner.scrollWidth - outer.clientWidth));
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(outer);
-    observer.observe(inner);
-    return () => observer.disconnect();
-  }, []);
-  return (
-    <span ref={box} className="dv-marquee">
-      <span
-        ref={text}
-        className={shift > 0 ? "is-moving" : undefined}
-        style={
-          shift > 0
-            ? ({
-                "--shift": `-${shift}px`,
-                "--dur": `${Math.max(6, shift / 24 + 4)}s`,
-              } as CSSProperties)
-            : undefined
-        }
-      >
-        {children}
-      </span>
-    </span>
-  );
-}
-
 /**
  * Posted limit with the rider's live speed beside it, as in Google Maps and
  * Waze. The limit only shows when the road has one; the speed turns red while
@@ -288,11 +251,8 @@ export function ActiveDelivery({
   busy,
   onArrived,
   onUndoArrived,
-  onStartHandover,
   onCloseHandover,
-  onCannotDeliver,
   onMenu,
-  onCautions,
   onLocationHelp,
   cautionBanner,
   liveEtaAt,
@@ -316,11 +276,8 @@ export function ActiveDelivery({
   busy: boolean;
   onArrived: () => void;
   onUndoArrived: () => void;
-  onStartHandover: () => void;
   onCloseHandover: () => void;
-  onCannotDeliver: () => void;
   onMenu: () => void;
-  onCautions: () => void;
   onLocationHelp: () => void;
   cautionBanner: ReactNode;
   /** Arrival time from the live road route, when there is one. */
@@ -443,29 +400,18 @@ export function ActiveDelivery({
             >
               <Icon name="menu" size={20} />
             </IconButton>
-            {!handover && (
-              <IconButton
-                className="dv-float-btn"
-                onClick={onCautions}
-                aria-label="Road conditions"
-                sx={{
-                  width: 48,
-                  height: 48,
-                  bgcolor: "background.paper",
-                  color: "text.primary",
-                  boxShadow: 2,
-                  "&:hover": { bgcolor: "grey.100" },
-                }}
-              >
-                <Icon name="warning" size={20} />
-              </IconButton>
-            )}
           </div>
         </div>
         {!handover && revision}
       </header>
 
-      {speed && !handover && !expanded && <SpeedSign {...speed} />}
+      {/* Only shown when the driver is over the posted limit. */}
+      {speed &&
+        speed.limitKmh != null &&
+        speed.currentKmh != null &&
+        speed.currentKmh > speed.limitKmh &&
+        !handover &&
+        !expanded && <SpeedSign {...speed} />}
 
       <section
         ref={sheetRef}
@@ -487,13 +433,13 @@ export function ActiveDelivery({
               </IconButton>
               {!pickup && stop.codDue > 0 ? (
                 <div className="dv-collect-title-wrap">
-                  <h2 className="dv-collect-title">Confirm Payment</h2>
+                  <h2 className="dv-collect-title">Confirm delivery</h2>
                 </div>
               ) : (
                 <div>
                   <small>
                     Stop {stop.number} of {route.stops.length} ·{" "}
-                    {pickup ? "Pickup" : "Handover"}
+                    {pickup ? "Pickup" : "Delivery"}
                   </small>
                   <h2>{stop.recipient}</h2>
                   <p>{stop.address}</p>
@@ -522,16 +468,14 @@ export function ActiveDelivery({
             </div>
             <div className="dv-stop-head">
               <div className="dv-stop-title">
-                <h2>
-                  <MarqueeText>{stop.address}</MarqueeText>
-                </h2>
+                <h2>{stop.address}</h2>
                 <p>
                   <Icon name="user" size={14} />
-                  <MarqueeText>
-                    {pickup ? "Collect from " : ""}
+                  <span>
+                    {pickup ? "Pick up from " : ""}
                     {stop.recipient} · {parcelsHere.length}{" "}
                     {parcelsHere.length === 1 ? "parcel" : "parcels"}
-                  </MarqueeText>
+                  </span>
                 </p>
               </div>
             </div>
@@ -565,14 +509,6 @@ export function ActiveDelivery({
                   <span>Copy address</span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={onCannotDeliver}
-                aria-label="Problem with this stop"
-              >
-                <Icon name="warning" size={20} />
-                <span>Problem</span>
-              </button>
             </fieldset>
 
             {expanded && (
@@ -647,21 +583,9 @@ export function ActiveDelivery({
             )}
 
             {error}
-            {(arrived || confirmFar || expanded || pickup) && (
+            {!arrived && (
               <div className="dv-sheet-actions">
-                {arrived ? (
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    size="large"
-                    onClick={onStartHandover}
-                    endIcon={<Icon name="arrow-right" size={18} />}
-                    sx={{ minHeight: 56, borderRadius: 999 }}
-                  >
-                    {pickup ? "Start pickup" : "Start handover"}
-                  </Button>
-                ) : confirmFar && far ? (
+                {confirmFar && far ? (
                   <div className="dv-confirm" role="alert">
                     <span>
                       You’re {formatDistance(distanceKm)} away. Arrived anyway?

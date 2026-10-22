@@ -3,7 +3,7 @@
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
-import type { FormEvent, KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { Icon, type IconName } from "@/components/delivery/icons";
@@ -85,7 +85,7 @@ export function CodTag({
   return (
     <span className={`rf-cod ${collected ? "is-collected" : "is-due"}`}>
       <Icon name="coin" size={14} strokeWidth={2.1} />
-      {collected ? "COD collected" : "Collect COD"} · {currency.format(amount)}
+      {collected ? "Cash collected" : "Cash to collect"} · {currency.format(amount)}
     </span>
   );
 }
@@ -212,7 +212,7 @@ function RequestStatus({ request }: { request: RiderRequest }) {
   );
 }
 
-export type ToolPanel = "menu" | "energy" | "cautions" | "problem";
+export type ToolPanel = "menu" | "cautions" | "problem";
 
 export function ShiftMenu({
   name,
@@ -220,9 +220,13 @@ export function ShiftMenu({
   energy,
   cautionCount,
   requests,
+  fuelRequest,
+  fuelBusy,
+  fuelDone,
   canPause,
   paused,
   onOpen,
+  onRequestFuel,
   onPause,
   onResume,
   onSignOut,
@@ -233,9 +237,14 @@ export function ShiftMenu({
   energy: ReturnType<typeof energyForRoute>;
   cautionCount: number;
   requests: RiderRequest[];
+  /** The fuel or charging stop already asked for and not yet resolved. */
+  fuelRequest: RiderRequest | null;
+  fuelBusy: boolean;
+  fuelDone: string | null;
   canPause: boolean;
   paused: boolean;
   onOpen: (panel: Exclude<ToolPanel, "menu">) => void;
+  onRequestFuel: () => void;
   onPause: () => void;
   onResume: () => void;
   onSignOut: () => void;
@@ -247,12 +256,6 @@ export function ShiftMenu({
     label: string;
     detail: string;
   }[] = [
-    {
-      id: "energy",
-      icon: energy.source === "battery" ? "battery" : "fuel",
-      label: energy.source === "battery" ? "Battery" : "Fuel",
-      detail: energy.source === "battery" ? "Request a charging stop" : "Request a fuel stop",
-    },
     {
       id: "cautions",
       icon: "warning",
@@ -278,6 +281,30 @@ export function ShiftMenu({
       }
       onClose={onClose}
     >
+      {fuelDone && (
+        <Notice tone="success" icon="check">
+          {fuelDone}
+        </Notice>
+      )}
+      <Button
+        fullWidth
+        variant="outlined"
+        color="primary"
+        disabled={fuelBusy || fuelRequest != null}
+        onClick={onRequestFuel}
+        startIcon={
+          <Icon name={energy.source === "battery" ? "battery" : "fuel"} size={18} />
+        }
+        sx={{ minHeight: 48, borderRadius: 999, mb: 1.5 }}
+      >
+        {fuelRequest
+          ? `${energy.source === "battery" ? "Charging" : "Fuel"} stop requested`
+          : fuelBusy
+            ? "Requesting…"
+            : energy.source === "battery"
+              ? "Request charging stop"
+              : "Request fuel stop"}
+      </Button>
       <ul className="rf-issue-list">
         {items.map((item) => (
           <li key={item.id}>
@@ -353,95 +380,6 @@ export function ShiftMenu({
 
 /* -------------------------------------------------------------- energy */
 
-/** One request for a fuel or charging stop. Levels are not tracked on the phone. */
-export function EnergyPanel({
-  vehicle,
-  energy,
-  openRequest,
-  busy,
-  error,
-  done,
-  onRequest,
-  onClose,
-}: {
-  vehicle: VehicleOption | null;
-  energy: ReturnType<typeof energyForRoute>;
-  openRequest: RiderRequest | null;
-  busy: boolean;
-  error: ReactNode;
-  done: string | null;
-  onRequest: (note: string) => void;
-  onClose: () => void;
-}) {
-  const [note, setNote] = useState("");
-  const isBattery = energy.source === "battery";
-  return (
-    <Sheet
-      title={isBattery ? "Charging" : "Fuel"}
-      subtitle={
-        vehicle
-          ? `${vehicle.registration_number} · ${vehicle.vehicle_type.replace("_", "-")}`
-          : "No vehicle is linked to your route"
-      }
-      onClose={onClose}
-    >
-      <p className="rf-muted">
-        {isBattery
-          ? "Ask operations for a charging stop on your route."
-          : "Ask operations for a fuel stop on your route."}
-      </p>
-      {done && (
-        <Notice tone="success" icon="check">
-          {done}
-        </Notice>
-      )}
-      {openRequest ? (
-        <div className="rf-request-card">
-          <span>
-            <strong>{REQUEST_LABELS[openRequest.category]}</strong>
-            <small>Requested {formatTime(openRequest.created_at)}</small>
-          </span>
-          <RequestStatus request={openRequest} />
-        </div>
-      ) : (
-        !done && (
-          <>
-            <label className="rf-field">
-              <span>Note for operations (optional)</span>
-              <textarea
-                value={note}
-                maxLength={500}
-                placeholder={
-                  isBattery
-                    ? "Battery low, 3 stops left"
-                    : "Fuel light on, 3 stops left"
-                }
-                onChange={(event) => setNote(event.target.value)}
-              />
-            </label>
-            {error}
-            <Button
-              fullWidth
-              variant="contained"
-              color="primary"
-              disabled={busy}
-              onClick={() => onRequest(note)}
-              startIcon={<Icon name={isBattery ? "battery" : "fuel"} size={18} />}
-              sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
-            >
-              {busy
-                ? "Requesting…"
-                : isBattery
-                  ? "Request charging stop"
-                  : "Request fuel stop"}
-            </Button>
-          </>
-        )
-      )}
-    </Sheet>
-  );
-}
-
 /* ------------------------------------------------------------- cautions */
 
 function CautionItem({ caution, now }: { caution: RoadCaution; now: number }) {
@@ -481,13 +419,6 @@ const ROAD_CATEGORIES: { id: RoadReport["category"]; label: string }[] = [
   { id: "hazard", label: "Hazard" },
 ];
 
-const ROAD_SEVERITIES: { id: RoadReport["severity"]; label: string }[] = [
-  { id: "low", label: "Minor" },
-  { id: "medium", label: "Slow" },
-  { id: "high", label: "Major" },
-  { id: "blocked", label: "Blocked for trucks" },
-];
-
 export type RoadReportDraft = {
   category: RoadReport["category"];
   severity: RoadReport["severity"];
@@ -518,14 +449,16 @@ export function CautionsPanel({
   onClose: () => void;
 }) {
   const [reporting, setReporting] = useState(false);
-  const [draft, setDraft] = useState<RoadReportDraft>({
-    category: "closure",
-    severity: "blocked",
-    description: "",
-  });
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    onReport(draft);
+  const [category, setCategory] = useState<RoadReport["category"] | null>(null);
+  // One tap picks what is on the road; operations sees the detail on the map.
+  const send = () => {
+    const picked = ROAD_CATEGORIES.find((item) => item.id === category);
+    if (picked)
+      onReport({
+        category: picked.id,
+        severity: "medium",
+        description: picked.label,
+      });
   };
   if (done)
     return (
@@ -551,100 +484,56 @@ export function CautionsPanel({
         subtitle="Send only when you’ve stopped safely."
         onClose={onClose}
       >
-        <form className="rf-form" onSubmit={submit}>
-          <fieldset className="rf-option-group">
-            <legend>What’s on the road?</legend>
-            {ROAD_CATEGORIES.map((item) => (
-              <label
-                key={item.id}
-                className={`rf-option ${draft.category === item.id ? "is-selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="road-category"
-                  checked={draft.category === item.id}
-                  onChange={() => setDraft({ ...draft, category: item.id })}
-                />
-                {item.label}
-              </label>
-            ))}
-          </fieldset>
-          <fieldset className="rf-option-group">
-            <legend>How bad is it?</legend>
-            {ROAD_SEVERITIES.map((item) => (
-              <label
-                key={item.id}
-                className={`rf-option ${draft.severity === item.id ? "is-selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="road-severity"
-                  checked={draft.severity === item.id}
-                  onChange={() => setDraft({ ...draft, severity: item.id })}
-                />
-                {item.label}
-              </label>
-            ))}
-          </fieldset>
-          <label className="rf-field">
-            <span>What did you see?</span>
-            <textarea
-              value={draft.description}
-              minLength={3}
-              maxLength={240}
-              required
-              placeholder="Height barrier at the bridge, trucks can’t pass"
-              onChange={(event) =>
-                setDraft({ ...draft, description: event.target.value })
-              }
-            />
-          </label>
-          <p className="rf-muted">
-            Operations checks reports before they change routes or ETAs. Your
-            route won’t change from this report alone.
-          </p>
-          {!canLocate && (
-            <Notice
-              tone="warning"
-              icon="location"
-              action={
-                onLocationHelp ? (
-                  <button
-                    type="button"
-                    className="rf-link"
-                    onClick={onLocationHelp}
-                  >
-                    Fix location
-                  </button>
-                ) : null
-              }
+        <div className="dv-chips dv-report-chips">
+          {ROAD_CATEGORIES.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={category === item.id}
+              className={`dv-chip${category === item.id ? " is-on" : ""}`}
+              onClick={() => setCategory(item.id)}
             >
-              Your location is needed to place the report. Turn on location, or
-              call your dispatcher.
-            </Notice>
-          )}
-          {error}
-          <Button
-            fullWidth
-            type="submit"
-            variant="contained"
-            color="primary"
-            disabled={draft.description.trim().length < 3 || busy || !canLocate}
-            startIcon={<Icon name="location" size={18} />}
-            sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {!canLocate && (
+          <Notice
+            tone="warning"
+            icon="location"
+            action={
+              onLocationHelp ? (
+                <button type="button" className="rf-link" onClick={onLocationHelp}>
+                  Fix location
+                </button>
+              ) : null
+            }
           >
-            {busy ? "Sending…" : "Send with my location"}
-          </Button>
-          <Button
-            fullWidth
-            variant="text"
-            color="inherit"
-            onClick={() => setReporting(false)}
-            sx={{ minHeight: 44, borderRadius: 999, mt: 1 }}
-          >
-            Back to road conditions
-          </Button>
-        </form>
+            Your location is needed to place the report. Turn on location, or
+            call your dispatcher.
+          </Notice>
+        )}
+        {error}
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          disabled={!category || busy || !canLocate}
+          onClick={send}
+          startIcon={<Icon name="location" size={18} />}
+          sx={{ minHeight: 48, borderRadius: 999, mt: 2 }}
+        >
+          {busy ? "Sending…" : "Send with my location"}
+        </Button>
+        <Button
+          fullWidth
+          variant="text"
+          color="inherit"
+          onClick={() => setReporting(false)}
+          sx={{ minHeight: 44, borderRadius: 999, mt: 1 }}
+        >
+          Back to road conditions
+        </Button>
       </Sheet>
     );
   return (

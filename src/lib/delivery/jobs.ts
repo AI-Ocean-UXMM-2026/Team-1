@@ -698,7 +698,7 @@ export function createOrdersForJob(
       tracking_code: `YGN-${5000 + (Math.abs(stringHash(orderId)) % 4000)}`,
       customer_id: `customer-${job.id}-${i + 1}`,
       customer_name: recipient,
-      status: "assigned",
+      status: "accepted",
       pickup_address: "Oern Central Depot, Yangon",
       delivery_address: stopAddress,
       pickup_latitude: 16.8053,

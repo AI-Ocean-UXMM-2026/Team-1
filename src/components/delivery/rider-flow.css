@@ -3008,3 +3008,32 @@
   border-radius: 999px;
   background: var(--color-border);
 }
+
+/* Cash to hand in at the end of the shift: shown, not typed. */
+.rf-hand-in {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.rf-hand-in strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Parcels reported missing at the start swipe, opened from "Missing a parcel?". */
+.dv-missing {
+  max-height: 40dvh;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.dv-missing-toggle {
+  justify-self: center;
+}

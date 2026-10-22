@@ -31,7 +31,6 @@ import { PickupPanel } from "@/components/delivery/rider-pickup";
 import { RouteRevisionNotice } from "@/components/delivery/rider-revision";
 import {
   CautionsPanel,
-  EnergyPanel,
   LocationHelpSheet,
   Notice,
   type ProblemChoice,
@@ -954,6 +953,7 @@ export function RiderApp() {
       setRevisionOpen(false);
     });
 
+  /** Mid-route: parcels added at the depot go on the truck. */
   const loadParcels = (orderIds: string[]) =>
     run("load", async () => {
       for (const id of orderIds) {
@@ -973,6 +973,26 @@ export function RiderApp() {
           await moveParcel({ ...order, status }, "in_transit");
       }
       if (started) setResnapshot(true);
+    });
+
+  /**
+   * One swipe from the load check: parcels not reported missing go on the truck
+   * and the route starts. Parcels reported missing are sent to operations.
+   */
+  const startWithLoad = (loadIds: string[], missingIds: string[]) =>
+    run("start", async () => {
+      if (missingIds.length) await tellOperationsMissing(missingIds);
+      for (const order of route.parcels) {
+        if (loadIds.includes(order.id) && order.status === "accepted") {
+          await moveParcel(order, "picked_up");
+          await moveParcel({ ...order, status: "picked_up" }, "in_transit");
+        } else if (order.status === "picked_up") {
+          await moveParcel(order, "in_transit");
+        }
+      }
+      await saveSession("in_progress");
+      setAcknowledged(null);
+      setJobMark((mark) => ({ ...mark, awaitingStart: false }));
     });
 
   const startRoute = () =>
@@ -1361,27 +1381,26 @@ export function RiderApp() {
       );
     });
 
-  const reportMissing = (orderIds: string[]) => {
+  /** Tells operations which parcels are not on the truck; runs inside another action. */
+  const tellOperationsMissing = async (orderIds: string[]) => {
+    if (!driverId) return;
     const codes = route.parcels
       .filter((order) => orderIds.includes(order.id))
       .map((order) => order.tracking_code)
       .join(", ");
-    return run("request", async () => {
-      if (!driverId) return;
-      const note = `Not on the truck at loading: ${codes}`.slice(0, 500);
-      if (!isPreview)
-        await requestRiderAssistance(createClient(), {
-          driverId,
-          orderId: isLocalOrderId(orderIds[0]) ? null : (orderIds[0] ?? null),
-          vehicleId: vehicle?.id ?? null,
-          category: "other",
-          note,
-          energyLevelPercent: null,
-          latitude: riderPoint?.latitude ?? null,
-          longitude: riderPoint?.longitude ?? null,
-        });
-      setFlash(`Operations told: ${codes} missing at loading.`);
-    });
+    const note = `Not on the truck at loading: ${codes}`.slice(0, 500);
+    if (!isPreview)
+      await requestRiderAssistance(createClient(), {
+        driverId,
+        orderId: isLocalOrderId(orderIds[0]) ? null : (orderIds[0] ?? null),
+        vehicleId: vehicle?.id ?? null,
+        category: "other",
+        note,
+        energyLevelPercent: null,
+        latitude: riderPoint?.latitude ?? null,
+        longitude: riderPoint?.longitude ?? null,
+      });
+    setFlash(`Operations told: ${codes} missing at loading.`);
   };
 
   const sendRoadReport = (report: RoadReportDraft) =>
@@ -1574,7 +1593,7 @@ export function RiderApp() {
         : arrivedHere
           ? {
               title: `At stop ${stop.number}`,
-              sub: "Park safely, then start the handover",
+              sub: "Park safely, then confirm arrival",
               arrow: null,
               turnSymbol: "arrive",
             }
@@ -1598,9 +1617,7 @@ export function RiderApp() {
               : legRoute?.firstStep
                 ? {
                     title: legRoute.firstStep.instruction,
-                    sub: legRoute.bypassInfo
-                      ? `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} · Taking ${legRoute.bypassInfo.bypassRoad} to skip junction`
-                      : `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} by road to stop ${stop.number}`,
+                    sub: `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} by road to stop ${stop.number}`,
                     arrow: null,
                     turnSymbol: resolveTurnSymbol(
                       legRoute.firstStep.instruction,
@@ -1723,26 +1740,15 @@ export function RiderApp() {
           onArrived={() => {
             markArrived(stop);
             setExpanded(false);
-          }}
-          onUndoArrived={() =>
-            setArrived((keys) => keys.filter((key) => key !== stop.key))
-          }
-          onStartHandover={() => {
             setActionError(null);
             setHandoverKey(stop.key);
           }}
-          onCloseHandover={() => setHandoverKey(null)}
-          onCannotDeliver={() => {
-            if (stop.kind === "pickup") {
-              setActionError(null);
-              setHandoverKey(stop.key);
-              return;
-            }
-            setExceptionReason(null);
-            openPanel("exception");
+          onUndoArrived={() => {
+            setArrived((keys) => keys.filter((key) => key !== stop.key));
+            setHandoverKey(null);
           }}
+          onCloseHandover={() => setHandoverKey(null)}
           onMenu={() => openPanel("menu")}
-          onCautions={() => openPanel("cautions")}
           onLocationHelp={() => openPanel("location")}
           liveEtaAt={liveEtaAt}
           speed={
@@ -1801,31 +1807,6 @@ export function RiderApp() {
                   </button>
                 </div>
               </aside>
-            ) : legRoute?.bypassInfo ? (
-              <aside
-                className="rf-pitstop-active-bar"
-                aria-label="Side-street bypass"
-              >
-                <div className="rf-pitstop-main">
-                  <div className="rf-pitstop-title-row">
-                    <span
-                      className="rf-pitstop-pill"
-                      style={{
-                        background: "var(--color-primary-soft, #e0f2fe)",
-                        color: "var(--color-primary, #0284c7)",
-                      }}
-                    >
-                      <Icon name="compass" size={14} />
-                      Bypass active
-                    </span>
-                    <strong>Taking {legRoute.bypassInfo.bypassRoad}</strong>
-                  </div>
-                  <span className="rf-pitstop-sub">
-                    Bypasses {legRoute.bypassInfo.bypassedJunction} (~
-                    {legRoute.bypassInfo.timeSavedMin} min saved)
-                  </span>
-                </div>
-              </aside>
             ) : nextCaution ? (
               <button
                 type="button"
@@ -1871,7 +1852,7 @@ export function RiderApp() {
               routeThroughStops
               road={routeRoad}
               interactive={false}
-              label="Today’s stops in delivery order"
+              label="Today’s stops in order"
             />
           ) : null
         }
@@ -1927,9 +1908,10 @@ export function RiderApp() {
         declaredCod={session?.cod_declared ?? null}
         onMenu={() => openPanel("menu")}
         onAcknowledge={() => void acknowledge()}
-        onLoad={(ids) => void loadParcels(ids)}
-        onReportMissing={(ids) => void reportMissing(ids)}
         onStart={() => void startRoute()}
+        onStartWithLoad={(loadIds, missingIds) =>
+          void startWithLoad(loadIds, missingIds)
+        }
         onResume={() => void resumeRoute()}
         onCloseRoute={(declared) => void closeRoute(declared)}
       />
@@ -1953,30 +1935,21 @@ export function RiderApp() {
             energy={routeEnergy}
             cautionCount={routeCautions.length}
             requests={myRequests}
+            fuelRequest={openEnergyRequest}
+            fuelBusy={busy === "request"}
+            fuelDone={panelDone}
             canPause={canPause}
             paused={route.state === "PAUSED"}
             onOpen={openPanel}
+            onRequestFuel={() =>
+              void requestHelp(
+                routeEnergy.source === "battery" ? "recharge" : "refuel",
+                "",
+              )
+            }
             onPause={() => void pauseRoute()}
             onResume={() => void resumeRoute()}
             onSignOut={() => void signOut()}
-            onClose={close}
-          />
-        );
-      case "energy":
-        return (
-          <EnergyPanel
-            vehicle={vehicle}
-            energy={routeEnergy}
-            openRequest={openEnergyRequest}
-            busy={busy != null}
-            error={errorBanner}
-            done={panelDone}
-            onRequest={(note) =>
-              void requestHelp(
-                routeEnergy.source === "battery" ? "recharge" : "refuel",
-                note,
-              )
-            }
             onClose={close}
           />
         );
