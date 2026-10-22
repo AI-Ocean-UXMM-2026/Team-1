@@ -158,6 +158,95 @@ test("customer orders", async ({ page, context }) => {
   await shoot(page, "customer-orders");
 });
 
+const customerOrders = () => [
+  inTransit({ id: "order-1", tracking_code: "OR-1001" }),
+  makeOrder({
+    id: "order-2",
+    tracking_code: "OR-1002",
+    customer_id: "user-1",
+    status: "delivered",
+    cod_status: "collected",
+    created_at: ago(300),
+  }),
+];
+
+test("customer home, active parcel", async ({ page, context }) => {
+  await open(
+    page,
+    context,
+    "customer",
+    {
+      delivery_orders: customerOrders(),
+      delivery_assignments: [assignment("order-1")],
+    },
+    "/home",
+  );
+  await expect(page.getByText("OR-1001").first()).toBeVisible();
+  await shoot(page, "customer-home-active", false);
+});
+
+test("customer orders, history", async ({ page, context }) => {
+  await open(
+    page,
+    context,
+    "customer",
+    { delivery_orders: customerOrders() },
+    "/orders?tab=history",
+  );
+  await expect(page.getByText("OR-1002").first()).toBeVisible();
+  await shoot(page, "customer-orders-history", false);
+});
+
+test("customer profile", async ({ page, context }) => {
+  await open(
+    page,
+    context,
+    "customer",
+    {
+      profiles: [
+        {
+          id: "user-1",
+          full_name: "May Thazin",
+          phone: "+95 9 421 555 018",
+          role: "customer",
+        },
+      ],
+      delivery_orders: customerOrders(),
+    },
+    "/profile",
+  );
+  await expect(page.getByText("Sign out").first()).toBeVisible();
+  await shoot(page, "customer-profile", false);
+});
+
+test("customer pickup, three steps", async ({ page, context }) => {
+  await page.addInitScript(
+    ([key, draft]) => localStorage.setItem(key, draft),
+    [
+      "oern.pickup-draft.v1",
+      JSON.stringify({
+        pickupAddress: "12 Pyay Road, Kamayut",
+        deliveryAddress: "Bahan, near Inya Road",
+        recipientName: "Daw Hnin",
+        recipientPhone: "09 421 555 018",
+        day: "Tomorrow",
+        window: "Morning",
+      }),
+    ],
+  );
+  await open(page, context, "customer", {}, "/pickup");
+  await expect(page.getByLabel("Pickup address")).toHaveValue(/Pyay/);
+  await shoot(page, "customer-pickup-addresses", false);
+  await page.goto("/pickup/details");
+  await expect(page.getByLabel("Recipient name")).toHaveValue("Daw Hnin");
+  await shoot(page, "customer-pickup-details", false);
+  await page.goto("/pickup/review");
+  await expect(
+    page.getByRole("button", { name: "Request pickup" }),
+  ).toBeEnabled();
+  await shoot(page, "customer-pickup-review", false);
+});
+
 test("rider overview and navigation", async ({ page, context }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 16.79, longitude: 96.145 });
