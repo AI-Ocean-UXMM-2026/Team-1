@@ -146,6 +146,25 @@ export async function loadJobs(
   return (data ?? []).map((row) => toJob(row as Record<string, unknown>));
 }
 
+/**
+ * Jobs a driver can still take: open and not yet claimed. Claimed, running,
+ * finished, cancelled and superseded jobs are processed work and never shown.
+ */
+export async function loadOpenJobs(
+  supabase: JobsClient,
+  limit = 60,
+): Promise<DeliveryJob[]> {
+  const { data, error } = await supabase
+    .from("delivery_jobs")
+    .select(JOB_COLUMNS)
+    .eq("status", "open")
+    .is("claimed_by", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => toJob(row as Record<string, unknown>));
+}
+
 export async function loadQueue(supabase: JobsClient): Promise<QueueEntry[]> {
   const { data, error } = await supabase
     .from("delivery_queue")

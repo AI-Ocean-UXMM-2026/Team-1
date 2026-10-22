@@ -41,10 +41,10 @@ function ParcelLine({
 }
 
 /**
- * The handover at the current stop, on one page like Grab's drop-off: check
- * each parcel, say who took it, settle COD, then swipe to finish. The swipe
- * stays locked until every requirement for this stop is met, and its label
- * says which one is missing.
+ * The handover at the current stop, in two short pages. Page one is the
+ * delivery information: check each parcel and say who took it. Page two is the
+ * amount to collect and one swipe to confirm. The swipe stays locked until
+ * every requirement for this stop is met, and its label says which is missing.
  */
 export function HandoverPanel({
   stop,
@@ -65,9 +65,9 @@ export function HandoverPanel({
   onComplete: () => void;
   onCannotDeliver: () => void;
 }) {
+  const [page, setPage] = useState<1 | 2>(1);
   const requirements = handoverRequirements(stop, draft);
   const missing = requirements.find((item) => !item.met);
-  const amount = Number(draft.codAmount);
   const verifiedIds = new Set(draft.verified);
   const [someoneElse, setSomeoneElse] = useState(
     draft.receivedBy !== "" && draft.receivedBy !== stop.recipient,
@@ -81,193 +81,219 @@ export function HandoverPanel({
   const locked = !!missing || busy || !online;
   const parcelDone = stop.open.every((order) => verifiedIds.has(order.id));
   const receiverDone = draft.receivedBy.trim().length > 0;
+  const infoDone = parcelDone && receiverDone;
+  const hasCash = stop.codDue > 0;
   const cashDone = requirements.find((item) => item.key === "cod")?.met ?? true;
-  const total = stop.codDue > 0 ? 3 : 2;
-  const done = [parcelDone, receiverDone, stop.codDue > 0 && cashDone].filter(
-    Boolean,
-  ).length;
 
   return (
     <div className="dv-handover">
       <p className="dv-progress" role="status">
-        <strong>
-          {done} of {total}
-        </strong>{" "}
-        {done === total ? "ready to complete" : "done"}
+        <strong>Page {page} of 2</strong>{" "}
+        {page === 1 ? "Delivery information" : "Amount to collect"}
       </p>
 
-      <fieldset className="dv-step">
-        <legend>
-          <StepBadge n={1} done={parcelDone} />
-          {stop.open.length > 1
-            ? `Verify ${stop.open.length} parcels`
-            : "Verify the parcel"}
-        </legend>
-        {stop.open.map((order) => (
-          <label
-            key={order.id}
-            className={`dv-check ${verifiedIds.has(order.id) ? "is-checked" : ""}`}
-          >
-            <input
-              type="checkbox"
-              checked={verifiedIds.has(order.id)}
-              onChange={() => toggle(order.id)}
-            />
-            <span className="dv-check-box" aria-hidden="true">
-              <Icon name="check" size={16} strokeWidth={2.6} />
-            </span>
-            <ParcelLine order={order} showCod={false} />
-          </label>
-        ))}
-        {stop.notLoaded.length > 0 && (
-          <p className="rf-muted">
-            {stop.notLoaded.length} more{" "}
-            {stop.notLoaded.length === 1 ? "parcel" : "parcels"} for this
-            recipient {stop.notLoaded.length === 1 ? "isn’t" : "aren’t"} on your
-            truck. Deliver what you have; operations follows up on the rest.
-          </p>
-        )}
-      </fieldset>
+      {page === 1 && (
+        <>
+          <fieldset className="dv-step">
+            <legend>
+              <StepBadge n={1} done={parcelDone} />
+              {stop.open.length > 1
+                ? `Verify ${stop.open.length} parcels`
+                : "Verify the parcel"}
+            </legend>
+            {stop.open.map((order) => (
+              <label
+                key={order.id}
+                className={`dv-check ${verifiedIds.has(order.id) ? "is-checked" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={verifiedIds.has(order.id)}
+                  onChange={() => toggle(order.id)}
+                />
+                <span className="dv-check-box" aria-hidden="true">
+                  <Icon name="check" size={16} strokeWidth={2.6} />
+                </span>
+                <ParcelLine order={order} showCod={false} />
+              </label>
+            ))}
+            {stop.notLoaded.length > 0 && (
+              <p className="rf-muted">
+                {stop.notLoaded.length} more{" "}
+                {stop.notLoaded.length === 1 ? "parcel" : "parcels"} for this
+                recipient {stop.notLoaded.length === 1 ? "isn’t" : "aren’t"} on
+                your truck. Deliver what you have; operations follows up on the
+                rest.
+              </p>
+            )}
+          </fieldset>
 
-      <fieldset className="dv-step">
-        <legend>
-          <StepBadge n={2} done={receiverDone} />
-          Who received it?
-        </legend>
-        <div className="dv-seg">
-          <label
-            className={
-              !someoneElse && draft.receivedBy === stop.recipient
-                ? "is-on"
-                : undefined
-            }
-          >
-            <input
-              type="radio"
-              name="receiver"
-              checked={!someoneElse && draft.receivedBy === stop.recipient}
-              onChange={() => {
-                setSomeoneElse(false);
-                onChange({ receivedBy: stop.recipient });
-              }}
-            />
-            <span>{stop.recipient}</span>
-          </label>
-          <label className={someoneElse ? "is-on" : undefined}>
-            <input
-              type="radio"
-              name="receiver"
-              checked={someoneElse}
-              onChange={() => {
-                setSomeoneElse(true);
-                if (draft.receivedBy === stop.recipient)
-                  onChange({ receivedBy: "" });
-              }}
-            />
-            <span>Someone else</span>
-          </label>
-        </div>
-        {someoneElse && (
-          <label className="rf-field">
-            <span className="rf-sr-only">Actual receiver</span>
-            <input
-              value={draft.receivedBy}
-              autoComplete="off"
-              aria-label="Actual receiver"
-              placeholder="Name of the person taking the parcels"
-              onChange={(event) => onChange({ receivedBy: event.target.value })}
-            />
-          </label>
-        )}
-      </fieldset>
-
-      {stop.codDue > 0 && (
-        <fieldset className="dv-step dv-cash-step">
-          <legend>
-            <StepBadge n={3} done={cashDone} />
-            Collect cash
-          </legend>
-          <div className="dv-cash-card">
-            <div className="dv-cash-due">
-              <span>Amount due</span>
-              <div className="dv-collect-amount-block">
-                <div className="dv-collect-amount-row">
-                  <span className="dv-collect-currency">MMK</span>
-                  <span className="dv-collect-amount">
-                    {stop.codDue.toLocaleString()}
-                  </span>
-                </div>
-                <p className="dv-collect-subtitle">Amount to collect</p>
-              </div>
-            </div>
-
-            <div className="dv-collect-card">
-              <div className="dv-collect-card-icon" aria-hidden="true">
-                <Icon name="store" size={24} />
-              </div>
-              <div className="dv-collect-card-body">
-                <h3 className="dv-collect-card-title">{stop.recipient}</h3>
-                <p className="dv-collect-card-desc">{stop.address}</p>
-              </div>
-            </div>
-
+          <fieldset className="dv-step">
+            <legend>
+              <StepBadge n={2} done={receiverDone} />
+              Who received it?
+            </legend>
             <div className="dv-seg">
-              <label className={draft.codMode === "full" ? "is-on" : undefined}>
+              <label
+                className={
+                  !someoneElse && draft.receivedBy === stop.recipient
+                    ? "is-on"
+                    : undefined
+                }
+              >
                 <input
                   type="radio"
-                  name="cod-mode"
-                  checked={draft.codMode === "full"}
-                  onChange={() => onChange({ codMode: "full" })}
+                  name="receiver"
+                  checked={!someoneElse && draft.receivedBy === stop.recipient}
+                  onChange={() => {
+                    setSomeoneElse(false);
+                    onChange({ receivedBy: stop.recipient });
+                  }}
                 />
-                <span>I received the full amount in cash</span>
+                <span>{stop.recipient}</span>
+              </label>
+              <label className={someoneElse ? "is-on" : undefined}>
+                <input
+                  type="radio"
+                  name="receiver"
+                  checked={someoneElse}
+                  onChange={() => {
+                    setSomeoneElse(true);
+                    if (draft.receivedBy === stop.recipient)
+                      onChange({ receivedBy: "" });
+                  }}
+                />
+                <span>Someone else</span>
               </label>
             </div>
+            {someoneElse && (
+              <label className="rf-field">
+                <span className="rf-sr-only">Actual receiver</span>
+                <input
+                  value={draft.receivedBy}
+                  autoComplete="off"
+                  aria-label="Actual receiver"
+                  placeholder="Name of the person taking the parcels"
+                  onChange={(event) =>
+                    onChange({ receivedBy: event.target.value })
+                  }
+                />
+              </label>
+            )}
+          </fieldset>
+
+          <button type="button" className="dv-text-btn" onClick={onCannotDeliver}>
+            Can’t deliver this stop
+          </button>
+          <div className="dv-sheet-actions">
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              size="large"
+              disabled={!infoDone}
+              onClick={() => setPage(2)}
+              endIcon={<Icon name="arrow-right" size={18} />}
+              sx={{ minHeight: 52, borderRadius: 999 }}
+            >
+              {!infoDone
+                ? "Check the parcels and receiver"
+                : hasCash
+                  ? "Next · amount to collect"
+                  : "Next · confirm delivery"}
+            </Button>
           </div>
-        </fieldset>
+        </>
       )}
 
-      <details className="dv-note">
-        <summary>
-          <Icon name="message" size={16} /> Add a note
-        </summary>
-        <textarea
-          aria-label="Handover note"
-          value={draft.note}
-          maxLength={500}
-          placeholder="For example: authorized building security"
-          onChange={(event) => onChange({ note: event.target.value })}
-        />
-      </details>
+      {page === 2 && (
+        <>
+          {hasCash ? (
+            <fieldset className="dv-step dv-cash-step">
+              <legend>
+                <StepBadge n={3} done={cashDone} />
+                Amount to collect
+              </legend>
+              <div className="dv-cash-card">
+                <div className="dv-cash-due">
+                  <span>Total to collect</span>
+                  <div className="dv-collect-amount-block">
+                    <div className="dv-collect-amount-row">
+                      <span className="dv-collect-currency">MMK</span>
+                      <span className="dv-collect-amount">
+                        {stop.codDue.toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="dv-collect-subtitle">From {stop.recipient}</p>
+                  </div>
+                </div>
+                <div className="dv-seg">
+                  <label
+                    className={draft.codMode === "full" ? "is-on" : undefined}
+                  >
+                    <input
+                      type="radio"
+                      name="cod-mode"
+                      checked={draft.codMode === "full"}
+                      onChange={() => onChange({ codMode: "full" })}
+                    />
+                    <span>I received the full amount in cash</span>
+                  </label>
+                </div>
+              </div>
+            </fieldset>
+          ) : (
+            <section className="dv-step">
+              <p className="rf-muted">No cash to collect at this stop.</p>
+            </section>
+          )}
 
-      {error}
-      <div className="dv-sheet-actions">
-        {!online && (
-          <p className="rf-dock-note">
-            Your entries are kept on this phone. Completion is sent when you’re
-            back online.
-          </p>
-        )}
-        <SwipeConfirm
-          label="Complete delivery"
-          disabled={locked}
-          onConfirm={onComplete}
-          className={stop.codDue > 0 ? "is-green" : ""}
-          hint={
-            busy
-              ? "Saving…"
-              : !online
-                ? "Waiting for connection"
-                : missing
-                  ? missing.label
-                  : stop.open.length > 1
-                    ? `Swipe to complete · ${stop.open.length} parcels`
-                    : "Swipe to complete delivery"
-          }
-        />
-        <button type="button" className="dv-text-btn" onClick={onCannotDeliver}>
-          Can’t deliver this stop
-        </button>
-      </div>
+          <details className="dv-note">
+            <summary>
+              <Icon name="message" size={16} /> Add a note
+            </summary>
+            <textarea
+              aria-label="Handover note"
+              value={draft.note}
+              maxLength={500}
+              placeholder="For example: authorized building security"
+              onChange={(event) => onChange({ note: event.target.value })}
+            />
+          </details>
+
+          {error}
+          <div className="dv-sheet-actions">
+            {!online && (
+              <p className="rf-dock-note">
+                Your entries are kept on this phone. Completion is sent when
+                you’re back online.
+              </p>
+            )}
+            <SwipeConfirm
+              label="Confirm delivery"
+              disabled={locked}
+              onConfirm={onComplete}
+              className={hasCash ? "is-green" : ""}
+              hint={
+                busy
+                  ? "Saving…"
+                  : !online
+                    ? "Waiting for connection"
+                    : missing
+                      ? missing.label
+                      : "Swipe to confirm delivery"
+              }
+            />
+            <button
+              type="button"
+              className="dv-text-btn"
+              onClick={() => setPage(1)}
+            >
+              Back to delivery information
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -251,10 +251,7 @@ export function ShiftMenu({
       id: "energy",
       icon: energy.source === "battery" ? "battery" : "fuel",
       label: energy.source === "battery" ? "Battery" : "Fuel",
-      detail:
-        energy.levelPercent == null
-          ? "Level not set"
-          : `${energy.levelPercent}% · ${energyStatusLabel(energy.status)}`,
+      detail: energy.source === "battery" ? "Request a charging stop" : "Request a fuel stop",
     },
     {
       id: "cautions",
@@ -356,35 +353,7 @@ export function ShiftMenu({
 
 /* -------------------------------------------------------------- energy */
 
-function energyStatusLabel(
-  status: ReturnType<typeof energyForRoute>["status"],
-) {
-  return status === "enough"
-    ? "Enough for today"
-    : status === "tight"
-      ? "Plan a stop"
-      : status === "short"
-        ? "Not enough"
-        : "Range unknown";
-}
-
-function energyAdvice(
-  energy: ReturnType<typeof energyForRoute>,
-  word: "fuel" | "charging",
-) {
-  if (energy.status === "unknown")
-    return energy.levelPercent == null
-      ? "Set your current level to check today’s range."
-      : "Range shows once the route distance is known.";
-  const usable = formatDistance(energy.usableKm);
-  const needed = formatDistance(energy.neededKm);
-  if (energy.status === "enough")
-    return `About ${usable} usable after your reserve, for ${needed} left today.`;
-  if (energy.status === "tight")
-    return `About ${usable} usable for ${needed} left. Plan a ${word} stop.`;
-  return `Only about ${usable} usable for ${needed} left. Get ${word === "fuel" ? "fuel" : "a charge"} before your next stop.`;
-}
-
+/** One request for a fuel or charging stop. Levels are not tracked on the phone. */
 export function EnergyPanel({
   vehicle,
   energy,
@@ -392,7 +361,6 @@ export function EnergyPanel({
   busy,
   error,
   done,
-  onSaveLevel,
   onRequest,
   onClose,
 }: {
@@ -402,16 +370,14 @@ export function EnergyPanel({
   busy: boolean;
   error: ReactNode;
   done: string | null;
-  onSaveLevel: (level: number) => Promise<boolean>;
   onRequest: (note: string) => void;
   onClose: () => void;
 }) {
-  const [level, setLevel] = useState("");
   const [note, setNote] = useState("");
-  const word = energy.source === "battery" ? "charging" : "fuel";
+  const isBattery = energy.source === "battery";
   return (
     <Sheet
-      title={energy.source === "battery" ? "Battery" : "Fuel"}
+      title={isBattery ? "Charging" : "Fuel"}
       subtitle={
         vehicle
           ? `${vehicle.registration_number} · ${vehicle.vehicle_type.replace("_", "-")}`
@@ -419,47 +385,11 @@ export function EnergyPanel({
       }
       onClose={onClose}
     >
-      <div className={`rf-gauge is-${energy.status}`}>
-        <div className="rf-gauge-row">
-          <strong>
-            {energy.levelPercent == null ? "—" : `${energy.levelPercent}%`}
-          </strong>
-          <span>{energyStatusLabel(energy.status)}</span>
-        </div>
-        <span className="rf-gauge-bar" aria-hidden="true">
-          <span style={{ width: `${energy.levelPercent ?? 0}%` }} />
-        </span>
-        <p>{energyAdvice(energy, word)}</p>
-      </div>
-      {vehicle && (
-        <div className="rf-inline-field">
-          <label className="rf-field">
-            <span>Update current level (%)</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={100}
-              value={level}
-              placeholder={String(energy.levelPercent ?? "")}
-              onChange={(event) => setLevel(event.target.value)}
-            />
-          </label>
-          <Button
-            variant="outlined"
-            color="secondary"
-            disabled={level === "" || busy}
-            onClick={() =>
-              void onSaveLevel(Number(level)).then((saved) => {
-                if (saved) setLevel("");
-              })
-            }
-            sx={{ minHeight: 48, borderRadius: 999, px: 3 }}
-          >
-            Save
-          </Button>
-        </div>
-      )}
+      <p className="rf-muted">
+        {isBattery
+          ? "Ask operations for a charging stop on your route."
+          : "Ask operations for a fuel stop on your route."}
+      </p>
       {done && (
         <Notice tone="success" icon="check">
           {done}
@@ -482,8 +412,8 @@ export function EnergyPanel({
                 value={note}
                 maxLength={500}
                 placeholder={
-                  energy.source === "battery"
-                    ? "Battery at 20%, 3 stops left"
+                  isBattery
+                    ? "Battery low, 3 stops left"
                     : "Fuel light on, 3 stops left"
                 }
                 onChange={(event) => setNote(event.target.value)}
@@ -496,17 +426,12 @@ export function EnergyPanel({
               color="primary"
               disabled={busy}
               onClick={() => onRequest(note)}
-              startIcon={
-                <Icon
-                  name={energy.source === "battery" ? "battery" : "fuel"}
-                  size={18}
-                />
-              }
+              startIcon={<Icon name={isBattery ? "battery" : "fuel"} size={18} />}
               sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
             >
               {busy
                 ? "Requesting…"
-                : energy.source === "battery"
+                : isBattery
                   ? "Request charging stop"
                   : "Request fuel stop"}
             </Button>

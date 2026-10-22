@@ -340,7 +340,13 @@ const PickupRow = memo(function PickupRow() {
   );
 });
 
-/** Quick actions at the top of Home in 3 columns: Request pickup, Track parcel, Help & support. */
+/** Quick actions at the top of Home: the three things a customer does most. */
+const QUICK_ACTIONS = [
+  { label: "Request pickup", icon: "/icons/pickup.svg", href: "/pickup" },
+  { label: "Track parcel", icon: "/icons/track-parcel.svg", href: "/track" },
+  { label: "Help & support", icon: "/icons/get-help.svg", href: null },
+] as const;
+
 const QuickActions = memo(function QuickActions({
   onOpenHelp,
 }: {
@@ -354,110 +360,57 @@ const QuickActions = memo(function QuickActions({
         px: 2,
         mt: 1.5,
         display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
+        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
         gap: 1.25,
       }}
     >
-      <ListItemButton
-        component={Link}
-        href="/pickup"
-        sx={{
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          p: 1.5,
-          borderRadius: "16px",
-          bgcolor: "grey.100",
-          gap: 1,
-          minHeight: 96,
-        }}
-      >
-        <Box
-          component="img"
-          src="/icons/pickup.svg"
-          alt=""
-          sx={{ display: "block", width: 44, height: 44, flex: "none" }}
-        />
-        <Typography
-          variant="body2"
+      {QUICK_ACTIONS.map((action) => (
+        <ListItemButton
+          key={action.label}
+          {...(action.href
+            ? { component: Link, href: action.href }
+            : { onClick: onOpenHelp })}
           sx={{
-            fontWeight: 700,
-            fontSize: 13,
-            lineHeight: 1.2,
-            color: "text.primary",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "flex-start",
+            textAlign: "center",
+            px: 1,
+            py: 2,
+            borderRadius: "16px",
+            border: 1,
+            borderColor: "divider",
+            bgcolor: "background.paper",
+            gap: 1,
+            minHeight: 112,
+            "&:active": { bgcolor: "grey.100" },
           }}
         >
-          Request pickup
-        </Typography>
-      </ListItemButton>
-
-      <ListItemButton
-        component={Link}
-        href="/track"
-        sx={{
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          p: 1.5,
-          borderRadius: "16px",
-          bgcolor: "grey.100",
-          gap: 1,
-          minHeight: 96,
-        }}
-      >
-        <Box
-          component="img"
-          src="/icons/track-parcel.svg"
-          alt=""
-          sx={{ display: "block", width: 44, height: 44, flex: "none" }}
-        />
-        <Typography
-          variant="body2"
-          sx={{
-            fontWeight: 700,
-            fontSize: 13,
-            lineHeight: 1.2,
-            color: "text.primary",
-          }}
-        >
-          Track parcel
-        </Typography>
-      </ListItemButton>
-
-      <ListItemButton
-        onClick={onOpenHelp}
-        sx={{
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          p: 1.5,
-          borderRadius: "16px",
-          bgcolor: "grey.100",
-          gap: 1,
-          minHeight: 96,
-        }}
-      >
-        <Box
-          component="img"
-          src="/icons/get-help.svg"
-          alt=""
-          sx={{ display: "block", width: 44, height: 44, flex: "none" }}
-        />
-        <Typography
-          variant="body2"
-          sx={{
-            fontWeight: 700,
-            fontSize: 13,
-            lineHeight: 1.2,
-            color: "text.primary",
-          }}
-        >
-          Help & support
-        </Typography>
-      </ListItemButton>
+          <Box
+            component="img"
+            src={action.icon}
+            alt=""
+            sx={{
+              display: "block",
+              width: 40,
+              height: 40,
+              flex: "none",
+            }}
+          />
+          <Typography
+            component="span"
+            sx={{
+              fontWeight: 600,
+              fontSize: 15,
+              lineHeight: 1.25,
+              color: "text.primary",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {action.label}
+          </Typography>
+        </ListItemButton>
+      ))}
     </Box>
   );
 });

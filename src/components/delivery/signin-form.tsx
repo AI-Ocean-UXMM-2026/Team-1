@@ -26,10 +26,48 @@ function formatAuthError(error: unknown): string {
   return "We could not sign you in. Please check your credentials and try again.";
 }
 
+/** Team portals share this page; the copy follows the screen they were sent from. */
+const PORTAL_COPY = [
+  {
+    prefix: "/rider",
+    eyebrow: "Driver sign in",
+    title: "Sign in to your shift.",
+    body: "Your jobs and route appear here once you’re signed in.",
+  },
+  {
+    prefix: "/manager",
+    eyebrow: "Manager sign in",
+    title: "Sign in to run operations.",
+    body: "Orders, riders and fleet records load after sign-in.",
+  },
+  {
+    prefix: "/seller",
+    eyebrow: "Seller sign in",
+    title: "Sign in to your seller console.",
+    body: "Request deliveries and import carrier orders once you’re signed in.",
+  },
+  {
+    prefix: "/support",
+    eyebrow: "Support sign in",
+    title: "Sign in to the support desk.",
+    body: "Customer cases and delivery history load after sign-in.",
+  },
+] as const;
+
+const CUSTOMER_COPY = {
+  eyebrow: "Sign in to Oern",
+  title: "Your parcel, in view.",
+  body: "Sign in to see your orders and the rider’s location after pickup.",
+} as const;
+
 export function SigninForm() {
   const router = useRouter();
   const nextParam = useSearchParams().get("next");
   const returnTo = safeReturnTo(nextParam);
+  const copy =
+    PORTAL_COPY.find(({ prefix }) => returnTo.startsWith(prefix)) ??
+    CUSTOMER_COPY;
+  const isTeam = copy !== CUSTOMER_COPY;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -54,16 +92,22 @@ export function SigninForm() {
   return (
     <main className="auth-page auth-signin-page">
       <section className="auth-dialog auth-page-card auth-signin-card">
-        <Link
-          className="auth-page-back"
-          href={nextParam ? safeReturnTo(nextParam, "/welcome") : "/signup"}
-        >
-          <Icon name="arrow-left" size={16} />{" "}
-          {nextParam ? "Back" : "Back to sign up"}
-        </Link>
-        <span className="eyebrow">Sign in to Oern</span>
-        <h1>Your parcel, in view.</h1>
-        <p>Sign in to see your orders and the rider’s location after pickup.</p>
+        {isTeam ? (
+          <Link className="auth-page-back" href="/welcome">
+            <Icon name="arrow-left" size={16} /> Back to Oern
+          </Link>
+        ) : (
+          <Link
+            className="auth-page-back"
+            href={nextParam ? safeReturnTo(nextParam, "/welcome") : "/signup"}
+          >
+            <Icon name="arrow-left" size={16} />{" "}
+            {nextParam ? "Back" : "Back to sign up"}
+          </Link>
+        )}
+        <span className="eyebrow">{copy.eyebrow}</span>
+        <h1>{copy.title}</h1>
+        <p>{copy.body}</p>
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="field-label">
             Email address
@@ -109,15 +153,19 @@ export function SigninForm() {
             {busy ? "Please wait…" : "Sign in to your account"}
           </Button>
         </form>
-        <div className="auth-switch">
-          New to Oern?{" "}
-          <Link href={signInHref(nextParam ?? "", "signup")}>
-            Create an account
-          </Link>
-        </div>
+        {!isTeam && (
+          <div className="auth-switch">
+            New to Oern?{" "}
+            <Link href={signInHref(nextParam ?? "", "signup")}>
+              Create an account
+            </Link>
+          </div>
+        )}
         <div className="auth-note">
-          <Icon name="shield" size={15} /> Your orders stay private to your
-          signed-in account.
+          <Icon name="shield" size={15} />{" "}
+          {isTeam
+            ? "Team accounts are set up by Oern operations."
+            : "Your orders stay private to your signed-in account."}
         </div>
       </section>
     </main>

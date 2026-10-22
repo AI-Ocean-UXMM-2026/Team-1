@@ -3,14 +3,13 @@
 import "./rider-flow.css";
 import "./rider-delivery.css";
 
-import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
-import { BrandMark, LoadingBlock, signOut } from "@/components/delivery/common";
+import { LoadingBlock, signOut } from "@/components/delivery/common";
 import { Icon } from "@/components/delivery/icons";
 import {
   ActiveDelivery,
@@ -56,7 +55,6 @@ import {
   setOrderStatus,
   setRouteState,
   submitRoadReport,
-  updateVehicleEnergy,
 } from "@/lib/delivery/actions";
 import {
   allocateCod,
@@ -1386,35 +1384,6 @@ export function RiderApp() {
     });
   };
 
-  const saveEnergy = (level: number) =>
-    run("energy", async () => {
-      if (!vehicle) return;
-      if (!isPreview)
-        await updateVehicleEnergy(createClient(), {
-          vehicleId: vehicle.id,
-          energySource: vehicle.energy_source,
-          levelPercent: level,
-        });
-      updateData((previous) => ({
-        ...previous,
-        vehicles: previous.vehicles.map((item) =>
-          item.id === vehicle.id
-            ? {
-                ...item,
-                fuel_level_percent:
-                  item.energy_source === "electric"
-                    ? item.fuel_level_percent
-                    : level,
-                battery_level_percent:
-                  item.energy_source === "fuel"
-                    ? item.battery_level_percent
-                    : level,
-              }
-            : item,
-        ),
-      }));
-    });
-
   const sendRoadReport = (report: RoadReportDraft) =>
     run("road", async () => {
       if (!driverId) return;
@@ -2002,7 +1971,6 @@ export function RiderApp() {
             busy={busy != null}
             error={errorBanner}
             done={panelDone}
-            onSaveLevel={saveEnergy}
             onRequest={(note) =>
               void requestHelp(
                 routeEnergy.source === "battery" ? "recharge" : "refuel",
@@ -2164,55 +2132,12 @@ export function RiderApp() {
   }
 }
 
+/** Drivers sign in on the shared sign-in page, then return to the screen they came from. */
 function SignInGate() {
-  const [open, setOpen] = useState(false);
   return (
-    <main className="rf-app rf-gate">
-      <div className="rf-gate-brand">
-        <BrandMark size={116} />
-        <span>Oern</span>
-      </div>
-      <div className="rf-route-art" aria-hidden="true">
-        <svg viewBox="0 0 360 180" role="presentation">
-          <path
-            className="rf-route-road"
-            d="M22 144C78 48 126 156 178 91S268 34 338 54"
-          />
-          <path
-            className="rf-route-line"
-            d="M22 144C78 48 126 156 178 91S268 34 338 54"
-          />
-          <circle className="rf-route-pulse" cx="338" cy="54" r="12" />
-          <circle
-            className="rf-route-pulse rf-route-pulse-delay"
-            cx="338"
-            cy="54"
-            r="12"
-          />
-          <circle className="rf-route-pickup" cx="22" cy="144" r="10" />
-          <circle className="rf-route-destination" cx="338" cy="54" r="10" />
-          <circle className="rf-route-rider" cx="178" cy="91" r="7">
-            <animateMotion
-              dur="5s"
-              repeatCount="indefinite"
-              path="M-156 53 C-100 -43 -52 65 0 0 S90 -57 160 -37"
-            />
-          </circle>
-        </svg>
-      </div>
-      <h1>Sign in to see today’s route</h1>
-      <p>Driver accounts are set up by your operations team.</p>
-      <Button
-        variant="contained"
-        color="primary"
-        size="large"
-        onClick={() => setOpen(true)}
-        endIcon={<Icon name="arrow-right" size={18} />}
-        sx={{ minHeight: 48, borderRadius: 999, px: 3 }}
-      >
-        Sign in
-      </Button>
-      <AuthDialog open={open} audience="team" onClose={() => setOpen(false)} />
-    </main>
+    <>
+      <LoadingBlock title="Opening sign in…" />
+      <AuthDialog open audience="team" onClose={() => undefined} />
+    </>
   );
 }

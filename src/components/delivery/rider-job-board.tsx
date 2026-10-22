@@ -12,7 +12,7 @@ import {
   isSampleJob,
   SAMPLE_OPEN_JOBS,
   jobSpreadKm,
-  loadJobs,
+  loadOpenJobs,
   startJob,
 } from "@/lib/delivery/jobs";
 import {
@@ -78,8 +78,10 @@ export function RiderJobBoard({
       return;
     }
     try {
-      const all = await loadJobs(createClient());
-      const open = all.filter((job) => job.status === "open");
+      // Only open, unclaimed jobs: processed work never returns to the board.
+      const open = (await loadOpenJobs(createClient())).filter(
+        (job) => job.status === "open" && job.claimed_by == null,
+      );
       setJobs(open);
       setLoadFailed(false);
       setExpandedId((current) =>

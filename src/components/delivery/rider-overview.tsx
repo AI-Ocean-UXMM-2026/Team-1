@@ -542,6 +542,94 @@ export function RouteOverview({
     CLOSED: "Closed",
   };
   const showList = state !== "MANIFEST_VERIFICATION" && route.stops.length > 0;
+  // Before the route starts, the map fills the screen and the stops sit in a sheet.
+  const fullScreenMap =
+    (state === "ASSIGNED" || state === "READY" || state === "PAUSED") &&
+    route.stops.length > 0 &&
+    map != null;
+  const dock =
+    state === "ASSIGNED" || state === "READY" || state === "PAUSED" ? (
+          <div className="rf-dock">
+            {state === "READY" ? (
+              <SwipeConfirm
+                label={`Start route · ${route.stops.length} stops`}
+                hint="Swipe to start route"
+                disabled={busy != null || !online}
+                onConfirm={onStart}
+              />
+            ) : (
+              <Button
+                fullWidth
+                variant="contained"
+                color="primary"
+                size="large"
+                disabled={busy != null || !online}
+                onClick={state === "ASSIGNED" ? onAcknowledge : onResume}
+                endIcon={
+                  busy == null && online ? (
+                    <Icon name="arrow-right" size={18} />
+                  ) : undefined
+                }
+                sx={{ minHeight: 52, borderRadius: 999 }}
+              >
+                {busy
+                  ? "Saving…"
+                  : !online
+                    ? "Waiting for connection"
+                    : state === "ASSIGNED"
+                      ? "Acknowledge route"
+                      : `Resume at stop ${route.current?.number ?? ""}`}
+              </Button>
+            )}
+          </div>
+    ) : null;
+
+  if (fullScreenMap) {
+    return (
+      <main className="rf-app rf-route-screen">
+        <div className="rf-route-screen-map">{map}</div>
+        <header className="rf-route-screen-top">
+          <IconButton
+            onClick={onMenu}
+            aria-label="Shift tools"
+            sx={{
+              width: 44,
+              height: 44,
+              color: "text.primary",
+              bgcolor: "background.paper",
+              boxShadow: 1,
+              "&:hover": { bgcolor: "background.paper" },
+            }}
+          >
+            <Icon name="menu" size={20} />
+          </IconButton>
+          <div className="rf-route-screen-title">
+            <strong>{title}</strong>
+            <span>
+              {route.stops.length} stops · {route.parcels.length} parcels
+            </span>
+          </div>
+        </header>
+        <section className="rf-route-screen-sheet" aria-label="Route stops">
+          <div className="rf-route-screen-grab" aria-hidden="true" />
+          <p className="rf-muted rf-subtitle">
+            {dayLabel}
+            {vehicle
+              ? ` · ${vehicle.registration_number} · ${vehicle.vehicle_type.replace("_", "-")}`
+              : ""}
+          </p>
+          {notices}
+          {error}
+          <ol className="dv-stop-list">
+            {route.stops.map((stop) => (
+              <StopRow key={stop.key} stop={stop} />
+            ))}
+          </ol>
+          {dock}
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="rf-app dv-overview">
@@ -716,43 +804,7 @@ export function RouteOverview({
             </>
           )}
 
-          {(state === "ASSIGNED" ||
-            state === "READY" ||
-            state === "PAUSED") && (
-            <div className="rf-dock">
-              {state === "READY" ? (
-                <SwipeConfirm
-                  label={`Start route · ${route.stops.length} stops`}
-                  hint="Swipe to start route"
-                  disabled={busy != null || !online}
-                  onConfirm={onStart}
-                />
-              ) : (
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  disabled={busy != null || !online}
-                  onClick={state === "ASSIGNED" ? onAcknowledge : onResume}
-                  endIcon={
-                    busy == null && online ? (
-                      <Icon name="arrow-right" size={18} />
-                    ) : undefined
-                  }
-                  sx={{ minHeight: 52, borderRadius: 999 }}
-                >
-                  {busy
-                    ? "Saving…"
-                    : !online
-                      ? "Waiting for connection"
-                      : state === "ASSIGNED"
-                        ? "Acknowledge route"
-                        : `Resume at stop ${route.current?.number ?? ""}`}
-                </Button>
-              )}
-            </div>
-          )}
+          {dock}
         </>
       }
     </main>
