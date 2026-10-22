@@ -244,16 +244,18 @@ const noticeTone = {
   neutral: { bg: "grey.100", fg: "text.primary" },
 } as const;
 
-/** One collapsible section: a labelled heading that opens its details. */
-function Section({
+/** A flat disclosure row inside the details group: title, a glanceable hint. */
+function Disclosure({
   id,
   title,
+  hint,
   expanded,
   onToggle,
   children,
 }: {
   id: string;
   title: string;
+  hint?: string;
   expanded: boolean;
   onToggle: (expanded: boolean) => void;
   children: ReactNode;
@@ -261,68 +263,49 @@ function Section({
   return (
     <Accordion
       disableGutters
+      square
       elevation={0}
       expanded={expanded}
       onChange={(_event, next) => onToggle(next)}
       slotProps={{ heading: { component: "h2" } }}
       sx={{
-        bgcolor: "grey.100",
-        borderRadius: "16px !important",
+        bgcolor: "transparent",
+        borderTop: 1,
+        borderColor: "divider",
         "&::before": { display: "none" },
-        "& + &": { mt: 1 },
       }}
     >
       <AccordionSummary
         id={`${id}-header`}
         aria-controls={`${id}-panel`}
         expandIcon={<ExpandMore />}
-        sx={{ minHeight: 56, px: 2 }}
+        sx={{
+          minHeight: 52,
+          px: 2,
+          "& .MuiAccordionSummary-content": {
+            my: 1,
+            minWidth: 0,
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            gap: 1.5,
+          },
+        }}
       >
         <Typography sx={{ fontWeight: 700 }}>{title}</Typography>
+        {hint && (
+          <Typography
+            variant="caption"
+            sx={{ color: "text.secondary", minWidth: 0 }}
+            noWrap
+          >
+            {hint}
+          </Typography>
+        )}
       </AccordionSummary>
       <AccordionDetails id={`${id}-panel`} sx={{ px: 2, pt: 0, pb: 2 }}>
         {children}
       </AccordionDetails>
     </Accordion>
-  );
-}
-
-function AddressRow({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: ReactNode;
-}) {
-  return (
-    <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
-      <Avatar
-        sx={{
-          ...toneSx("neutral"),
-          bgcolor: "background.paper",
-          width: 32,
-          height: 32,
-        }}
-      >
-        {icon}
-      </Avatar>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography
-          variant="caption"
-          sx={{ color: "text.secondary", display: "block" }}
-        >
-          {label}
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{ fontWeight: 650, overflowWrap: "anywhere" }}
-        >
-          {value}
-        </Typography>
-      </Box>
-    </Stack>
   );
 }
 
@@ -349,6 +332,8 @@ export function journeyIndex(status: DeliveryOrder["status"]) {
   }
 }
 
+const NODE = 32;
+
 /**
  * Four icon nodes on one rail, so the customer sees the whole journey and
  * their place in it at a glance. Navy is done, blue is where the parcel is.
@@ -364,7 +349,7 @@ function JourneyRail({ status }: { status: DeliveryOrder["status"] }) {
         display: "grid",
         gridTemplateColumns: `repeat(${journey.length}, 1fr)`,
         m: 0,
-        mt: 2,
+        mt: 2.5,
         p: 0,
         listStyle: "none",
       }}
@@ -383,7 +368,7 @@ function JourneyRail({ status }: { status: DeliveryOrder["status"] }) {
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: 0.75,
+              gap: 1,
             }}
           >
             {index > 0 && (
@@ -391,11 +376,10 @@ function JourneyRail({ status }: { status: DeliveryOrder["status"] }) {
                 aria-hidden="true"
                 sx={{
                   position: "absolute",
-                  top: 17,
+                  top: NODE / 2 - 1.5,
                   right: "50%",
                   width: "100%",
                   height: 3,
-                  borderRadius: "999px",
                   bgcolor:
                     index <= current || finished
                       ? "secondary.main"
@@ -406,8 +390,9 @@ function JourneyRail({ status }: { status: DeliveryOrder["status"] }) {
             <Box
               sx={{
                 position: "relative",
-                width: 36,
-                height: 36,
+                zIndex: 1,
+                width: NODE,
+                height: NODE,
                 borderRadius: "50%",
                 display: "grid",
                 placeItems: "center",
@@ -415,24 +400,22 @@ function JourneyRail({ status }: { status: DeliveryOrder["status"] }) {
                   ? "secondary.main"
                   : here
                     ? "info.main"
-                    : "grey.100",
+                    : "background.paper",
                 color: done || here ? "common.white" : "text.disabled",
-                boxShadow: here
-                  ? (theme) =>
-                      `0 0 0 4px ${alpha(theme.palette.info.main, 0.18)}`
-                  : "none",
+                border: done || here ? 0 : 2,
+                borderColor: "grey.200",
               }}
             >
               {done ? (
-                <CheckRounded sx={{ fontSize: 20 }} />
+                <CheckRounded sx={{ fontSize: 18 }} />
               ) : (
-                <StepIcon sx={{ fontSize: 20 }} />
+                <StepIcon sx={{ fontSize: 18 }} />
               )}
             </Box>
             <Typography
               variant="caption"
               sx={{
-                fontWeight: here ? 750 : 600,
+                fontWeight: here ? 750 : 550,
                 color: done || here ? "text.primary" : "text.secondary",
                 textAlign: "center",
                 lineHeight: 1.2,
@@ -471,16 +454,14 @@ function ShareTrackingButton({ order }: { order: DeliveryOrder }) {
   }
 
   return (
-    <Button
-      fullWidth
-      variant="outlined"
-      color="secondary"
-      startIcon={copied ? <CheckRounded /> : <IosShare />}
+    <IconButton
       onClick={() => void share()}
-      sx={{ minHeight: 48 }}
+      aria-label={copied ? "Link copied" : "Share tracking"}
+      title={copied ? "Link copied" : "Share tracking"}
+      sx={{ width: 48, height: 48, color: "secondary.main" }}
     >
-      {copied ? "Link copied" : "Share tracking"}
-    </Button>
+      {copied ? <CheckRounded /> : <IosShare />}
+    </IconButton>
   );
 }
 
@@ -504,6 +485,7 @@ export function TrackDetail({
   );
   const closed = view.stage === "delivered" || view.stage === "stopped";
   const stopped = view.stage === "stopped";
+  const onTheWay = view.stage === "on_the_way";
   const stopEvent =
     orderEvents
       .filter((event) => event.status === order.status)
@@ -512,7 +494,6 @@ export function TrackDetail({
     order.cod_status === "collected" || order.cod_status === "settled";
   // Open what this state needs: why it stopped, or cash that is still owed.
   const [expanded, setExpanded] = useState({
-    route: false,
     progress: stopped,
     parcel: order.cod_amount > 0 && !codPaid && view.stage === "delivered",
   });
@@ -520,7 +501,15 @@ export function TrackDetail({
     setExpanded((current) => ({ ...current, [key]: next }));
 
   const tone = noticeTone[view.location.tone];
+  const quietNotice =
+    view.location.tone === "info" || view.location.tone === "neutral";
   const callable = Boolean(order.driver_phone) && !closed;
+  const helpLeads = view.primaryAction === "help";
+  const codLabel = codPaid
+    ? "Paid"
+    : view.stage === "delivered"
+      ? "Still due"
+      : "Due on arrival";
 
   const map = (
     <Box
@@ -534,31 +523,351 @@ export function TrackDetail({
     </Box>
   );
 
-  // Before pickup there is no rider to plot, so the map would be an empty
-  // tile. Show the two ends of the trip instead; the map arrives at pickup.
-  const routePreview = (
-    <Box sx={{ px: 2, pb: 1 }}>
+  const summary = (
+    <Box
+      sx={{
+        position: "relative",
+        mt: onTheWay ? "-20px" : 0,
+        px: 2,
+        pt: onTheWay ? 1 : 0.5,
+        pb: 3,
+        borderRadius: onTheWay ? "20px 20px 0 0" : 0,
+        bgcolor: "background.paper",
+        boxShadow: onTheWay ? "0 -6px 18px rgb(23 43 77 / 10%)" : "none",
+      }}
+    >
+      {/* Status on the left; the two quiet utilities on the right. */}
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          minHeight: 48,
+          mr: -1,
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: "center", minWidth: 0 }}
+        >
+          {closed ? (
+            <Typography
+              variant="caption"
+              sx={{ color: "text.secondary", fontWeight: 650 }}
+              noWrap
+            >
+              {order.tracking_code}
+            </Typography>
+          ) : (
+            <StatusChip status={order.status} />
+          )}
+          {isDemo && (
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Sample
+            </Typography>
+          )}
+        </Stack>
+        <Stack direction="row" sx={{ alignItems: "center" }}>
+          {!closed && !isDemo && <ShareTrackingButton order={order} />}
+          {!helpLeads && (
+            <IconButton
+              onClick={onOpenHelp}
+              aria-label="Get help"
+              title="Get help"
+              sx={{ width: 48, height: 48, color: "secondary.main" }}
+            >
+              <HelpOutlineRounded />
+            </IconButton>
+          )}
+        </Stack>
+      </Stack>
+
+      <Typography
+        variant="h4"
+        component="p"
+        sx={{
+          mt: 0.5,
+          fontSize: 28,
+          lineHeight: "32px",
+          fontWeight: 750,
+          letterSpacing: "-0.02em",
+          textWrap: "balance",
+          color: view.delayed ? "warning.dark" : "text.primary",
+        }}
+      >
+        {view.headline}
+      </Typography>
+      <Typography variant="body1" sx={{ mt: 0.75, color: "text.secondary" }}>
+        {view.detail}
+      </Typography>
+      {view.stage !== "preparing" && (
+        <Typography
+          variant="body2"
+          sx={{ mt: 0.5, fontWeight: 650, overflowWrap: "anywhere" }}
+        >
+          To {order.delivery_address}
+        </Typography>
+      )}
+
+      {!stopped && <JourneyRail status={order.status} />}
+
+      {/* Real progress only; nothing is drawn without a route percentage. */}
+      {onTheWay && order.route_progress_percent != null && (
+        <LinearProgress
+          variant="determinate"
+          value={order.route_progress_percent}
+          aria-label="Route progress"
+          sx={{ mt: 2, height: 6, borderRadius: "999px" }}
+        />
+      )}
+
+      {quietNotice ? (
+        <Stack
+          role="status"
+          direction="row"
+          spacing={1.25}
+          sx={{ mt: 2.5, alignItems: "flex-start" }}
+        >
+          <Box
+            aria-hidden="true"
+            sx={{
+              flex: "none",
+              mt: "7px",
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              bgcolor: view.location.tone === "info" ? "info.main" : "grey.400",
+            }}
+          />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {view.location.title}
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              {view.location.body}
+            </Typography>
+            {onTheWay && view.location.kind !== "none" && (
+              <Typography
+                variant="caption"
+                sx={{ display: "block", mt: 0.5, color: "text.secondary" }}
+              >
+                {relativeUpdatedAt(
+                  order.latest_location?.recorded_at ?? order.eta_updated_at,
+                  now,
+                )}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      ) : (
+        <Box
+          role="status"
+          sx={{
+            mt: 2.5,
+            px: 1.5,
+            py: 1.25,
+            borderRadius: "12px",
+            bgcolor: tone.bg,
+            color: tone.fg,
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {view.location.title}
+          </Typography>
+          <Typography variant="body2">{view.location.body}</Typography>
+          {onTheWay && view.location.kind !== "none" && (
+            <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+              {relativeUpdatedAt(
+                order.latest_location?.recorded_at ?? order.eta_updated_at,
+                now,
+              )}
+            </Typography>
+          )}
+        </Box>
+      )}
+
+      {order.cod_amount > 0 && (
+        <Stack
+          direction="row"
+          spacing={1.5}
+          sx={{
+            mt: 2,
+            p: 1.5,
+            alignItems: "center",
+            borderRadius: "12px",
+            bgcolor: codPaid ? "success.light" : "warning.light",
+          }}
+        >
+          <Avatar
+            sx={{
+              ...toneSx(codPaid ? "success" : "warning"),
+              bgcolor: "background.paper",
+              width: 36,
+              height: 36,
+            }}
+          >
+            <PaymentsOutlined sx={{ fontSize: 20 }} />
+          </Avatar>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                display: "block",
+                color: codPaid ? "success.dark" : "warning.dark",
+                fontWeight: 600,
+              }}
+            >
+              Cash on delivery · {codLabel}
+            </Typography>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 800,
+                lineHeight: 1.2,
+                color: codPaid ? "success.dark" : "warning.dark",
+                fontFeatureSettings: '"tnum"',
+              }}
+            >
+              {currency.format(order.cod_amount)}
+            </Typography>
+          </Box>
+        </Stack>
+      )}
+
+      {helpLeads && (
+        <Button
+          fullWidth
+          variant="contained"
+          color="secondary"
+          startIcon={<HelpOutlineRounded />}
+          onClick={onOpenHelp}
+          sx={{ mt: 2.5, minHeight: 52 }}
+        >
+          Get help
+        </Button>
+      )}
+    </Box>
+  );
+
+  return (
+    <Box component="section" aria-label="Selected delivery" sx={{ pb: 3 }}>
+      {onTheWay ? (
+        <>
+          {map}
+          {summary}
+        </>
+      ) : view.stage === "preparing" ? (
+        summary
+      ) : (
+        <>
+          {summary}
+          {map}
+        </>
+      )}
+
+      {/* One grouped surface: who has it, where it goes, and the record. */}
       <Box
         sx={{
-          p: 2,
+          mx: 2,
+          mt: 2,
+          overflow: "hidden",
           borderRadius: "16px",
           border: 1,
           borderColor: "divider",
           bgcolor: "background.paper",
         }}
       >
-        <Stack direction="row" spacing={1.5}>
-          <Stack sx={{ alignItems: "center", pt: 0.5 }}>
-            <Box
+        {(!closed || order.driver_name) && (
+          <Stack
+            direction="row"
+            spacing={1.5}
+            sx={{ alignItems: "center", p: 2 }}
+          >
+            <Avatar
               sx={{
-                width: 12,
-                height: 12,
+                ...toneSx("neutral"),
+                bgcolor: "grey.100",
+                width: 44,
+                height: 44,
+              }}
+            >
+              <PersonOutlined />
+            </Avatar>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                {order.driver_name ?? "Finding your rider"}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: "text.secondary", display: "block" }}
+                noWrap
+              >
+                {order.vehicle_label ??
+                  (order.driver_name
+                    ? "On a delivery route"
+                    : "Shown here once matched")}
+              </Typography>
+            </Box>
+            {callable && (
+              <IconButton
+                component="a"
+                href={`tel:${order.driver_phone}`}
+                aria-label="Call rider"
+                sx={{
+                  width: 48,
+                  height: 48,
+                  border: 1,
+                  borderColor:
+                    view.primaryAction === "call"
+                      ? "secondary.main"
+                      : "divider",
+                  bgcolor:
+                    view.primaryAction === "call"
+                      ? "secondary.main"
+                      : "background.paper",
+                  color:
+                    view.primaryAction === "call"
+                      ? "secondary.contrastText"
+                      : "secondary.main",
+                  "&:hover": {
+                    bgcolor:
+                      view.primaryAction === "call"
+                        ? "secondary.dark"
+                        : "grey.100",
+                  },
+                }}
+              >
+                <PhoneOutlined />
+              </IconButton>
+            )}
+          </Stack>
+        )}
+
+        <Stack
+          direction="row"
+          spacing={1.5}
+          sx={{
+            p: 2,
+            ...((!closed || order.driver_name) && {
+              borderTop: 1,
+              borderColor: "divider",
+            }),
+          }}
+        >
+          <Stack sx={{ alignItems: "center", pt: "6px" }}>
+            <Box
+              aria-hidden="true"
+              sx={{
+                width: 10,
+                height: 10,
                 borderRadius: "50%",
                 border: 3,
                 borderColor: "secondary.main",
               }}
             />
             <Box
+              aria-hidden="true"
               sx={{
                 flex: 1,
                 my: 0.5,
@@ -568,10 +877,11 @@ export function TrackDetail({
               }}
             />
             <LocationOnOutlined
-              sx={{ fontSize: 18, color: "primary.dark", ml: "-3px" }}
+              aria-hidden="true"
+              sx={{ fontSize: 18, color: "primary.dark", ml: "-4px" }}
             />
           </Stack>
-          <Stack spacing={2} sx={{ minWidth: 0, flex: 1 }}>
+          <Stack spacing={1.75} sx={{ minWidth: 0, flex: 1 }}>
             <Box>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 Pickup
@@ -596,295 +906,11 @@ export function TrackDetail({
             </Box>
           </Stack>
         </Stack>
-      </Box>
-    </Box>
-  );
 
-  const summary = (
-    <Box
-      sx={{
-        position: "relative",
-        mt: view.stage === "on_the_way" ? "-20px" : 0,
-        px: 2,
-        pt: 2,
-        pb: 2,
-        borderRadius: view.stage === "on_the_way" ? "20px 20px 0 0" : 0,
-        bgcolor: "background.paper",
-        boxShadow:
-          view.stage === "on_the_way"
-            ? "0 -6px 18px rgb(23 43 77 / 10%)"
-            : "none",
-      }}
-    >
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: "center", justifyContent: "space-between" }}
-      >
-        <Typography
-          variant="caption"
-          sx={{ color: "text.secondary", fontWeight: 650, minWidth: 0 }}
-          noWrap
-        >
-          {order.tracking_code}
-          {isDemo ? " · sample" : ""}
-        </Typography>
-        {!closed && <StatusChip status={order.status} />}
-      </Stack>
-      <Typography
-        variant="h5"
-        component="p"
-        sx={{
-          mt: 0.75,
-          fontWeight: 750,
-          color: view.delayed ? "warning.dark" : "text.primary",
-        }}
-      >
-        {view.headline}
-      </Typography>
-      <Typography variant="body2" sx={{ mt: 0.5, color: "text.secondary" }}>
-        {view.detail}
-      </Typography>
-      {view.stage !== "preparing" && (
-        <Typography
-          variant="body2"
-          sx={{ mt: 1, fontWeight: 650, overflowWrap: "anywhere" }}
-        >
-          To {order.delivery_address}
-        </Typography>
-      )}
-
-      {!stopped && <JourneyRail status={order.status} />}
-
-      {/* Real progress only; nothing is drawn without a route percentage. */}
-      {!closed && order.route_progress_percent != null && (
-        <LinearProgress
-          variant="determinate"
-          value={order.route_progress_percent}
-          aria-label="Route progress"
-          sx={{ mt: 1.5, height: 6, borderRadius: "999px" }}
-        />
-      )}
-
-      <Box
-        role="status"
-        sx={{
-          mt: 1.5,
-          px: 1.5,
-          py: 1.25,
-          borderRadius: "12px",
-          bgcolor: tone.bg,
-          color: tone.fg,
-        }}
-      >
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-          {view.location.title}
-        </Typography>
-        <Typography variant="body2">{view.location.body}</Typography>
-        {view.stage === "on_the_way" && view.location.kind !== "none" && (
-          <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
-            {relativeUpdatedAt(
-              order.latest_location?.recorded_at ?? order.eta_updated_at,
-              now,
-            )}
-          </Typography>
-        )}
-      </Box>
-
-      {order.cod_amount > 0 && (
-        <Box
-          sx={{
-            mt: 1.5,
-            p: 1.5,
-            borderRadius: "12px",
-            bgcolor: codPaid ? "success.light" : "warning.light",
-            border: 1,
-            borderColor: codPaid ? "success.main" : "warning.main",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 1.5,
-          }}
-        >
-          <Stack
-            direction="row"
-            spacing={1.25}
-            sx={{ alignItems: "center", minWidth: 0 }}
-          >
-            <Avatar
-              sx={{
-                ...toneSx(codPaid ? "success" : "warning"),
-                width: 36,
-                height: 36,
-              }}
-            >
-              <PaymentsOutlined sx={{ fontSize: 20 }} />
-            </Avatar>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: codPaid ? "success.dark" : "warning.dark",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  fontSize: 11,
-                  display: "block",
-                }}
-              >
-                Cash on Delivery
-              </Typography>
-              <Typography
-                variant="subtitle1"
-                sx={{
-                  fontWeight: 800,
-                  color: codPaid ? "success.dark" : "warning.dark",
-                  lineHeight: 1.2,
-                }}
-              >
-                {currency.format(order.cod_amount)}
-              </Typography>
-            </Box>
-          </Stack>
-          <Chip
-            size="small"
-            label={
-              codPaid
-                ? "Paid"
-                : view.stage === "delivered"
-                  ? "Still due"
-                  : "Due on arrival"
-            }
-            sx={{
-              ...toneSx(codPaid ? "success" : "warning"),
-              fontWeight: 700,
-              fontSize: 12,
-            }}
-          />
-        </Box>
-      )}
-
-      {(!closed || order.driver_name) && (
-        <Stack
-          direction="row"
-          spacing={1.5}
-          sx={{
-            alignItems: "center",
-            mt: 2,
-            p: 1.5,
-            borderRadius: "16px",
-            bgcolor: "grey.100",
-          }}
-        >
-          <Avatar
-            sx={{
-              ...toneSx("neutral"),
-              bgcolor: "background.paper",
-              width: 44,
-              height: 44,
-            }}
-          >
-            <PersonOutlined />
-          </Avatar>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              {order.driver_name ? "Your rider" : "Rider"}
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
-              {order.driver_name ?? "Finding your rider"}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", display: "block" }}
-              noWrap
-            >
-              {order.vehicle_label ??
-                (order.driver_name
-                  ? "On a delivery route"
-                  : "We’ll show them here once matched")}
-            </Typography>
-          </Box>
-          {callable && (
-            <IconButton
-              component="a"
-              href={`tel:${order.driver_phone}`}
-              aria-label="Call rider"
-              sx={{
-                width: 48,
-                height: 48,
-                bgcolor: "background.paper",
-                color: "secondary.main",
-                border: 1,
-                borderColor: "divider",
-              }}
-            >
-              <PhoneOutlined />
-            </IconButton>
-          )}
-        </Stack>
-      )}
-
-      <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-        {!closed && !isDemo && <ShareTrackingButton order={order} />}
-        <Button
-          fullWidth
-          variant="contained"
-          color="secondary"
-          startIcon={<HelpOutlineRounded />}
-          onClick={onOpenHelp}
-          sx={{ minHeight: 48 }}
-        >
-          Get help
-        </Button>
-      </Stack>
-    </Box>
-  );
-
-  return (
-    <Box component="section" aria-label="Selected delivery" sx={{ pb: 3 }}>
-      {view.stage === "on_the_way" ? (
-        <>
-          {map}
-          {summary}
-        </>
-      ) : view.stage === "preparing" ? (
-        <>
-          {summary}
-          {routePreview}
-        </>
-      ) : (
-        <>
-          {summary}
-          {map}
-        </>
-      )}
-
-      <Box sx={{ px: 2, mt: 2 }}>
-        {view.stage !== "preparing" && (
-          <Section
-            id="track-route"
-            title="Route and addresses"
-            expanded={expanded.route}
-            onToggle={toggle("route")}
-          >
-            <Stack spacing={1.5}>
-              <AddressRow
-                label="From"
-                value={order.pickup_address}
-                icon={<Inventory2Outlined fontSize="small" />}
-              />
-              <AddressRow
-                label="To"
-                value={order.delivery_address}
-                icon={<LocationOnOutlined fontSize="small" />}
-              />
-            </Stack>
-          </Section>
-        )}
-
-        <Section
+        <Disclosure
           id="track-progress"
-          title="Progress"
+          title="Delivery updates"
+          hint={STATUS_LABELS[order.status]}
           expanded={expanded.progress}
           onToggle={toggle("progress")}
         >
@@ -1004,11 +1030,16 @@ export function TrackDetail({
               </Box>
             )}
           </Box>
-        </Section>
+        </Disclosure>
 
-        <Section
+        <Disclosure
           id="track-parcel"
           title="Parcel and payment"
+          hint={
+            order.cod_amount > 0
+              ? `COD ${currency.format(order.cod_amount)}`
+              : "No cash due"
+          }
           expanded={expanded.parcel}
           onToggle={toggle("parcel")}
         >
@@ -1058,13 +1089,7 @@ export function TrackDetail({
                 </Box>
                 <Chip
                   size="small"
-                  label={
-                    codPaid
-                      ? "Paid"
-                      : view.stage === "delivered"
-                        ? "Still due"
-                        : "Due on arrival"
-                  }
+                  label={codLabel}
                   sx={toneSx(codPaid ? "success" : "warning")}
                 />
               </Stack>
@@ -1074,7 +1099,7 @@ export function TrackDetail({
               </Typography>
             )}
           </Stack>
-        </Section>
+        </Disclosure>
       </Box>
     </Box>
   );

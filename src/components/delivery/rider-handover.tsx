@@ -17,6 +17,7 @@ import {
   type NextAction,
 } from "@/lib/delivery/driver-route";
 import { currency } from "@/lib/delivery/format";
+import { isPrepaid, orderPaymentMethod } from "@/lib/delivery/payment-methods";
 import type { DeliveryOrder } from "@/lib/delivery/types";
 
 function ParcelLine({
@@ -32,9 +33,11 @@ function ParcelLine({
       <small>
         {order.parcel_description ?? "No description"}
         {order.parcel_weight_kg ? ` · ${order.parcel_weight_kg} kg` : ""}
-        {showCod && order.cod_amount > 0 && order.cod_status === "pending"
-          ? ` · COD ${currency.format(order.cod_amount)}`
-          : ""}
+        {showCod && isPrepaid(orderPaymentMethod(order))
+          ? " · Prepaid, no cash to collect"
+          : showCod && order.cod_amount > 0 && order.cod_status === "pending"
+            ? ` · COD ${currency.format(order.cod_amount)}`
+            : ""}
       </small>
     </span>
   );

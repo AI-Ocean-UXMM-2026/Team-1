@@ -129,15 +129,6 @@ export function WelcomeScreen() {
         >
           I already have an account
         </Button>
-        {/* One sign-in serves every role; the account's role decides which
-            workspace opens, so team members don't need their own links. */}
-        <Typography
-          variant="caption"
-          sx={{ textAlign: "center", color: "text.secondary", pt: 0.5 }}
-        >
-          Riders and Oern staff: use “I already have an account” with your team
-          login.
-        </Typography>
       </Stack>
     </Box>
   );

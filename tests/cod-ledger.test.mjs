@@ -91,3 +91,18 @@ test("summary totals settle, wait and flag exceptions", () => {
     exceptionCount: 2,
   });
 });
+
+test("prepaid orders are left out of the ledger and owe no rider cash", () => {
+  const rows = buildCodLedger(
+    [
+      order("p", "in_transit", 5000, { payment_method: "mmqr" }),
+      order("q", "in_transit", 5000),
+    ],
+    [],
+    [],
+  );
+  assert.deepEqual(
+    rows.map((row) => row.order.id),
+    ["q"],
+  );
+});

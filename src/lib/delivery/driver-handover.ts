@@ -1,7 +1,10 @@
 import type { DeliveryStop } from "@/lib/delivery/driver-route";
 import type { DeliveryOrder } from "@/lib/delivery/types";
+import { isPrepaid, orderPaymentMethod } from "./payment-methods.ts";
 
+/** Cash the rider collects at the door; prepaid orders owe none. */
 export function codDue(order: DeliveryOrder) {
+  if (isPrepaid(orderPaymentMethod(order))) return 0;
   return order.cod_amount > 0 && order.cod_status === "pending"
     ? order.cod_amount
     : 0;

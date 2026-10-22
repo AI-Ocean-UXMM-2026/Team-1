@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
 
+import { isPrepaid, orderPaymentMethod } from "./payment-methods.ts";
+
 export type CodOrder = {
   id: string;
   tracking_code: string;
@@ -59,6 +61,8 @@ export function buildCodLedger(
   const rows: CodRow[] = [];
   for (const order of orders) {
     if (order.cod_amount <= 0) continue;
+    // Prepaid orders were settled in the app; the rider holds no cash for them.
+    if (isPrepaid(orderPaymentMethod(order))) continue;
     if (order.status === "failed" || order.status === "cancelled") continue;
     const payment = paymentByOrder.get(order.id);
     const report = reportByOrder.get(order.id);

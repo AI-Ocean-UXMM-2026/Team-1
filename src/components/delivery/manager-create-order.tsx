@@ -19,6 +19,7 @@ import {
 import { estimateDeliveryFee } from "@/lib/delivery/delivery-fee";
 import { currency } from "@/lib/delivery/format";
 import {
+  isPrepaid,
   type PaymentMethod,
   paymentNote,
 } from "@/lib/delivery/payment-methods";
@@ -116,7 +117,7 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
         receiverPhone: String(form.get("receiverPhone") || ""),
         deliveryAddress: String(form.get("deliveryAddress") || ""),
         items,
-        codAmount: Number(form.get("codAmount") || 0),
+        codAmount: isPrepaid(method) ? 0 : Number(form.get("codAmount") || 0),
         notes: [String(form.get("notes") || "").trim(), paymentNote(method)]
           .filter(Boolean)
           .join(" · "),
@@ -430,33 +431,39 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
             Confirm what the rider should collect and any special instructions.
           </small>
         </legend>
-        <div className="manual-cod-row">
-          <label>
-            Cash to collect (MMK)
-            <input
-              name="codAmount"
-              type="number"
-              inputMode="numeric"
-              min="0"
-              step="100"
-              value={codAmount}
-              onChange={(e) => setCodAmount(e.target.value)}
-              aria-describedby="cod-amount-help"
-            />
-            <small id="cod-amount-help" className="manual-order-field-help">
-              Enter 0 if the rider should not collect cash on delivery.
-            </small>
-          </label>
-          {itemsTotal > 0 && (
-            <button
-              type="button"
-              className="button button-small button-outline manual-cod-match"
-              onClick={() => setCodAmount(itemsTotal)}
-            >
-              Match items total ({currency.format(itemsTotal)})
-            </button>
-          )}
-        </div>
+        {isPrepaid(method) ? (
+          <p className="pay-note">
+            Prepaid in the app: the rider collects no cash for this order.
+          </p>
+        ) : (
+          <div className="manual-cod-row">
+            <label>
+              Cash to collect (MMK)
+              <input
+                name="codAmount"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="100"
+                value={codAmount}
+                onChange={(e) => setCodAmount(e.target.value)}
+                aria-describedby="cod-amount-help"
+              />
+              <small id="cod-amount-help" className="manual-order-field-help">
+                Enter 0 if the rider should not collect cash on delivery.
+              </small>
+            </label>
+            {itemsTotal > 0 && (
+              <button
+                type="button"
+                className="button button-small button-outline manual-cod-match"
+                onClick={() => setCodAmount(itemsTotal)}
+              >
+                Match items total ({currency.format(itemsTotal)})
+              </button>
+            )}
+          </div>
+        )}
         <label>
           Rider instructions (optional)
           <textarea
@@ -507,7 +514,7 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
             urgent,
           })}
           method={method}
-          itemCash={Number(codAmount) || 0}
+          itemCash={isPrepaid(method) ? 0 : Number(codAmount) || 0}
         />
       </fieldset>
       <div className="manual-order-outcome">
