@@ -315,3 +315,69 @@ test("evaluateRouteTraffic layers traffic lights and road reports onto route dur
   assert.ok(delays.totalDelayMin >= 4.5);
   assert.ok(delays.junctionsEncountered.length > 0);
 });
+
+test("evaluateRouteTraffic finds a light that sits between sparse route vertices", () => {
+  // Kamayut Traffic Light #1 is ~23 m off this line, 5 km from either vertex
+  const delays = evaluateRouteTraffic([
+    [96.07, 16.8855],
+    [96.125, 16.8855],
+  ]);
+  assert.ok(delays.signalCount >= 1);
+  assert.ok(delays.junctionsEncountered.some((name) => name.includes("#1")));
+});
+
+test("evaluateRouteTraffic counts one stop where a mapped light and an arterial signal share a junction", () => {
+  const light = {
+    id: "l1",
+    name: "Mapped light",
+    type: "traffic_light",
+    latitude: 16.8,
+    longitude: 96.1,
+    estimatedCycleSeconds: 60,
+  };
+  const signal = {
+    name: "Arterial signal",
+    township: "x",
+    latitude: 16.8004,
+    longitude: 96.1004,
+    estimatedCycleSeconds: 90,
+  };
+  const delays = evaluateRouteTraffic(
+    [
+      [96.099, 16.8],
+      [96.101, 16.8],
+    ],
+    { trafficLights: [light], trafficSignals: [signal] },
+  );
+  assert.equal(delays.signalCount, 1);
+  assert.deepEqual(delays.junctionsEncountered, ["Mapped light"]);
+});
+
+test("parseRoadRoute prefers the route with fewer lights when times are close", () => {
+  const light = {
+    id: "l1",
+    name: "Mapped light",
+    type: "traffic_light",
+    latitude: 16.8,
+    longitude: 96.1,
+    estimatedCycleSeconds: 30,
+  };
+  const route = (distance, duration, lat) => ({
+    distance,
+    duration,
+    geometry: {
+      coordinates: [
+        [96.09, lat],
+        [96.11, lat],
+      ],
+    },
+  });
+  const chosen = parseRoadRoute(
+    {
+      routes: [route(3000, 600, 16.8), route(3200, 636, 16.82)],
+    },
+    { trafficLights: [light], trafficSignals: [] },
+  );
+  assert.equal(chosen.signalCount, 0);
+  assert.equal(chosen.coordinates[0][1], 16.82);
+});

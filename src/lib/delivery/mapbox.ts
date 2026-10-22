@@ -4,11 +4,13 @@ import {
   type InterceptionPoint,
   YANGON_SIDE_STREET_BYPASSES,
 } from "./data/yangon-interception-points.ts";
-import {
-  type TrafficSignal,
-  YANGON_TRAFFIC_SIGNALS,
-} from "./energy-routing.ts";
+import type { TrafficSignal } from "./energy-routing.ts";
 import { haversineKilometers } from "./intelligence.ts";
+import {
+  signalDelayMin,
+  signalIndexFor,
+  signalsAlongPath,
+} from "./signal-index.ts";
 import type { RoadReport } from "./types.ts";
 
 export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
@@ -26,6 +28,8 @@ export type RoadRoute = {
   durationMin: number;
   /** Effective duration in minutes factoring in traffic delays, red lights, and road reports */
   effectiveDurationMin?: number;
+  /** Signalised junctions the route passes through. */
+  signalCount?: number;
   /** Side-street bypass details when an alternative bypass route was selected */
   bypassInfo?: {
     bypassRoad: string;
@@ -181,51 +185,27 @@ export function evaluateRouteTraffic(
   options?: RoadRouteOptions,
 ): {
   signalDelayMin: number;
+  signalCount: number;
   reportDelayMin: number;
   totalDelayMin: number;
   junctionsEncountered: string[];
   isBlocked: boolean;
 } {
-  const lights = options?.trafficLights ?? ALL_YANGON_INTERCEPTION_POINTS;
-  const signals = options?.trafficSignals ?? YANGON_TRAFFIC_SIGNALS;
   const reports = options?.roadReports ?? [];
 
-  let signalDelayMin = 0;
+  let signalDelayMinTotal = 0;
   let reportDelayMin = 0;
   let isBlocked = false;
   const junctions: string[] = [];
 
-  // Match traffic lights along route coordinates
-  const matchedLightIds = new Set<string>();
-  for (const tl of lights) {
-    if (tl.type !== "traffic_light") continue;
-    for (const [lng, lat] of coordinates) {
-      if (haversineKilometers({ latitude: lat, longitude: lng }, tl) <= 0.045) {
-        if (!matchedLightIds.has(tl.id)) {
-          matchedLightIds.add(tl.id);
-          const delay = Math.max(0.5, (tl.estimatedCycleSeconds * 0.55) / 60 + 0.2);
-          signalDelayMin += delay;
-          junctions.push(tl.name);
-        }
-        break;
-      }
-    }
-  }
-
-  // Match arterial signals along route coordinates
-  const matchedSigNames = new Set<string>();
-  for (const sig of signals) {
-    for (const [lng, lat] of coordinates) {
-      if (haversineKilometers({ latitude: lat, longitude: lng }, sig) <= 0.045) {
-        if (!matchedSigNames.has(sig.name)) {
-          matchedSigNames.add(sig.name);
-          const delay = Math.max(0.5, (sig.estimatedCycleSeconds * 0.55) / 60 + 0.2);
-          signalDelayMin += delay;
-          junctions.push(sig.name);
-        }
-        break;
-      }
-    }
+  // Every light and arterial signal the path passes, in driving order
+  const hits = signalsAlongPath(
+    signalIndexFor(options?.trafficLights, options?.trafficSignals),
+    coordinates,
+  );
+  for (const hit of hits) {
+    signalDelayMinTotal += signalDelayMin(hit.node.estimatedCycleSeconds);
+    junctions.push(hit.node.name);
   }
 
   // Match active road reports (congestion, closure, roadwork, hazards)
@@ -248,12 +228,31 @@ export function evaluateRouteTraffic(
   }
 
   return {
-    signalDelayMin,
+    signalDelayMin: signalDelayMinTotal,
+    signalCount: hits.length,
     reportDelayMin,
-    totalDelayMin: signalDelayMin + reportDelayMin,
+    totalDelayMin: signalDelayMinTotal + reportDelayMin,
     junctionsEncountered: junctions,
     isBlocked,
   };
+}
+
+/**
+ * Soft cost, in minutes, of each signalised junction when ranking candidate
+ * routes. Stopping also burns fuel and rider patience, so between two routes
+ * of similar time the one with fewer lights wins. It only ranks; it is never
+ * added to the ETA shown to the rider.
+ */
+export const SIGNAL_AVERSION_MIN = 0.2;
+
+function rankCost(evaluation: {
+  effectiveDurationMin: number;
+  delays: { signalCount: number };
+}) {
+  return (
+    evaluation.effectiveDurationMin +
+    evaluation.delays.signalCount * SIGNAL_AVERSION_MIN
+  );
 }
 
 export function parseRoadRoute(
@@ -267,19 +266,12 @@ export function parseRoadRoute(
     .filter((r) => r.coordinates.length >= 2);
   if (!parsedRoutes.length) return null;
 
-  if (parsedRoutes.length === 1) {
-    const single = parsedRoutes[0];
-    const delays = evaluateRouteTraffic(single.coordinates, options);
-    single.effectiveDurationMin =
-      Math.round((single.durationMin + delays.totalDelayMin) * 10) / 10;
-    return single;
-  }
-
   // Evaluate candidate routes
   const evaluations = parsedRoutes.map((route) => {
     const delays = evaluateRouteTraffic(route.coordinates, options);
     const effectiveDurationMin =
       Math.round((route.durationMin + delays.totalDelayMin) * 10) / 10;
+    route.signalCount = delays.signalCount;
     return {
       route,
       delays,
@@ -287,17 +279,23 @@ export function parseRoadRoute(
     };
   });
 
-  // Sort by effective duration first, then distance
+  if (evaluations.length === 1) {
+    evaluations[0].route.effectiveDurationMin =
+      evaluations[0].effectiveDurationMin;
+    return evaluations[0].route;
+  }
+
+  const primary = evaluations[0];
+
+  // Fastest once red lights and reports are priced in; fewer lights, then
+  // shorter distance, break ties
   evaluations.sort(
     (a, b) =>
-      a.effectiveDurationMin - b.effectiveDurationMin ||
+      rankCost(a) - rankCost(b) ||
       a.route.distanceKm - b.route.distanceKm,
   );
 
   const winning = evaluations[0];
-  const primary =
-    evaluations.find((e) => parsedRoutes[0] === e.route) ?? evaluations[0];
-
   winning.route.effectiveDurationMin = winning.effectiveDurationMin;
 
   // If the winning route avoids bottlenecks that the default arterial route entered:
@@ -346,7 +344,11 @@ export function parseRoadRoute(
     }
 
     const bypassedJunction =
-      primary.delays.junctionsEncountered[0] ?? "congested traffic junction";
+      primary.delays.junctionsEncountered.find(
+        (name) => !winning.delays.junctionsEncountered.includes(name),
+      ) ??
+      primary.delays.junctionsEncountered[0] ??
+      "congested traffic junction";
 
     winning.route.bypassInfo = {
       bypassRoad,
@@ -375,84 +377,122 @@ export function directionsUrl(points: MapPoint[], alternatives = true) {
   return `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${path}?${params}`;
 }
 
+/** Directions responses stay valid this long; the road network barely changes. */
+const DIRECTIONS_TTL_MS = 45_000;
+const DIRECTIONS_CACHE_MAX = 40;
+const directionsCache = new Map<
+  string,
+  { at: number; body: Promise<DirectionsBody | null> }
+>();
+
+/**
+ * One Directions request per URL at a time, reused for a short while. Several
+ * map components ask for the same leg, and the bypass probe repeats the
+ * direct request's coordinates, so this saves round trips on every tick.
+ * An aborted caller resolves null without cancelling the shared request.
+ */
+function fetchDirections(
+  url: string,
+  signal?: AbortSignal,
+): Promise<DirectionsBody | null> {
+  if (signal?.aborted) return Promise.resolve(null);
+  const now = Date.now();
+  let entry = directionsCache.get(url);
+  if (!entry || now - entry.at >= DIRECTIONS_TTL_MS) {
+    const body: Promise<DirectionsBody | null> = fetch(url)
+      .then((response) =>
+        response.ok ? (response.json() as Promise<DirectionsBody>) : null,
+      )
+      .catch(() => null);
+    entry = { at: now, body };
+    directionsCache.set(url, entry);
+    void body.then((value) => {
+      if (value == null && directionsCache.get(url) === entry)
+        directionsCache.delete(url);
+    });
+    if (directionsCache.size > DIRECTIONS_CACHE_MAX) {
+      const oldest = directionsCache.keys().next().value;
+      if (oldest !== undefined) directionsCache.delete(oldest);
+    }
+  }
+  const { body } = entry;
+  if (!signal) return body;
+  return new Promise((resolve) => {
+    signal.addEventListener("abort", () => resolve(null), { once: true });
+    void body.then(resolve);
+  });
+}
+
+const effectiveMin = (route: RoadRoute) =>
+  route.effectiveDurationMin ?? route.durationMin;
+
+const routeCost = (route: RoadRoute) =>
+  effectiveMin(route) + (route.signalCount ?? 0) * SIGNAL_AVERSION_MIN;
+
 async function fetchRoadRouteChunk(
   points: MapPoint[],
   options?: RoadRouteOptions,
   signal?: AbortSignal,
 ): Promise<RoadRoute | null> {
   if (points.length < 2) return null;
-  const response = await fetch(directionsUrl(points, true), { signal });
-  if (!response.ok) return null;
+  const body = await fetchDirections(directionsUrl(points, true), signal);
+  if (!body) return null;
   try {
-    const directRoute = parseRoadRoute(
-      (await response.json()) as DirectionsBody,
-      options,
+    const directRoute = parseRoadRoute(body, options);
+
+    // The direct route may still run through a light that has a known
+    // side-street bypass. Probe every such bypass at once and keep the
+    // quickest, instead of trying them one after another.
+    if (!directRoute || points.length !== 2 || !hasMapbox) return directRoute;
+
+    const bypasses = YANGON_SIDE_STREET_BYPASSES.filter((bp) => {
+      if (!bp.bypassesPointId) return false;
+      const targetJunction = ALL_YANGON_INTERCEPTION_POINTS.find(
+        (p) => p.id === bp.bypassesPointId,
+      );
+      if (!targetJunction) return false;
+      return signalsAlongPath(
+        signalIndexFor([targetJunction], []),
+        directRoute.coordinates,
+        0.045,
+      ).length > 0;
+    });
+    if (!bypasses.length) return directRoute;
+
+    const probed = await Promise.all(
+      bypasses.map(async (bypass) => {
+        const probeBody = await fetchDirections(
+          directionsUrl([points[0], bypass, points[1]], false),
+          signal,
+        );
+        const route = probeBody ? parseRoadRoute(probeBody, options) : null;
+        return route ? { bypass, route } : null;
+      }),
     );
 
-    // If only 1 route was returned or direct route didn't use a bypass,
-    // but the direct route intersects a junction that has a known bypass waypoint:
-    if (
-      directRoute &&
-      points.length === 2 &&
-      !directRoute.bypassInfo &&
-      hasMapbox
-    ) {
-      const junctionBypass = YANGON_SIDE_STREET_BYPASSES.find((bp) => {
-        if (!bp.bypassesPointId) return false;
-        const targetJunction = ALL_YANGON_INTERCEPTION_POINTS.find(
-          (p) => p.id === bp.bypassesPointId,
-        );
-        if (!targetJunction) return false;
-        return directRoute.coordinates.some(
-          ([lng, lat]) =>
-            haversineKilometers(
-              { latitude: lat, longitude: lng },
-              targetJunction,
-            ) <= 0.045,
-        );
-      });
-
-      if (junctionBypass) {
-        try {
-          const bypassPoints = [points[0], junctionBypass, points[1]];
-          const bypassResp = await fetch(directionsUrl(bypassPoints, false), {
-            signal,
-          });
-          if (bypassResp.ok) {
-            const bypassRoute = parseRoadRoute(
-              (await bypassResp.json()) as DirectionsBody,
-              options,
-            );
-            if (
-              bypassRoute &&
-              (bypassRoute.effectiveDurationMin ?? bypassRoute.durationMin) <
-                (directRoute.effectiveDurationMin ?? directRoute.durationMin)
-            ) {
-              const saved = Math.max(
-                0.3,
-                Math.round(
-                  ((directRoute.effectiveDurationMin ??
-                    directRoute.durationMin) -
-                    (bypassRoute.effectiveDurationMin ??
-                      bypassRoute.durationMin)) *
-                    10,
-                ) / 10,
-              );
-              bypassRoute.bypassInfo = {
-                bypassRoad: junctionBypass.road ?? "Sain Yadanar Rd",
-                bypassedJunction: "traffic junction",
-                timeSavedMin: saved,
-              };
-              return bypassRoute;
-            }
-          }
-        } catch {
-          // Keep directRoute if bypass query fails
-        }
-      }
+    let best: { bypass: (typeof bypasses)[number]; route: RoadRoute } | null =
+      null;
+    for (const candidate of probed) {
+      if (!candidate) continue;
+      if (!best || routeCost(candidate.route) < routeCost(best.route))
+        best = candidate;
     }
+    if (!best) return directRoute;
 
-    return directRoute;
+    // Only a cut in total cost beats the direct route, matching the ranking
+    // used between Mapbox's own alternatives
+    if (routeCost(best.route) >= routeCost(directRoute)) return directRoute;
+    const saved = Math.max(
+      0.3,
+      Math.round((effectiveMin(directRoute) - effectiveMin(best.route)) * 10) /
+        10,
+    );
+    best.route.bypassInfo = {
+      bypassRoad: best.bypass.road ?? "Sain Yadanar Rd",
+      bypassedJunction: "traffic junction",
+      timeSavedMin: saved,
+    };
+    return best.route;
   } catch {
     return null;
   }
@@ -487,6 +527,10 @@ export async function fetchRoadRoute(
   const allCoordinates: [number, number][] = [];
   let totalDistanceKm = 0;
   let totalDurationMin = 0;
+  let totalEffectiveMin = 0;
+  let totalSignals = 0;
+  let timeSavedMin = 0;
+  let bypassInfo: RoadRoute["bypassInfo"] = null;
   const allSpeedLimits: (number | null)[] = [];
 
   for (let i = 0; i < valid.length; i++) {
@@ -498,13 +542,24 @@ export async function fetchRoadRoute(
     }
     totalDistanceKm += chunkRoute.distanceKm;
     totalDurationMin += chunkRoute.durationMin;
+    totalEffectiveMin += effectiveMin(chunkRoute);
+    totalSignals += chunkRoute.signalCount ?? 0;
     allSpeedLimits.push(...chunkRoute.speedLimitsKmh);
+    if (chunkRoute.bypassInfo) {
+      timeSavedMin += chunkRoute.bypassInfo.timeSavedMin;
+      bypassInfo ??= chunkRoute.bypassInfo;
+    }
   }
 
   return {
     coordinates: allCoordinates,
     distanceKm: totalDistanceKm,
     durationMin: totalDurationMin,
+    effectiveDurationMin: Math.round(totalEffectiveMin * 10) / 10,
+    signalCount: totalSignals,
+    bypassInfo: bypassInfo
+      ? { ...bypassInfo, timeSavedMin: Math.round(timeSavedMin * 10) / 10 }
+      : null,
     speedLimitsKmh: allSpeedLimits,
     firstStep: valid[0]?.firstStep ?? null,
   };

@@ -178,10 +178,24 @@ export function applyTraffic(
       const arc = i * n + j;
       const to = { latitude: points[j].lat, longitude: points[j].lng };
 
-      const sigs = countTrafficSignalsBetween(from, to, corridorThresholdKm).count;
       const intResult = countInterceptionPointsBetween(from, to, corridorThresholdKm);
       const userPoints = intResult.points;
       const ints = intResult.count;
+      // An arterial signal at the same junction as a hand-mapped light is one
+      // stop, not two
+      const sigs = countTrafficSignalsBetween(
+        from,
+        to,
+        corridorThresholdKm,
+      ).signals.filter(
+        (signal) =>
+          !userPoints.some(
+            (pt) =>
+              pt.type === "traffic_light" &&
+              Math.abs(pt.latitude - signal.latitude) < 0.0011 &&
+              Math.abs(pt.longitude - signal.longitude) < 0.0012,
+          ),
+      ).length;
 
       // Base signal and user traffic point delay:
       // Traffic lights apply cycle-calibrated red-light and deceleration delay;

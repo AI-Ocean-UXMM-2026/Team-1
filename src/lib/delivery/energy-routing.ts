@@ -401,6 +401,28 @@ export function distanceToSegmentKm(
 }
 
 /**
+ * Cheap reject before the exact distance: a point outside the segment's
+ * bounding box, padded by the corridor width, cannot be within it. The
+ * dispatch matrix calls this for every arc, so most points stop here.
+ */
+function outsideCorridorBox(
+  p: { latitude: number; longitude: number },
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+  corridorThresholdKm: number,
+) {
+  const padLat = corridorThresholdKm / 111;
+  const padLng =
+    corridorThresholdKm / (111 * Math.max(0.1, Math.cos(radians(a.latitude))));
+  return (
+    p.latitude < Math.min(a.latitude, b.latitude) - padLat ||
+    p.latitude > Math.max(a.latitude, b.latitude) + padLat ||
+    p.longitude < Math.min(a.longitude, b.longitude) - padLng ||
+    p.longitude > Math.max(a.longitude, b.longitude) + padLng
+  );
+}
+
+/**
  * Counts traffic signals located along the direct route corridor between two points.
  */
 export function countTrafficSignalsBetween(
@@ -410,6 +432,7 @@ export function countTrafficSignalsBetween(
 ): { count: number; signals: TrafficSignal[] } {
   const matched: TrafficSignal[] = [];
   for (const signal of YANGON_TRAFFIC_SIGNALS) {
+    if (outsideCorridorBox(signal, from, to, corridorThresholdKm)) continue;
     const dist = distanceToSegmentKm(signal, from, to);
     if (dist <= corridorThresholdKm) {
       matched.push(signal);
@@ -427,6 +450,7 @@ export function countInterceptionPointsBetween(
   corridorThresholdKm = 0.5,
 ): { count: number; points: readonly InterceptionPoint[] } {
   const matched = ALL_YANGON_INTERCEPTION_POINTS.filter((pt) => {
+    if (outsideCorridorBox(pt, from, to, corridorThresholdKm)) return false;
     return distanceToSegmentKm(pt, from, to) <= corridorThresholdKm;
   });
   return { count: matched.length, points: matched };
