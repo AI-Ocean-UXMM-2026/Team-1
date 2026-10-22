@@ -547,6 +547,14 @@ export function DispatchApp() {
                     </>
                   )}
                   {summary.mixedWeights}.
+                  {plan.quality.traffic && plan.quality.traffic.addedDelayMin > 0 && (
+                    <>
+                      {" "}Traffic delay accounted for: {plan.quality.traffic.signalsCovered} signals, {plan.quality.traffic.interceptionsCovered} interception points
+                      {plan.quality.traffic.reportsCovered > 0 ? `, ${plan.quality.traffic.reportsCovered} road reports` : ""}
+                      {plan.quality.traffic.ordersWithTrafficDelay > 0 ? `, ${plan.quality.traffic.ordersWithTrafficDelay} order delays` : ""}
+                      {" "}(+{plan.quality.traffic.addedDelayMin} min total delay).
+                    </>
+                  )}
                 </span>
               </div>
             </section>

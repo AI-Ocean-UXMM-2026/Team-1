@@ -2154,6 +2154,106 @@
   box-shadow: none;
 }
 
+/* ---------- pitstop active banner ---------- */
+
+.rf-pitstop-active-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+  box-shadow: var(--rf-shadow-float);
+  color: #1e3a8a;
+  box-sizing: border-box;
+}
+
+.rf-pitstop-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rf-pitstop-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rf-pitstop-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.rf-pitstop-main strong {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #172b4d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-pitstop-sub {
+  font-size: 0.8125rem;
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-pitstop-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.rf-pitstop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    transform 0.1s ease;
+}
+
+.rf-pitstop-btn.is-maps {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.rf-pitstop-btn.is-resume {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.rf-pitstop-btn:active {
+  transform: scale(0.97);
+}
+
 .rf-caution-banner > svg {
   flex: none;
 }

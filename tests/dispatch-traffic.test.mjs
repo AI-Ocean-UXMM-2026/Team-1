@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { applyTraffic } from "../src/lib/delivery/dispatch/traffic.ts";
 import { buildStraightLineMatrix } from "../src/lib/delivery/dispatch/matrix.ts";
+import { planDispatch } from "../src/lib/delivery/dispatch/plan.ts";
 import { recommendAssignments } from "../src/lib/delivery/intelligence.ts";
 import { buildDriverRoute } from "../src/lib/delivery/driver-route.ts";
 
@@ -150,3 +151,198 @@ test("buildDriverRoute computes route-level traffic signal and interception coun
   assert.ok(route.signalsOnRoute != null && route.signalsOnRoute > 0, "Route should detect signals across stops");
   assert.ok(route.interceptionsOnRoute != null && route.interceptionsOnRoute > 0, "Route should detect interception midpoints");
 });
+
+test("applyTraffic factors in live road reports (congestion, roadworks, closures)", () => {
+  const points = [
+    { lat: 16.8288, lng: 96.129 }, // Kamayut
+    { lat: 16.8055, lng: 96.136 }, // Sanchaung
+    { lat: 16.7788, lng: 96.1585 }, // Kyauktada
+  ];
+  const params = { speedKmh: 30, roadFactor: 1.25 };
+  const baseMatrix = buildStraightLineMatrix(points, params);
+
+  // Road report: heavy congestion on Pyay Road between Kamayut and Sanchaung
+  const congestionReport = {
+    lat: 16.817,
+    lng: 16.817 ? 96.132 : 96.132,
+    category: "congestion",
+    severity: "high",
+  };
+
+  // Road report: road closure near downtown
+  const closureReport = {
+    lat: 16.78,
+    lng: 96.158,
+    category: "closure",
+    severity: "blocked",
+  };
+
+  const { matrix, summary } = applyTraffic(baseMatrix, points, {
+    reports: [congestionReport, closureReport],
+  });
+
+  assert.ok(summary.reportsCovered >= 2, "Both road reports should be matched to nearby arcs");
+  assert.ok(summary.blockedArcs > 0, "Closure report should mark affected arc(s) as blocked");
+  assert.ok(matrix.blocked != null, "Matrix should carry blocked array");
+
+  // Check arc from Kamayut (0) to Sanchaung (1) has high congestion delay
+  const arc01 = 0 * 3 + 1;
+  const arcWithoutReports = applyTraffic(baseMatrix, points).matrix.time[arc01];
+  assert.ok(
+    matrix.time[arc01] > arcWithoutReports,
+    `Congestion should add travel time beyond base signals (with reports: ${matrix.time[arc01]}, signals only: ${arcWithoutReports})`,
+  );
+});
+
+test("applyTraffic layers order-level traffic delays onto delivery destinations", () => {
+  const points = [
+    { lat: 16.86, lng: 96.12 }, // Depot
+    { lat: 16.8288, lng: 96.129 }, // Node 1: Delivery A
+    { lat: 16.8055, lng: 96.136 }, // Node 2: Delivery B
+  ];
+  const params = { speedKmh: 30, roadFactor: 1.25 };
+  const baseMatrix = buildStraightLineMatrix(points, params);
+
+  const orders = [
+    {
+      id: "ord-heavy-traffic",
+      delivery_latitude: 16.8055,
+      delivery_longitude: 96.136,
+      traffic_delay_minutes: 15,
+    },
+  ];
+
+  const { matrix, summary } = applyTraffic(baseMatrix, points, { orders });
+
+  assert.equal(summary.ordersWithTrafficDelay, 1, "Should count 1 order with traffic delay");
+
+  // Arcs arriving at Node 2 (index 2) should carry the 15 min traffic delay
+  const arc02 = 0 * 3 + 2; // Depot -> Node 2
+  const arc12 = 1 * 3 + 2; // Node 1 -> Node 2
+  const base02 = applyTraffic(baseMatrix, points).matrix.time[arc02];
+  const base12 = applyTraffic(baseMatrix, points).matrix.time[arc12];
+
+  assert.equal(
+    Math.round(matrix.time[arc02] - base02),
+    15,
+    "Incoming arc from depot to delivery stop should receive order traffic delay",
+  );
+  assert.equal(
+    Math.round(matrix.time[arc12] - base12),
+    15,
+    "Incoming arc from node 1 to delivery stop should receive order traffic delay",
+  );
+});
+
+test("planDispatch incorporates traffic road reports and order traffic delays", async () => {
+  const depot = {
+    id: "d0000000-0000-4000-8000-000000000001",
+    code: "YGN-MAIN",
+    latitude: 16.86,
+    longitude: 96.12,
+    location_status: "verified",
+    is_active: true,
+  };
+
+  const orders = [
+    {
+      id: "ord-1",
+      status: "pending",
+      pickup_address: "Kamayut",
+      pickup_latitude: 16.8288,
+      pickup_longitude: 96.129,
+      delivery_address: "Sanchaung",
+      delivery_latitude: 16.8055,
+      delivery_longitude: 96.136,
+      parcel_weight_kg: 5,
+      cod_amount: 0,
+      traffic_delay_minutes: 8,
+      updated_at: new Date().toISOString(),
+      logistics: null,
+    },
+    {
+      id: "ord-2",
+      status: "pending",
+      pickup_address: "Bahan",
+      pickup_latitude: 16.81,
+      pickup_longitude: 96.155,
+      delivery_address: "Downtown",
+      delivery_latitude: 16.7788,
+      delivery_longitude: 96.1585,
+      parcel_weight_kg: 3,
+      cod_amount: 0,
+      traffic_delay_minutes: 0,
+      updated_at: new Date().toISOString(),
+      logistics: null,
+    },
+  ];
+
+  const trucks = [
+    {
+      id: "truck-1",
+      registration_number: "YGN-9001",
+      vehicle_type: "truck",
+      status: "available",
+      capacity_kg: 1000,
+      energy_source: "fuel",
+      fuel_level_percent: 90,
+      battery_level_percent: null,
+      range_km_at_full: 300,
+      reserve_percent: 10,
+      profile: {
+        depot_id: depot.id,
+        default_driver_id: null,
+        capacity_m3: 6,
+        cost_per_km_mmk: 1200,
+        fixed_cost_mmk: 0,
+        cost_source: "assumed",
+      },
+    },
+  ];
+
+  const trafficReport = {
+    lat: 16.817,
+    lng: 96.132,
+    category: "congestion",
+    severity: "medium",
+  };
+
+  const deps = {
+    nowMs: () => Date.now(),
+    buildMatrix: async (points, params) => ({
+      matrix: buildStraightLineMatrix(points, params),
+      stats: null,
+    }),
+  };
+
+  const result = await planDispatch(
+    {
+      depot,
+      serviceDate: "2026-10-22",
+      now: new Date(),
+      orders,
+      trucks,
+      params: { maxIterations: 100 },
+      field: null,
+      reports: [trafficReport],
+    },
+    deps,
+  );
+
+  assert.equal(result.ok, true);
+  assert.ok(result.quality.traffic != null, "Quality should include traffic summary");
+  assert.ok(result.quality.traffic.signalsCovered > 0, "Should detect signals along routes");
+  assert.ok(result.quality.traffic.reportsCovered >= 1, "Should count matched traffic report");
+  assert.equal(result.quality.traffic.ordersWithTrafficDelay, 1, "Should count order with traffic delay");
+  assert.ok(result.quality.traffic.addedDelayMin > 0, "Added delay should be greater than zero");
+  assert.ok(
+    result.warnings.some((w) => w.startsWith("traffic_reports:")),
+    "Should include traffic_reports warning",
+  );
+  assert.ok(
+    result.warnings.some((w) => w.startsWith("order_traffic_delays:")),
+    "Should include order_traffic_delays warning",
+  );
+});
+
+

@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
+import { workspaceHome } from "@/lib/delivery/access";
 import { createClient } from "@/lib/supabase/client";
 
 function formatAuthError(error: unknown): string {
@@ -37,9 +38,24 @@ export function SigninForm() {
     setBusy(true);
     setError(null);
     try {
-      const { error: signInError } =
-        await createClient().auth.signInWithPassword({ email, password });
+      const client = createClient();
+      const { data, error: signInError } = await client.auth.signInWithPassword(
+        { email, password },
+      );
       if (signInError) throw signInError;
+
+      const userId = data.user?.id;
+      if (userId) {
+        const { data: profile } = await client
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+        if (profile?.role) {
+          router.push(workspaceHome(profile.role));
+          return;
+        }
+      }
       router.push("/home");
     } catch (cause) {
       setError(formatAuthError(cause));

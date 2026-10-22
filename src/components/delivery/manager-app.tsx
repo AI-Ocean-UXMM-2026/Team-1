@@ -20,12 +20,12 @@ import { CodLedgerView } from "@/components/delivery/manager-cod";
 import { ManagerCreateOrder } from "@/components/delivery/manager-create-order";
 import "@/components/delivery/manager-create-order.css";
 import { ManagerHomeView } from "@/components/delivery/manager-home-view";
-import { ModalPanel } from "@/components/delivery/modal-panel";
 import {
   CardHeader,
   type ManagerNotice as Notice,
   NoticeStrip,
 } from "@/components/delivery/manager-ui-components";
+import { ModalPanel } from "@/components/delivery/modal-panel";
 import {
   assignDelivery,
   reviewRoadReport,
@@ -40,6 +40,7 @@ import {
   needsRider,
   recentOrders,
 } from "@/lib/delivery/dashboard";
+import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
 import {
   currency,
   formatTime,
@@ -47,7 +48,6 @@ import {
   sentenceCase,
 } from "@/lib/delivery/format";
 import { recommendAssignments } from "@/lib/delivery/intelligence";
-import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
 import type {
   DeliveryOrder,
   DriverOption,
@@ -171,7 +171,12 @@ export function ManagerDashboard({
 
   const mobileNavItems: MobileNavItem[] = useMemo(
     () => [
-      { id: "home", label: "Overview", href: "/manager/home", icon: "delivery" },
+      {
+        id: "home",
+        label: "Overview",
+        href: "/manager/home",
+        icon: "delivery",
+      },
       { id: "order", label: "Orders", href: "/manager/order", icon: "box" },
       { id: "track", label: "Track", href: "/manager/track", icon: "track" },
       { id: "cod", label: "COD", href: "/manager/cod", icon: "coin" },
@@ -259,7 +264,7 @@ export function ManagerDashboard({
         ? workspace.data.vehicles.find(
             (v) => v.id === recommendations[0].vehicleId,
           )
-        : workspace.data.vehicles[0] ?? null;
+        : (workspace.data.vehicles[0] ?? null);
     return assessEnergyRoute(
       { ...selectedOrder, latest_location: null },
       vehicle as VehicleOption | null,
@@ -588,7 +593,7 @@ export function ManagerDashboard({
 
   const signedOut = !workspace.isAuthenticated && !workspace.isDemo;
   const openRequests = workspace.data.riderRequests.filter(
-    (request) => request.status !== "resolved",
+    (request) => request.status !== "resolved" && request.kind !== "energy",
   );
 
   const activeNav = view === "create" ? "order" : view;
@@ -677,7 +682,9 @@ export function ManagerDashboard({
           <div className="manager-sidebar-label">Field &amp; Fleet</div>
           <nav className="manager-side-nav" aria-label="Field and fleet">
             <Link
-              className={activeNav === "profile" ? "side-nav-active" : undefined}
+              className={
+                activeNav === "profile" ? "side-nav-active" : undefined
+              }
               href="/manager/profile"
               aria-current={activeNav === "profile" ? "page" : undefined}
             >
@@ -966,7 +973,9 @@ export function ManagerDashboard({
                     <div className="manager-empty-list">
                       {searchQuery ? (
                         <div className="manager-search-empty">
-                          <p>No deliveries match &ldquo;{searchQuery}&rdquo;.</p>
+                          <p>
+                            No deliveries match &ldquo;{searchQuery}&rdquo;.
+                          </p>
                           <button
                             type="button"
                             className="button button-small button-outline"
@@ -1030,8 +1039,8 @@ export function ManagerDashboard({
                               <span className="energy-pill">
                                 <Icon name="truck" size={14} />
                                 <strong>
-                                  {selectedOrderAssessment.fuelLitresEstimated} L
-                                  fuel
+                                  {selectedOrderAssessment.fuelLitresEstimated}{" "}
+                                  L fuel
                                 </strong>
                               </span>
                             )}
@@ -1065,7 +1074,8 @@ export function ManagerDashboard({
                               )}
                           </div>
                           {selectedOrderAssessment.signalBypasses &&
-                            selectedOrderAssessment.signalBypasses.length > 0 && (
+                            selectedOrderAssessment.signalBypasses.length >
+                              0 && (
                               <div className="energy-bypass-tip">
                                 <Icon name="compass" size={14} />
                                 <span>
@@ -1414,7 +1424,8 @@ export function ManagerDashboard({
                           </small>
                           {activeOrder && (
                             <span className="team-roster-assignment">
-                              Active: <strong>{activeOrder.tracking_code}</strong> ·{" "}
+                              Active:{" "}
+                              <strong>{activeOrder.tracking_code}</strong> ·{" "}
                               {activeOrder.delivery_address}
                             </span>
                           )}
@@ -1669,13 +1680,18 @@ export function ManagerDashboard({
                                 type="button"
                                 className="button button-outline button-small"
                                 onClick={() => {
-                                  setMapFocusPoint({
-                                    latitude: request.latitude!,
-                                    longitude: request.longitude!,
-                                  });
-                                  document
-                                    .querySelector(".manager-track-map")
-                                    ?.scrollIntoView({ behavior: "smooth" });
+                                  if (
+                                    request.latitude != null &&
+                                    request.longitude != null
+                                  ) {
+                                    setMapFocusPoint({
+                                      latitude: request.latitude,
+                                      longitude: request.longitude,
+                                    });
+                                    document
+                                      .querySelector(".manager-track-map")
+                                      ?.scrollIntoView({ behavior: "smooth" });
+                                  }
                                 }}
                               >
                                 <Icon name="location" size={13} /> View on map
@@ -1824,12 +1840,15 @@ export function ManagerDashboard({
               <h2 id="reassign-modal-title">Confirm driver reassignment</h2>
             </div>
             <p className="reassign-modal-desc">
-              Reassign delivery <strong>{selectedOrder?.tracking_code}</strong> to a different rider?
+              Reassign delivery <strong>{selectedOrder?.tracking_code}</strong>{" "}
+              to a different rider?
             </p>
             <div className="reassign-parties">
               <div className="reassign-party">
                 <span className="reassign-party-label">Current assignment</span>
-                <strong>{selectedOrder?.driver_name || "Assigned rider"}</strong>
+                <strong>
+                  {selectedOrder?.driver_name || "Assigned rider"}
+                </strong>
               </div>
               <div className="reassign-arrow" aria-hidden="true">
                 <Icon name="arrow-right" size={18} />
@@ -1925,7 +1944,9 @@ export function ManagerDashboard({
               <Icon name="truck" size={20} />
               <div>
                 <strong>Fleet insights</strong>
-                <small>Energy reserves, service due &amp; operating costs</small>
+                <small>
+                  Energy reserves, service due &amp; operating costs
+                </small>
               </div>
             </Link>
             <a

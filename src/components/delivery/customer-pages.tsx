@@ -15,14 +15,15 @@ import ChevronRight from "@mui/icons-material/ChevronRight";
 import HelpOutlineRounded from "@mui/icons-material/HelpOutlineRounded";
 import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
 import IosShare from "@mui/icons-material/IosShare";
+import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
 import LocationOnOutlined from "@mui/icons-material/LocationOnOutlined";
+import NotificationsNoneRounded from "@mui/icons-material/NotificationsNoneRounded";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import PhoneOutlined from "@mui/icons-material/PhoneOutlined";
 import SearchRounded from "@mui/icons-material/SearchRounded";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import Avatar from "@mui/material/Avatar";
-import Badge from "@mui/material/Badge";
 import BottomNavigation from "@mui/material/BottomNavigation";
 import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import Box from "@mui/material/Box";
@@ -34,7 +35,6 @@ import LinearProgress from "@mui/material/LinearProgress";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Stack from "@mui/material/Stack";
 import { alpha } from "@mui/material/styles";
@@ -930,17 +930,60 @@ export function OrdersPage({
 
 /* ---------------------------------------------------------------- profile */
 
+/** Supporting copy on the navy card: 10:1 against #172B4D, still a step down
+    from the white name above it. */
+const HERO_MUTED = "rgba(255, 255, 255, 0.82)";
+
+/** Counts worth showing on the profile row: what is moving and what landed. */
+function deliveriesSummary(orders: DeliveryOrder[]) {
+  if (orders.length === 0) return "Your parcels will appear here";
+  const moving = orders.filter(
+    (order) =>
+      order.status !== "pending" && ACTIVE_STATUSES.includes(order.status),
+  ).length;
+  const delivered = orders.filter(
+    (order) => order.status === "delivered",
+  ).length;
+  const parts: string[] = [];
+  if (moving > 0) parts.push(`${moving} on the way`);
+  if (delivered > 0) parts.push(`${delivered} delivered`);
+  if (parts.length > 0) return parts.join(" · ");
+  const pending = orders.filter((order) => order.status === "pending").length;
+  return pending > 0 ? `${pending} being prepared` : "No active deliveries";
+}
+
+/** Flat tile: every row uses the same shape so the list reads as one set. */
+function RowIcon({ children }: { children: ReactNode }) {
+  return (
+    <Box
+      sx={{
+        width: 40,
+        height: 40,
+        flex: "none",
+        display: "grid",
+        placeItems: "center",
+        borderRadius: "12px",
+        bgcolor: "grey.100",
+        color: "text.secondary",
+        "& svg": { fontSize: 22 },
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
+
 function ProfileRow({
-  illustration,
+  icon,
   title,
   detail,
-  badge,
+  titleExtra,
   ...rest
 }: {
-  illustration: string;
+  icon: ReactNode;
   title: string;
   detail: string;
-  badge?: number;
+  titleExtra?: ReactNode;
 } & (
   | { component: typeof Link; href: string }
   | { component: "a"; href: string }
@@ -949,24 +992,137 @@ function ProfileRow({
   return (
     <ListItemButton
       {...rest}
-      sx={{ gap: 1.5, minHeight: 72, px: 1.5, borderRadius: "16px" }}
+      sx={{
+        gap: 1.5,
+        minHeight: 72,
+        px: 1.5,
+        py: 1.25,
+        borderRadius: "16px",
+        bgcolor: "background.paper",
+        border: "1px solid",
+        borderColor: "divider",
+        "&:hover": { bgcolor: "grey.100" },
+      }}
     >
-      <Badge badgeContent={badge} color="error" max={9} overlap="circular">
-        <Box
-          component="img"
-          src={illustration}
-          alt=""
-          sx={{ display: "block", width: 48, height: 48 }}
-        />
-      </Badge>
-      <ListItemText
-        primary={title}
-        secondary={detail}
-        slotProps={{ primary: { sx: { fontWeight: 700, fontSize: 14 } } }}
-        sx={{ m: 0 }}
-      />
-      <ChevronRight color="disabled" />
+      <RowIcon>{icon}</RowIcon>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <Typography
+            sx={{
+              fontSize: 16,
+              lineHeight: "22px",
+              fontWeight: 700,
+              color: "text.primary",
+            }}
+          >
+            {title}
+          </Typography>
+          {titleExtra}
+        </Stack>
+        <Typography
+          sx={{
+            display: "block",
+            mt: 0.25,
+            fontSize: 13,
+            lineHeight: "18px",
+            color: "text.secondary",
+          }}
+        >
+          {detail}
+        </Typography>
+      </Box>
+      {/* #64748B is the design system's text.secondary; the theme's
+          text.secondary is the darker #475569, which is too heavy for a
+          chevron next to a leading icon of the same weight. */}
+      <ChevronRight sx={{ color: "#64748B", flex: "none" }} />
     </ListItemButton>
+  );
+}
+
+/** Navy identity card: the profile screen opens with who you are, not a
+    label above a heading. */
+function AccountHero({
+  name,
+  phone,
+  isAuthenticated,
+  onSignIn,
+}: {
+  name: string | null;
+  phone: string | null;
+  isAuthenticated: boolean;
+  onSignIn: () => void;
+}) {
+  const label = isAuthenticated ? name || "Customer" : "Guest";
+  return (
+    <Box
+      sx={{
+        mx: 2,
+        mt: 0.5,
+        p: 2,
+        borderRadius: "20px",
+        bgcolor: "secondary.main",
+        color: "secondary.contrastText",
+      }}
+    >
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+        <Box
+          sx={{
+            width: 56,
+            height: 56,
+            flex: "none",
+            display: "grid",
+            placeItems: "center",
+            borderRadius: "16px",
+            bgcolor: (theme) => alpha(theme.palette.common.white, 0.14),
+            border: "1px solid",
+            borderColor: (theme) => alpha(theme.palette.common.white, 0.24),
+            color: "#fff",
+            fontSize: 22,
+            fontWeight: 750,
+          }}
+        >
+          {isAuthenticated ? (
+            label.charAt(0).toUpperCase()
+          ) : (
+            <PersonOutlined sx={{ fontSize: 28 }} />
+          )}
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="h6"
+            component="p"
+            sx={{ fontWeight: 750, lineHeight: 1.3 }}
+          >
+            {label}
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.25, color: HERO_MUTED }}>
+            {isAuthenticated
+              ? (phone ?? "No phone number on file")
+              : "Sign in to see your deliveries and updates."}
+          </Typography>
+        </Box>
+      </Stack>
+      {!isAuthenticated && (
+        <>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={onSignIn}
+            endIcon={<ArrowForward />}
+            sx={{ mt: 2 }}
+          >
+            Sign in
+          </Button>
+          <Typography
+            variant="caption"
+            sx={{ display: "block", mt: 1.5, color: HERO_MUTED }}
+          >
+            Riders and Oern staff use this sign-in too. Your account opens the
+            right workspace.
+          </Typography>
+        </>
+      )}
+    </Box>
   );
 }
 
@@ -975,6 +1131,7 @@ export function ProfilePage({
   phone,
   isAuthenticated,
   unreadCount,
+  orders,
   onSignIn,
   onSignOut,
   onOpenHelp,
@@ -983,82 +1140,82 @@ export function ProfilePage({
   phone: string | null;
   isAuthenticated: boolean;
   unreadCount: number;
+  orders: DeliveryOrder[];
   onSignIn: () => void;
   onSignOut: () => void;
   onOpenHelp: () => void;
 }) {
   return (
     <Box sx={{ pb: 3 }}>
-      <Box
-        sx={{ mx: 2, mt: 0.5, p: 2, borderRadius: "16px", bgcolor: "grey.100" }}
-      >
-        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-          {isAuthenticated ? "Signed in as" : "Not signed in"}
-        </Typography>
-        <Typography variant="h6" component="p" sx={{ fontWeight: 750 }}>
-          {isAuthenticated ? name || "Customer" : "Guest"}
-        </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          {isAuthenticated
-            ? (phone ?? "No phone number on file")
-            : "Sign in to see your deliveries and updates."}
-        </Typography>
-        {!isAuthenticated && (
-          <>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={onSignIn}
-              endIcon={<ArrowForward />}
-              sx={{ mt: 1.5, minHeight: 44 }}
-            >
-              Sign in
-            </Button>
-            <Typography
-              variant="caption"
-              sx={{ display: "block", mt: 1.5, color: "text.secondary" }}
-            >
-              Riders and Oern staff use this sign-in too. Your account opens the
-              right workspace.
-            </Typography>
-          </>
-        )}
-      </Box>
+      <AccountHero
+        name={name}
+        phone={phone}
+        isAuthenticated={isAuthenticated}
+        onSignIn={onSignIn}
+      />
 
-      <Box
-        component="nav"
-        aria-label="Account"
-        sx={{
-          mx: 2,
-          mt: 2,
-          borderRadius: "16px",
-          bgcolor: "grey.100",
-          overflow: "hidden",
-        }}
-      >
-        <List disablePadding>
-          {/* Guests would only reach a sign-in prompt, which the card above
+      <Box component="nav" aria-label="Account" sx={{ mx: 2, mt: 2 }}>
+        <List
+          disablePadding
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr)",
+            gap: 1,
+          }}
+        >
+          {/* Guests would only reach a sign-in prompt, which the hero above
               already offers. */}
           {isAuthenticated && (
             <ListItem disablePadding>
               <ProfileRow
                 component={Link}
                 href="/notifications"
-                illustration="/icons/notifications.svg"
+                icon={<NotificationsNoneRounded />}
                 title="Notifications"
-                detail={
-                  unreadCount > 0
-                    ? `${unreadCount} unread ${unreadCount === 1 ? "update" : "updates"}`
-                    : "Delivery updates and alerts"
+                detail="Delivery updates and alerts"
+                titleExtra={
+                  unreadCount > 0 ? (
+                    <Chip
+                      size="small"
+                      label={`${unreadCount} unread`}
+                      aria-label={`${unreadCount} unread`}
+                      sx={{
+                        ...toneSx("info"),
+                        height: 24,
+                        fontSize: 12,
+                        flex: "none",
+                      }}
+                    />
+                  ) : undefined
                 }
-                badge={unreadCount}
+              />
+            </ListItem>
+          )}
+          {isAuthenticated ? (
+            <ListItem disablePadding>
+              <ProfileRow
+                component={Link}
+                href="/orders"
+                icon={<LocalShippingOutlined />}
+                title="Your deliveries"
+                detail={deliveriesSummary(orders)}
+              />
+            </ListItem>
+          ) : (
+            <ListItem disablePadding>
+              <ProfileRow
+                component={Link}
+                href="/track"
+                icon={<SearchRounded />}
+                title="Track a parcel"
+                detail="Follow any parcel with its tracking code — no account needed."
               />
             </ListItem>
           )}
           <ListItem disablePadding>
             <ProfileRow
               onClick={onOpenHelp}
-              illustration="/icons/get-help.svg"
+              icon={<HelpOutlineRounded />}
               title="Help and support"
               detail="Report a problem with a parcel."
             />
@@ -1073,7 +1230,6 @@ export function ProfilePage({
             variant="outlined"
             color="error"
             onClick={onSignOut}
-            sx={{ minHeight: 48 }}
           >
             Sign out
           </Button>

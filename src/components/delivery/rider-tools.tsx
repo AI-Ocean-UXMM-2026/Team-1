@@ -505,10 +505,10 @@ export function EnergyPanel({
               sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
             >
               {busy
-                ? "Sending…"
+                ? "Locating nearest station…"
                 : energy.source === "battery"
-                  ? "Request a charging stop"
-                  : "Request a fuel stop"}
+                  ? "Route to nearest charging station"
+                  : "Route to nearest fuel station"}
             </Button>
           </>
         )

@@ -5,6 +5,7 @@ import "./rider-jobs.css";
 import { useCallback, useEffect, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
+import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import { currency } from "@/lib/delivery/format";
 import { claimJob, type DeliveryJob, loadJobs } from "@/lib/delivery/jobs";
 import type { VehicleOption } from "@/lib/delivery/types";
@@ -20,13 +21,19 @@ export function RiderJobBoard({
 }) {
   const [jobs, setJobs] = useState<DeliveryJob[] | null>(null);
   const [vehicleId, setVehicleId] = useState("");
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
       const all = await loadJobs(createClient());
-      setJobs(all.filter((job) => job.status === "open"));
+      const open = all.filter((job) => job.status === "open");
+      setJobs(open);
+      setSelectedJobId((current) => {
+        if (current && open.some((j) => j.id === current)) return current;
+        return open.length === 1 ? open[0].id : null;
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Jobs could not load.");
       setJobs((current) => current ?? []);
@@ -72,86 +79,182 @@ export function RiderJobBoard({
 
   return (
     <section className="rj-board" aria-labelledby="rj-title">
-      <h2 id="rj-title">Pick a job</h2>
-      <p className="rf-muted">
-        Each job is a group of parcels in one area. Take one and its stops
-        appear as your route.
-      </p>
+      <header className="rj-header">
+        <div className="rj-header-text">
+          <h2 id="rj-title">Job Board</h2>
+          <p className="rf-muted">
+            Select an automated round-trip batch. Review your load and swipe to
+            start.
+          </p>
+        </div>
+      </header>
+
       {usable.length > 0 && (
-        <label className="rj-vehicle">
-          <span>Vehicle</span>
+        <div className="rj-vehicle-card">
+          <div className="rj-vehicle-label">
+            <Icon name="truck" size={18} />
+            <span>Assigned Vehicle</span>
+          </div>
           <select
+            className="rj-vehicle-select"
             value={vehicleId}
             onChange={(event) => setVehicleId(event.target.value)}
+            aria-label="Select delivery vehicle"
           >
-            <option value="">No vehicle selected</option>
+            <option value="">Choose vehicle for shift…</option>
             {usable.map((vehicle) => (
               <option key={vehicle.id} value={vehicle.id}>
                 {vehicle.registration_number} ·{" "}
                 {vehicle.vehicle_type.replace("_", "-")}
-                {vehicle.capacity_kg ? ` · ${vehicle.capacity_kg} kg` : ""}
+                {vehicle.capacity_kg ? ` · ${vehicle.capacity_kg} kg max` : ""}
               </option>
             ))}
           </select>
-        </label>
+        </div>
       )}
+
       {error && (
-        <p className="rj-error" role="alert">
-          {error}
-        </p>
+        <div className="rj-error-banner" role="alert">
+          <Icon name="warning" size={18} />
+          <span>{error}</span>
+        </div>
       )}
+
       {jobs === null ? (
-        <p className="rf-muted">Loading jobs…</p>
-      ) : jobs.length === 0 ? (
-        <div className="rf-empty">
+        <div className="rj-loading">
           <span className="rf-result-mark is-neutral">
-            <Icon name="truck" size={26} />
+            <Icon name="refresh" size={24} />
+          </span>
+          <p className="rf-muted">Loading available jobs…</p>
+        </div>
+      ) : jobs.length === 0 ? (
+        <div className="rf-empty rj-empty">
+          <span className="rf-result-mark is-neutral">
+            <Icon name="truck" size={28} />
           </span>
           <h3>No jobs open right now</h3>
-          <p>New jobs are posted every 9 hours. This list updates by itself.</p>
+          <p>
+            Jobs are scheduled in 9-hour batch cycles. New round trips will
+            appear as soon as dispatch posts them.
+          </p>
         </div>
       ) : (
         <ul className="rj-list">
           {jobs.map((job) => {
             const isUrgent = job.priority === "urgent";
-            const isPriority = job.priority === "high" || job.reproduce_count > 0;
+            const isPriority =
+              job.priority === "high" || job.reproduce_count > 0;
+            const isSelected = selectedJobId === job.id;
+            const needsVehicle = usable.length > 0 && !vehicleId;
 
             return (
               <li
                 key={job.id}
-                className={`rj-card${isUrgent ? " is-urgent" : isPriority ? " is-priority" : ""}`}
+                className={`rj-card${isUrgent ? " is-urgent" : isPriority ? " is-priority" : ""}${
+                  isSelected ? " is-selected" : ""
+                }`}
               >
-                <div>
-                  <div className="rj-card-header">
-                    <strong>{job.area_label ?? job.label}</strong>
-                    {isUrgent ? (
-                      <span className="rj-priority-pill is-urgent">⚡ Urgent</span>
-                    ) : isPriority ? (
-                      <span className="rj-priority-pill is-high">
-                        ⚡ Priority {job.reproduce_count > 0 ? `· R${job.reproduce_count}` : ""}
-                      </span>
-                    ) : null}
-                  </div>
-                  <span>
-                    {job.order_count}{" "}
-                    {job.order_count === 1 ? "parcel" : "parcels"} ·{" "}
-                    {job.total_weight_kg} kg
-                  </span>
-                  <span>
-                    {job.label}
-                    {job.cod_total
-                      ? ` · COD ${currency.format(job.cod_total)}`
-                      : ""}
-                  </span>
-                </div>
                 <button
                   type="button"
-                  className="rj-take"
-                  disabled={claiming != null}
-                  onClick={() => void take(job)}
+                  className="rj-card-content"
+                  onClick={() => setSelectedJobId(job.id)}
+                  aria-expanded={isSelected}
                 >
-                  {claiming === job.id ? "Taking…" : "Take job"}
+                  <div className="rj-card-header">
+                    <div className="rj-card-title-group">
+                      <strong className="rj-card-title">
+                        {job.area_label ?? job.label}
+                      </strong>
+                      <span className="rj-card-subtitle">{job.label}</span>
+                    </div>
+
+                    <div className="rj-badges-group">
+                      <span className="rj-circuit-pill">↺ Round trip</span>
+                      {isUrgent ? (
+                        <span className="rj-priority-pill is-urgent">
+                          ⚡ Urgent
+                        </span>
+                      ) : isPriority ? (
+                        <span className="rj-priority-pill is-high">
+                          ⚡ Priority
+                          {job.reproduce_count > 0
+                            ? ` · R${job.reproduce_count}`
+                            : ""}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="rj-meta-grid">
+                    <div className="rj-meta-item">
+                      <Icon name="package" size={16} />
+                      <span>
+                        <strong>{job.order_count}</strong>{" "}
+                        {job.order_count === 1 ? "parcel" : "parcels"}
+                      </span>
+                    </div>
+
+                    <div className="rj-meta-item">
+                      <Icon name="truck" size={16} />
+                      <span>
+                        <strong>{job.total_weight_kg}</strong> kg payload
+                      </span>
+                    </div>
+
+                    <div className="rj-meta-item">
+                      <Icon name="coin" size={16} />
+                      <span>
+                        {job.cod_total ? (
+                          <>
+                            COD{" "}
+                            <strong>{currency.format(job.cod_total)}</strong>
+                          </>
+                        ) : (
+                          "Prepaid · No COD"
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </button>
+
+                <div className="rj-card-actions">
+                  {isSelected ? (
+                    <div className="rj-swipe-section">
+                      {needsVehicle ? (
+                        <div className="rj-vehicle-hint">
+                          <Icon name="warning" size={16} />
+                          <span>Select your vehicle above to start</span>
+                        </div>
+                      ) : null}
+
+                      <SwipeConfirm
+                        label={
+                          claiming === job.id
+                            ? "Starting job…"
+                            : "Swipe to start job"
+                        }
+                        hint={
+                          needsVehicle
+                            ? "Pick vehicle first"
+                            : claiming === job.id
+                              ? "Locking in job…"
+                              : "Slide right to accept & load"
+                        }
+                        disabled={claiming != null || needsVehicle}
+                        onConfirm={() => void take(job)}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="rj-select-trigger"
+                      onClick={() => setSelectedJobId(job.id)}
+                    >
+                      <span>Select this job</span>
+                      <Icon name="arrow-right" size={16} />
+                    </button>
+                  )}
+                </div>
               </li>
             );
           })}

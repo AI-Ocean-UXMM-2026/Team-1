@@ -61,7 +61,7 @@ export function createSupabaseSource(
       let query = supabase
         .from("delivery_orders")
         .select(
-          "id, status, pickup_address, pickup_latitude, pickup_longitude, delivery_address, delivery_latitude, delivery_longitude, parcel_weight_kg, cod_amount, updated_at, delivery_order_logistics(origin_kind, parcel_size, weight_kg, weight_source, volume_m3, volume_source, pickup_window_start, pickup_window_end, window_source, delivery_deadline_at, deadline_hard, pickup_township_pcode, delivery_township_pcode, updated_at)",
+          "id, status, pickup_address, pickup_latitude, pickup_longitude, delivery_address, delivery_latitude, delivery_longitude, parcel_weight_kg, cod_amount, traffic_delay_minutes, updated_at, delivery_order_logistics(origin_kind, parcel_size, weight_kg, weight_source, volume_m3, volume_source, pickup_window_start, pickup_window_end, window_source, delivery_deadline_at, deadline_hard, pickup_township_pcode, delivery_township_pcode, updated_at)",
         )
         .eq("status", "pending")
         .order("created_at", { ascending: true })
@@ -126,15 +126,22 @@ export function createSupabaseSource(
     async loadReports(now) {
       const { data, error } = await supabase
         .from("road_reports")
-        .select("latitude, longitude, severity")
+        .select("latitude, longitude, severity, category")
         .eq("status", "verified")
-        .in("category", ["flooding", "closure"])
+        .in("category", [
+          "flooding",
+          "closure",
+          "congestion",
+          "roadwork",
+          "hazard",
+        ])
         .gt("expires_at", now.toISOString());
       if (error) throw new Error(`road_reports: ${error.message}`);
       return (data ?? []).map((row) => ({
         lat: row.latitude,
         lng: row.longitude,
         severity: row.severity,
+        category: row.category,
       })) as FloodReport[];
     },
 

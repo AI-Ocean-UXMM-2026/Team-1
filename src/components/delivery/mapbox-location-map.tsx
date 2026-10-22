@@ -26,7 +26,11 @@ import {
   isRecentLocation,
 } from "@/lib/delivery/location-state";
 import type { MapPoint } from "@/lib/delivery/map-projection";
-import { formatDriveMinutes } from "@/lib/delivery/mapbox";
+import {
+  fetchRoadRoute,
+  formatDriveMinutes,
+  hasMapbox,
+} from "@/lib/delivery/mapbox";
 import type { DeliveryOrder, RoadReport } from "@/lib/delivery/types";
 import { useRoadRoute } from "@/lib/delivery/use-road-route";
 
@@ -127,6 +131,7 @@ export function MapboxLocationMap({
   const [activeHazardPopup, setActiveHazardPopup] = useState<RoadReport | null>(
     null,
   );
+  const [otherRoutes, setOtherRoutes] = useState<Record<string, Coordinate[]>>({});
   const flownTo = useRef<string | null>(null);
 
   useEffect(() => {
@@ -175,6 +180,27 @@ export function MapboxLocationMap({
     selectedRow?.rider ?? null,
     selectedRow?.destination ? [selectedRow.destination] : [],
   );
+
+  useEffect(() => {
+    if (!hasMapbox) return;
+    const unselected = markerRows.filter(
+      (row) => row.order.id !== order?.id && row.destination != null,
+    );
+    for (const row of unselected) {
+      if (!row.destination) continue;
+      const key = `${row.rider.latitude.toFixed(4)},${row.rider.longitude.toFixed(4)};${row.destination.latitude.toFixed(4)},${row.destination.longitude.toFixed(4)}`;
+      if (otherRoutes[row.order.id + key]) continue;
+      fetchRoadRoute([row.rider, row.destination]).then((res) => {
+        if (res && res.coordinates.length > 1) {
+          setOtherRoutes((prev) => ({
+            ...prev,
+            [row.order.id]: res.coordinates,
+            [row.order.id + key]: res.coordinates,
+          }));
+        }
+      });
+    }
+  }, [markerRows, order?.id, otherRoutes]);
 
   const fitPoints: MapPoint[] = markerRows.length
     ? markerRows.flatMap((row) =>
@@ -299,11 +325,13 @@ export function MapboxLocationMap({
   useEffect(() => {
     if (!map) return;
     const palette = mapPalette(prefersDark());
-    const connectors: Coordinate[][] = markerRows.flatMap((row) =>
-      row.order.id === order?.id || !row.destination
-        ? []
-        : [[lngLat(row.rider), lngLat(row.destination)]],
-    );
+    const connectors: Coordinate[][] = markerRows.flatMap((row) => {
+      if (row.order.id === order?.id || !row.destination) return [];
+      const coords = otherRoutes[row.order.id];
+      return coords && coords.length > 1
+        ? [coords]
+        : [[lngLat(row.rider), lngLat(row.destination)]];
+    });
     drawLines(map, "dispatch-connectors", connectors, {
       color: palette.origin,
       width: 2,
@@ -322,7 +350,7 @@ export function MapboxLocationMap({
       color: palette.route,
       width: 5,
     });
-  }, [map, markerRows, order?.id, road, selectedRow]);
+  }, [map, markerRows, order?.id, road, selectedRow, otherRoutes]);
 
   const handleRecenter = () => {
     if (!map || !fitPoints.length) return;

@@ -202,7 +202,10 @@ export async function planDispatch(
     input.reports,
     input.liveFlood,
   );
-  const trafficked = applyTraffic(flooded.matrix, points);
+  const trafficked = applyTraffic(flooded.matrix, points, {
+    reports: input.reports,
+    orders: input.orders,
+  });
   const matrix = trafficked.matrix;
 
   const plan = solve(inst, matrix, { nowMs: deps.nowMs });
@@ -242,6 +245,14 @@ export async function planDispatch(
   if (matrix.source === "straight_line")
     warnings.push(
       "straight_line: no road data was used, so times are rough estimates",
+    );
+  if (trafficked.summary.reportsCovered > 0)
+    warnings.push(
+      `traffic_reports: ${trafficked.summary.reportsCovered} verified traffic report(s) layered onto travel times (+${trafficked.summary.addedDelayMin} min total delay)`,
+    );
+  if (trafficked.summary.ordersWithTrafficDelay > 0)
+    warnings.push(
+      `order_traffic_delays: ${trafficked.summary.ordersWithTrafficDelay} order(s) carry localized traffic delays`,
     );
   if (built.scheduledLater.length > 0)
     warnings.push(

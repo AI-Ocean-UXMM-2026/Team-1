@@ -285,7 +285,7 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
       const legKm = distanceKm(pPrev, pCand);
       const sigs = countTrafficSignalsBetween(pPrev, pCand).count;
       const ints = countInterceptionPointsBetween(pPrev, pCand).count;
-      return legKm + sigs * 0.45 + ints * 0.18;
+      return legKm + sigs * 0.45 + ints * 0.25;
     }
     const pNext = groupPoint(next);
     if (!pNext) return Number.POSITIVE_INFINITY;
@@ -304,7 +304,7 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
     return (
       directKm +
       Math.max(0, addedSigs) * 0.45 +
-      Math.max(0, addedInts) * 0.18
+      Math.max(0, addedInts) * 0.25
     );
   }
 

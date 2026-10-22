@@ -1,36 +1,124 @@
+/* Rider Job Board — Card List with Swipe to Start */
+
 .rj-board {
   display: grid;
+  gap: 16px;
+  padding-block: 8px 24px;
+}
+
+.rj-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
-  padding-block: 8px;
 }
 
-.rj-board h2 {
+.rj-header-text h2 {
   margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #172b4d);
+  letter-spacing: -0.01em;
 }
 
-.rj-vehicle {
-  display: grid;
-  gap: 4px;
+.rj-header-text p {
+  margin: 4px 0 0;
   font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary, #64748b);
 }
 
-.rj-vehicle select {
-  min-height: 48px;
+/* ---------- Vehicle Selector Card ---------- */
+
+.rj-vehicle-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.rj-vehicle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rj-vehicle-select {
+  width: 100%;
+  min-height: 44px;
   padding: 0 12px;
-  border: 1px solid var(--color-border, #d6dae1);
-  border-radius: 12px;
-  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--color-surface-subtle, #f8fafc);
+  color: var(--color-text-primary, #172b4d);
   font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.rj-error {
-  margin: 0;
-  color: var(--color-error, #b42318);
+.rj-vehicle-select:focus {
+  border-color: var(--color-brand-orange-action, #c2410c);
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.12);
 }
+
+/* ---------- Error & Loading Banners ---------- */
+
+.rj-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--rf-error-bg, #fee2e2);
+  border: 1px solid var(--rf-border-error, #fca5a5);
+  border-radius: 12px;
+  color: var(--rf-error-fg, #991b1b);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.rj-loading,
+.rj-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+  background: var(--color-surface, #ffffff);
+  border: 1px dashed var(--color-border, #e2e8f0);
+  border-radius: 16px;
+}
+
+.rj-empty h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #172b4d);
+}
+
+.rj-empty p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #64748b);
+  max-width: 320px;
+}
+
+/* ---------- Job Card List ---------- */
 
 .rj-list {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -38,39 +126,103 @@
 
 .rj-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--color-border, #d6dae1);
-  border-radius: 16px;
-  background: var(--color-surface, #fff);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  flex-direction: column;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 18px;
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.05);
+}
+
+.rj-card:hover {
+  border-color: #cbd5e1;
+}
+
+.rj-card.is-selected {
+  border-color: var(--color-brand-orange-action, #c2410c);
+  box-shadow: 0 8px 24px -8px rgba(194, 65, 12, 0.22);
 }
 
 .rj-card.is-priority {
-  border-color: #f97316;
-  border-left-width: 4px;
-  background: linear-gradient(to right, #fffbf7, #ffffff 40%);
+  border-left: 5px solid #f97316;
+  background: linear-gradient(to right, #fffbf7, #ffffff 35%);
 }
 
 .rj-card.is-urgent {
-  border-color: #ef4444;
-  border-left-width: 4px;
-  background: linear-gradient(to right, #fef2f2, #ffffff 40%);
+  border-left: 5px solid #ef4444;
+  background: linear-gradient(to right, #fef2f2, #ffffff 35%);
+}
+
+.rj-card-content {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
 }
 
 .rj-card-header {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rj-card-title-group {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rj-card-title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #172b4d);
+  line-height: 1.3;
+}
+
+.rj-card-subtitle {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rj-badges-group {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.rj-circuit-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  background: var(--color-surface-subtle, #f1f5f9);
+  color: var(--color-text-secondary, #475569);
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .rj-priority-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 9999px;
   font-size: 0.72rem;
   font-weight: 700;
@@ -90,32 +242,91 @@
   border: 1px solid #fca5a5;
 }
 
-.rj-card div {
+/* ---------- Metadata Grid ---------- */
+
+.rj-meta-grid {
   display: grid;
-  gap: 2px;
-  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  padding-top: 4px;
 }
 
-.rj-card span {
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
+.rj-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--color-surface-subtle, #f8fafc);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary, #475569);
+  white-space: nowrap;
 }
 
-.rj-take {
-  flex: none;
-  min-width: 96px;
-  min-height: 48px;
+.rj-meta-item strong {
+  color: var(--color-text-primary, #172b4d);
+  font-weight: 600;
+}
+
+/* ---------- Card Actions & Swipe Area ---------- */
+
+.rj-card-actions {
+  padding: 0 16px 16px;
+}
+
+.rj-select-trigger {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 0 16px;
-  border: 0;
+  background: var(--color-surface-subtle, #f1f5f9);
+  border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 12px;
-  background: var(--color-primary, #f26a1b);
-  color: #fff;
+  color: var(--color-text-primary, #172b4d);
   font: inherit;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.rj-take:disabled {
-  opacity: 0.6;
-  cursor: progress;
+.rj-select-trigger:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.rj-swipe-section {
+  display: grid;
+  gap: 8px;
+  animation: rjFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rj-vehicle-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--rf-warn-bg, #fffdf5);
+  border: 1px solid var(--rf-border-warning, #fcd34d);
+  border-radius: 8px;
+  color: var(--rf-warn-fg, #92400e);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+@keyframes rjFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

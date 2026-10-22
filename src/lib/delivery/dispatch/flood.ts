@@ -27,6 +27,7 @@ export type FloodReport = {
   lat: number;
   lng: number;
   severity: keyof typeof REPORT_WEIGHT;
+  category?: string;
 };
 
 type Ring = [number, number][];
@@ -154,10 +155,19 @@ export class FloodField {
   }
 }
 
+function isFloodReport(report: FloodReport) {
+  return (
+    !report.category ||
+    report.category === "flooding" ||
+    report.category === "closure"
+  );
+}
+
 function reportWeightAt(lat: number, lng: number, reports: FloodReport[]) {
   let best = 0;
   const here = { lat, lng };
   for (const report of reports) {
+    if (!isFloodReport(report)) continue;
     if (haversineKm(here, report) <= REPORT_RADIUS_KM)
       best = Math.max(best, REPORT_WEIGHT[report.severity]);
   }
@@ -168,6 +178,7 @@ function blockedAt(lat: number, lng: number, reports: FloodReport[]) {
   const here = { lat, lng };
   return reports.some(
     (report) =>
+      isFloodReport(report) &&
       report.severity === "blocked" &&
       haversineKm(here, report) <= BLOCK_RADIUS_KM,
   );

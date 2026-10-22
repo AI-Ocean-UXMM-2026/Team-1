@@ -31,6 +31,8 @@ export type RiderNavMapProps = {
   stops: NavStop[];
   /** Points after the target, drawn lighter so the current leg stays the focus. */
   upcoming?: MapPoint[];
+  /** Mapbox road route for upcoming stops. When absent, a straight line fallback is drawn. */
+  upcomingRoad?: RoadRoute | null;
   cautions?: NavCaution[];
   /** Room kept clear of the cards over the map. */
   padding?: { x: number; top: number; bottom: number };

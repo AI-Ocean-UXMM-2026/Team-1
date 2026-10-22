@@ -94,6 +94,15 @@ export type PlanResponse = {
         severity: string;
       } | null;
     };
+    traffic?: {
+      signalsCovered: number;
+      interceptionsCovered: number;
+      reportsCovered: number;
+      ordersWithTrafficDelay: number;
+      addedDelayMin: number;
+      arcsWithDelay: number;
+      blockedArcs: number;
+    };
   };
   objective: { total: number; unserved: number } & Record<string, number>;
   routes: ApiRoute[];
@@ -231,6 +240,10 @@ const WARNING_COPY: Record<string, string> = {
     "Some trucks have no volume set, so only weight limits their load.",
   energy_unknown:
     "Some trucks have no range or fuel level, so range was not checked for them.",
+  traffic_reports:
+    "Verified road traffic and congestion reports added travel-time delays to affected routes.",
+  order_traffic_delays:
+    "Orders with reported traffic delays had additional arrival time factored in.",
   scheduled_later:
     "Some orders have a pickup window on another day and were left out.",
 };

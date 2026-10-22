@@ -454,6 +454,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
           phone={workspace.profile?.phone ?? null}
           isAuthenticated={workspace.isAuthenticated}
           unreadCount={unreadCount}
+          orders={realOrders}
           onSignIn={() => setAuthOpen(true)}
           onSignOut={() => void signOut()}
           onOpenHelp={() => setSheet("help")}
