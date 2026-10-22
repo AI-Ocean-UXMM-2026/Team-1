@@ -1,0 +1,62 @@
+.manager-track-grid {
+  align-items: stretch;
+}
+
+.manager-live-orders {
+  display: flex;
+  flex-direction: column;
+}
+
+.manager-live-orders .manager-order-list {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.manager-live-orders .manager-empty-list {
+  font-size: 13px;
+  min-height: 120px;
+}
+
+.manager-road-jobs {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.manager-road-jobs h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.manager-road-jobs h3 span {
+  font-size: 12px;
+  color: var(--color-text-muted, #64748b);
+}
+
+.manager-road-job {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.manager-road-job span:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.manager-road-job small,
+.manager-road-jobs-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted, #64748b);
+}

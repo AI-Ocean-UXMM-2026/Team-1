@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "biome check",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
-    "traffic:editor": "node scripts/traffic-editor.mjs",
     "format": "biome format --write",
     "playground:classifier": "bun playground/backend.js",
     "typecheck": "tsc --noEmit",

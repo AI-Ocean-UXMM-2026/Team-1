@@ -32,7 +32,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/rider",
-        destination: "/rider/route",
+        destination: "/rider/jobs",
         permanent: false,
       },
       {

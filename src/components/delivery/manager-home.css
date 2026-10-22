@@ -1,0 +1,57 @@
+/* Manager overview: consistent icon tiles on KPI cells and card headers. */
+
+.dash-icon-tile {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--color-brand-navy);
+  background: var(--color-surface-subtle);
+}
+
+.dash-card-header h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dash-kpi-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Tile colour follows the KPI's meaning, matching the value colour. */
+.dash-kpi.is-live .dash-icon-tile {
+  color: var(--color-info-text);
+  background: var(--color-info-surface);
+}
+
+.dash-kpi.is-warning .dash-icon-tile {
+  color: var(--color-warning-text);
+  background: var(--color-warning-surface);
+}
+
+.dash-kpi.is-success .dash-icon-tile {
+  color: var(--color-success-text);
+  background: var(--color-success-surface);
+}
+
+.dash-exception-list .is-critical .dash-exception-icon {
+  color: var(--color-error-text);
+}
+
+.dash-exception-list .is-warning .dash-exception-icon {
+  color: var(--color-warning-text);
+}
+
+.dash-exception-list .is-info .dash-exception-icon {
+  color: var(--color-info-text);
+}
+
+/* Right-rail rows: label left, count right, chevron last. */
+.dash-rail .dash-list strong {
+  font-variant-numeric: tabular-nums;
+}

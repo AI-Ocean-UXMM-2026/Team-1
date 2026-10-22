@@ -176,6 +176,14 @@ export function subscribeWorkspaceRealtime(
         if (active) refresh();
       },
     )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "delivery_jobs" },
+      () => {
+        // Drivers taking or finishing jobs change what dispatch sees.
+        if (active && role !== "customer") refresh();
+      },
+    )
     .subscribe((status) => {
       if (active && status === "SUBSCRIBED") refresh();
     });

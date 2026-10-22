@@ -7,6 +7,7 @@ import { loadWorkspace } from "@/lib/delivery/load-workspace";
 import type { WorkspaceData, WorkspaceProfile } from "@/lib/delivery/types";
 import { subscribeWorkspaceRealtime } from "@/lib/delivery/workspace-realtime";
 import { createClient } from "@/lib/supabase/client";
+import { cloneDemoWorkspace } from "@/lib/delivery/demo-data";
 
 const emptyWorkspace = (): WorkspaceData => ({
   orders: [],
@@ -44,6 +45,21 @@ export function useWorkspace(role: WorkspaceProfile["role"]) {
       accountId.current = nextAccountId;
       if (!session) {
         if (!current()) return;
+        if (role === "manager") {
+          const demo = cloneDemoWorkspace();
+          setProfile({
+            id: "demo-manager",
+            full_name: "Operations Dispatcher",
+            phone: "+95 9 512 3456",
+            role: "manager",
+          });
+          setData(demo);
+          setIsDemo(true);
+          setIsAuthenticated(false);
+          setError(null);
+          setIsLoading(false);
+          return;
+        }
         setProfile(null);
         setData(emptyWorkspace());
         setIsDemo(false);

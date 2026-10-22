@@ -2,20 +2,17 @@
 
 import Link from "next/link";
 import { StatusBadge } from "@/components/delivery/common";
+import "./manager-home.css";
 import { Icon } from "@/components/delivery/icons";
 import { LocationMap } from "@/components/delivery/location-map";
 import {
   CardHeader,
   KpiCell,
 } from "@/components/delivery/manager-ui-components";
-import {
-  type attentionSummary,
-  managerExceptions,
-} from "@/lib/delivery/dashboard";
+import type { attentionSummary } from "@/lib/delivery/dashboard";
 import { currency, formatTime } from "@/lib/delivery/format";
 import type {
   DeliveryOrder,
-  RiderRequest,
   VehicleOption,
 } from "@/lib/delivery/types";
 import type { useWorkspace } from "@/lib/delivery/use-workspace";
@@ -27,21 +24,20 @@ export type ManagerHomeViewProps = {
   movingCount: number;
   deliveredCount: number;
   atRiskCount: number;
-  nowMs: number;
   refreshing: boolean;
   onRefresh: () => Promise<void>;
   movingOrders: DeliveryOrder[];
   recentList: DeliveryOrder[];
   summary: ReturnType<typeof attentionSummary>;
-  openRequests: RiderRequest[];
   freeRiders: number;
   availableVehicles: VehicleOption[];
+  tasks: { requests: number; queued: number; open: number } | null;
 };
 
 function RecentDeliveries({ orders }: { orders: DeliveryOrder[] }) {
   return (
     <section className="dash-card" aria-label="Recent deliveries">
-      <CardHeader title="Recent deliveries">
+      <CardHeader title="Recent deliveries" icon="package">
         <Link className="dash-link" href="/manager/order">
           View queue
         </Link>
@@ -131,21 +127,15 @@ export function ManagerHomeView({
   movingCount,
   deliveredCount,
   atRiskCount,
-  nowMs,
   refreshing,
   onRefresh,
   movingOrders,
   recentList,
   summary,
-  openRequests,
   freeRiders,
   availableVehicles,
+  tasks,
 }: ManagerHomeViewProps) {
-  const exceptions = managerExceptions(
-    workspace.data.orders,
-    openRequests,
-    nowMs,
-  );
   const hasOperationalData =
     workspace.data.orders.length > 0 ||
     workspace.data.drivers.length > 0 ||
@@ -190,57 +180,6 @@ export function ManagerHomeView({
 
   return (
     <div className="dash-overview">
-      <section
-        className="dash-card dash-priority"
-        aria-label="Priority exceptions"
-      >
-        <CardHeader
-          title="Act now"
-          meta={
-            exceptions.length ? (
-              <span className="dash-pill-alert">
-                {exceptions.length} prioritised
-              </span>
-            ) : (
-              <span className="dash-pill-clear">Operations checked</span>
-            )
-          }
-        />
-        {exceptions.length ? (
-          <ol className="dash-exception-list">
-            {exceptions.map((item) => (
-              <li key={item.id} className={`is-${item.tone}`}>
-                <Link href={item.href}>
-                  <span className="dash-exception-icon" aria-hidden="true">
-                    <Icon
-                      name={item.title.includes("cash") ? "coin" : "warning"}
-                      size={17}
-                    />
-                  </span>
-                  <span className="dash-exception-copy">
-                    <strong>{item.title}</strong>
-                    <small>{item.detail}</small>
-                  </span>
-                  <span className="dash-exception-meta">{item.meta}</span>
-                  <Icon name="arrow-right" size={15} />
-                </Link>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <div className="dash-healthy-state">
-            <Icon name="check" size={18} />
-            <span>
-              <strong>No urgent intervention needed</strong>
-              <small>
-                Live data loaded and no stale locations, delays, unassigned
-                deliveries, rider requests, or unsettled cash were found.
-              </small>
-            </span>
-          </div>
-        )}
-      </section>
-
       <div className="dash-main">
         <section className="dash-card" aria-label="Delivery metrics">
           <div className="dash-kpi-grid">
@@ -249,12 +188,14 @@ export function ManagerHomeView({
               value={movingCount}
               hint={`${summary.gpsLive} GPS live · ${summary.staleLocations} stale`}
               tone="live"
+              icon="track"
               href="/manager/track"
             />
             <KpiCell
               label="Needs rider"
               value={summary.needsRider}
               hint="Awaiting assignment"
+              icon="user"
               tone={summary.needsRider ? "warning" : undefined}
               href="/manager/order?filter=unassigned"
             />
@@ -263,12 +204,14 @@ export function ManagerHomeView({
               value={deliveredCount}
               hint="Local time"
               tone="success"
+              icon="check"
               href="/manager/order"
             />
             <KpiCell
               label="At risk"
               value={atRiskCount}
               hint="Delayed or failed"
+              icon="warning"
               tone={atRiskCount ? "warning" : undefined}
               href="/manager/order"
             />
@@ -278,6 +221,7 @@ export function ManagerHomeView({
         <section className="dash-card" aria-label="Live map">
           <CardHeader
             title="Route locations"
+            icon="location"
             meta={`${summary.gpsLive} GPS live`}
           />
           <div className="dash-map">
@@ -302,7 +246,7 @@ export function ManagerHomeView({
 
       <aside className="dash-rail">
         <section className="dash-card" aria-label="Cash on delivery status">
-          <CardHeader title="Cash on delivery">
+          <CardHeader title="Cash on delivery" icon="coin">
             <Link className="dash-link" href="/manager/cod">
               Open ledger
             </Link>
@@ -321,8 +265,35 @@ export function ManagerHomeView({
           </dl>
         </section>
 
+        <section className="dash-card" aria-label="Task automation">
+          <CardHeader title="Task automation" icon="spark">
+            <Link className="dash-link" href="/manager/jobs">
+              Open
+            </Link>
+          </CardHeader>
+          <ul className="dash-list">
+            {[
+              { label: "Requests waiting", value: tasks?.requests },
+              { label: "In queue", value: tasks?.queued },
+              { label: "Open tasks", value: tasks?.open },
+            ].map((row) => (
+              <li key={row.label}>
+                <Link href="/manager/jobs">
+                  <span>{row.label}</span>
+                  <strong>{row.value ?? "—"}</strong>
+                  <Icon name="arrow-right" size={14} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         <section className="dash-card" aria-label="Fleet status">
-          <CardHeader title="Fleet" />
+          <CardHeader title="Fleet" icon="truck">
+            <Link className="dash-link" href="/manager/vehicles">
+              Open
+            </Link>
+          </CardHeader>
           <ul className="dash-list">
             <li>
               <Link href="/manager/profile?tab=riders">
@@ -341,7 +312,7 @@ export function ManagerHomeView({
               </Link>
             </li>
             <li>
-              <Link href="/manager/profile?tab=vehicles">
+              <Link href="/manager/vehicles">
                 <span>Vehicles ready</span>
                 <strong>
                   {workspace.data.vehicles.length ? (
@@ -353,13 +324,6 @@ export function ManagerHomeView({
                     "—"
                   )}
                 </strong>
-                <Icon name="arrow-right" size={14} />
-              </Link>
-            </li>
-            <li>
-              <Link href="/manager/insights">
-                <span>Fleet insights</span>
-                <strong aria-hidden="true">View</strong>
                 <Icon name="arrow-right" size={14} />
               </Link>
             </li>

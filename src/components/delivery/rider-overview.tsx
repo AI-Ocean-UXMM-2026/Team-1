@@ -339,6 +339,7 @@ function RouteClose({
   error,
   sessionSaved,
   onClose,
+  onNextJob,
 }: {
   route: DriverRoute;
   busy: boolean;
@@ -346,6 +347,8 @@ function RouteClose({
   error: ReactNode;
   sessionSaved: boolean;
   onClose: (declared: number) => void;
+  /** Back to the board for another job; closing ends the shift instead. */
+  onNextJob?: () => void;
 }) {
   const [cash, setCash] = useState(String(route.codCollected));
   const declared = Number(cash);
@@ -438,10 +441,23 @@ function RouteClose({
         </Notice>
       )}
       {error}
-      <div className="rf-dock">
+      <div className="rf-dock rf-dock-stack">
+        {onNextJob && (
+          <Button
+            fullWidth
+            variant="contained"
+            color="primary"
+            size="large"
+            disabled={busy}
+            onClick={onNextJob}
+            sx={{ minHeight: 52, borderRadius: 999 }}
+          >
+            Back to job board
+          </Button>
+        )}
         <Button
           fullWidth
-          variant="contained"
+          variant={onNextJob ? "outlined" : "contained"}
           color="primary"
           size="large"
           disabled={!valid || busy || !online || !sessionSaved}
@@ -452,7 +468,7 @@ function RouteClose({
             ? "Closing…"
             : !online
               ? "Waiting for connection"
-              : `Close route · hand in ${currency.format(valid ? declared : 0)}`}
+              : `End shift · hand in ${currency.format(valid ? declared : 0)}`}
         </Button>
       </div>
     </>
@@ -466,8 +482,8 @@ export function RouteOverview({
   metrics,
   map,
   notices,
-  emptyState,
-  jobBoard,
+  onFindJob,
+  shiftRoute,
   online,
   busy,
   error,
@@ -488,10 +504,10 @@ export function RouteOverview({
   metrics: RouteMetrics;
   map: ReactNode;
   notices: ReactNode;
-  /** Replaces the "no route" message, for example with the job board. */
-  emptyState?: ReactNode;
-  /** Open delivery tasks board. */
-  jobBoard?: ReactNode;
+  /** Opens the job board page. */
+  onFindJob?: () => void;
+  /** Every parcel of today's shift, for the cash hand-in when it ends. */
+  shiftRoute?: DriverRoute;
   online: boolean;
   busy: string | null;
   error: ReactNode;
@@ -507,12 +523,9 @@ export function RouteOverview({
   onCloseRoute: (declared: number) => void;
 }) {
   const state = route.state;
-  const [activeTab, setActiveTab] = useState<"jobs" | "route">(() =>
-    state === "NONE" || route.stops.length === 0 ? "jobs" : "route",
-  );
   const title =
     state === "COMPLETED"
-      ? "All stops done"
+      ? "Job complete"
       : state === "CLOSED"
         ? "Route closed"
         : state === "PAUSED"
@@ -525,7 +538,7 @@ export function RouteOverview({
     READY: "Ready to start",
     IN_PROGRESS: "In progress",
     PAUSED: "Paused",
-    COMPLETED: "Ready to close",
+    COMPLETED: "Job done",
     CLOSED: "Closed",
   };
   const showList = state !== "MANIFEST_VERIFICATION" && route.stops.length > 0;
@@ -538,20 +551,22 @@ export function RouteOverview({
             <span className="rf-status-dot is-online" aria-hidden="true" />
             <span className="rf-driver-name">Oern Driver</span>
           </div>
-          <Chip
-            label={status[state]}
-            color={
-              state === "IN_PROGRESS"
-                ? "info"
-                : state === "COMPLETED" || state === "CLOSED"
-                  ? "success"
-                  : state === "PAUSED"
-                    ? "warning"
-                    : "default"
-            }
-            size="small"
-            sx={{ fontWeight: 700, borderRadius: 999 }}
-          />
+          {state !== "NONE" && state !== "CLOSED" && (
+            <Chip
+              label={status[state]}
+              color={
+                state === "IN_PROGRESS"
+                  ? "info"
+                  : state === "COMPLETED"
+                    ? "success"
+                    : state === "PAUSED"
+                      ? "warning"
+                      : "default"
+              }
+              size="small"
+              sx={{ fontWeight: 700, borderRadius: 999 }}
+            />
+          )}
         </div>
         <IconButton
           onClick={onMenu}
@@ -562,36 +577,7 @@ export function RouteOverview({
         </IconButton>
       </header>
 
-      {(jobBoard || emptyState) && (
-        <nav className="rf-view-tabs" aria-label="Driver view">
-          <button
-            type="button"
-            className={`rf-view-tab${activeTab === "jobs" ? " is-active" : ""}`}
-            onClick={() => setActiveTab("jobs")}
-            aria-selected={activeTab === "jobs"}
-          >
-            <Icon name="package" size={16} />
-            <span>Job Board</span>
-            <span className="rf-tab-badge">Open</span>
-          </button>
-          <button
-            type="button"
-            className={`rf-view-tab${activeTab === "route" ? " is-active" : ""}`}
-            onClick={() => setActiveTab("route")}
-            aria-selected={activeTab === "route"}
-          >
-            <Icon name="truck" size={16} />
-            <span>My Route</span>
-            {route.stops.length > 0 && (
-              <span className="rf-tab-badge">{route.stops.length}</span>
-            )}
-          </button>
-        </nav>
-      )}
-
-      {activeTab === "jobs" ? (
-        jobBoard ?? emptyState
-      ) : (
+      {
         <>
           <h1>{title}</h1>
           <p className="rf-muted rf-subtitle">
@@ -608,19 +594,20 @@ export function RouteOverview({
               <span className="rf-result-mark is-neutral">
                 <Icon name="truck" size={26} />
               </span>
-              <h2>No route assigned yet</h2>
+              <h2>No job yet</h2>
               <p>
-                When operations assigns you a route it appears here with its parcels
-                and stops. You can also pick up tasks on the Job Board.
+                Take a job from the board, or wait for operations to assign you
+                a route. It appears here with its parcels and stops.
               </p>
-              {(jobBoard || emptyState) && (
+              {onFindJob && (
                 <Button
                   variant="contained"
                   color="primary"
-                  onClick={() => setActiveTab("jobs")}
-                  sx={{ mt: 1, borderRadius: 999 }}
+                  size="large"
+                  onClick={onFindJob}
+                  sx={{ mt: 1, minHeight: 52, borderRadius: 999 }}
                 >
-                  Browse Job Board
+                  Find a job
                 </Button>
               )}
             </section>
@@ -645,8 +632,8 @@ export function RouteOverview({
                 <Notice tone="info" icon="box">
                   <strong>
                     {route.toCollect.length}{" "}
-                    {route.toCollect.length === 1 ? "parcel" : "parcels"} to collect
-                    from customers on the way.
+                    {route.toCollect.length === 1 ? "parcel" : "parcels"} to
+                    collect from customers on the way.
                   </strong>{" "}
                   {route.onBoard.length === 0
                     ? "Nothing to load at the depot, so you can set off empty."
@@ -655,9 +642,9 @@ export function RouteOverview({
               )}
               {state === "PAUSED" && route.current && (
                 <Notice tone="warning" icon="history">
-                  <strong>Paused at stop {route.current.number}.</strong> Customers
-                    still see their parcels as on the way. Resume when you’re back on
-                  the road.
+                  <strong>Paused at stop {route.current.number}.</strong>{" "}
+                  Customers still see their parcels as on the way. Resume when
+                  you’re back on the road.
                 </Notice>
               )}
               {state === "CLOSED" && (
@@ -666,8 +653,20 @@ export function RouteOverview({
                   {declaredCod != null
                     ? ` · ${currency.format(declaredCod)} declared for hand-in`
                     : ""}
-                  . See you next shift.
+                  . You can still take another job.
                 </Notice>
+              )}
+              {state === "CLOSED" && onFindJob && (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  onClick={onFindJob}
+                  sx={{ minHeight: 52, borderRadius: 999 }}
+                >
+                  Find a job
+                </Button>
               )}
               {map && state !== "MANIFEST_VERIFICATION" && (
                 <div className="rf-preview-map">{map}</div>
@@ -683,12 +682,13 @@ export function RouteOverview({
               )}
               {state === "COMPLETED" && (
                 <RouteClose
-                  route={route}
+                  route={shiftRoute ?? route}
                   busy={busy === "close"}
                   online={online}
                   error={null}
                   sessionSaved={sessionSaved}
                   onClose={onCloseRoute}
+                  onNextJob={onFindJob}
                 />
               )}
               {showList && (
@@ -702,7 +702,8 @@ export function RouteOverview({
                           : "Delivery order"}
                     </h2>
                     <span className="dv-count">
-                      {route.stops.length} stops · {route.parcels.length} parcels
+                      {route.stops.length} stops · {route.parcels.length}{" "}
+                      parcels
                     </span>
                   </div>
                   <ol className="dv-stop-list">
@@ -715,7 +716,9 @@ export function RouteOverview({
             </>
           )}
 
-          {(state === "ASSIGNED" || state === "READY" || state === "PAUSED") && (
+          {(state === "ASSIGNED" ||
+            state === "READY" ||
+            state === "PAUSED") && (
             <div className="rf-dock">
               {state === "READY" ? (
                 <SwipeConfirm
@@ -751,7 +754,7 @@ export function RouteOverview({
             </div>
           )}
         </>
-      )}
+      }
     </main>
   );
 }

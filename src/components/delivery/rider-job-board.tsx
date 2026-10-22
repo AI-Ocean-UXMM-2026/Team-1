@@ -9,10 +9,11 @@ import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import { currency } from "@/lib/delivery/format";
 import {
   type DeliveryJob,
+  claimJob,
+  isSampleJob,
   SAMPLE_OPEN_JOBS,
   jobSpreadKm,
   loadJobs,
-  startJob,
 } from "@/lib/delivery/jobs";
 import {
   distanceKm,
@@ -47,62 +48,72 @@ const centreOf = (job: DeliveryJob): GeoPoint | null =>
     : null;
 
 /**
- * Open jobs every driver can see. Tap a card to see the load, swipe to take
- * it: the route starts at once and the app switches to navigation.
+ * Open jobs every driver can see. Tap a card to review it, swipe to take it;
+ * the route page then handles loading and starting.
  */
 export function RiderJobBoard({
   vehicles,
-  onStarted,
+  onTaken,
+  blocked = null,
+  sampleJobs = false,
 }: {
   vehicles: VehicleOption[];
-  onStarted: (job: DeliveryJob) => void;
+  onTaken: (job: DeliveryJob) => void;
+  /** Why the driver can't take a job right now, e.g. one is already running. */
+  blocked?: string | null;
+  /** Dev preview only: show sample jobs instead of the live board. */
+  sampleJobs?: boolean;
 }) {
   const [jobs, setJobs] = useState<DeliveryJob[] | null>(null);
   const [vehicleId, setVehicleId] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [here, setHere] = useState<GeoPoint | null>(null);
 
   const reload = useCallback(async () => {
+    if (sampleJobs) {
+      setJobs(SAMPLE_OPEN_JOBS);
+      return;
+    }
     try {
       const all = await loadJobs(createClient());
       const open = all.filter((job) => job.status === "open");
-      if (open.length === 0) {
-        setJobs(SAMPLE_OPEN_JOBS);
-      } else {
-        const existingIds = new Set(open.map((j) => j.id));
-        const extra = SAMPLE_OPEN_JOBS.filter((j) => !existingIds.has(j.id));
-        setJobs([...open, ...extra]);
-      }
+      setJobs(open);
+      setLoadFailed(false);
       setExpandedId((current) =>
-        current &&
-        (open.some((job) => job.id === current) ||
-          SAMPLE_OPEN_JOBS.some((job) => job.id === current))
-          ? current
-          : null,
+        current && open.some((job) => job.id === current) ? current : null,
       );
     } catch {
-      setJobs(SAMPLE_OPEN_JOBS);
+      // Keep what is on screen; never invent work when the fetch fails.
+      setJobs((current) => current ?? []);
+      setLoadFailed(true);
     }
-  }, []);
+  }, [sampleJobs]);
 
   useEffect(() => {
     void reload();
     void currentPoint().then((point) => point && setHere(point));
+    if (sampleJobs) return;
     const supabase = createClient();
+    let pending: ReturnType<typeof setTimeout> | undefined;
     const channel = supabase
       .channel("rider-job-board")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "delivery_jobs" },
-        () => void reload(),
+        () => {
+          clearTimeout(pending);
+          pending = setTimeout(() => void reload(), 300);
+        },
       )
       .subscribe();
     return () => {
+      clearTimeout(pending);
       void supabase.removeChannel(channel);
     };
-  }, [reload]);
+  }, [reload, sampleJobs]);
 
   // Nearest first once we know where the driver is; urgent work leads either way.
   const sorted = useMemo(() => {
@@ -122,26 +133,38 @@ export function RiderJobBoard({
       );
   }, [jobs, here]);
 
-  async function start(job: DeliveryJob) {
-    if (starting) return;
+  const usable = vehicles.filter(
+    (vehicle) => vehicle.status === "available" || vehicle.status === "in_use",
+  );
+  // A driver with one usable vehicle never has to pick it.
+  const selectedVehicleId =
+    vehicleId || (usable.length === 1 ? usable[0].id : "");
+  const needsVehicle = usable.length > 0 && !selectedVehicleId;
+  const selectedVehicle = usable.find(
+    (vehicle) => vehicle.id === selectedVehicleId,
+  );
+  // The reason a swipe is locked, shown once on the card that needs it.
+  const lockReason = (job: DeliveryJob) =>
+    blocked ??
+    (needsVehicle
+      ? "Choose a vehicle first"
+      : selectedVehicle?.capacity_kg != null &&
+          job.total_weight_kg > selectedVehicle.capacity_kg
+        ? `Too heavy for ${selectedVehicle.registration_number} (${selectedVehicle.capacity_kg} kg max)`
+        : null);
+
+  async function take(job: DeliveryJob) {
+    if (starting || lockReason(job)) return;
     setStarting(job.id);
     setError(null);
     try {
-      const from = (await currentPoint(4000)) ?? here;
-      if (!job.id.startsWith("job-ygn-") && !job.id.startsWith("job-sample-")) {
-        try {
-          await startJob(createClient(), job.id, vehicleId || null, from);
-        } catch (rpcErr) {
-          console.warn(
-            "Could not start job in Supabase, continuing locally:",
-            rpcErr,
-          );
-        }
-      }
-      onStarted(job);
+      // Sample jobs live on this phone only; real ones are claimed on the server.
+      if (!isSampleJob(job))
+        await claimJob(createClient(), job.id, selectedVehicleId || null);
+      onTaken(job);
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not start the job.",
+        cause instanceof Error ? cause.message : "Could not take the job.",
       );
       await reload();
     } finally {
@@ -149,33 +172,21 @@ export function RiderJobBoard({
     }
   }
 
-  const usable = vehicles.filter(
-    (vehicle) => vehicle.status === "available" || vehicle.status === "in_use",
-  );
-  const needsVehicle = usable.length > 0 && !vehicleId;
-
   return (
     <section className="rj-board" aria-labelledby="rj-title">
       <header className="rj-header">
-        <div className="rj-header-text">
-          <h2 id="rj-title">Jobs</h2>
-          <p className="rf-muted">
-            Each job groups drop-offs that are close together. Tap one to see
-            the load, then swipe to start.
-          </p>
-        </div>
+        <h1 id="rj-title">Jobs</h1>
+        {sorted && sorted.length > 0 && (
+          <span className="rj-count">{sorted.length} open</span>
+        )}
       </header>
 
       {usable.length > 0 && (
-        <div className="rj-vehicle-card">
-          <label className="rj-vehicle-label" htmlFor="rj-vehicle">
-            <Icon name="truck" size={18} />
-            <span>Vehicle</span>
-          </label>
+        <div className="rj-vehicle">
+          <label htmlFor="rj-vehicle">Vehicle</label>
           <select
             id="rj-vehicle"
-            className="rj-vehicle-select"
-            value={vehicleId}
+            value={selectedVehicleId}
             onChange={(event) => setVehicleId(event.target.value)}
           >
             <option value="">Choose your vehicle…</option>
@@ -190,30 +201,32 @@ export function RiderJobBoard({
         </div>
       )}
 
-      {error && (
+      {(error || loadFailed) && (
         <div className="rj-error-banner" role="alert">
           <Icon name="warning" size={18} />
-          <span>{error}</span>
+          <span>
+            {error ??
+              "Couldn’t refresh the job list. What you see may be out of date."}
+          </span>
+          {loadFailed && !error && (
+            <button type="button" onClick={() => void reload()}>
+              Retry
+            </button>
+          )}
         </div>
       )}
 
       {sorted === null ? (
-        <div className="rj-loading">
-          <span className="rf-result-mark is-neutral">
-            <Icon name="refresh" size={24} />
-          </span>
-          <p className="rf-muted">Loading jobs…</p>
-        </div>
+        <p className="rj-status" role="status">
+          Loading jobs…
+        </p>
       ) : sorted.length === 0 ? (
-        <div className="rf-empty rj-empty">
-          <span className="rf-result-mark is-neutral">
-            <Icon name="truck" size={28} />
+        <div className="rj-empty">
+          <span className="rj-empty-icon" aria-hidden="true">
+            <Icon name="package" size={24} />
           </span>
-          <h3>No jobs open right now</h3>
-          <p>
-            New jobs appear here as soon as dispatch confirms orders. This list
-            updates by itself.
-          </p>
+          <h2>No jobs open right now</h2>
+          <p>New jobs appear here as soon as dispatch confirms orders.</p>
         </div>
       ) : (
         <ul className="rj-list">
@@ -223,13 +236,13 @@ export function RiderJobBoard({
             const isExpanded = expandedId === job.id;
             const spread = jobSpreadKm(job);
             const panelId = `rj-job-${job.id}`;
+            const title = job.area_label ?? job.label;
+            const locked = lockReason(job);
 
             return (
               <li
                 key={job.id}
-                className={`rj-card${isUrgent ? " is-urgent" : isPriority ? " is-priority" : ""}${
-                  isExpanded ? " is-selected" : ""
-                }`}
+                className={`rj-card${isExpanded ? " is-selected" : ""}`}
               >
                 <button
                   type="button"
@@ -238,106 +251,62 @@ export function RiderJobBoard({
                   aria-expanded={isExpanded}
                   aria-controls={panelId}
                 >
-                  <div className="rj-card-header">
-                    <div className="rj-card-title-group">
-                      <strong className="rj-card-title">
-                        {job.area_label ?? job.label}
-                      </strong>
-                      <span className="rj-card-subtitle">
-                        {job.order_count}{" "}
-                        {job.order_count === 1 ? "drop-off" : "drop-offs"}
-                        {awayKm != null
-                          ? ` · ${formatDistance(awayKm)} from you`
-                          : ""}
-                      </span>
-                    </div>
-
-                    <div className="rj-badges-group">
-                      {isUrgent ? (
-                        <span className="rj-priority-pill is-urgent">
-                          Urgent
-                        </span>
-                      ) : isPriority ? (
-                        <span className="rj-priority-pill is-high">
-                          Priority
-                        </span>
-                      ) : null}
-                      <span
-                        className={`rj-chevron${isExpanded ? " is-open" : ""}`}
-                        aria-hidden="true"
-                      >
-                        <Icon name="arrow-right" size={16} />
-                      </span>
-                    </div>
-                  </div>
+                  <span className="rj-card-top">
+                    <strong className="rj-card-title">{title}</strong>
+                    {isUrgent ? (
+                      <span className="rj-tag is-urgent">Urgent</span>
+                    ) : isPriority ? (
+                      <span className="rj-tag is-high">Priority</span>
+                    ) : null}
+                    <span
+                      className={`rj-chevron${isExpanded ? " is-open" : ""}`}
+                      aria-hidden="true"
+                    >
+                      <Icon name="chevron-down" size={18} />
+                    </span>
+                  </span>
+                  <span className="rj-facts">
+                    <span>
+                      {job.order_count}{" "}
+                      {job.order_count === 1 ? "stop" : "stops"}
+                    </span>
+                    <span>{job.total_weight_kg} kg</span>
+                    <span>
+                      {job.cod_total
+                        ? `COD ${currency.format(job.cod_total)}`
+                        : "Prepaid"}
+                    </span>
+                    {awayKm != null && (
+                      <span>{formatDistance(awayKm)} away</span>
+                    )}
+                  </span>
                 </button>
 
                 {isExpanded && (
                   <div className="rj-card-detail" id={panelId}>
-                    <div className="rj-meta-grid">
-                      <div className="rj-meta-item">
-                        <Icon name="package" size={16} />
-                        <span>
-                          <strong>{job.order_count}</strong>{" "}
-                          {job.order_count === 1 ? "parcel" : "parcels"}
-                        </span>
-                      </div>
-                      <div className="rj-meta-item">
-                        <Icon name="truck" size={16} />
-                        <span>
-                          <strong>{job.total_weight_kg}</strong> kg
-                        </span>
-                      </div>
-                      <div className="rj-meta-item">
-                        <Icon name="coin" size={16} />
-                        <span>
-                          {job.cod_total ? (
-                            <>
-                              COD{" "}
-                              <strong>{currency.format(job.cod_total)}</strong>
-                            </>
-                          ) : (
-                            "Prepaid"
-                          )}
-                        </span>
-                      </div>
-                      {spread != null && (
-                        <div className="rj-meta-item">
-                          <Icon name="location" size={16} />
-                          <span>
-                            Within <strong>{formatDistance(spread)}</strong>
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
                     <p className="rj-detail-note">
-                      Stops are ordered nearest first from where you are when
-                      you start.
+                      {spread != null
+                        ? `Stops are within ${formatDistance(spread)} of each other. `
+                        : ""}
+                      Next you check the load, then start the route.
                     </p>
-
-                    {needsVehicle && (
-                      <div className="rj-vehicle-hint">
-                        <Icon name="warning" size={16} />
-                        <span>Choose your vehicle above to start</span>
-                      </div>
-                    )}
-
                     <SwipeConfirm
-                      label={
-                        starting === job.id ? "Starting…" : "Swipe to start job"
-                      }
+                      label={`Take ${title}`}
                       hint={
-                        needsVehicle
-                          ? "Choose a vehicle first"
-                          : starting === job.id
-                            ? "Setting up your route…"
-                            : "Opens navigation to the first stop"
+                        locked ??
+                        (starting === job.id
+                          ? "Taking job…"
+                          : "Swipe to take this job")
                       }
                       className="is-green"
-                      disabled={starting != null || needsVehicle}
-                      onConfirm={() => void start(job)}
+                      disabled={starting != null || locked != null}
+                      onConfirm={() => void take(job)}
                     />
+                    {locked && (
+                      <p className="rj-lock-reason" role="status">
+                        {locked}
+                      </p>
+                    )}
                   </div>
                 )}
               </li>

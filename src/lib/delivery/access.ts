@@ -1,6 +1,6 @@
 export function workspaceHome(role: string) {
   if (role === "manager") return "/manager";
-  if (role === "driver") return "/rider";
+  if (role === "driver") return "/rider/jobs";
   if (role === "seller") return "/seller";
   if (role === "support") return "/support";
   return "/home";

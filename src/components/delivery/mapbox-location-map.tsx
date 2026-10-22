@@ -62,16 +62,16 @@ function riderMarker(
   trackingCode: string,
   driverName?: string | null,
 ) {
-  const halo = selected
-    ? `<circle r="20" fill="${palette.route}" fill-opacity="0.2"/>`
-    : "";
-  return svgMarker(
-    `${halo}<circle r="13" fill="${palette.driver}" stroke="${palette.driverCasing}" stroke-width="2"/><path fill="${palette.driverCasing}" d="M-6-2h8l3 4h2v4h-2a2.2 2.2 0 0 1-4.4 0h-4.2a2.2 2.2 0 0 1-4.4 0H-10V0h4l2-2Z"/>`,
-    selected ? 44 : 34,
-    "-22 -22 44 44",
+  const el = svgMarker(
+    `<circle class="rider-pulse" r="20" fill="${palette.route}" fill-opacity="0.35"/><circle r="${selected ? 18 : 16}" fill="${palette.route}" stroke="${palette.driverCasing}" stroke-width="3"/><path fill="#FFFFFF" d="M-7-3h9l3 4h2v5h-2a2.4 2.4 0 0 1-4.8 0h-4.4a2.4 2.4 0 0 1-4.8 0H-11V0h4l2-3Z"/>`,
+    selected ? 52 : 46,
+    "-26 -26 52 52",
     true,
     `Rider: ${driverName || "Assigned rider"} (${trackingCode})`,
   );
+  el.classList.add("mapbox-rider-marker");
+  el.append(labelElement(trackingCode));
+  return el;
 }
 
 function hazardMarker(report: RoadReport) {

@@ -21,6 +21,10 @@ import { CodLedgerView } from "@/components/delivery/manager-cod";
 import { ManagerCreateOrder } from "@/components/delivery/manager-create-order";
 import "@/components/delivery/manager-create-order.css";
 import { ManagerHomeView } from "@/components/delivery/manager-home-view";
+import { ManagerSidebar } from "@/components/delivery/manager-sidebar";
+import { ManagerOrderView } from "@/components/delivery/manager-order-view";
+import { useSimulatedFleet } from "@/lib/delivery/simulated-fleet";
+import { useJobBoard } from "@/lib/delivery/use-job-board";
 import {
   CardHeader,
   type ManagerNotice as Notice,
@@ -155,6 +159,15 @@ export function ManagerDashboard({
     searchParams.get("tab") === "vehicles" ? "vehicles" : "riders",
   );
 
+  const jobBoard = useJobBoard(
+    (view === "track" || view === "home") &&
+      workspace.canUseLiveData &&
+      !workspace.isDemo,
+  );
+  const roadJobs = jobBoard.jobs.filter(
+    (job) => job.status === "claimed" || job.status === "in_progress",
+  );
+
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab === "vehicles" || tab === "riders") {
@@ -184,9 +197,16 @@ export function ManagerDashboard({
     [],
   );
 
+  // The map and live list show fake cars driving around Yangon, held in memory only.
+  const simulatedCars = useSimulatedFleet(view === "track" || view === "home");
   const orders = useMemo(
-    () => prioritiseOrders(workspace.data.orders),
-    [workspace.data.orders],
+    () =>
+      prioritiseOrders(
+        view === "track"
+          ? [...workspace.data.orders, ...simulatedCars]
+          : workspace.data.orders,
+      ),
+    [workspace.data.orders, simulatedCars, view],
   );
   // Dispatch works the queue from the orders that still need a rider.
   const queueOrders = useMemo(
@@ -248,7 +268,14 @@ export function ManagerDashboard({
     [nowMs, orders, workspace.data.roadReports, workspace.data.statusEvents],
   );
   const recentList = useMemo(() => recentOrders(orders), [orders]);
-  const movingOrders = orders.filter(isMovingOrder);
+  const movingOrders = useMemo(
+    () => [
+      ...orders.filter(isMovingOrder),
+      // On the overview the cars only feed the map, not the lists.
+      ...(view === "home" ? simulatedCars : []),
+    ],
+    [orders, simulatedCars, view],
+  );
   const movingCount = movingOrders.length;
   const deliveredCount = summary.deliveredToday;
   const atRiskCount =
@@ -519,104 +546,11 @@ export function ManagerDashboard({
 
   return (
     <main className="manager-app">
-      <aside className="manager-sidebar">
-        <div className="manager-sidebar-group">
-          <div className="manager-sidebar-label">Dispatch Operations</div>
-          <nav className="manager-side-nav" aria-label="Dispatch operations">
-            <Link
-              className={activeNav === "home" ? "side-nav-active" : undefined}
-              href="/manager/home"
-              aria-current={activeNav === "home" ? "page" : undefined}
-            >
-              <Icon name="delivery" size={17} />
-              Overview
-            </Link>
-            <Link
-              className={activeNav === "order" ? "side-nav-active" : undefined}
-              href="/manager/order"
-              aria-current={activeNav === "order" ? "page" : undefined}
-            >
-              <Icon name="box" size={17} />
-              Orders
-              {orders.length > 0 && <span>{orders.length}</span>}
-            </Link>
-            <Link
-              className={activeNav === "track" ? "side-nav-active" : undefined}
-              href="/manager/track"
-              aria-current={activeNav === "track" ? "page" : undefined}
-            >
-              <Icon name="track" size={17} />
-              Live track
-              {movingCount > 0 && <span>{movingCount}</span>}
-            </Link>
-            <Link
-              className={view === "create" ? "side-nav-active" : undefined}
-              href="/manager/order/create"
-              aria-current={view === "create" ? "page" : undefined}
-            >
-              <Icon name="plus" size={17} />
-              Create order
-            </Link>
-            <Link href="/manager/dispatch">
-              <Icon name="navigation" size={17} />
-              Plan routes
-            </Link>
-          </nav>
-        </div>
-
-        <div className="manager-sidebar-group">
-          <div className="manager-sidebar-label">Field &amp; Fleet</div>
-          <nav className="manager-side-nav" aria-label="Field and fleet">
-            <Link
-              className={
-                activeNav === "profile" ? "side-nav-active" : undefined
-              }
-              href="/manager/profile"
-              aria-current={activeNav === "profile" ? "page" : undefined}
-            >
-              <Icon name="user" size={17} />
-              Team roster
-            </Link>
-            <Link href="/manager/jobs">
-              <Icon name="box" size={17} />
-              Job board
-            </Link>
-            <Link href="/manager/insights">
-              <Icon name="truck" size={17} />
-              Fleet insights
-            </Link>
-          </nav>
-        </div>
-
-        <div className="manager-sidebar-group">
-          <div className="manager-sidebar-label">Financials</div>
-          <nav className="manager-side-nav" aria-label="Financials">
-            <Link
-              className={activeNav === "cod" ? "side-nav-active" : undefined}
-              href="/manager/cod"
-              aria-current={activeNav === "cod" ? "page" : undefined}
-            >
-              <Icon name="coin" size={17} />
-              COD ledger
-            </Link>
-          </nav>
-        </div>
-
-        <div className="manager-sidebar-group">
-          <div className="manager-sidebar-label">Tools</div>
-          <nav className="manager-side-nav" aria-label="Tools">
-            <a
-              href="/tools/traffic-editor.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open interactive Yangon traffic and junction editor"
-            >
-              <Icon name="compass" size={17} />
-              Traffic editor ↗
-            </a>
-          </nav>
-        </div>
-      </aside>
+      <ManagerSidebar
+        active={view === "create" ? "create" : activeNav}
+        orderCount={orders.length}
+        movingCount={movingCount}
+      />
 
       <MobileNav
         label="Manager workspace"
@@ -737,15 +671,28 @@ export function ManagerDashboard({
               movingCount={movingCount}
               deliveredCount={deliveredCount}
               atRiskCount={atRiskCount}
-              nowMs={nowMs}
               refreshing={refreshing}
               onRefresh={refreshWorkspace}
               movingOrders={movingOrders}
               recentList={recentList}
               summary={summary}
-              openRequests={openRequests}
               freeRiders={freeRiders}
               availableVehicles={availableVehicles}
+              tasks={
+                workspace.canUseLiveData && !workspace.isDemo
+                  ? {
+                      requests: orders.filter(
+                        (order) =>
+                          order.status === "pending" &&
+                          !jobBoard.queuedIds.has(order.id),
+                      ).length,
+                      queued: jobBoard.queue.filter((entry) => !entry.job_id)
+                        .length,
+                      open: jobBoard.jobs.filter((job) => job.status === "open")
+                        .length,
+                    }
+                  : null
+              }
             />
           )}
 
@@ -763,311 +710,13 @@ export function ManagerDashboard({
           )}
 
           {!signedOut && view === "order" && (
-            <section className="manager-operations-grid">
-              <div className="manager-orders-panel" id="orders">
-                <div className="panel-heading-row">
-                  <div>
-                    <h2>Delivery queue</h2>
-                  </div>
-                  <Link
-                    className="button button-outline button-small"
-                    href="/manager/dispatch"
-                  >
-                    <Icon name="navigation" size={15} />
-                    Plan routes
-                  </Link>
-                </div>
-                <div className="manager-search-box">
-                  <Icon name="search" size={16} />
-                  <input
-                    type="search"
-                    placeholder="Search tracking ID, customer, address, rider…"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    aria-label="Search deliveries"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      className="manager-search-clear"
-                      onClick={() => setSearchQuery("")}
-                      aria-label="Clear search"
-                    >
-                      <Icon name="close" size={14} />
-                    </button>
-                  )}
-                </div>
-                <div
-                  className="order-filter-tabs"
-                  role="tablist"
-                  aria-label="Filter delivery orders"
-                >
-                  {ORDER_FILTERS.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={filter === item.id ? "is-active" : ""}
-                      role="tab"
-                      aria-selected={filter === item.id}
-                      onClick={() => setFilter(item.id)}
-                    >
-                      {item.label}{" "}
-                      <span>
-                        {
-                          orders.filter((order) =>
-                            matchesFilter(order, item.id),
-                          ).length
-                        }
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="manager-order-list">
-                  {searchedOrders.map((order) => (
-                    <button
-                      type="button"
-                      key={order.id}
-                      className={`manager-order-row ${selectedOrder?.id === order.id ? "is-selected" : ""}`}
-                      onClick={() => setSelectedId(order.id)}
-                    >
-                      <span
-                        className={`order-row-marker ${isMovingOrder(order) ? "marker-live" : ""}`}
-                      >
-                        <Icon name="box" size={16} />
-                      </span>
-                      <span className="manager-row-main">
-                        <span>
-                          <strong>{order.tracking_code}</strong>
-                          <span className="manager-row-customer">
-                            {order.customer_name}
-                          </span>
-                        </span>
-                        <small>{order.delivery_address}</small>
-                      </span>
-                      <span className="manager-row-side">
-                        <StatusBadge status={order.status} />
-                        <small>{formatTime(order.estimated_delivery_at)}</small>
-                        {selectedOrder?.id === order.id && (
-                          <span className="manager-row-selected-pill">
-                            Selected
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  ))}
-                  {!searchedOrders.length && (
-                    <div className="manager-empty-list">
-                      {searchQuery ? (
-                        <div className="manager-search-empty">
-                          <p>
-                            No deliveries match &ldquo;{searchQuery}&rdquo;.
-                          </p>
-                          <button
-                            type="button"
-                            className="button button-small button-outline"
-                            onClick={() => setSearchQuery("")}
-                          >
-                            Clear search
-                          </button>
-                        </div>
-                      ) : (
-                        "No deliveries match this view."
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="manager-map-panel" id="fleet-map">
-                <div className="panel-heading-row manager-map-heading">
-                  <div>
-                    <h2>Delivery map</h2>
-                  </div>
-                  <span className="manager-live-tag">
-                    <span className="availability-dot" />
-                    {movingCount} live
-                  </span>
-                </div>
-                <LocationMap
-                  order={selectedOrder}
-                  orders={movingOrders}
-                  mode="manager"
-                  isDemo={workspace.isDemo}
-                  tall
-                  onSelectOrder={setSelectedId}
-                  roadReports={workspace.data.roadReports}
-                  focusPoint={mapFocusPoint}
-                />
-                {selectedOrder ? (
-                  <div className="dispatch-detail">
-                    <div className="dispatch-order-title">
-                      <span>
-                        <strong>{selectedOrder.tracking_code}</strong>
-                        <small>
-                          {selectedOrder.customer_name} ·{" "}
-                          {selectedOrder.delivery_address}
-                        </small>
-                      </span>
-                      <StatusBadge status={selectedOrder.status} />
-                    </div>
-                    {selectedOrderAssessment &&
-                      selectedOrderAssessment.distanceKm != null && (
-                        <div className="dispatch-energy-card">
-                          <div className="energy-card-metrics">
-                            <span className="energy-pill">
-                              <Icon name="navigation" size={14} />
-                              <strong>
-                                {selectedOrderAssessment.distanceKm} km
-                              </strong>
-                            </span>
-                            {selectedOrderAssessment.fuelLitresEstimated !=
-                              null && (
-                              <span className="energy-pill">
-                                <Icon name="truck" size={14} />
-                                <strong>
-                                  {selectedOrderAssessment.fuelLitresEstimated}{" "}
-                                  L fuel
-                                </strong>
-                              </span>
-                            )}
-                            {selectedOrderAssessment.signalsOnRoute != null && (
-                              <span className="energy-pill">
-                                <Icon name="warning" size={14} />
-                                <strong>
-                                  {selectedOrderAssessment.signalsOnRoute}{" "}
-                                  {selectedOrderAssessment.signalsOnRoute === 1
-                                    ? "traffic signal"
-                                    : "traffic signals"}
-                                </strong>
-                              </span>
-                            )}
-                            {selectedOrderAssessment.interceptionsOnRoute !=
-                              null &&
-                              selectedOrderAssessment.interceptionsOnRoute >
-                                0 && (
-                                <span className="energy-pill">
-                                  <Icon name="navigation" size={14} />
-                                  <strong>
-                                    {
-                                      selectedOrderAssessment.interceptionsOnRoute
-                                    }{" "}
-                                    {selectedOrderAssessment.interceptionsOnRoute ===
-                                    1
-                                      ? "interception"
-                                      : "interceptions"}
-                                  </strong>
-                                </span>
-                              )}
-                          </div>
-                          {selectedOrderAssessment.signalBypasses &&
-                            selectedOrderAssessment.signalBypasses.length >
-                              0 && (
-                              <div className="energy-bypass-tip">
-                                <Icon name="compass" size={14} />
-                                <span>
-                                  <strong>Small rotation bypass:</strong>{" "}
-                                  {
-                                    selectedOrderAssessment.signalBypasses[0]
-                                      .recommendedRotation
-                                  }
-                                </span>
-                              </div>
-                            )}
-                          {selectedOrderAssessment.recommendedFuelStation && (
-                            <div className="energy-station-tip">
-                              <Icon name="location" size={14} />
-                              <span>
-                                <strong>Fuel station:</strong>{" "}
-                                {
-                                  selectedOrderAssessment.recommendedFuelStation
-                                    .name
-                                }{" "}
-                                (+
-                                {
-                                  selectedOrderAssessment.recommendedFuelStation
-                                    .detourKm
-                                }{" "}
-                                km detour)
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    {selectedOrder.status === "pending" && (
-                      <div className="assignment-recommendations">
-                        <div className="recommendation-heading">
-                          <span>
-                            <Icon name="compass" size={16} /> Check and confirm
-                          </span>
-                          <small>Automation posts it to the driver board</small>
-                        </div>
-                        <NoticeStrip notice={notice} scope="assign" />
-                        <p className="form-hint">
-                          Review the pickup and delivery details, then confirm.
-                          Nearby orders are clustered into one job that drivers
-                          can take from the job board. Riders are not assigned
-                          by hand.
-                        </p>
-                        <button
-                          type="button"
-                          className="button button-primary"
-                          disabled={saving}
-                          onClick={() => void confirmSelectedOrder()}
-                        >
-                          {saving ? "Confirming…" : "Confirm order"}
-                        </button>
-                      </div>
-                    )}
-                    {selectedOrder.status !== "pending" &&
-                      !isMovingOrder(selectedOrder) &&
-                      !selectedOrder.driver_id && (
-                        <div className="form-hint">
-                          Confirmed. This order is on the driver job board
-                          waiting for a driver to take it.
-                        </div>
-                      )}
-                    {isMovingOrder(selectedOrder) && (
-                      <div className="form-hint">
-                        {selectedOrder.driver_name || "Assigned rider"} has the
-                        parcel. They took this job from the job board.
-                      </div>
-                    )}
-                    {selectedOrder.cod_amount > 0 && (
-                      <div className="dispatch-cod">
-                        <span>COD to collect</span>
-                        <strong>
-                          {currency.format(selectedOrder.cod_amount)}
-                        </strong>
-                        <small>{sentenceCase(selectedOrder.cod_status)}</small>
-                      </div>
-                    )}
-                    {selectedRoute && (
-                      <div className="dispatch-route-summary">
-                        <span>
-                          <strong>Persisted route</strong>
-                          <small>
-                            {selectedRoute.status} · {selectedRouteStops.length}{" "}
-                            stops
-                          </small>
-                        </span>
-                        <div>
-                          {selectedRouteStops.map((stop) => (
-                            <small key={stop.id}>
-                              {stop.sequence_number}. {stop.stop_type} ·{" "}
-                              {stop.address}
-                            </small>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="manager-empty-map">
-                    No deliveries in this view yet.
-                  </div>
-                )}
-              </div>
-            </section>
+            <ManagerOrderView
+              workspace={workspace}
+              orders={orders}
+              movingOrders={movingOrders}
+              movingCount={movingCount}
+              initialSelectedId={selectedId}
+            />
           )}
 
           {!signedOut && view === "profile" && (
@@ -1310,6 +959,40 @@ export function ManagerDashboard({
                     <div className="manager-empty-list">
                       No parcels are moving right now.
                     </div>
+                  )}
+                </div>
+                <div className="manager-road-jobs">
+                  <h3>
+                    Jobs taken by riders <span>{roadJobs.length}</span>
+                  </h3>
+                  {roadJobs.map((job) => {
+                    const rider = workspace.data.drivers.find(
+                      (driver) => driver.id === job.claimed_by,
+                    );
+                    return (
+                      <div className="manager-road-job" key={job.id}>
+                        <span>
+                          <strong>{job.area_label ?? job.label}</strong>
+                          <small>
+                            {rider?.full_name ?? "A rider"} · {job.order_count}{" "}
+                            {job.order_count === 1 ? "parcel" : "parcels"}
+                          </small>
+                        </span>
+                        <span
+                          className={`status-badge ${job.status === "in_progress" ? "status-info" : "status-warning"}`}
+                        >
+                          {job.status === "in_progress"
+                            ? "On the road"
+                            : "Heading to pickup"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {!roadJobs.length && (
+                    <p className="manager-road-jobs-empty">
+                      When a rider takes a job from the board it shows here
+                      before the first pickup.
+                    </p>
                   )}
                 </div>
               </div>
@@ -1605,54 +1288,30 @@ export function ManagerDashboard({
                 <small>Driver availability and on-duty status</small>
               </div>
             </Link>
-            <Link
-              href="/manager/dispatch"
-              className="mobile-more-item"
-              onClick={() => setMoreOpen(false)}
-            >
-              <Icon name="navigation" size={20} />
-              <div>
-                <strong>Plan routes</strong>
-                <small>Depot multi-truck assignment &amp; routing</small>
-              </div>
-            </Link>
+
             <Link
               href="/manager/jobs"
               className="mobile-more-item"
               onClick={() => setMoreOpen(false)}
             >
-              <Icon name="box" size={20} />
+              <Icon name="spark" size={20} />
               <div>
-                <strong>Job board</strong>
-                <small>Batch requests and task automation</small>
+                <strong>Task Automation</strong>
+                <small>Queue requests and group them into jobs</small>
               </div>
             </Link>
             <Link
-              href="/manager/insights"
+              href="/manager/vehicles"
               className="mobile-more-item"
               onClick={() => setMoreOpen(false)}
             >
               <Icon name="truck" size={20} />
               <div>
-                <strong>Fleet insights</strong>
-                <small>
-                  Energy reserves, service due &amp; operating costs
-                </small>
+                <strong>Vehicles</strong>
+                <small>Fleet status, energy, service &amp; costs</small>
               </div>
             </Link>
-            <a
-              href="/tools/traffic-editor.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mobile-more-item"
-              onClick={() => setMoreOpen(false)}
-            >
-              <Icon name="compass" size={20} />
-              <div>
-                <strong>Traffic editor ↗</strong>
-                <small>Interactive Yangon traffic and junction points</small>
-              </div>
-            </a>
+
             <div className="mobile-more-auth">
               {workspace.isAuthenticated ? (
                 <button

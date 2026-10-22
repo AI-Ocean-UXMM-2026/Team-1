@@ -1748,6 +1748,15 @@
   color: #059669;
 }
 
+/* A locked green swipe stays neutral: green means "go". */
+.dv-swipe.is-green.is-disabled {
+  background: var(--color-surface-subtle);
+}
+
+.dv-swipe.is-green.is-disabled .dv-swipe-knob {
+  color: var(--color-text-secondary);
+}
+
 /* ---------- full-screen collection view (Image 2 style) ---------- */
 .dv-sheet-head.dv-collect-header {
   display: flex;
@@ -1873,4 +1882,14 @@
 
 .dv-collect-actions {
   margin-top: auto;
+}
+
+/* Job finished: next job first, ending the shift second. */
+.rf-dock-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.dv-overview:has(.rf-dock-stack) {
+  padding-bottom: calc(180px + env(safe-area-inset-bottom));
 }

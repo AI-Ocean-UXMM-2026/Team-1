@@ -191,7 +191,7 @@ export function Sheet({
 /* ---------------------------------------------------------------- menu */
 
 const REQUEST_LABELS: Record<RiderRequestCategory, string> = {
-  refuel: "Fuel stop",
+  refuel: "Fuel stop request",
   recharge: "Charging stop",
   vehicle_problem: "Vehicle problem",
   accident: "Accident",
@@ -505,10 +505,10 @@ export function EnergyPanel({
               sx={{ minHeight: 48, borderRadius: 999, mt: 1.5 }}
             >
               {busy
-                ? "Locating nearest station…"
+                ? "Requesting…"
                 : energy.source === "battery"
-                  ? "Route to nearest charging station"
-                  : "Route to nearest fuel station"}
+                  ? "Request charging stop"
+                  : "Request fuel stop"}
             </Button>
           </>
         )

@@ -1,0 +1,298 @@
+/* Job board inside the manager shell: requests → queue → jobs, read left to right.
+   Scoped to .jobs-app so the legacy operations styles stay untouched. */
+
+.jobs-app .manager-content {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.jobs-app .manager-demo {
+  margin: 0;
+}
+
+.jobs-pipeline {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.jobs-stage {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.jobs-stage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+  min-height: 44px;
+}
+
+.jobs-stage-head h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  color: var(--color-brand-navy);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.jobs-stage-head h2 span {
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.jobs-actions,
+.jobs-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Beats the legacy `.operations-list-item > div` grid rule. */
+.jobs-app .operations-list-item > .jobs-row-actions {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.jobs-app .operations-list {
+  margin: 0;
+}
+
+.jobs-app .operations-list-item {
+  padding: 12px;
+}
+
+.jobs-app .operations-list-item > div strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.jobs-app .operations-list-item > div span {
+  font-size: 13px;
+  white-space: normal;
+}
+
+.jobs-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.jobs-empty-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-brand-navy);
+  background: var(--color-surface-subtle);
+}
+
+.jobs-empty p {
+  max-width: 32ch;
+  margin: 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+  line-height: 20px;
+  text-wrap: pretty;
+}
+
+/* Status always pairs a label with a coloured dot. */
+.jobs-app .jobs-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+}
+
+.jobs-app .jobs-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.jobs-app .jobs-status[data-status="open"] {
+  color: var(--color-info-text);
+  background: var(--color-info-surface);
+}
+
+.jobs-app .jobs-status[data-status="claimed"],
+.jobs-app .jobs-status[data-status="in_progress"] {
+  color: var(--color-warning-text);
+  background: var(--color-warning-surface);
+}
+
+.jobs-app .jobs-status[data-status="completed"] {
+  color: var(--color-success-text);
+  background: var(--color-success-surface);
+}
+
+@media (max-width: 900px) {
+  .jobs-board-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .jobs-pipeline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .jobs-app .operations-list-item {
+    flex-wrap: wrap;
+  }
+
+  .jobs-app .operations-list-item > .jobs-row-actions {
+    flex-basis: 100%;
+  }
+
+  .jobs-row-actions .button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .jobs-stage {
+    padding: 14px;
+  }
+
+  .jobs-actions {
+    width: 100%;
+  }
+
+  .jobs-actions .button {
+    flex: 1;
+  }
+}
+
+/* Task status board */
+.jobs-board {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.jobs-board-columns {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1279px) {
+  .jobs-board-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.jobs-board-column {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.jobs-board-column h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+  color: var(--color-brand-navy);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.jobs-board-column h3::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--col-color, var(--color-text-secondary-subtle));
+}
+
+.jobs-board-column h3 span {
+  margin-left: auto;
+  color: var(--color-text-secondary-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.jobs-board-column[data-status="open"] {
+  --col-color: var(--color-info);
+}
+
+.jobs-board-column[data-status="claimed"] {
+  --col-color: var(--color-warning);
+}
+
+.jobs-board-column[data-status="in_progress"] {
+  --col-color: var(--color-brand-orange);
+}
+
+.jobs-board-column[data-status="completed"] {
+  --col-color: var(--color-success);
+}
+
+.jobs-board-column ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-card {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.task-card strong {
+  color: var(--color-brand-navy);
+  font-size: 14px;
+}
+
+.task-card span {
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+}
+
+.task-card .button {
+  justify-self: start;
+  margin-top: 6px;
+}
+
+.jobs-board-empty {
+  margin: 0;
+  padding: 10px 4px;
+  color: var(--color-text-secondary-subtle);
+  font-size: 13px;
+}

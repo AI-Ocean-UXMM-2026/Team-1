@@ -7,17 +7,17 @@ import {
 
 test("customer is the default and team roles have distinct URL homes", () => {
   assert.equal(workspaceHome("customer"), "/home");
-  assert.equal(workspaceHome("driver"), "/rider");
+  assert.equal(workspaceHome("driver"), "/rider/jobs");
   assert.equal(workspaceHome("manager"), "/manager");
   assert.equal(workspaceRedirect("/", "customer"), "/home");
   assert.equal(workspaceRedirect("/home", "customer"), null);
-  assert.equal(workspaceRedirect("/", "driver"), "/rider");
+  assert.equal(workspaceRedirect("/", "driver"), "/rider/jobs");
   assert.equal(workspaceRedirect("/", "manager"), "/manager");
 });
 
 test("authenticated accounts cannot enter another role's workspace", () => {
   assert.equal(workspaceRedirect("/manager", "customer"), "/home");
-  assert.equal(workspaceRedirect("/manager/orders", "driver"), "/rider");
+  assert.equal(workspaceRedirect("/manager/orders", "driver"), "/rider/jobs");
   assert.equal(workspaceRedirect("/rider", "manager"), "/manager");
   assert.equal(workspaceRedirect("/rider", "driver"), null);
   assert.equal(workspaceRedirect("/manager", "manager"), null);
@@ -25,7 +25,7 @@ test("authenticated accounts cannot enter another role's workspace", () => {
 
 test("signed-in accounts skip the welcome screen", () => {
   assert.equal(workspaceRedirect("/welcome", "customer"), "/home");
-  assert.equal(workspaceRedirect("/welcome", "driver"), "/rider");
+  assert.equal(workspaceRedirect("/welcome", "driver"), "/rider/jobs");
   assert.equal(workspaceRedirect("/welcome", null), null);
 });
 

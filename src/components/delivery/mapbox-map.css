@@ -59,3 +59,20 @@
   }
 }
 
+
+/* Moving rider/car marker: pulsing halo so live vehicles stand out on the map */
+.mapbox-rider-marker .rider-pulse {
+  animation: mapbox-rider-ripple 1.8s infinite ease-out;
+  transform-origin: center;
+}
+
+@keyframes mapbox-rider-ripple {
+  0% {
+    r: 16;
+    opacity: 0.7;
+  }
+  100% {
+    r: 26;
+    opacity: 0;
+  }
+}

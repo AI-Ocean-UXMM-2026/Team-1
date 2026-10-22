@@ -1,0 +1,263 @@
+/* Flood watch: mapped zones, live conditions and exposed drop-offs. */
+
+.flood-watch {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.flood-watch-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.flood-watch-head h2,
+.flood-exposure h3 {
+  margin: 0;
+  color: var(--color-brand-navy);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.flood-live {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+  font-size: 13px;
+}
+
+.flood-live strong {
+  color: var(--color-brand-navy);
+}
+
+.flood-live[data-severity="light_rain"] {
+  background: var(--color-info-surface);
+}
+
+.flood-live[data-severity="heavy_rain"] {
+  background: var(--color-warning-surface);
+}
+
+.flood-live[data-severity="flood_risk"] {
+  color: var(--color-error-text);
+  background: var(--color-error-surface);
+}
+
+.flood-watch-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.flood-map {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.flood-map > svg {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.flood-zone {
+  --zone: var(--color-info);
+  fill: var(--zone);
+  fill-opacity: 0.22;
+  stroke: var(--zone);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  transition: fill-opacity 140ms ease-out;
+}
+
+.flood-zone[data-class="2"] {
+  --zone: var(--color-warning);
+  fill-opacity: 0.3;
+}
+
+.flood-zone[data-class="3"] {
+  --zone: var(--color-error);
+  fill-opacity: 0.38;
+}
+
+.flood-zone[data-active] {
+  fill-opacity: 0.55;
+}
+
+.flood-point circle,
+.flood-point rect {
+  fill: var(--color-brand-navy);
+  stroke: var(--color-surface);
+  stroke-width: 1.5;
+}
+
+.flood-point[data-kind="task"] rect {
+  fill: var(--color-brand-orange);
+}
+
+.flood-point .flood-point-ring {
+  fill: none;
+  stroke: var(--color-error);
+  stroke-width: 2;
+}
+
+.flood-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.flood-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flood-legend li[data-class]::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--color-info);
+  opacity: 0.6;
+}
+
+.flood-legend li[data-class="2"]::before {
+  background: var(--color-warning);
+}
+
+.flood-legend li[data-class="3"]::before {
+  background: var(--color-error);
+}
+
+.flood-legend-point circle {
+  fill: var(--color-brand-navy);
+}
+
+.flood-legend-point[data-kind="task"] rect {
+  fill: var(--color-brand-orange);
+}
+
+.flood-zone-readout {
+  min-height: 20px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  text-wrap: pretty;
+}
+
+.flood-exposure {
+  display: grid;
+  gap: 10px;
+}
+
+.flood-exposure ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flood-exposure li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.flood-exposure li svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--color-info);
+}
+
+.flood-exposure li[data-class="2"] svg {
+  color: var(--color-warning-text);
+}
+
+.flood-exposure li[data-class="3"] svg {
+  color: var(--color-error);
+}
+
+.flood-exposure li span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.flood-exposure li strong {
+  color: var(--color-brand-navy);
+  font-size: 14px;
+}
+
+.flood-exposure p {
+  margin: 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 14px;
+  line-height: 20px;
+  text-wrap: pretty;
+}
+
+/* Inline marker on a request or task that sits in a mapped zone. */
+.flood-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-self: start;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--color-info-text);
+  background: var(--color-info-surface);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.flood-chip[data-class="2"] {
+  color: var(--color-warning-text);
+  background: var(--color-warning-surface);
+}
+
+.flood-chip[data-class="3"] {
+  color: var(--color-error-text);
+  background: var(--color-error-surface);
+}
+
+@media (max-width: 900px) {
+  .flood-watch-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .flood-watch {
+    padding: 14px;
+  }
+}

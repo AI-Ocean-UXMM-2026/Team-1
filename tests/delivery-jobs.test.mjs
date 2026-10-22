@@ -171,7 +171,8 @@ test("SAMPLE_OPEN_JOBS populates rich Yangon delivery tasks for drivers", async 
   assert.equal(orders.length, sampleJob.order_count);
   assert.equal(routeStops.length, sampleJob.order_count);
   assert.equal(orders[0].driver_id, "driver-test-1");
-  assert.equal(orders[0].status, "in_transit");
+  // Taken, not started: the driver checks the load and starts the route next.
+  assert.equal(orders[0].status, "assigned");
   assert.equal(routeStops[0].sequence_number, 1);
   assert.equal(routeStops[routeStops.length - 1].sequence_number, sampleJob.order_count);
   const totalWeight = orders.reduce((sum, o) => sum + (o.parcel_weight_kg ?? 0), 0);

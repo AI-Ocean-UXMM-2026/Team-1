@@ -8,12 +8,7 @@ type JobsClient = SupabaseClient<Database>;
 export const BATCH_INTERVAL_HOURS = 9;
 
 export type JobStatus =
-  | "open"
-  | "claimed"
-  | "in_progress"
-  | "completed"
-  | "cancelled"
-  | "superseded";
+  "open" | "claimed" | "in_progress" | "completed" | "cancelled" | "superseded";
 
 export type JobPriority = "low" | "normal" | "high" | "urgent";
 
@@ -416,6 +411,11 @@ export function formatJobReproductionLabel(
  * Rich realistic Yangon delivery tasks ready for drivers to take.
  * Used when no open jobs are in the database, in offline mode, or in preview.
  */
+/** Sample jobs are generated on the device and never claimed on the server. */
+export function isSampleJob(job: Pick<DeliveryJob, "id">) {
+  return job.id.startsWith("job-ygn-") || job.id.startsWith("job-sample-");
+}
+
 export const SAMPLE_OPEN_JOBS: DeliveryJob[] = [
   {
     id: "job-ygn-sanchaung-express",
@@ -636,6 +636,8 @@ function stringHash(str: string): number {
  * Creates realistic active delivery orders and route stops for a taken job.
  * Allows immediate transition to active full-screen map navigation.
  */
+export { isLocalOrderId } from "./ids.ts";
+
 export function createOrdersForJob(
   job: DeliveryJob,
   driverId: string | null,
@@ -677,7 +679,7 @@ export function createOrdersForJob(
       tracking_code: `YGN-${5000 + (Math.abs(stringHash(orderId)) % 4000)}`,
       customer_id: `customer-${job.id}-${i + 1}`,
       customer_name: recipient,
-      status: "in_transit",
+      status: "assigned",
       pickup_address: "Oern Central Depot, Yangon",
       delivery_address: stopAddress,
       pickup_latitude: 16.8053,
@@ -690,7 +692,9 @@ export function createOrdersForJob(
       parcel_weight_kg: weightPerOrder,
       cod_amount: codAmount,
       cod_status: codAmount > 0 ? "pending" : "not_required",
-      estimated_delivery_at: new Date(nowTs + (i + 1) * 20 * 60_000).toISOString(),
+      estimated_delivery_at: new Date(
+        nowTs + (i + 1) * 20 * 60_000,
+      ).toISOString(),
       route_progress_percent: null,
       traffic_delay_minutes: 0,
       eta_confidence: "high",

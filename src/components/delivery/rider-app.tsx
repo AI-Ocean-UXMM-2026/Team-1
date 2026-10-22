@@ -4,7 +4,9 @@ import "./rider-flow.css";
 import "./rider-delivery.css";
 
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
@@ -78,7 +80,12 @@ import {
   findNearestFuelStation,
 } from "@/lib/delivery/energy-routing";
 import { currency } from "@/lib/delivery/format";
-import { type DeliveryJob, createOrdersForJob } from "@/lib/delivery/jobs";
+import {
+  type DeliveryJob,
+  createOrdersForJob,
+  isLocalOrderId,
+  isSampleJob,
+} from "@/lib/delivery/jobs";
 import { formatDriveMinutes, speedLimitAt } from "@/lib/delivery/mapbox";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
 import {
@@ -104,6 +111,7 @@ import {
   formatDistance,
   type GeoPoint,
   hasParcelOnBoard,
+  isClosed,
   resolveTurnSymbol,
 } from "@/lib/delivery/rider-route";
 import { useRoadSpeedCells } from "@/lib/delivery/road-intel/use-road-intel";
@@ -112,6 +120,8 @@ import type {
   DeliveryStatus,
   RiderRequest,
   RiderRequestCategory,
+  RouteStop,
+  StatusEvent,
   WorkspaceData,
 } from "@/lib/delivery/types";
 import { usePermissionRecovery } from "@/lib/delivery/use-permission-recovery";
@@ -142,6 +152,54 @@ const ARRIVAL_RADIUS_KM = 0.08;
 const ALLOW_PREVIEW = process.env.NODE_ENV !== "production";
 
 const useStored = useStoredState;
+
+/** Orders, stops and events of a sample job, which only exist on this phone. */
+type LocalJobData = {
+  orders: DeliveryOrder[];
+  routeStops: RouteStop[];
+  statusEvents: StatusEvent[];
+};
+
+const EMPTY_LOCAL_JOB: LocalJobData = {
+  orders: [],
+  routeStops: [],
+  statusEvents: [],
+};
+
+// createOrdersForJob names every sample parcel "job-…".
+const isLocalJobId = (id: string) => id.startsWith("job-");
+
+function withLocalJob(data: WorkspaceData, local: LocalJobData): WorkspaceData {
+  return {
+    ...data,
+    orders: [
+      ...data.orders.filter((order) => !isLocalJobId(order.id)),
+      ...local.orders,
+    ],
+    routeStops: [
+      ...data.routeStops.filter((stop) => !isLocalJobId(stop.order_id)),
+      ...local.routeStops,
+    ],
+    statusEvents: [
+      ...data.statusEvents.filter((event) => !isLocalJobId(event.order_id)),
+      ...local.statusEvents,
+    ],
+  };
+}
+
+function pickLocalJob(data: WorkspaceData): LocalJobData {
+  return {
+    orders: data.orders.filter((order) => isLocalJobId(order.id)),
+    routeStops: data.routeStops.filter((stop) => isLocalJobId(stop.order_id)),
+    statusEvents: data.statusEvents.filter((event) =>
+      isLocalJobId(event.order_id),
+    ),
+  };
+}
+
+/** Where the current job starts within the day's shift. */
+type JobMark = { hidden: string[]; awaitingStart: boolean };
+const EMPTY_JOB_MARK: JobMark = { hidden: [], awaitingStart: false };
 
 function friendlyError(cause: unknown, fallback: string) {
   if (cause instanceof TypeError || /fetch|network/i.test(String(cause)))
@@ -190,7 +248,19 @@ export function RiderApp() {
   }, []);
 
   const isPreview = preview != null && previewData != null;
-  const data: WorkspaceData = isPreview ? previewData.data : live.data;
+  // Parcels of a sample job exist only on this phone. They sit beside the
+  // server data so a refresh after every tap can't wipe the route.
+  const [localJob, setLocalJob] = useStoredState<LocalJobData>(
+    `oern.driver.${live.profile?.id ?? "anon"}.local-job`,
+    EMPTY_LOCAL_JOB,
+  );
+  const localJobRef = useRef(localJob);
+  localJobRef.current = localJob;
+  const liveData = useMemo(
+    () => withLocalJob(live.data, localJob),
+    [live.data, localJob],
+  );
+  const data: WorkspaceData = isPreview ? previewData.data : liveData;
   const driverId = isPreview ? PREVIEW_DRIVER_ID : (live.profile?.id ?? null);
   const profileName = isPreview
     ? "Preview driver"
@@ -201,10 +271,31 @@ export function RiderApp() {
         setPreviewData((previous) =>
           previous ? { ...previous, data: updater(previous.data) } : previous,
         );
-      else live.updateData(updater);
+      else
+        live.updateData((previous) => {
+          const next = updater(withLocalJob(previous, localJobRef.current));
+          const local = pickLocalJob(next);
+          localJobRef.current = local;
+          setLocalJob(local);
+          return withLocalJob(next, EMPTY_LOCAL_JOB);
+        });
     },
-    [preview, live.updateData],
+    [preview, live.updateData, setLocalJob],
   );
+
+  /* ---------------- pages: job board and route ---------------- */
+
+  const pathname = usePathname();
+  const page: "jobs" | "route" = pathname?.endsWith("/jobs") ? "jobs" : "route";
+  // Same app on both URLs, so switching keeps every bit of state in memory.
+  const go = useCallback((next: "jobs" | "route") => {
+    window.history.pushState(
+      null,
+      "",
+      `/rider/${next}${window.location.search}`,
+    );
+    window.scrollTo(0, 0);
+  }, []);
 
   /* ---------------- clock, connectivity, viewport ---------------- */
 
@@ -236,6 +327,12 @@ export function RiderApp() {
 
   const storeKey = `oern.driver.${driverId ?? "anon"}.${today}${isPreview ? `.preview-${preview}` : ""}`;
   const [arrived, setArrived] = useStored<string[]>(`${storeKey}.arrived`, []);
+  // Each job is its own route: earlier jobs' parcels are hidden from it, and a
+  // shift already running still waits for this job's own "Start route".
+  const [jobMark, setJobMark] = useStored<JobMark>(
+    `${storeKey}.job`,
+    EMPTY_JOB_MARK,
+  );
   const [deferred, setDeferred] = useStored<string[]>(
     `${storeKey}.deferred`,
     [],
@@ -285,20 +382,51 @@ export function RiderApp() {
 
   /* ---------------- the route ---------------- */
 
+  const routeSession =
+    jobMark.awaitingStart && session?.status === "in_progress" ? null : session;
   const route = useMemo(
     () =>
       buildDriverRoute({
-        orders: data.orders,
+        orders: jobMark.hidden.length
+          ? data.orders.filter((order) => !jobMark.hidden.includes(order.id))
+          : data.orders,
         events: data.statusEvents,
         routeStops: data.routeStops,
         driverId,
         now,
-        session,
+        session: routeSession,
         arrived,
         handover: handoverKey,
         deferred,
       }),
-    [data, driverId, now, session, arrived, handoverKey, deferred],
+    [
+      data,
+      driverId,
+      now,
+      routeSession,
+      arrived,
+      handoverKey,
+      deferred,
+      jobMark.hidden,
+    ],
+  );
+  // Ending the shift settles every job today, not just the last one.
+  const shiftRoute = useMemo(
+    () =>
+      jobMark.hidden.length
+        ? buildDriverRoute({
+            orders: data.orders,
+            events: data.statusEvents,
+            routeStops: data.routeStops,
+            driverId,
+            now,
+            session,
+            arrived: [],
+            handover: null,
+            deferred: [],
+          })
+        : route,
+    [data, driverId, now, session, jobMark.hidden.length, route],
   );
   const stop = route.current;
   const draft = stop ? (drafts[stop.key] ?? EMPTY_HANDOVER) : EMPTY_HANDOVER;
@@ -424,8 +552,9 @@ export function RiderApp() {
     return watchRiderLocations({
       geolocation: navigator.geolocation,
       orderIds,
-      send: (orderId, point) =>
-        sendDriverLocation(
+      send: async (orderId, point) => {
+        if (isLocalOrderId(orderId)) return;
+        await sendDriverLocation(
           createClient(),
           orderId,
           driverId,
@@ -433,7 +562,8 @@ export function RiderApp() {
           point.longitude,
           point.accuracy,
           { speedMps: point.speedMps, headingDegrees: point.headingDegrees },
-        ),
+        );
+      },
       onSent: (sentIds) => setSharing(sentIds.length),
       onError: (_msg, permissionDenied) => {
         setSharing(null);
@@ -659,15 +789,15 @@ export function RiderApp() {
       );
       return;
     }
+    if (isLocalOrderId(order.id)) {
+      applyStatus(order.id, status);
+      return;
+    }
     await setOrderStatus(
       createClient(),
       order.id,
       status as
-        | "accepted"
-        | "picked_up"
-        | "in_transit"
-        | "delivered"
-        | "failed",
+        "accepted" | "picked_up" | "in_transit" | "delivered" | "failed",
     );
     applyStatus(order.id, status);
   }
@@ -675,6 +805,17 @@ export function RiderApp() {
   async function sendOutcome(
     input: DeliveryOutcomeInput,
   ): Promise<DeliveryOutcomeResult> {
+    if (isLocalOrderId(input.orderId)) {
+      const order = data.orders.find((item) => item.id === input.orderId);
+      return {
+        status: input.outcome,
+        codStatus:
+          input.outcome === "delivered" && order && codDue(order) > 0
+            ? "collected"
+            : (order?.cod_status ?? "not_required"),
+        duplicate: false,
+      };
+    }
     if (!isPreview) return completeDelivery(createClient(), input);
     const seen = previewRequests.current.get(input.requestId);
     if (seen) return { ...seen, duplicate: true };
@@ -735,6 +876,14 @@ export function RiderApp() {
 
   /** Records one door pickup; the preview applies the same rules as the database. */
   async function sendPickup(input: PickupInput): Promise<PickupResult> {
+    if (isLocalOrderId(input.orderId))
+      return {
+        status: input.outcome === "collected" ? "picked_up" : "failed",
+        duplicate: false,
+        weightKg: input.outcome === "collected" ? input.weighedKg : null,
+        variancePct: null,
+        warnings: [],
+      };
     if (!isPreview) return completePickup(createClient(), input);
     const seen = previewPickups.current.get(input.requestId);
     if (seen) return { ...seen, duplicate: true };
@@ -834,6 +983,7 @@ export function RiderApp() {
         if (order.status === "picked_up") await moveParcel(order, "in_transit");
       await saveSession("in_progress");
       setAcknowledged(null);
+      setJobMark((mark) => ({ ...mark, awaitingStart: false }));
     });
 
   const pauseRoute = () =>
@@ -851,49 +1001,75 @@ export function RiderApp() {
       await saveSession("closed", { declaredCod: declared });
     });
 
-  const onJobStarted = useCallback(
-    async (job: DeliveryJob) => {
-      const nowTs = Date.now();
+  /** A job was taken on the board: set up its route and open the route page. */
+  const onJobTaken = useCallback(
+    (job: DeliveryJob) => {
       const currentDriver =
         driverId ?? (isPreview ? PREVIEW_DRIVER_ID : "driver-live");
-      const generated = createOrdersForJob(job, currentDriver, nowTs);
-
-      updateData((prev) => ({
-        ...prev,
-        orders: [
-          ...prev.orders.filter((o) => o.driver_id !== currentDriver),
-          ...generated.orders,
-        ],
-        routeStops: [
-          ...prev.routeStops.filter(
-            (s) => !generated.orders.some((o) => o.id === s.order_id),
+      const finished = data.orders
+        .filter(
+          (order) =>
+            order.driver_id === currentDriver && isClosed(order.status),
+        )
+        .map((order) => order.id);
+      setJobMark({
+        hidden: finished,
+        awaitingStart: session?.status === "in_progress",
+      });
+      if (isSampleJob(job)) {
+        const generated = createOrdersForJob(job, currentDriver, Date.now());
+        const isOld = (id: string) => id.startsWith("job-");
+        updateData((previous) => ({
+          ...previous,
+          orders: [
+            ...previous.orders.filter((order) => !isOld(order.id)),
+            ...generated.orders,
+          ],
+          routeStops: [
+            ...previous.routeStops.filter((stop) => !isOld(stop.order_id)),
+            ...generated.routeStops,
+          ],
+          statusEvents: previous.statusEvents.filter(
+            (event) => !isOld(event.order_id),
           ),
-          ...generated.routeStops,
-        ],
-      }));
-
-      await saveSession("in_progress");
-      setAcknowledged(null);
-      setFlash(`Started ${job.area_label ?? job.label}! Heading to stop 1.`);
-
-      if (!isPreview && live.canUseLiveData) {
-        void live.refresh();
+        }));
       }
+      setAcknowledged(null);
+      setArrived([]);
+      setDeferred([]);
+      setFlash(
+        `You took ${job.area_label ?? job.label}. Check the load, then start the route.`,
+      );
+      if (!isPreview && live.canUseLiveData) void live.refresh();
+      go("route");
     },
-    [driverId, isPreview, live, saveSession, updateData, setFlash],
+    [
+      data.orders,
+      driverId,
+      go,
+      isPreview,
+      live,
+      session?.status,
+      setAcknowledged,
+      setArrived,
+      setDeferred,
+      setFlash,
+      setJobMark,
+      updateData,
+    ],
   );
 
   const markArrived = (target: DeliveryStop) => {
-    setArrived((keys) => [...new Set([...keys, target.key])]);
-    if (!isPreview && live.canUseLiveData)
+    // Arriving marks this stop only; any earlier arrival mark is dropped.
+    setArrived([target.key]);
+    const orderIds = (target.kind === "pickup" ? target.collect : target.open)
+      .map((order) => order.id)
+      .filter((id) => !isLocalOrderId(id));
+    if (!isPreview && live.canUseLiveData && orderIds.length > 0)
       // Best effort: only routes created by dispatch have stop rows to mark.
-      void markStopArrived(
-        createClient(),
-        (target.kind === "pickup" ? target.collect : target.open).map(
-          (order) => order.id,
-        ),
-        target.kind,
-      ).catch(() => undefined);
+      void markStopArrived(createClient(), orderIds, target.kind).catch(
+        () => undefined,
+      );
   };
 
   const updateDraft = (patch: Partial<HandoverDraft>) => {
@@ -1166,7 +1342,7 @@ export function RiderApp() {
       if (!isPreview)
         await requestRiderAssistance(createClient(), {
           driverId,
-          orderId: record.order_id,
+          orderId: isLocalOrderId(record.order_id) ? null : record.order_id,
           vehicleId: record.vehicle_id,
           category,
           note: record.note ?? "",
@@ -1198,7 +1374,7 @@ export function RiderApp() {
       if (!isPreview)
         await requestRiderAssistance(createClient(), {
           driverId,
-          orderId: orderIds[0] ?? null,
+          orderId: isLocalOrderId(orderIds[0]) ? null : (orderIds[0] ?? null),
           vehicleId: vehicle?.id ?? null,
           category: "other",
           note,
@@ -1351,6 +1527,63 @@ export function RiderApp() {
   );
   const sheets = renderSheets();
   const previewBar = isPreview ? renderPreviewBar() : null;
+
+  if (page === "jobs") {
+    const activeJob = !["NONE", "COMPLETED", "CLOSED"].includes(route.state);
+    const blocked = activeJob ? "Finish your current job first" : null;
+    return (
+      <>
+        <main className="rf-app dv-overview">
+          <header className="rf-overview-head rf-driver-appbar">
+            <div className="rf-appbar-brand">
+              <div className="rf-driver-status">
+                <span className="rf-status-dot is-online" aria-hidden="true" />
+                <span className="rf-driver-name">Oern Driver</span>
+              </div>
+            </div>
+            <IconButton
+              onClick={() => openPanel("menu")}
+              aria-label="Shift tools"
+              sx={{ width: 44, height: 44, color: "text.primary" }}
+            >
+              <Icon name="menu" size={20} />
+            </IconButton>
+          </header>
+          {activeJob && (
+            <Notice
+              tone="info"
+              icon="truck"
+              action={
+                <button
+                  type="button"
+                  className="rf-link"
+                  onClick={() => go("route")}
+                >
+                  Open route
+                </button>
+              }
+            >
+              <strong>You have a job in progress.</strong> Finish it before
+              taking another.
+            </Notice>
+          )}
+          {flash && (
+            <Notice tone="success" icon="check">
+              {flash}
+            </Notice>
+          )}
+          <RiderJobBoard
+            vehicles={data.vehicles}
+            blocked={blocked}
+            sampleJobs={isPreview}
+            onTaken={onJobTaken}
+          />
+        </main>
+        {sheets}
+        {previewBar}
+      </>
+    );
+  }
 
   if (route.state === "IN_PROGRESS" && stop) {
     const arrivedHere =
@@ -1715,12 +1948,8 @@ export function RiderApp() {
             {route.state === "PAUSED" && revisionNotice}
           </>
         }
-        jobBoard={
-          <RiderJobBoard
-            vehicles={data.vehicles}
-            onStarted={(job) => void onJobStarted(job)}
-          />
-        }
+        shiftRoute={shiftRoute}
+        onFindJob={() => go("jobs")}
         online={online}
         busy={busy}
         error={errorBanner}

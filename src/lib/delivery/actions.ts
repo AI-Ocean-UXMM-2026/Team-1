@@ -6,6 +6,7 @@ import type {
   RoadReport,
 } from "@/lib/delivery/types";
 import type { Database } from "@/lib/supabase/database.types";
+import { isLocalOrderId, isUuid } from "@/lib/delivery/ids";
 
 export type DeliveryActionClient = SupabaseClient<Database>;
 
@@ -37,6 +38,7 @@ export async function setOrderStatus(
   orderId: string,
   status: "accepted" | "picked_up" | "in_transit" | "delivered" | "failed",
 ) {
+  if (isLocalOrderId(orderId)) return;
   const { error } = await supabase
     .from("delivery_orders")
     .update({ status })
@@ -55,6 +57,7 @@ export async function sendDriverLocation(
   accuracy: number | null,
   motion?: { speedMps: number | null; headingDegrees: number | null },
 ) {
+  if (isLocalOrderId(orderId)) return;
   const { error } = await supabase.from("delivery_locations").insert({
     order_id: orderId,
     driver_id: driverId,
@@ -76,6 +79,7 @@ export async function collectCod(
   supabase: DeliveryActionClient,
   input: { orderId: string; driverId: string; amount: number },
 ) {
+  if (isLocalOrderId(input.orderId)) return;
   const { error } = await supabase.from("cod_payments").insert({
     order_id: input.orderId,
     collected_by: input.driverId,
@@ -221,6 +225,8 @@ export async function assignDelivery(
     vehicleId: string | null;
   },
 ) {
+  if (isLocalOrderId(input.orderId))
+    throw new Error("This sample parcel is not saved, so it cannot be assigned.");
   const { data, error } = await supabase.rpc("assign_delivery", {
     target_order_id: input.orderId,
     target_driver_id: input.driverId,
@@ -341,6 +347,7 @@ export async function requestRiderAssistance(
     longitude: number | null;
   },
 ) {
+  const orderId = isUuid(input.orderId) ? input.orderId : null;
   const note = input.note.trim();
   if (input.category === "other" && note.length < 3)
     throw new Error("Tell operations what happened in a few words.");
@@ -354,7 +361,7 @@ export async function requestRiderAssistance(
     .from("rider_assistance_requests")
     .insert({
       driver_id: input.driverId,
-      order_id: input.orderId,
+      order_id: orderId,
       vehicle_id: input.vehicleId,
       kind,
       category: input.category,
@@ -639,10 +646,12 @@ export async function markStopArrived(
   orderIds: string[],
   stopType: "pickup" | "delivery" = "delivery",
 ) {
+  const savedIds = orderIds.filter(isUuid);
+  if (!savedIds.length) return;
   const { error } = await supabase
     .from("route_stops")
     .update({ status: "arrived" })
-    .in("order_id", orderIds)
+    .in("order_id", savedIds)
     .eq("stop_type", stopType)
     .eq("status", "pending");
   if (error) throw new Error(error.message);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Icon } from "@/components/delivery/icons";
+import { Icon, type IconName } from "@/components/delivery/icons";
 
 export type ManagerNotice = {
   scope: "assign" | "create" | "reports" | "riders" | "requests";
@@ -16,7 +16,9 @@ export function KpiCell({
   hint,
   tone,
   href,
+  icon,
 }: {
+  icon?: IconName;
   label: string;
   value: number;
   hint: string;
@@ -25,7 +27,14 @@ export function KpiCell({
 }) {
   const content = (
     <>
-      <span className="dash-kpi-label">{label}</span>
+      <span className="dash-kpi-head">
+        {icon && (
+          <span className="dash-icon-tile" aria-hidden="true">
+            <Icon name={icon} size={16} />
+          </span>
+        )}
+        <span className="dash-kpi-label">{label}</span>
+      </span>
       <strong className="dash-kpi-value">{value}</strong>
       <span className="dash-kpi-hint">{hint}</span>
     </>
@@ -51,14 +60,23 @@ export function CardHeader({
   title,
   meta,
   children,
+  icon,
 }: {
+  icon?: IconName;
   title: string;
   meta?: ReactNode;
   children?: ReactNode;
 }) {
   return (
     <header className="dash-card-header">
-      <h2>{title}</h2>
+      <h2>
+        {icon && (
+          <span className="dash-icon-tile" aria-hidden="true">
+            <Icon name={icon} size={15} />
+          </span>
+        )}
+        {title}
+      </h2>
       <div>
         {meta && <span className="dash-meta">{meta}</span>}
         {children}

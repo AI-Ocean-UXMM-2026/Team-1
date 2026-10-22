@@ -1,318 +1,275 @@
-/* Rider Job Board — Card List with Swipe to Start */
+/* Rider job board: compare jobs at a glance, swipe to take one. */
 
 .rj-board {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   padding-block: 8px 24px;
 }
 
 .rj-header {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
 }
 
-.rj-header-text h2 {
+.rj-header h1 {
   margin: 0;
-  font-size: 1.25rem;
+  color: var(--color-text-primary);
+  font-size: 1.5rem;
   font-weight: 700;
-  color: var(--color-text-primary, #172b4d);
-  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
-.rj-header-text p {
-  margin: 4px 0 0;
-  font-size: 0.875rem;
-  line-height: 1.4;
-  color: var(--color-text-secondary, #64748b);
+.rj-count {
+  color: var(--color-text-secondary-subtle);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Vehicle Selector Card ---------- */
+/* ---------- Vehicle ---------- */
 
-.rj-vehicle-card {
+.rj-vehicle {
   display: grid;
   gap: 6px;
-  padding: 12px 14px;
-  background: var(--color-surface, #ffffff);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
-.rj-vehicle-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-text-secondary, #64748b);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.rj-vehicle-select {
-  width: 100%;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 10px;
-  background: var(--color-surface-subtle, #f8fafc);
-  color: var(--color-text-primary, #172b4d);
-  font: inherit;
+.rj-vehicle label {
+  color: var(--color-text-secondary-subtle);
   font-size: 0.875rem;
-  font-weight: 500;
-  outline: none;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  font-weight: 600;
 }
 
-.rj-vehicle-select:focus {
-  border-color: var(--color-brand-orange-action, #c2410c);
-  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.12);
+.rj-vehicle select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 1rem;
 }
 
-/* ---------- Error & Loading Banners ---------- */
+/* ---------- Status, error, empty ---------- */
+
+.rj-status {
+  margin: 0;
+  padding: 24px 4px;
+  color: var(--color-text-secondary-subtle);
+  font-size: 1rem;
+}
 
 .rj-error-banner {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: var(--rf-error-bg, #fee2e2);
-  border: 1px solid var(--rf-border-error, #fca5a5);
+  border: 1px solid var(--rf-border-error);
   border-radius: 12px;
-  color: var(--rf-error-fg, #991b1b);
-  font-size: 0.875rem;
+  background: var(--rf-error-bg);
+  color: var(--rf-error-fg);
+  font-size: 0.9375rem;
   font-weight: 500;
 }
 
-.rj-loading,
-.rj-empty {
-  display: grid;
-  place-items: center;
-  gap: 8px;
-  padding: 32px 16px;
-  text-align: center;
-  background: var(--color-surface, #ffffff);
-  border: 1px dashed var(--color-border, #e2e8f0);
-  border-radius: 16px;
+.rj-error-banner button {
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
-.rj-empty h3 {
-  margin: 0;
+.rj-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 36px 16px;
+  border: 1px dashed var(--color-border-control);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.rj-empty-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+}
+
+.rj-empty h2 {
+  margin: 4px 0 0;
+  color: var(--color-text-primary);
   font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text-primary, #172b4d);
+  font-weight: 700;
 }
 
 .rj-empty p {
+  max-width: 28ch;
   margin: 0;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary, #64748b);
-  max-width: 320px;
+  color: var(--color-text-secondary-subtle);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  text-wrap: pretty;
 }
 
-/* ---------- Job Card List ---------- */
+/* ---------- Job cards ---------- */
 
 .rj-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .rj-card {
-  display: flex;
-  flex-direction: column;
-  background: var(--color-surface, #ffffff);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 18px;
-  overflow: hidden;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.15s ease;
-  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.05);
-}
-
-.rj-card:hover {
-  border-color: #cbd5e1;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  transition: border-color 160ms var(--rf-ease);
 }
 
 .rj-card.is-selected {
-  border-color: var(--color-brand-orange-action, #c2410c);
-  box-shadow: 0 8px 24px -8px rgba(194, 65, 12, 0.22);
-}
-
-.rj-card.is-priority {
-  border-left: 5px solid #f97316;
-  background: linear-gradient(to right, #fffbf7, #ffffff 35%);
-}
-
-.rj-card.is-urgent {
-  border-left: 5px solid #ef4444;
-  background: linear-gradient(to right, #fef2f2, #ffffff 35%);
+  border-color: var(--color-text-primary);
 }
 
 .rj-card-content {
-  padding: 16px;
   display: grid;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  font: inherit;
+  min-height: 44px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: inherit;
+  background: none;
   color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  user-select: none;
 }
 
-.rj-card-header {
+.rj-card-top {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.rj-card-title-group {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
+  align-items: center;
+  gap: 8px;
 }
 
 .rj-card-title {
-  font-size: 1.0625rem;
+  min-width: 0;
+  flex: 1;
+  color: var(--color-text-primary);
+  font-size: 1.125rem;
   font-weight: 700;
-  color: var(--color-text-primary, #172b4d);
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
-.rj-card-subtitle {
+.rj-tag {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
   font-size: 0.8125rem;
-  color: var(--color-text-secondary, #64748b);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rj-badges-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.rj-priority-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 8px;
-  border-radius: 9999px;
-  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
 }
 
-.rj-priority-pill.is-high {
-  background: #ffedd5;
-  color: #c2410c;
-  border: 1px solid #fdba74;
+/* Urgency is a word, not a stripe or a wash. */
+.rj-tag.is-urgent {
+  background: var(--rf-error-fg);
+  color: var(--color-text-inverse);
 }
 
-.rj-priority-pill.is-urgent {
-  background: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fca5a5;
+.rj-tag.is-high {
+  background: var(--rf-warn-bg);
+  color: var(--rf-warn-fg);
+  box-shadow: inset 0 0 0 1px var(--rf-border-warning);
 }
-
-/* ---------- Metadata Grid ---------- */
-
-.rj-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 8px;
-  padding-top: 4px;
-}
-
-.rj-meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: var(--color-surface-subtle, #f8fafc);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 8px;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary, #475569);
-  white-space: nowrap;
-}
-
-.rj-meta-item strong {
-  color: var(--color-text-primary, #172b4d);
-  font-weight: 600;
-}
-
-/* ---------- Expanded Detail ---------- */
 
 .rj-chevron {
+  flex: none;
   display: inline-flex;
-  color: var(--color-text-secondary, #64748b);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--color-text-secondary-subtle);
+  transition: transform 200ms var(--rf-ease);
 }
 
 .rj-chevron.is-open {
-  transform: rotate(90deg);
+  transform: rotate(180deg);
+}
+
+/* Everything a driver compares jobs on, readable without tapping. */
+.rj-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  color: var(--color-text-secondary-subtle);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rj-facts > span + span::before {
+  content: "·";
+  margin-inline: 8px;
 }
 
 .rj-card-detail {
   display: grid;
   gap: 10px;
   padding: 0 16px 16px;
-  animation: rjFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.rj-detail-note {
+.rj-detail-note,
+.rj-lock-reason {
   margin: 0;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary, #64748b);
+  color: var(--color-text-secondary-subtle);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.rj-lock-reason {
+  color: var(--rf-warn-fg);
+  font-weight: 600;
+}
+
+/* Swipe on the board: solid, high-contrast, no shimmer. */
+.rj-card-detail .dv-swipe.is-green {
+  background: #047857;
+}
+
+.rj-card-detail .dv-swipe.is-green .dv-swipe-knob {
+  color: #047857;
+}
+
+.rj-card-detail .dv-swipe.is-green .dv-swipe-label {
+  animation: none;
+  background: none;
+  -webkit-text-fill-color: var(--color-text-inverse);
+  font-weight: 700;
+}
+
+.rj-card-detail .dv-swipe.is-green.is-disabled {
+  background: var(--color-surface-subtle);
+}
+
+.rj-card-detail .dv-swipe.is-green.is-disabled .dv-swipe-label {
+  -webkit-text-fill-color: var(--color-text-secondary-subtle);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .rj-chevron,
-  .rj-card-detail {
+  .rj-card {
     transition: none;
-    animation: none;
-  }
-}
-
-/* ---------- Card Actions & Swipe Area ---------- */
-
-.rj-vehicle-hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: var(--rf-warn-bg, #fffdf5);
-  border: 1px solid var(--rf-border-warning, #fcd34d);
-  border-radius: 8px;
-  color: var(--rf-warn-fg, #92400e);
-  font-size: 0.8125rem;
-  font-weight: 500;
-}
-
-@keyframes rjFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -347,60 +304,4 @@
   border-radius: 50%;
   background: #10b981;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-}
-
-.rf-view-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  padding: 4px;
-  background: var(--color-surface-subtle, #f1f5f9);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 14px;
-  margin-block: 8px 16px;
-}
-
-.rf-view-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 8px 14px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--color-text-secondary, #64748b);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.rf-view-tab:hover {
-  color: var(--color-text-primary, #172b4d);
-}
-
-.rf-view-tab.is-active {
-  background: var(--color-surface, #ffffff);
-  color: var(--color-text-primary, #172b4d);
-  box-shadow: 0 2px 6px -1px rgba(15, 23, 42, 0.08);
-}
-
-.rf-tab-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 7px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  background: var(--color-surface-subtle, #e2e8f0);
-  color: var(--color-text-secondary, #475569);
-}
-
-.rf-view-tab.is-active .rf-tab-badge {
-  background: #ffedd5;
-  color: #c2410c;
 }
