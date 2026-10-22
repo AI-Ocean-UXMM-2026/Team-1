@@ -28,7 +28,6 @@ import {
 } from "@/components/delivery/manager-ui-components";
 import { ModalPanel } from "@/components/delivery/modal-panel";
 import {
-  assignDelivery,
   reviewRoadReport,
   setDriverAvailability,
   updateRiderRequestStatus,
@@ -48,13 +47,12 @@ import {
   prioritiseOrders,
   sentenceCase,
 } from "@/lib/delivery/format";
-import { recommendAssignments } from "@/lib/delivery/intelligence";
+import { confirmOrders } from "@/lib/delivery/jobs";
 import type {
   DeliveryOrder,
   DriverOption,
   RiderRequest,
   VehicleOption,
-  WorkspaceData,
 } from "@/lib/delivery/types";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
@@ -75,7 +73,7 @@ type OrderFilter = "all" | "unassigned" | "moving" | "cod";
 
 const ORDER_FILTERS: { id: OrderFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "unassigned", label: "Needs rider" },
+  { id: "unassigned", label: "To confirm" },
   { id: "moving", label: "On route" },
   { id: "cod", label: "COD due" },
 ];
@@ -141,7 +139,6 @@ export function ManagerDashboard({
   const [authOpen, setAuthOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -150,16 +147,6 @@ export function ManagerDashboard({
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
-  const [reassignModal, setReassignModal] = useState<{
-    driverId: string;
-    driverName: string;
-    vehicleId: string | null;
-    vehicleLabel: string;
-  } | null>(null);
-  const [manualOverrideOpen, setManualOverrideOpen] = useState(false);
-  const [manualDriverId, setManualDriverId] = useState("");
-  const [manualVehicleId, setManualVehicleId] = useState("");
-  const [overrideReason, setOverrideReason] = useState("");
   const [mapFocusPoint, setMapFocusPoint] = useState<{
     latitude: number;
     longitude: number;
@@ -240,42 +227,16 @@ export function ManagerDashboard({
         .filter((stop) => stop.route_id === selectedRoute.id)
         .sort((left, right) => left.sequence_number - right.sequence_number)
     : [];
-  const [showAllRiders, setShowAllRiders] = useState(false);
-  const allRecommendations = useMemo(
-    () =>
-      recommendAssignments(
-        selectedOrder,
-        workspace.data.drivers,
-        workspace.data.vehicles,
-        orders,
-        Number.POSITIVE_INFINITY,
-        workspace.data.roadReports,
-      ),
-    [
-      selectedOrder,
-      workspace.data.drivers,
-      workspace.data.vehicles,
-      orders,
-      workspace.data.roadReports,
-    ],
-  );
-  const recommendations = showAllRiders
-    ? allRecommendations
-    : allRecommendations.slice(0, 3);
   const selectedOrderAssessment = useMemo(() => {
     if (!selectedOrder) return null;
     const vehicle = selectedOrder.vehicle_id
       ? workspace.data.vehicles.find((v) => v.id === selectedOrder.vehicle_id)
-      : recommendations[0]?.vehicleId
-        ? workspace.data.vehicles.find(
-            (v) => v.id === recommendations[0].vehicleId,
-          )
-        : (workspace.data.vehicles[0] ?? null);
+      : (workspace.data.vehicles[0] ?? null);
     return assessEnergyRoute(
       { ...selectedOrder, latest_location: null },
       vehicle as VehicleOption | null,
     );
-  }, [selectedOrder, workspace.data.vehicles, recommendations]);
+  }, [selectedOrder, workspace.data.vehicles]);
   const summary = useMemo(
     () =>
       attentionSummary(
@@ -310,11 +271,6 @@ export function ManagerDashboard({
         (order) => order.vehicle_id === vehicle.id && isActiveOrder(order),
       ),
   );
-  const canAssign =
-    !!selectedOrder &&
-    ["pending", "assigned", "accepted", "failed"].includes(
-      selectedOrder.status,
-    );
 
   useEffect(() => {
     if (selectedOrder && selectedOrder.id !== selectedId)
@@ -356,100 +312,25 @@ export function ManagerDashboard({
     );
   }
 
-  async function assignRecommendation(
-    driverId: string,
-    vehicleId: string | null,
-    reasonOverride?: string,
-  ) {
-    if (!selectedOrder || !canAssign) return;
-    const driver = workspace.data.drivers.find((item) => item.id === driverId);
-    const vehicle = workspace.data.vehicles.find(
-      (item) => item.id === vehicleId,
-    );
-    const vehicleLabel = vehicle
-      ? `${vehicle.registration_number} · ${vehicleText(vehicle.vehicle_type)}`
-      : "No vehicle";
-    const driverName = driver?.full_name || "Rider";
-
-    if (
-      selectedOrder.driver_id &&
-      selectedOrder.driver_id !== driverId &&
-      !reasonOverride
-    ) {
-      setReassignModal({
-        driverId,
-        driverName,
-        vehicleId,
-        vehicleLabel,
-      });
-      return;
-    }
-
-    await executeAssignment(driverId, vehicleId, reasonOverride);
-  }
-
-  async function executeAssignment(
-    driverId: string,
-    vehicleId: string | null,
-    reasonOverride?: string,
-  ) {
-    if (!selectedOrder || !canAssign) return;
+  async function confirmSelectedOrder() {
+    if (!selectedOrder || selectedOrder.status !== "pending") return;
     setSaving(true);
-    setPendingKey(`${driverId}-${vehicleId ?? "none"}`);
     setNotice(null);
     try {
       if (workspace.isDemo || selectedOrder.id.startsWith("demo-")) {
-        const driver = workspace.data.drivers.find(
-          (item) => item.id === driverId,
-        );
-        const vehicle = workspace.data.vehicles.find(
-          (item) => item.id === vehicleId,
-        );
-        workspace.updateData((previous: WorkspaceData) => ({
-          ...previous,
-          orders: previous.orders.map((order) =>
-            order.id === selectedOrder.id
-              ? {
-                  ...order,
-                  status:
-                    order.driver_id === driverId &&
-                    order.vehicle_id === (vehicleId ?? null) &&
-                    ["assigned", "accepted"].includes(order.status)
-                      ? order.status
-                      : "assigned",
-                  driver_id: driverId,
-                  driver_name: driver?.full_name ?? "Rider assigned",
-                  driver_phone: driver?.phone ?? null,
-                  vehicle_id: vehicleId,
-                  vehicle_label: vehicle
-                    ? `${vehicle.registration_number} · ${vehicleText(vehicle.vehicle_type)}`
-                    : null,
-                }
-              : order,
-          ),
-        }));
-      } else {
-        if (!workspace.canUseLiveData || !workspace.profile)
-          throw new Error(
-            "Your manager profile is unavailable. Sign in again.",
-          );
-        await assignDelivery(createClient(), {
-          orderId: selectedOrder.id,
-          driverId,
-          vehicleId,
-        });
-        await workspace.refresh();
+        throw new Error("Confirming orders needs live data.");
       }
-      const riderName =
-        workspace.data.drivers.find((item) => item.id === driverId)
-          ?.full_name || "the rider";
+      if (!workspace.canUseLiveData || !workspace.profile)
+        throw new Error("Your manager profile is unavailable. Sign in again.");
+      const result = await confirmOrders(createClient(), [selectedOrder.id]);
+      await workspace.refresh();
       setNotice({
         scope: "assign",
         tone: "success",
-        text: `${selectedOrder.tracking_code} assigned to ${riderName}${reasonOverride ? ` (Override: ${reasonOverride})` : ""}.`,
+        text: result.confirmed
+          ? `${selectedOrder.tracking_code} confirmed. Posted to the driver job board.`
+          : `${selectedOrder.tracking_code} is already confirmed and waiting on the job board.`,
       });
-      setManualOverrideOpen(false);
-      setOverrideReason("");
     } catch (cause) {
       setNotice({
         scope: "assign",
@@ -457,11 +338,10 @@ export function ManagerDashboard({
         text:
           cause instanceof Error
             ? cause.message
-            : "Could not assign this delivery.",
+            : "Could not confirm this order.",
       });
     } finally {
       setSaving(false);
-      setPendingKey(null);
     }
   }
 
@@ -625,7 +505,7 @@ export function ManagerDashboard({
     create: {
       title: "Create order",
       description:
-        "Book a delivery for an outside customer. No customer account needed.",
+        "Add pickup, delivery and payment details. No customer account is needed.",
     },
     profile: {
       title: "Team",
@@ -1113,199 +993,43 @@ export function ManagerDashboard({
                           )}
                         </div>
                       )}
-                    {canAssign && (
+                    {selectedOrder.status === "pending" && (
                       <div className="assignment-recommendations">
                         <div className="recommendation-heading">
                           <span>
-                            <Icon name="compass" size={16} /> Suggested riders
+                            <Icon name="compass" size={16} /> Check and confirm
                           </span>
-                          <small>Workload · proximity · vehicle fit</small>
+                          <small>Automation posts it to the driver board</small>
                         </div>
                         <NoticeStrip notice={notice} scope="assign" />
-                        {recommendations.length ? (
-                          <div className="recommendation-list">
-                            {recommendations.map((recommendation, index) => {
-                              const driver = workspace.data.drivers.find(
-                                (item) => item.id === recommendation.driverId,
-                              );
-                              const vehicle = workspace.data.vehicles.find(
-                                (item) => item.id === recommendation.vehicleId,
-                              );
-                              const isCurrent =
-                                selectedOrder.driver_id ===
-                                  recommendation.driverId &&
-                                (selectedOrder.vehicle_id ?? null) ===
-                                  (recommendation.vehicleId ?? null);
-                              return (
-                                <div
-                                  className={`recommendation-card ${isCurrent ? "is-selected" : ""}`}
-                                  key={`${recommendation.driverId}-${recommendation.vehicleId ?? "none"}`}
-                                >
-                                  <span className="recommendation-rank">
-                                    {index + 1}
-                                  </span>
-                                  <span className="recommendation-copy">
-                                    <strong>
-                                      {driver?.full_name || "Rider"}
-                                    </strong>
-                                    <small>
-                                      {vehicle
-                                        ? `${vehicle.registration_number} · ${vehicleText(vehicle.vehicle_type)}`
-                                        : "No vehicle"}
-                                    </small>
-                                    <em>
-                                      {recommendation.reasons
-                                        .slice(0, 3)
-                                        .join(" · ")}
-                                    </em>
-                                  </span>
-                                  <span className="recommendation-score">
-                                    {recommendation.score}
-                                    <small>fit</small>
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="button button-dark button-small"
-                                    onClick={() =>
-                                      void assignRecommendation(
-                                        recommendation.driverId,
-                                        recommendation.vehicleId ?? null,
-                                      )
-                                    }
-                                    disabled={
-                                      saving || !!workspace.error || isCurrent
-                                    }
-                                  >
-                                    {pendingKey ===
-                                    `${recommendation.driverId}-${recommendation.vehicleId ?? "none"}`
-                                      ? "Assigning…"
-                                      : isCurrent
-                                        ? "Assigned"
-                                        : selectedOrder.driver_id
-                                          ? "Reassign"
-                                          : "Assign"}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <p className="form-hint">
-                            No compatible on-duty rider and vehicle pair is
-                            available.
-                          </p>
-                        )}
-                        {allRecommendations.length > 3 && (
-                          <button
-                            type="button"
-                            className="button button-outline"
-                            aria-expanded={showAllRiders}
-                            onClick={() => setShowAllRiders((value) => !value)}
-                          >
-                            {showAllRiders
-                              ? "Show top 3 only"
-                              : `Show all ${allRecommendations.length} riders`}
-                          </button>
-                        )}
-                        <div className="manual-override-container">
-                          <button
-                            type="button"
-                            className="button button-outline button-small"
-                            onClick={() =>
-                              setManualOverrideOpen((open) => !open)
-                            }
-                            aria-expanded={manualOverrideOpen}
-                          >
-                            <Icon name="user" size={15} />
-                            {manualOverrideOpen
-                              ? "Hide manual selection"
-                              : "Manual driver assignment (with override reason)"}
-                          </button>
-                          {manualOverrideOpen && (
-                            <form
-                              className="manual-override-panel"
-                              onSubmit={(e) => {
-                                e.preventDefault();
-                                if (!manualDriverId) return;
-                                void assignRecommendation(
-                                  manualDriverId,
-                                  manualVehicleId || null,
-                                  overrideReason.trim() || "Manual override",
-                                );
-                              }}
-                            >
-                              <div className="manual-override-fields">
-                                <label>
-                                  <span>Select driver</span>
-                                  <select
-                                    value={manualDriverId}
-                                    onChange={(e) =>
-                                      setManualDriverId(e.target.value)
-                                    }
-                                    required
-                                  >
-                                    <option value="">Select a driver…</option>
-                                    {workspace.data.drivers.map((driver) => (
-                                      <option key={driver.id} value={driver.id}>
-                                        {driver.full_name || "Rider"} (
-                                        {driver.availability.replace("_", " ")})
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                                <label>
-                                  <span>Vehicle (optional)</span>
-                                  <select
-                                    value={manualVehicleId}
-                                    onChange={(e) =>
-                                      setManualVehicleId(e.target.value)
-                                    }
-                                  >
-                                    <option value="">
-                                      Default / no vehicle
-                                    </option>
-                                    {workspace.data.vehicles.map((v) => (
-                                      <option key={v.id} value={v.id}>
-                                        {v.registration_number} (
-                                        {vehicleText(v.vehicle_type)})
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                                <label>
-                                  <span>Override reason</span>
-                                  <input
-                                    type="text"
-                                    value={overrideReason}
-                                    onChange={(e) =>
-                                      setOverrideReason(e.target.value)
-                                    }
-                                    placeholder="e.g. Shift swap, VIP urgent delivery, truck upgrade"
-                                    required
-                                  />
-                                </label>
-                              </div>
-                              <button
-                                type="submit"
-                                className="button button-primary button-small"
-                                disabled={
-                                  saving ||
-                                  !manualDriverId ||
-                                  !overrideReason.trim()
-                                }
-                              >
-                                {saving ? "Assigning…" : "Assign with override"}
-                              </button>
-                            </form>
-                          )}
-                        </div>
+                        <p className="form-hint">
+                          Review the pickup and delivery details, then confirm.
+                          Nearby orders are clustered into one job that drivers
+                          can take from the job board. Riders are not assigned
+                          by hand.
+                        </p>
+                        <button
+                          type="button"
+                          className="button button-primary"
+                          disabled={saving}
+                          onClick={() => void confirmSelectedOrder()}
+                        >
+                          {saving ? "Confirming…" : "Confirm order"}
+                        </button>
                       </div>
                     )}
-                    {!canAssign && isMovingOrder(selectedOrder) && (
+                    {selectedOrder.status !== "pending" &&
+                      !isMovingOrder(selectedOrder) &&
+                      !selectedOrder.driver_id && (
+                        <div className="form-hint">
+                          Confirmed. This order is on the driver job board
+                          waiting for a driver to take it.
+                        </div>
+                      )}
+                    {isMovingOrder(selectedOrder) && (
                       <div className="form-hint">
                         {selectedOrder.driver_name || "Assigned rider"} has the
-                        parcel. Assignment stays fixed while this delivery is
-                        active.
+                        parcel. They took this job from the job board.
                       </div>
                     )}
                     {selectedOrder.cod_amount > 0 && (
@@ -1851,62 +1575,6 @@ export function ManagerDashboard({
           )}
         </div>
       </div>
-
-      {reassignModal && (
-        <ModalPanel
-          titleId="reassign-modal-title"
-          className="reassign-modal"
-          onClose={() => setReassignModal(null)}
-        >
-          <div className="reassign-modal-content">
-            <div className="reassign-modal-header">
-              <h2 id="reassign-modal-title">Confirm driver reassignment</h2>
-            </div>
-            <p className="reassign-modal-desc">
-              Reassign delivery <strong>{selectedOrder?.tracking_code}</strong>{" "}
-              to a different rider?
-            </p>
-            <div className="reassign-parties">
-              <div className="reassign-party">
-                <span className="reassign-party-label">Current assignment</span>
-                <strong>
-                  {selectedOrder?.driver_name || "Assigned rider"}
-                </strong>
-              </div>
-              <div className="reassign-arrow" aria-hidden="true">
-                <Icon name="arrow-right" size={18} />
-              </div>
-              <div className="reassign-party is-new">
-                <span className="reassign-party-label">New assignment</span>
-                <strong>{reassignModal.driverName}</strong>
-                <small>{reassignModal.vehicleLabel}</small>
-              </div>
-            </div>
-            <div className="reassign-modal-actions">
-              <button
-                type="button"
-                className="button button-outline"
-                onClick={() => setReassignModal(null)}
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="button button-primary"
-                onClick={() => {
-                  const pending = reassignModal;
-                  setReassignModal(null);
-                  void executeAssignment(pending.driverId, pending.vehicleId);
-                }}
-                disabled={saving}
-              >
-                {saving ? "Reassigning…" : "Confirm reassignment"}
-              </button>
-            </div>
-          </div>
-        </ModalPanel>
-      )}
 
       {moreOpen && (
         <ModalPanel

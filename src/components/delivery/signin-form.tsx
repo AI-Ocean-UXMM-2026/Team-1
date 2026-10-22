@@ -3,7 +3,6 @@
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
@@ -27,7 +26,6 @@ function formatAuthError(error: unknown): string {
 }
 
 export function SigninForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -43,20 +41,25 @@ export function SigninForm() {
         { email, password },
       );
       if (signInError) throw signInError;
-
-      const userId = data.user?.id;
-      if (userId) {
-        const { data: profile } = await client
-          .from("profiles")
-          .select("role")
-          .eq("id", userId)
-          .maybeSingle();
-        if (profile?.role) {
-          router.push(workspaceHome(profile.role));
-          return;
-        }
+      if (!data.session) {
+        throw new Error("Sign-in succeeded without creating a session.");
       }
-      router.push("/home");
+
+      const { data: profile, error: profileError } = await client
+        .from("profiles")
+        .select("role")
+        .eq("id", data.session.user.id)
+        .maybeSingle();
+      if (profileError) throw profileError;
+
+      // Cross the auth boundary with a document navigation. This guarantees
+      // the destination and the server proxy both read the newly persisted
+      // Supabase cookie instead of reusing a pre-login App Router payload.
+      if (profile?.role) {
+        window.location.replace(workspaceHome(profile.role));
+        return;
+      }
+      window.location.replace("/home");
     } catch (cause) {
       setError(formatAuthError(cause));
     } finally {

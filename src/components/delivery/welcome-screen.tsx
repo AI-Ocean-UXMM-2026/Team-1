@@ -6,7 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 
-import { BrandMark } from "@/components/delivery/common";
+import { CheetahRun } from "@/components/delivery/cheetah-run";
 
 export function WelcomeScreen() {
   const router = useRouter();
@@ -71,9 +71,10 @@ export function WelcomeScreen() {
             </circle>
           </svg>
         </Box>
-        <BrandMark size={200} />
+        <CheetahRun size={264} entrance />
         <Typography
           component="h1"
+          className="welcome-rise"
           sx={{
             fontWeight: 800,
             fontSize: 44,
@@ -85,6 +86,7 @@ export function WelcomeScreen() {
         </Typography>
         <Typography
           variant="body1"
+          className="welcome-rise welcome-rise-late"
           sx={{ color: "text.secondary", maxWidth: 300 }}
         >
           Delivery, in full view. Follow your parcel from pickup to your door.

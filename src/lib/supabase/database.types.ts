@@ -2373,6 +2373,10 @@ export type Database = {
         Args: { p_order_ids: string[] };
         Returns: number;
       };
+      confirm_orders: {
+        Args: { p_order_ids: string[] };
+        Returns: Json;
+      };
       unqueue_orders: {
         Args: { p_order_ids: string[] };
         Returns: number;
