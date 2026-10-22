@@ -1896,10 +1896,23 @@
 
 /* Amount page of the handover, Grab-style: amount centred, swipe pinned to
    the bottom of the sheet. */
-.dv-collect-page {
+/* The handover sheet is full height, so the amount page fills it and the
+   swipe sits on its bottom edge. */
+.dv-sheet.is-handover {
   display: flex;
   flex-direction: column;
-  min-height: calc(88dvh - 110px);
+}
+
+.dv-sheet.is-handover > .dv-handover {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+
+.dv-collect-page {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
   gap: 16px;
 }
 
@@ -1940,40 +1953,6 @@
   margin: 0;
   font-size: 14px;
   color: var(--color-text-secondary);
-}
-
-.dv-collect-confirm {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 56px;
-  margin-top: 24px;
-  padding: 12px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  font-size: 15px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-}
-
-.dv-collect-confirm input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.dv-collect-confirm.is-on {
-  border-color: #00b14f;
-  background: color-mix(in srgb, #00b14f 10%, var(--color-surface));
-}
-
-.dv-collect-confirm .dv-check-box {
-  flex: none;
 }
 
 .dv-collect-foot {

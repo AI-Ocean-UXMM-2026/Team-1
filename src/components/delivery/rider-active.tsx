@@ -25,7 +25,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { StopRow } from "@/components/delivery/rider-overview";
-import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import {
   type DeliveryStop,
   type DriverRoute,
@@ -250,7 +249,6 @@ export function ActiveDelivery({
   error,
   busy,
   onArrived,
-  onUndoArrived,
   onCloseHandover,
   onMenu,
   onLocationHelp,
@@ -275,7 +273,6 @@ export function ActiveDelivery({
   error: ReactNode;
   busy: boolean;
   onArrived: () => void;
-  onUndoArrived: () => void;
   onCloseHandover: () => void;
   onMenu: () => void;
   onLocationHelp: () => void;
@@ -570,15 +567,6 @@ export function ActiveDelivery({
                     )}
                   </div>
                 )}
-                {arrived && (
-                  <button
-                    type="button"
-                    className="dv-text-btn"
-                    onClick={onUndoArrived}
-                  >
-                    Not here yet — back to navigation
-                  </button>
-                )}
               </div>
             )}
 
@@ -611,11 +599,16 @@ export function ActiveDelivery({
                     </Button>
                   </div>
                 ) : (
-                  <SwipeConfirm
-                    label="I’ve arrived"
-                    hint="Swipe to confirm arrival"
-                    onConfirm={() => (far ? setConfirmFar(true) : onArrived())}
-                  />
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    onClick={() => (far ? setConfirmFar(true) : onArrived())}
+                    sx={{ minHeight: 56, borderRadius: 999 }}
+                  >
+                    Confirm arrival
+                  </Button>
                 )}
               </div>
             )}

@@ -1743,10 +1743,6 @@ export function RiderApp() {
             setActionError(null);
             setHandoverKey(stop.key);
           }}
-          onUndoArrived={() => {
-            setArrived((keys) => keys.filter((key) => key !== stop.key));
-            setHandoverKey(null);
-          }}
           onCloseHandover={() => setHandoverKey(null)}
           onMenu={() => openPanel("menu")}
           onLocationHelp={() => openPanel("location")}
@@ -1934,7 +1930,6 @@ export function RiderApp() {
             vehicle={vehicle}
             energy={routeEnergy}
             cautionCount={routeCautions.length}
-            requests={myRequests}
             fuelRequest={openEnergyRequest}
             fuelBusy={busy === "request"}
             fuelDone={panelDone}

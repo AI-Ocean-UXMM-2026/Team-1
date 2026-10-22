@@ -8,7 +8,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { Icon, type IconName } from "@/components/delivery/icons";
 import type { GpsState } from "@/components/delivery/rider-active";
-import { currency, formatTime } from "@/lib/delivery/format";
+import { currency } from "@/lib/delivery/format";
 import {
   cautionCopy,
   type energyForRoute,
@@ -190,28 +190,6 @@ export function Sheet({
 
 /* ---------------------------------------------------------------- menu */
 
-const REQUEST_LABELS: Record<RiderRequestCategory, string> = {
-  refuel: "Fuel stop request",
-  recharge: "Charging stop",
-  vehicle_problem: "Vehicle problem",
-  accident: "Accident",
-  parcel_damaged: "Parcel damaged",
-  unsafe_area: "Unsafe area",
-  other: "Issue",
-};
-
-function RequestStatus({ request }: { request: RiderRequest }) {
-  const label =
-    request.status === "resolved"
-      ? "Resolved"
-      : request.status === "acknowledged"
-        ? "Operations is on it"
-        : "Waiting for operations";
-  return (
-    <span className={`rf-request-status is-${request.status}`}>{label}</span>
-  );
-}
-
 export type ToolPanel = "menu" | "cautions" | "problem";
 
 export function ShiftMenu({
@@ -219,7 +197,6 @@ export function ShiftMenu({
   vehicle,
   energy,
   cautionCount,
-  requests,
   fuelRequest,
   fuelBusy,
   fuelDone,
@@ -236,7 +213,6 @@ export function ShiftMenu({
   vehicle: VehicleOption | null;
   energy: ReturnType<typeof energyForRoute>;
   cautionCount: number;
-  requests: RiderRequest[];
   /** The fuel or charging stop already asked for and not yet resolved. */
   fuelRequest: RiderRequest | null;
   fuelBusy: boolean;
@@ -340,26 +316,6 @@ export function ShiftMenu({
           Pause route
         </Button>
       ) : null}
-      <div className="rf-menu-block">
-        <h3>Your requests to operations</h3>
-        {requests.length ? (
-          <ul className="rf-request-list">
-            {requests.slice(0, 5).map((request) => (
-              <li key={request.id}>
-                <span>
-                  <strong>{REQUEST_LABELS[request.category]}</strong>
-                  <small>{formatTime(request.created_at)}</small>
-                </span>
-                <RequestStatus request={request} />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="rf-muted">
-            Fuel, charging and problem reports you send appear here.
-          </p>
-        )}
-      </div>
       <Button
         fullWidth
         variant="text"

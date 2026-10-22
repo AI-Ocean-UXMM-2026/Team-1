@@ -191,7 +191,11 @@ export function HandoverPanel({
               color="primary"
               size="large"
               disabled={!infoDone}
-              onClick={() => setPage(2)}
+              onClick={() => {
+                // Page two's swipe is the cash confirmation, so the full amount is set here.
+                if (hasCash) onChange({ codMode: "full" });
+                setPage(2);
+              }}
               endIcon={<Icon name="arrow-right" size={18} />}
               sx={{ minHeight: 52, borderRadius: 999 }}
             >
@@ -215,20 +219,6 @@ export function HandoverPanel({
                   <span>MMK</span> {stop.codDue.toLocaleString()}
                 </p>
                 <p className="dv-collect-from">From {stop.recipient}</p>
-                <label
-                  className={`dv-collect-confirm${draft.codMode === "full" ? " is-on" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="cod-mode"
-                    checked={draft.codMode === "full"}
-                    onChange={() => onChange({ codMode: "full" })}
-                  />
-                  <span className="dv-check-box" aria-hidden="true">
-                    <Icon name="check" size={16} strokeWidth={2.6} />
-                  </span>
-                  <span>I received the full amount in cash</span>
-                </label>
               </>
             ) : (
               <p className="dv-collect-from">No cash to collect at this stop.</p>
@@ -272,13 +262,6 @@ export function HandoverPanel({
                       : "Swipe to confirm delivery"
               }
             />
-            <button
-              type="button"
-              className="dv-text-btn"
-              onClick={() => setPage(1)}
-            >
-              Back to delivery information
-            </button>
           </div>
         </div>
       )}
