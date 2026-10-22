@@ -3,21 +3,46 @@ import { diagnose, refine } from "./diagnose.ts";
 import { improve } from "./improve.ts";
 import { hashString } from "./rng.ts";
 import { evaluateRoute } from "./route-eval.ts";
+import { ruinAndRecreate } from "./ruin.ts";
 import type { Instance, Matrix, Plan, PlanRoute } from "./types.ts";
 
 export type SolveDeps = { nowMs: () => number };
 
 /**
- * Plan every request onto the trucks. Pure and deterministic: the same
- * instance, matrix, seed and iteration cap always give the same plan hash.
+ * Plan every request onto the trucks: regret construction, local search to a
+ * local optimum, ruin-and-recreate to escape it, then local search again on
+ * the best plan with whatever iterations are left. Pure and deterministic:
+ * the same instance, matrix, seed and iteration caps always give the same
+ * plan hash. All stages share the one wall-clock deadline.
  */
 export function solve(
   inst: Instance,
   matrix: Matrix,
   deps: SolveDeps = { nowMs: () => Date.now() },
 ): Plan {
+  const p = inst.params;
+  const startedAt = deps.nowMs();
   const state = construct(inst, matrix);
-  const result = improve(inst, matrix, state, deps.nowMs);
+  let result = improve(inst, matrix, state, deps.nowMs, { startedAt });
+  if (result.stopReason !== "deadline" && p.ruinIterations > 0) {
+    const ruin = ruinAndRecreate(inst, matrix, state, deps.nowMs, {
+      iterations: p.ruinIterations,
+      startedAt,
+    });
+    const left = p.maxIterations - result.iterations;
+    if (ruin.stopReason === "deadline")
+      result = { ...result, stopReason: "deadline" };
+    else if (left > 0) {
+      const polish = improve(inst, matrix, state, deps.nowMs, {
+        maxIterations: left,
+        startedAt,
+      });
+      result = {
+        iterations: result.iterations + polish.iterations,
+        stopReason: polish.stopReason,
+      };
+    }
+  }
 
   const routeRefs = state.routes
     .map((seq, truckIndex) => ({

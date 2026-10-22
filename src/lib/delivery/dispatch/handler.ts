@@ -72,6 +72,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** Tunables a manager may override, with hard bounds. Anything else is rejected. */
 const OVERRIDES: Record<string, [number, number]> = {
   maxIterations: [50, 20000],
+  ruinIterations: [0, 5000],
   deadlineMs: [500, 8000],
   seed: [0, 2 ** 31],
   utilisation: [0.5, 1],

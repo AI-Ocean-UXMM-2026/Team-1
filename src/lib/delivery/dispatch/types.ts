@@ -59,6 +59,8 @@ export type DispatchParams = {
   floodWeight: number;
   floodSlowdown: number;
   maxIterations: number;
+  /** Ruin-and-recreate rounds after local search; 0 turns it off. */
+  ruinIterations: number;
   deadlineMs: number;
   seed: number;
   /** Mapbox "driving" is a car profile; trucks are slower (ASSUMED). */

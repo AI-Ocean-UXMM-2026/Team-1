@@ -5,6 +5,7 @@ import {
   totalScore,
 } from "../src/lib/delivery/dispatch/construct.ts";
 import { satisfiesPrecedence } from "../src/lib/delivery/dispatch/improve.ts";
+import { bestInsertion } from "../src/lib/delivery/dispatch/insert.ts";
 import {
   buildStraightLineMatrix,
   nodePoints,
@@ -318,4 +319,72 @@ test("2-opt uncrossing in local search optimizes crossed route sequences", () =>
   // Solving reaches the optimal uncrossed plan
   const plan = solve(inst, matrix, { nowMs: clock });
   assert.ok(plan.objective.total <= uncrossedEval.score + 1e-4);
+});
+
+test("ruin-and-recreate is deterministic and never worse than local search alone", () => {
+  for (const seed of [2, 9]) {
+    const options = { seed, orders: 30, trucks: 4 };
+    const inst = generateSynthetic({
+      ...options,
+      params: { ruinIterations: 60 },
+    });
+    const matrix = matrixFor(inst);
+    const a = solve(inst, matrix, { nowMs: clock });
+    const b = solve(inst, matrix, { nowMs: clock });
+    assert.equal(a.hash, b.hash, `seed ${seed}`);
+    assert.deepEqual(validateSolution(inst, matrix, a), [], `seed ${seed}`);
+
+    const plain = generateSynthetic({
+      ...options,
+      params: { ruinIterations: 0 },
+    });
+    const local = solve(plain, matrixFor(plain), { nowMs: clock });
+    assert.ok(
+      a.objective.total <= local.objective.total + 1e-6,
+      `seed ${seed}`,
+    );
+  }
+});
+
+test("bestInsertion pruning matches an exhaustive scan", () => {
+  for (let seed = 1; seed <= 6; seed++) {
+    const inst = generateSynthetic({
+      seed,
+      orders: 18,
+      trucks: 2,
+      depotShare: 0,
+    });
+    const matrix = matrixFor(inst);
+    const state = construct(inst, matrix);
+    for (let k = 0; k < inst.trucks.length; k++) {
+      const seq = state.routes[k];
+      if (seq.length === 0) continue;
+      const r = seq[0].r;
+      const without = seq.filter((s) => s.r !== r);
+      const score = evaluateRoute(inst, matrix, inst.trucks[k], without).score;
+      const fast = bestInsertion(
+        inst,
+        matrix,
+        inst.trucks[k],
+        without,
+        score,
+        r,
+      );
+      let best = null;
+      for (let i = 0; i <= without.length; i++)
+        for (let j = i; j <= without.length; j++) {
+          const cand = [
+            ...without.slice(0, i),
+            { r, kind: "P" },
+            ...without.slice(i, j),
+            { r, kind: "D" },
+            ...without.slice(j),
+          ];
+          const e = evaluateRoute(inst, matrix, inst.trucks[k], cand);
+          if (e.feasible && (best == null || e.score < best - 1e-9))
+            best = e.score;
+        }
+      assert.equal(fast?.eval.score ?? null, best, `seed ${seed} truck ${k}`);
+    }
+  }
 });

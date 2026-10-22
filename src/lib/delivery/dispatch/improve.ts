@@ -45,17 +45,19 @@ export function improve(
   matrix: Matrix,
   state: State,
   nowMs: () => number,
+  budget: { maxIterations?: number; startedAt?: number } = {},
 ): ImproveResult {
   const p = inst.params;
   const rng = createRng(p.seed);
-  const startedAt = nowMs();
+  const startedAt = budget.startedAt ?? nowMs();
+  const maxIterations = budget.maxIterations ?? p.maxIterations;
   let iterations = 0;
 
   const owner = (r: number) =>
     state.routes.findIndex((seq) => seq.some((stop) => stop.r === r));
 
   const budgetLeft = (): ImproveResult["stopReason"] | null => {
-    if (iterations >= p.maxIterations) return "iterations";
+    if (iterations >= maxIterations) return "iterations";
     if (nowMs() - startedAt > p.deadlineMs) return "deadline";
     return null;
   };

@@ -25,6 +25,7 @@ export const DEFAULT_PARAMS: DispatchParams = {
   floodWeight: 8,
   floodSlowdown: 0.5,
   maxIterations: 4000,
+  ruinIterations: 200,
   deadlineMs: 6000,
   seed: 1,
   truckTimeFactor: 1.25,

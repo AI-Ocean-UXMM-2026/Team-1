@@ -28,8 +28,27 @@ export function totalScore(state: State) {
  */
 export function construct(inst: Instance, matrix: Matrix): State {
   const state = emptyState(inst, matrix);
+  regretInsert(
+    inst,
+    matrix,
+    state,
+    inst.requests.map((_, r) => r),
+  );
+  return state;
+}
+
+/**
+ * Regret-2 insertion of `requests` into an existing state, in place. Requests
+ * that fit on no truck join `state.unassigned`.
+ */
+export function regretInsert(
+  inst: Instance,
+  matrix: Matrix,
+  state: State,
+  requests: readonly number[],
+): void {
   const options = new Map<number, (Insertion | null)[]>();
-  const pending = new Set(inst.requests.map((_, r) => r));
+  const pending = new Set(requests);
 
   const compute = (r: number, truckIndex: number) =>
     bestInsertion(
@@ -90,7 +109,6 @@ export function construct(inst: Instance, matrix: Matrix): State {
       entries[chosenTruck] = compute(r, chosenTruck);
   }
   state.unassigned.sort((a, b) => a - b);
-  return state;
 }
 
 function tieBefore(inst: Instance, a: number, b: number) {

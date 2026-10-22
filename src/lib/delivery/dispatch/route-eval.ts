@@ -16,6 +16,11 @@ export type EvalOptions = {
   detail?: boolean;
   /** Used only to diagnose why an order does not fit. */
   ignoreCapacity?: boolean;
+  /**
+   * Stop at the first violation and return an infeasible result with an
+   * infinite score and partial figures. For search, which discards these.
+   */
+  bail?: boolean;
 };
 
 export const pickupNode = (r: number) => 1 + 2 * r;
@@ -87,12 +92,28 @@ export function evaluateRoute(
     }
   }
 
+  const bailOut = (): RouteEval => ({
+    feasible: false,
+    violations: [...violations],
+    score: Number.POSITIVE_INFINITY,
+    terms: { ...EMPTY_TERMS },
+    km: 0,
+    depart: 0,
+    ret: 0,
+    waitMin: 0,
+    peakKg: 0,
+    peakM3: 0,
+    stops,
+  });
+  if (options.bail && violations.size > 0) return bailOut();
+
   const capKg = truck.capKg * p.utilisation;
   const capM3 = truck.capM3 * p.utilisation;
   let peakKg = loadKg;
   let peakM3 = loadM3;
   if (!options.ignoreCapacity && (loadKg > capKg + EPS || loadM3 > capM3 + EPS))
     violations.add("capacity");
+  if (options.bail && violations.size > 0) return bailOut();
 
   const loadMin = p.loadBaseMin + p.loadPerParcelMin * depotParcels;
   const depart = Math.max(p.shiftStart, inst.earliestDepart) + loadMin;
@@ -182,6 +203,9 @@ export function evaluateRoute(
         floodKm: frac * legKm,
       });
     prev = node;
+    // Time only moves forward, so a route already past the shift cannot recover.
+    if (options.bail && (violations.size > 0 || t > p.shiftEnd + EPS))
+      return bailOut();
   }
 
   const back = prev * n;
