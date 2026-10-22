@@ -112,7 +112,10 @@ export function ManagerJobsApp() {
   );
   const openJobs = jobs.filter((job) => job.status === "open");
   const priorityJobs = openJobs.filter(
-    (job) => job.priority === "urgent" || job.priority === "high" || job.reproduce_count > 0,
+    (job) =>
+      job.priority === "urgent" ||
+      job.priority === "high" ||
+      job.reproduce_count > 0,
   );
   const activeJobs = jobs.filter(
     (job) => job.status === "claimed" || job.status === "in_progress",
@@ -226,13 +229,17 @@ export function ManagerJobsApp() {
                 <div>
                   <div className="automation-badge-row">
                     <span className="automation-live-dot" />
-                    <span className="automation-status-tag">Automation Engine Active</span>
+                    <span className="automation-status-tag">
+                      Automation Engine Active
+                    </span>
                   </div>
                   <h3>Auto-Accepted Orders & Task Reproduction</h3>
                   <p>
-                    Automatically accepts pending orders. If tasks are not taken by any driver when
-                    automation calculation runs, tasks are extracted, enriched with escalated priority &amp;
-                    extended delivery buffers, and reproduced back onto the board for drivers.
+                    Automatically accepts pending orders. If tasks are not taken
+                    by any driver when automation calculation runs, tasks are
+                    extracted, enriched with escalated priority &amp; extended
+                    delivery buffers, and reproduced back onto the board for
+                    drivers.
                   </p>
                 </div>
                 <div className="automation-actions">
@@ -242,7 +249,9 @@ export function ManagerJobsApp() {
                     disabled={busy != null}
                     onClick={() => void runWorkflow()}
                   >
-                    {busy === "workflow" ? "Running workflow…" : "Run Full Workflow"}
+                    {busy === "workflow"
+                      ? "Running workflow…"
+                      : "Run Full Workflow"}
                   </button>
                   <button
                     type="button"
@@ -250,7 +259,9 @@ export function ManagerJobsApp() {
                     disabled={!openJobs.length || busy != null}
                     onClick={() => void reproduceUnclaimed()}
                   >
-                    {busy === "reproduce" ? "Reproducing…" : "Reproduce Unclaimed Tasks"}
+                    {busy === "reproduce"
+                      ? "Reproducing…"
+                      : "Reproduce Unclaimed Tasks"}
                   </button>
                   <button
                     type="button"
@@ -258,7 +269,9 @@ export function ManagerJobsApp() {
                     disabled={!requests.length || busy != null}
                     onClick={() => void autoAcceptAll()}
                   >
-                    {busy === "auto-accept" ? "Auto-accepting…" : "Auto-Accept Requests"}
+                    {busy === "auto-accept"
+                      ? "Auto-accepting…"
+                      : "Auto-Accept Requests"}
                   </button>
                 </div>
               </div>
@@ -274,7 +287,14 @@ export function ManagerJobsApp() {
                 <strong>
                   {waiting.length}
                   {autoAcceptedWaiting.length > 0 && (
-                    <small style={{ display: "block", fontSize: "0.75rem", fontWeight: 400, color: "#0284c7" }}>
+                    <small
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 400,
+                        color: "#0284c7",
+                      }}
+                    >
                       {autoAcceptedWaiting.length} auto-accepted
                     </small>
                   )}
@@ -289,7 +309,14 @@ export function ManagerJobsApp() {
                 <strong>
                   {openJobs.length}
                   {priorityJobs.length > 0 && (
-                    <small style={{ display: "block", fontSize: "0.75rem", fontWeight: 400, color: "#ea580c" }}>
+                    <small
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 400,
+                        color: "#ea580c",
+                      }}
+                    >
                       {priorityJobs.length} priority / reproduced
                     </small>
                   )}
@@ -308,7 +335,9 @@ export function ManagerJobsApp() {
                       disabled={!requests.length || busy != null}
                       onClick={() => void autoAcceptAll()}
                     >
-                      {busy === "auto-accept" ? "Auto-accepting…" : "Auto-accept"}
+                      {busy === "auto-accept"
+                        ? "Auto-accepting…"
+                        : "Auto-accept"}
                     </button>
                     <button
                       type="button"
@@ -382,7 +411,9 @@ export function ManagerJobsApp() {
                           <div className="jobs-meta-row">
                             <strong>{order?.tracking_code ?? "Order"}</strong>
                             {entry.auto_accepted && (
-                              <span className="jobs-pill is-auto">Auto-accepted</span>
+                              <span className="jobs-pill is-auto">
+                                Auto-accepted
+                              </span>
                             )}
                             {(entry.reproduce_count ?? 0) > 0 && (
                               <span className="jobs-pill is-retry">
@@ -427,11 +458,17 @@ export function ManagerJobsApp() {
                         <div className="jobs-meta-row">
                           <strong>{job.label}</strong>
                           {job.priority === "urgent" && (
-                            <span className="jobs-pill is-urgent">⚡ Urgent · 2nd Call</span>
+                            <span className="jobs-pill is-urgent">
+                              ⚡ Urgent · 2nd Call
+                            </span>
                           )}
-                          {(job.priority === "high" || job.reproduce_count > 0) && (
+                          {(job.priority === "high" ||
+                            job.reproduce_count > 0) && (
                             <span className="jobs-pill is-high">
-                              ⚡ Priority {job.reproduce_count > 0 ? `· R${job.reproduce_count}` : ""}
+                              ⚡ Priority{" "}
+                              {job.reproduce_count > 0
+                                ? `· R${job.reproduce_count}`
+                                : ""}
                             </span>
                           )}
                         </div>

@@ -50,16 +50,17 @@ import {
   useId,
   useState,
 } from "react";
-import { Loader } from "@/components/delivery/loader";
 
 import {
   buildTodayItems,
   codDue,
   describeDelay,
   normaliseCode,
+  ordersHref,
   pickNextParcel,
   progressPercent,
   readRecentCodes,
+  splitOrders,
   type TodayItem,
   type TodayState,
 } from "@/lib/delivery/customer-home";
@@ -122,7 +123,7 @@ export const CustomerHeader = memo(function CustomerHeader({
     >
       <Toolbar
         disableGutters
-        sx={{ minHeight: 72, px: 2, gap: 1, alignItems: "center" }}
+        sx={{ minHeight: 56, px: 2, gap: 1, alignItems: "center" }}
       >
         {onBack && (
           <IconButton
@@ -136,10 +137,10 @@ export const CustomerHeader = memo(function CustomerHeader({
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography
-            variant="h5"
+            variant="h6"
             component="h1"
             noWrap
-            sx={{ fontWeight: 750, lineHeight: "30px" }}
+            sx={{ fontWeight: 750, lineHeight: "26px", fontSize: 20 }}
           >
             {title}
           </Typography>
@@ -462,6 +463,12 @@ function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
         <Typography variant="body2" sx={{ mt: 0.5, opacity: 0.86 }}>
           {copy.sub}
         </Typography>
+        <Typography
+          variant="body2"
+          sx={{ mt: 0.75, fontWeight: 600, overflowWrap: "anywhere" }}
+        >
+          To {order.delivery_address}
+        </Typography>
         {delay.isDelayed && (
           <Chip
             size="small"
@@ -478,7 +485,7 @@ function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
           >
             <PaymentsOutlined fontSize="small" />
             <Typography variant="body2" sx={{ flex: 1, fontWeight: 600 }}>
-              Cash on delivery · {currency.format(order.cod_amount)}
+              COD · {currency.format(order.cod_amount)}
             </Typography>
             <Chip
               size="small"
@@ -497,21 +504,23 @@ function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
             />
           </Stack>
         )}
-        <LinearProgress
-          variant="determinate"
-          value={progressPercent(order)}
-          aria-label="Delivery progress"
-          sx={{
-            mt: 2,
-            height: 6,
-            borderRadius: "999px",
-            bgcolor: (theme) => alpha(theme.palette.common.white, 0.2),
-            "& .MuiLinearProgress-bar": {
+        {order.route_progress_percent != null && (
+          <LinearProgress
+            variant="determinate"
+            value={progressPercent(order)}
+            aria-label="Delivery progress"
+            sx={{
+              mt: 2,
+              height: 6,
               borderRadius: "999px",
-              bgcolor: "primary.light",
-            },
-          }}
-        />
+              bgcolor: (theme) => alpha(theme.palette.common.white, 0.2),
+              "& .MuiLinearProgress-bar": {
+                borderRadius: "999px",
+                bgcolor: "primary.light",
+              },
+            }}
+          />
+        )}
         <Stack
           direction="row"
           spacing={1.5}
@@ -844,16 +853,10 @@ export function CustomerHome({
   onOpenCod: () => void;
   onOpenHelp: () => void;
 }) {
-  const activeOrders = orders.filter((order) =>
-    ["pending", "assigned", "accepted", "picked_up", "in_transit"].includes(
-      order.status,
-    ),
+  const { active: activeOrders, history: historyOrders } = splitOrders(
+    orders,
+    statusEvents,
   );
-  const historyOrders = orders
-    .filter((order) =>
-      ["delivered", "failed", "cancelled"].includes(order.status),
-    )
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
   const next = pickNextParcel(activeOrders);
   const today = buildTodayItems(activeOrders, statusEvents, now);
   const rest = today.filter((item) => item.order.id !== next?.id);
@@ -965,64 +968,22 @@ export function CustomerHome({
       </Box>
 
       {isAuthenticated && historyOrders.length > 0 && (
-        <Box
-          component="section"
-          aria-labelledby="delivery-history-title"
-          sx={{ mt: 2 }}
-        >
-          <Stack
-            direction="row"
-            sx={{ alignItems: "center", px: 2, minHeight: 40 }}
+        <Box sx={{ px: 2, mt: 1.5 }}>
+          <ListItemButton
+            component={Link}
+            href={ordersHref({ tab: "history" })}
+            sx={{ gap: 1.5, minHeight: 56, px: 1.5, borderRadius: "16px" }}
           >
-            <Typography
-              id="delivery-history-title"
-              variant="h6"
-              component="h2"
-              sx={{ fontWeight: 750 }}
-            >
-              History
-            </Typography>
-            <Button
-              component={Link}
-              href="/orders"
-              color="secondary"
-              endIcon={<ArrowForward />}
-              sx={{ ml: "auto", minHeight: 40, fontWeight: 700 }}
-            >
-              See all
-            </Button>
-          </Stack>
-          <List disablePadding sx={{ px: 2, display: "grid", gap: 1 }}>
-            {historyOrders.slice(0, 3).map((order) => (
-              <ListItem key={order.id} disablePadding>
-                <ListItemButton
-                  component={Link}
-                  href={`/track?order=${encodeURIComponent(order.id)}`}
-                  sx={{
-                    gap: 1.5,
-                    minHeight: 64,
-                    px: 1.5,
-                    borderRadius: "16px",
-                    bgcolor: "grey.100",
-                  }}
-                >
-                  <ListItemText
-                    sx={{ m: 0, minWidth: 0 }}
-                    primary={order.delivery_address}
-                    secondary={`${order.tracking_code} · ${formatDateTime(order.created_at)}`}
-                    slotProps={{
-                      primary: {
-                        noWrap: true,
-                        sx: { fontWeight: 700, fontSize: 14 },
-                      },
-                      secondary: { noWrap: true, sx: { fontSize: 12 } },
-                    }}
-                  />
-                  <StatusChip status={order.status} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
+            <ListItemText
+              primary="Delivery history"
+              secondary={`${historyOrders.length} finished ${historyOrders.length === 1 ? "delivery" : "deliveries"}`}
+              slotProps={{
+                primary: { sx: { fontWeight: 700, fontSize: 14 } },
+              }}
+              sx={{ m: 0 }}
+            />
+            <ChevronRight color="disabled" />
+          </ListItemButton>
         </Box>
       )}
 
@@ -1138,17 +1099,20 @@ export function ParcelSwitcher({
 
 export function HomeSkeleton() {
   return (
-    <Box aria-busy="true" sx={pageGutter}>
-      <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-        <Loader label="Loading your deliveries…" />
-      </Box>
+    <Box
+      aria-busy="true"
+      aria-label="Loading your deliveries"
+      role="status"
+      sx={pageGutter}
+    >
       <Skeleton
         variant="rounded"
         height={188}
-        sx={{ mt: 2, borderRadius: "20px" }}
+        sx={{ mt: 1, borderRadius: "20px" }}
       />
       <Skeleton variant="rounded" height={64} sx={{ mt: 3, mb: 1 }} />
       <Skeleton variant="rounded" height={64} />
+      <Skeleton variant="rounded" height={64} sx={{ mt: 1 }} />
     </Box>
   );
 }

@@ -55,10 +55,38 @@ export function makeOrder(overrides: Row = {}): Row {
  */
 export function makeRoute(): Tables {
   const stops = [
-    { name: "Su Myat", area: "Sanchaung", lat: 16.8023, lng: 96.1312, cod: 20000, eta: 25 },
-    { name: "Thuriya Ye Naing", area: "Tamwe", lat: 16.8065, lng: 96.1771, cod: 0, eta: 70 },
-    { name: "Hnin Thiri", area: "Kamayut", lat: 16.8267, lng: 96.1322, cod: 125000, eta: 40 },
-    { name: "Kyaw Zin", area: "Insein", lat: 16.8891, lng: 96.1046, cod: 0, eta: 110 },
+    {
+      name: "Su Myat",
+      area: "Sanchaung",
+      lat: 16.8023,
+      lng: 96.1312,
+      cod: 20000,
+      eta: 25,
+    },
+    {
+      name: "Thuriya Ye Naing",
+      area: "Tamwe",
+      lat: 16.8065,
+      lng: 96.1771,
+      cod: 0,
+      eta: 70,
+    },
+    {
+      name: "Hnin Thiri",
+      area: "Kamayut",
+      lat: 16.8267,
+      lng: 96.1322,
+      cod: 125000,
+      eta: 40,
+    },
+    {
+      name: "Kyaw Zin",
+      area: "Insein",
+      lat: 16.8891,
+      lng: 96.1046,
+      cod: 0,
+      eta: 110,
+    },
   ];
   const orders = stops.map((stop, index) =>
     makeOrder({

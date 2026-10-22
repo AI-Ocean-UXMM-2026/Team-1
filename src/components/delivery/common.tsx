@@ -295,9 +295,18 @@ export function MobileNav({
   );
 }
 
-export async function signOut() {
-  const { createClient } = await import("@/lib/supabase/client");
-  const supabase = createClient();
-  await supabase.auth.signOut();
+/**
+ * Ends the session and returns to the start. Resolves to an error message
+ * when sign-out fails, so a screen can show it instead of silently staying.
+ */
+export async function signOut(): Promise<string | null> {
+  try {
+    const { createClient } = await import("@/lib/supabase/client");
+    const { error } = await createClient().auth.signOut();
+    if (error) return error.message;
+  } catch (cause) {
+    return cause instanceof Error ? cause.message : "Could not sign out.";
+  }
   window.location.assign("/");
+  return null;
 }

@@ -43,9 +43,7 @@ export function KpiCell({
   }
 
   return (
-    <div className={`dash-kpi ${tone ? `is-${tone}` : ""}`}>
-      {content}
-    </div>
+    <div className={`dash-kpi ${tone ? `is-${tone}` : ""}`}>{content}</div>
   );
 }
 

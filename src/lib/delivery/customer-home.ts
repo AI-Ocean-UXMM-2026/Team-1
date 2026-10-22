@@ -5,12 +5,28 @@ import type {
 } from "@/lib/delivery/types";
 
 // Type-only imports keep this module runnable by the node test runner.
-const ACTIVE_STATUSES: DeliveryStatus[] = [
+/** A parcel the customer is still waiting on, including a fresh pickup request. */
+export const ACTIVE_STATUSES: readonly DeliveryStatus[] = [
+  "pending",
   "assigned",
   "accepted",
   "picked_up",
   "in_transit",
 ];
+/** A finished delivery: it moves to History and out of live views. */
+export const TERMINAL_STATUSES: readonly DeliveryStatus[] = [
+  "delivered",
+  "failed",
+  "cancelled",
+];
+
+export function isActiveStatus(status: DeliveryStatus) {
+  return ACTIVE_STATUSES.includes(status);
+}
+
+export function isTerminalStatus(status: DeliveryStatus) {
+  return TERMINAL_STATUSES.includes(status);
+}
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "MMK",
@@ -32,9 +48,7 @@ export function yangonDay(value: string | number | Date) {
   return Number.isNaN(time) ? "" : dayFormatter.format(time);
 }
 
-function isActive(status: DeliveryStatus) {
-  return ACTIVE_STATUSES.includes(status);
-}
+const isActive = isActiveStatus;
 
 function isOutForDelivery(status: DeliveryStatus) {
   return status === "picked_up" || status === "in_transit";
@@ -89,6 +103,7 @@ export function pickNextParcel(orders: DeliveryOrder[]) {
     picked_up: 1,
     accepted: 2,
     assigned: 3,
+    pending: 4,
   };
   const active = orders.filter((order) => isActive(order.status));
   active.sort((a, b) => {
@@ -155,17 +170,6 @@ export function buildTodayItems(
   const items: TodayItem[] = [];
 
   for (const order of orders) {
-    if (order.status === "delivered" || order.status === "failed") {
-      const at = latestEventAt(order.id, order.status, events);
-      if (!at || yangonDay(at) !== today) continue;
-      items.push({
-        order,
-        state: order.status === "failed" ? "missed" : "delivered",
-        etaAt: null,
-        delayMinutes: 0,
-      });
-      continue;
-    }
     if (!isActive(order.status)) continue;
 
     const eta = order.estimated_delivery_at;
@@ -200,6 +204,81 @@ export function buildTodayItems(
     if (aEta === bEta) return 0;
     return aEta < bEta ? -1 : 1;
   });
+}
+
+/**
+ * When a finished delivery ended: its newest terminal status event, falling
+ * back to the order's own timestamp when no event was recorded.
+ */
+export function terminalAt(order: DeliveryOrder, events: StatusEvent[]) {
+  let latest: string | null = null;
+  for (const event of events) {
+    if (event.order_id !== order.id || event.status !== order.status) continue;
+    if (!latest || event.created_at > latest) latest = event.created_at;
+  }
+  return latest ?? order.created_at;
+}
+
+/** Splits orders into what is still live and what is finished, newest first. */
+export function splitOrders(orders: DeliveryOrder[], events: StatusEvent[]) {
+  const active = orders.filter((order) => isActive(order.status));
+  const history = orders
+    .filter((order) => isTerminalStatus(order.status))
+    .map((order) => ({ order, endedAt: terminalAt(order, events) }))
+    .sort((a, b) => b.endedAt.localeCompare(a.endedAt));
+  return { active, history };
+}
+
+export type OrdersTab = "active" | "history";
+export type HistoryOutcome = "all" | "delivered" | "failed" | "cancelled";
+export type OrdersQuery = {
+  tab: OrdersTab;
+  q: string;
+  outcome: HistoryOutcome;
+};
+
+const OUTCOMES: readonly HistoryOutcome[] = [
+  "all",
+  "delivered",
+  "failed",
+  "cancelled",
+];
+
+/** Reads the Orders screen state from the URL, ignoring anything unexpected. */
+export function parseOrdersQuery(params: {
+  get(name: string): string | null;
+}): OrdersQuery {
+  const outcome = params.get("outcome") as HistoryOutcome | null;
+  return {
+    tab: params.get("tab") === "history" ? "history" : "active",
+    q: (params.get("q") ?? "").slice(0, 80),
+    outcome: outcome && OUTCOMES.includes(outcome) ? outcome : "all",
+  };
+}
+
+/** The URL for an Orders state; defaults are left out so links stay short. */
+export function ordersHref(query: Partial<OrdersQuery>) {
+  const params = new URLSearchParams();
+  if (query.tab === "history") params.set("tab", "history");
+  const q = query.q?.trim();
+  if (q) params.set("q", q);
+  if (query.tab === "history" && query.outcome && query.outcome !== "all")
+    params.set("outcome", query.outcome);
+  const text = params.toString();
+  return text ? `/orders?${text}` : "/orders";
+}
+
+/** Whether an order matches free-text search over code, address and name. */
+export function orderMatchesQuery(order: DeliveryOrder, query: string) {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const code = normaliseCode(needle);
+  return (
+    (code !== "" && normaliseCode(order.tracking_code).includes(code)) ||
+    [order.delivery_address, order.pickup_address, order.recipient_name]
+      .filter(Boolean)
+      .some((field) => String(field).toLowerCase().includes(needle))
+  );
 }
 
 export type NotificationKind =

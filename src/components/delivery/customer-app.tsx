@@ -3,7 +3,14 @@
 import Button from "@mui/material/Button";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import { signOut } from "@/components/delivery/common";
@@ -25,15 +32,15 @@ const ScanSheet = dynamic(
   { ssr: false },
 );
 
+import { OrdersPage } from "@/components/delivery/customer-orders";
 import {
   CustomerBottomNav,
   EmptyState,
-  type OrderFilter,
-  OrdersPage,
-  ProfilePage,
   TrackDetail,
 } from "@/components/delivery/customer-pages";
+import { ProfilePage } from "@/components/delivery/customer-profile";
 import { CustomerProviderTracking } from "@/components/delivery/customer-provider-tracking";
+import { ConfirmSheet } from "@/components/delivery/customer-sheet";
 import { Icon } from "@/components/delivery/icons";
 import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import {
@@ -41,6 +48,7 @@ import {
   type CustomerNotification,
   codDue,
   homeSummary,
+  isTerminalStatus,
   matchOrders,
   normaliseCode,
   pickNextParcel,
@@ -80,7 +88,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   const [lookupMiss, setLookupMiss] = useState<string | null>(null);
   const [publicHit, setPublicHit] = useState<PublicTracking | null>(null);
   const urlHandled = useRef(false);
-  const [orderFilter, setOrderFilter] = useState<OrderFilter>("active");
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const orders = useMemo(
     () => prioritiseOrders(workspace.data.orders),
     [workspace.data.orders],
@@ -308,36 +318,33 @@ export function CustomerApp({ view }: { view: CustomerView }) {
     },
     track:
       trackDetailOnly && selectedOrder
-        ? { title: selectedOrder.tracking_code, subtitle: "Delivery details" }
-        : {
-            title: "Track a parcel",
-            subtitle: "Enter the code from your receipt",
-          },
-    orders: {
-      title: "Orders",
-      subtitle: workspace.isAuthenticated
-        ? homeSummary(realOrders)
-        : "Deliveries linked to your account",
-    },
+        ? { title: selectedOrder.tracking_code, subtitle: undefined }
+        : { title: "Track a parcel", subtitle: undefined },
+    orders: { title: "Orders", subtitle: undefined },
     profile: { title: "Profile", subtitle: undefined },
-    notifications: {
-      title: "Notifications",
-      subtitle: !workspace.isAuthenticated
-        ? undefined
-        : unreadCount > 0
-          ? `${unreadCount} unread`
-          : "All caught up",
-    },
+    notifications: { title: "Notifications", subtitle: undefined },
   }[view];
+
+  async function confirmSignOut() {
+    setSigningOut(true);
+    setSignOutError(null);
+    const failure = await signOut();
+    // On success the page navigates away; only a failure comes back here.
+    if (failure) {
+      setSignOutError(`We couldn’t sign you out. ${failure}`);
+      setSigningOut(false);
+    }
+  }
 
   // Keep the page's own header and tab bar while loading so nothing jumps.
   if (workspace.isLoading || now === 0)
     return (
       <main className="customer-app">
         <CustomerHeader
-          title={view === "home" ? "Welcome" : header.title}
+          title={view === "home" ? "Home" : header.title}
           isAuthenticated={false}
           unreadCount={0}
+          showBell={false}
           onBack={isRootTab ? undefined : goBack}
         />
         <HomeSkeleton />
@@ -359,7 +366,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
             <Button
               color="secondary"
               onClick={markAllRead}
-              sx={{ minHeight: 44, fontWeight: 700, flex: "none" }}
+              sx={{ minHeight: 48, fontWeight: 700, flex: "none" }}
             >
               Mark all read
             </Button>
@@ -437,13 +444,14 @@ export function CustomerApp({ view }: { view: CustomerView }) {
 
       {view === "orders" && (
         <>
-          <OrdersPage
-            orders={orders}
-            filter={orderFilter}
-            onFilter={setOrderFilter}
-            isAuthenticated={workspace.isAuthenticated}
-            onSignIn={() => setAuthOpen(true)}
-          />
+          <Suspense fallback={<HomeSkeleton />}>
+            <OrdersPage
+              orders={orders}
+              events={workspace.data.statusEvents}
+              isAuthenticated={workspace.isAuthenticated}
+              onSignIn={() => setAuthOpen(true)}
+            />
+          </Suspense>
           <CustomerProviderTracking />
         </>
       )}
@@ -454,8 +462,14 @@ export function CustomerApp({ view }: { view: CustomerView }) {
           phone={workspace.profile?.phone ?? null}
           isAuthenticated={workspace.isAuthenticated}
           unreadCount={unreadCount}
+          historyCount={
+            realOrders.filter((order) => isTerminalStatus(order.status)).length
+          }
           onSignIn={() => setAuthOpen(true)}
-          onSignOut={() => void signOut()}
+          onSignOut={() => {
+            setSignOutError(null);
+            setSignOutOpen(true);
+          }}
           onOpenHelp={() => setSheet("help")}
         />
       )}
@@ -494,6 +508,19 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         open={sheet === "cod"}
         orders={codDue(realOrders)}
         onClose={() => setSheet(null)}
+      />
+      <ConfirmSheet
+        open={signOutOpen}
+        onClose={() => setSignOutOpen(false)}
+        titleId="sign-out-title"
+        title="Sign out of Oern?"
+        body="You can sign back in at any time. Tracking by code still works without an account."
+        confirmLabel="Sign out"
+        pendingLabel="Signing out…"
+        destructive
+        pending={signingOut}
+        error={signOutError}
+        onConfirm={() => void confirmSignOut()}
       />
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
     </main>

@@ -381,8 +381,18 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
     ],
     profiles: [
       { id: "user-mgr", full_name: "Manager", phone: null, role: "manager" },
-      { id: "driver-old", full_name: "Old Driver", phone: null, role: "driver" },
-      { id: "driver-new", full_name: "New Driver", phone: null, role: "driver" },
+      {
+        id: "driver-old",
+        full_name: "Old Driver",
+        phone: null,
+        role: "driver",
+      },
+      {
+        id: "driver-new",
+        full_name: "New Driver",
+        phone: null,
+        role: "driver",
+      },
     ],
     driver_profiles: [
       { user_id: "driver-old", availability: "on_delivery" },
@@ -413,7 +423,9 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
 
   const modal = page.getByRole("dialog");
   await expect(modal).toBeVisible();
-  await expect(modal.getByRole("heading", { name: "Confirm driver reassignment" })).toBeVisible();
+  await expect(
+    modal.getByRole("heading", { name: "Confirm driver reassignment" }),
+  ).toBeVisible();
   await expect(modal.getByText("New Driver")).toBeVisible();
 
   await modal.getByRole("button", { name: "Confirm reassignment" }).click();
@@ -439,9 +451,13 @@ test("mobile bottom nav includes More drawer with full manager operations", asyn
 
   const menu = page.getByRole("dialog");
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole("heading", { name: "Operations menu" })).toBeVisible();
+  await expect(
+    menu.getByRole("heading", { name: "Operations menu" }),
+  ).toBeVisible();
   await expect(menu.getByRole("link", { name: /Team roster/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /Plan routes/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /Job board/ })).toBeVisible();
-  await expect(menu.getByRole("link", { name: /Fleet insights/ })).toBeVisible();
+  await expect(
+    menu.getByRole("link", { name: /Fleet insights/ }),
+  ).toBeVisible();
 });

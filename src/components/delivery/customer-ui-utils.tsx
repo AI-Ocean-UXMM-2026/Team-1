@@ -1,6 +1,7 @@
 "use client";
 
 import Chip from "@mui/material/Chip";
+import { timeUntil } from "@/lib/delivery/format";
 import type { DeliveryStatus } from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
 
@@ -36,4 +37,10 @@ export function StatusChip({ status }: { status: DeliveryStatus }) {
       sx={{ ...toneSx(statusTone[status]), height: 28 }}
     />
   );
+}
+
+/** "ETA 12 min", or plain "Running late" once the estimate has passed. */
+export function etaLabel(estimate: string | null) {
+  const until = timeUntil(estimate);
+  return until === "Running late" ? until : `ETA ${until}`;
 }

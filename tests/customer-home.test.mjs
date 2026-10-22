@@ -7,8 +7,13 @@ import {
   contextualActions,
   homeSummary,
   matchOrders,
+  orderMatchesQuery,
+  ordersHref,
+  parseOrdersQuery,
   pickNextParcel,
   pushRecent,
+  splitOrders,
+  terminalAt,
 } from "../src/lib/delivery/customer-home.ts";
 
 // 2026-10-20 10:00 in Yangon (UTC+6:30)
@@ -43,7 +48,7 @@ test("next parcel prefers the one already on the road", () => {
   assert.equal(pickNextParcel([order({ status: "delivered" })]), null);
 });
 
-test("arriving today covers zero, delayed and missed deliveries", () => {
+test("arriving today covers zero and delayed deliveries and leaves finished ones to History", () => {
   assert.deepEqual(buildTodayItems([], [], now), []);
   const items = buildTodayItems(
     [
@@ -71,7 +76,6 @@ test("arriving today covers zero, delayed and missed deliveries", () => {
   assert.deepEqual(
     items.map((item) => [item.order.id, item.state]),
     [
-      ["bad", "missed"],
       ["late", "delayed"],
       ["ok", "on_the_way"],
     ],
@@ -208,4 +212,97 @@ test("homeSummary describes the delivery state", () => {
     homeSummary([order(), order({ id: "o2", status: "assigned" })]),
     "2 deliveries on the way",
   );
+});
+
+test("a fresh pickup request counts as an active parcel", () => {
+  const pending = order({ id: "p", status: "pending" });
+  assert.equal(pickNextParcel([pending])?.id, "p");
+  assert.equal(homeSummary([pending]), "1 delivery on the way");
+});
+
+test("history is ordered by the latest terminal status event", () => {
+  const orders = [
+    order({ id: "old", status: "delivered", created_at: at(-600) }),
+    order({ id: "recent", status: "failed", created_at: at(-500) }),
+    order({ id: "noevent", status: "cancelled", created_at: at(-100) }),
+    order({ id: "live", status: "in_transit" }),
+  ];
+  const events = [
+    {
+      id: 1,
+      order_id: "old",
+      status: "delivered",
+      note: null,
+      created_at: at(-30),
+    },
+    {
+      id: 2,
+      order_id: "old",
+      status: "delivered",
+      note: null,
+      created_at: at(-45),
+    },
+    {
+      id: 3,
+      order_id: "recent",
+      status: "failed",
+      note: null,
+      created_at: at(-10),
+    },
+    {
+      id: 4,
+      order_id: "recent",
+      status: "in_transit",
+      note: null,
+      created_at: at(-5),
+    },
+  ];
+  const { active, history } = splitOrders(orders, events);
+  assert.deepEqual(
+    active.map((item) => item.id),
+    ["live"],
+  );
+  // "recent" failed 10 min ago (its later in_transit event is not terminal);
+  // "old" was last delivered 30 min ago; "noevent" falls back to created_at.
+  assert.deepEqual(
+    history.map((item) => item.order.id),
+    ["recent", "old", "noevent"],
+  );
+  assert.equal(terminalAt(orders[0], events), at(-30));
+  assert.equal(terminalAt(orders[2], events), at(-100));
+});
+
+test("orders URL state round-trips and ignores junk", () => {
+  const parse = (query) => parseOrdersQuery(new URLSearchParams(query));
+  assert.deepEqual(parse(""), { tab: "active", q: "", outcome: "all" });
+  assert.deepEqual(parse("tab=history&q=OR-1&outcome=failed"), {
+    tab: "history",
+    q: "OR-1",
+    outcome: "failed",
+  });
+  assert.deepEqual(parse("tab=nope&outcome=<script>"), {
+    tab: "active",
+    q: "",
+    outcome: "all",
+  });
+  assert.equal(ordersHref({}), "/orders");
+  assert.equal(
+    ordersHref({ tab: "history", q: " OR-1 ", outcome: "delivered" }),
+    "/orders?tab=history&q=OR-1&outcome=delivered",
+  );
+  // An outcome only applies to History.
+  assert.equal(ordersHref({ tab: "active", outcome: "failed" }), "/orders");
+});
+
+test("order search matches code, address and recipient", () => {
+  const item = order({
+    tracking_code: "OR-4812",
+    delivery_address: "Bahan, near Inya Road",
+    recipient_name: "May Thazin",
+  });
+  assert.equal(orderMatchesQuery(item, ""), true);
+  assert.equal(orderMatchesQuery(item, "or4812"), true);
+  assert.equal(orderMatchesQuery(item, "inya"), true);
+  assert.equal(orderMatchesQuery(item, "thazin"), true);
+  assert.equal(orderMatchesQuery(item, "kamayut"), false);
 });
