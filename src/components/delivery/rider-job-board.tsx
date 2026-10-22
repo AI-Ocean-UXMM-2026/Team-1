@@ -2,7 +2,7 @@
 
 import "./rider-jobs.css";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
@@ -56,6 +56,8 @@ export function RiderJobBoard({
   onTaken,
   blocked = null,
   sampleJobs = false,
+  menu = null,
+  notices = null,
 }: {
   vehicles: VehicleOption[];
   onTaken: (job: DeliveryJob) => void;
@@ -63,6 +65,10 @@ export function RiderJobBoard({
   blocked?: string | null;
   /** Dev preview only: show sample jobs instead of the live board. */
   sampleJobs?: boolean;
+  /** The shift tools button, shown beside the title. */
+  menu?: ReactNode;
+  /** Banners shown under the title, such as a job already in progress. */
+  notices?: ReactNode;
 }) {
   const [jobs, setJobs] = useState<DeliveryJob[] | null>(null);
   const [vehicleId, setVehicleId] = useState("");
@@ -177,29 +183,42 @@ export function RiderJobBoard({
   return (
     <section className="rj-board" aria-labelledby="rj-title">
       <header className="rj-header">
-        <h1 id="rj-title">Jobs</h1>
-        {sorted && sorted.length > 0 && (
-          <span className="rj-count">{sorted.length} open</span>
-        )}
+        <div className="rj-title-block">
+          <h1 id="rj-title">Jobs</h1>
+          {sorted && sorted.length > 0 && (
+            <span className="rj-count">{sorted.length} open</span>
+          )}
+        </div>
+        {menu}
       </header>
+
+      {notices}
 
       {usable.length > 0 && (
         <div className="rj-vehicle">
-          <label htmlFor="rj-vehicle">Vehicle</label>
-          <select
-            id="rj-vehicle"
-            value={selectedVehicleId}
-            onChange={(event) => setVehicleId(event.target.value)}
-          >
-            <option value="">Choose your vehicle…</option>
-            {usable.map((vehicle) => (
-              <option key={vehicle.id} value={vehicle.id}>
-                {vehicle.registration_number} ·{" "}
-                {vehicle.vehicle_type.replace("_", "-")}
-                {vehicle.capacity_kg ? ` · ${vehicle.capacity_kg} kg max` : ""}
-              </option>
-            ))}
-          </select>
+          <label htmlFor="rj-vehicle">Your vehicle</label>
+          <div className="rj-select">
+            <span className="rj-select-icon" aria-hidden="true">
+              <Icon name="truck" size={20} />
+            </span>
+            <select
+              id="rj-vehicle"
+              value={selectedVehicleId}
+              onChange={(event) => setVehicleId(event.target.value)}
+            >
+              <option value="">Choose your vehicle…</option>
+              {usable.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {vehicle.registration_number} ·{" "}
+                  {vehicle.vehicle_type.replace("_", "-")}
+                  {vehicle.capacity_kg ? ` · ${vehicle.capacity_kg} kg` : ""}
+                </option>
+              ))}
+            </select>
+            <span className="rj-select-chevron" aria-hidden="true">
+              <Icon name="chevron-down" size={18} />
+            </span>
+          </div>
         </div>
       )}
 
@@ -269,17 +288,25 @@ export function RiderJobBoard({
                   </span>
                   <span className="rj-facts">
                     <span>
+                      <Icon name="location" size={16} />
                       {job.order_count}{" "}
                       {job.order_count === 1 ? "stop" : "stops"}
                     </span>
-                    <span>{job.total_weight_kg} kg</span>
                     <span>
+                      <Icon name="box" size={16} />
+                      {job.total_weight_kg} kg
+                    </span>
+                    <span>
+                      <Icon name="coin" size={16} />
                       {job.cod_total
                         ? `COD ${currency.format(job.cod_total)}`
                         : "Prepaid"}
                     </span>
                     {awayKm != null && (
-                      <span>{formatDistance(awayKm)} away</span>
+                      <span>
+                        <Icon name="navigation" size={16} />
+                        {formatDistance(awayKm)} away
+                      </span>
                     )}
                   </span>
                 </button>
@@ -300,7 +327,6 @@ export function RiderJobBoard({
                           ? "Taking job…"
                           : "Swipe to take this job")
                       }
-                      className="is-green"
                       disabled={starting != null || locked != null}
                       onConfirm={() => void take(job)}
                     />

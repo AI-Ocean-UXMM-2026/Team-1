@@ -588,41 +588,36 @@ export function RouteOverview({
 
   return (
     <main className="rf-app dv-overview">
-      <header className="rf-overview-head rf-driver-appbar">
-        <div className="rf-appbar-brand">
-          <div className="rf-driver-status">
-            <span className="rf-status-dot is-online" aria-hidden="true" />
-            <span className="rf-driver-name">Oern Driver</span>
-          </div>
-          {state !== "NONE" && state !== "CLOSED" && (
-            <Chip
-              label={status[state]}
-              color={
-                state === "IN_PROGRESS"
-                  ? "info"
-                  : state === "COMPLETED"
-                    ? "success"
-                    : state === "PAUSED"
-                      ? "warning"
-                      : "default"
-              }
-              size="small"
-              sx={{ fontWeight: 700, borderRadius: 999 }}
-            />
-          )}
-        </div>
-        <IconButton
-          onClick={onMenu}
-          aria-label="Shift tools"
-          sx={{ width: 44, height: 44, color: "text.primary" }}
-        >
-          <Icon name="menu" size={20} />
-        </IconButton>
-      </header>
-
       {
         <>
-          <h1>{title}</h1>
+          <header className="rf-page-head">
+            <h1>{title}</h1>
+            <div className="rf-page-head-actions">
+              {state !== "NONE" && state !== "CLOSED" && (
+                <Chip
+                  label={status[state]}
+                  color={
+                    state === "IN_PROGRESS"
+                      ? "info"
+                      : state === "COMPLETED"
+                        ? "success"
+                        : state === "PAUSED"
+                          ? "warning"
+                          : "default"
+                  }
+                  size="small"
+                  sx={{ fontWeight: 700, borderRadius: 999 }}
+                />
+              )}
+              <IconButton
+                onClick={onMenu}
+                aria-label="Shift tools"
+                sx={{ width: 44, height: 44, color: "text.primary" }}
+              >
+                <Icon name="menu" size={20} />
+              </IconButton>
+            </div>
+          </header>
           <p className="rf-muted rf-subtitle">
             {dayLabel}
             {vehicle
@@ -691,13 +686,23 @@ export function RouteOverview({
                 </Notice>
               )}
               {state === "CLOSED" && (
-                <Notice tone="success" icon="check">
-                  Closed{closedAt ? ` at ${formatTime(closedAt)}` : ""}
-                  {declaredCod != null
-                    ? ` · ${currency.format(declaredCod)} declared for hand-in`
-                    : ""}
-                  . You can still take another job.
-                </Notice>
+                <section className="rf-closed" aria-label="Route closed">
+                  <span className="rf-closed-mark" aria-hidden="true">
+                    <Icon name="check" size={22} strokeWidth={2.6} />
+                  </span>
+                  <div>
+                    <h2>
+                      Shift closed
+                      {closedAt ? ` at ${formatTime(closedAt)}` : ""}
+                    </h2>
+                    <p>
+                      {declaredCod != null
+                        ? `${currency.format(declaredCod)} handed in. `
+                        : ""}
+                      You can still take another job.
+                    </p>
+                  </div>
+                </section>
               )}
               {state === "CLOSED" && onFindJob && (
                 <Button
@@ -711,7 +716,7 @@ export function RouteOverview({
                   Find a job
                 </Button>
               )}
-              {map && (
+              {map && state !== "CLOSED" && (
                 <div className="rf-preview-map">{map}</div>
               )}
               {state === "COMPLETED" && (

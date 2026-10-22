@@ -1350,17 +1350,17 @@
   color: #ffffff;
   font-size: 15px;
   line-height: 20px;
-  font-weight: 600;
+  font-weight: 700;
   opacity: calc(1 - var(--p, 0) * 1.6);
   /* Shimmer: the highlight runs through the text itself, as in Grab. */
   background:
     linear-gradient(
       100deg,
-      rgba(255, 255, 255, 0.72) 0%,
-      rgba(255, 255, 255, 0.72) 40%,
+      rgba(255, 255, 255, 0.94) 0%,
+      rgba(255, 255, 255, 0.94) 40%,
       #ffffff 50%,
-      rgba(255, 255, 255, 0.72) 60%,
-      rgba(255, 255, 255, 0.72) 100%
+      rgba(255, 255, 255, 0.94) 60%,
+      rgba(255, 255, 255, 0.94) 100%
     )
     100% 0 / 300% 100% no-repeat;
   -webkit-background-clip: text;
@@ -1402,12 +1402,13 @@
   transition: none;
 }
 
+/* Confirmed: the track turns brand navy, so the swipe never leaves the brand. */
 .dv-swipe[data-phase="done"] {
-  background: var(--color-brand-green-fresh, #15803d);
+  background: var(--color-brand-navy);
 }
 
 .dv-swipe[data-phase="done"] .dv-swipe-knob {
-  color: var(--color-brand-green-fresh, #15803d);
+  color: var(--color-brand-navy);
   animation: dv-pop 320ms var(--rf-ease);
 }
 
@@ -1729,32 +1730,6 @@
   background: none;
   opacity: 1;
   -webkit-text-fill-color: var(--color-text-secondary);
-}
-
-/* ---------- green payment swipe variant ---------- */
-.dv-swipe.is-green {
-  background: #00b14f;
-}
-
-.dv-swipe.is-green .dv-swipe-knob {
-  color: #00b14f;
-}
-
-.dv-swipe.is-green[data-phase="done"] {
-  background: #059669;
-}
-
-.dv-swipe.is-green[data-phase="done"] .dv-swipe-knob {
-  color: #059669;
-}
-
-/* A locked green swipe stays neutral: green means "go". */
-.dv-swipe.is-green.is-disabled {
-  background: var(--color-surface-subtle);
-}
-
-.dv-swipe.is-green.is-disabled .dv-swipe-knob {
-  color: var(--color-text-secondary);
 }
 
 /* ---------- full-screen collection view (Image 2 style) ---------- */

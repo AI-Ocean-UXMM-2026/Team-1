@@ -1522,49 +1522,47 @@ export function RiderApp() {
     return (
       <>
         <main className="rf-app dv-overview">
-          <header className="rf-overview-head rf-driver-appbar">
-            <div className="rf-appbar-brand">
-              <div className="rf-driver-status">
-                <span className="rf-status-dot is-online" aria-hidden="true" />
-                <span className="rf-driver-name">Oern Driver</span>
-              </div>
-            </div>
-            <IconButton
-              onClick={() => openPanel("menu")}
-              aria-label="Shift tools"
-              sx={{ width: 44, height: 44, color: "text.primary" }}
-            >
-              <Icon name="menu" size={20} />
-            </IconButton>
-          </header>
-          {activeJob && (
-            <Notice
-              tone="info"
-              icon="truck"
-              action={
-                <button
-                  type="button"
-                  className="rf-link"
-                  onClick={() => go("route")}
-                >
-                  Open route
-                </button>
-              }
-            >
-              <strong>You have a job in progress.</strong> Finish it before
-              taking another.
-            </Notice>
-          )}
-          {flash && (
-            <Notice tone="success" icon="check">
-              {flash}
-            </Notice>
-          )}
           <RiderJobBoard
             vehicles={data.vehicles}
             blocked={blocked}
             sampleJobs={isPreview}
             onTaken={onJobTaken}
+            menu={
+              <IconButton
+                onClick={() => openPanel("menu")}
+                aria-label="Shift tools"
+                sx={{ width: 44, height: 44, color: "text.primary" }}
+              >
+                <Icon name="menu" size={20} />
+              </IconButton>
+            }
+            notices={
+              <>
+                {activeJob && (
+                  <Notice
+                    tone="info"
+                    icon="truck"
+                    action={
+                      <button
+                        type="button"
+                        className="rf-link"
+                        onClick={() => go("route")}
+                      >
+                        Open route
+                      </button>
+                    }
+                  >
+                    <strong>You have a job in progress.</strong> Finish it
+                    before taking another.
+                  </Notice>
+                )}
+                {flash && (
+                  <Notice tone="success" icon="check">
+                    {flash}
+                  </Notice>
+                )}
+              </>
+            }
           />
         </main>
         {sheets}
@@ -1886,7 +1884,7 @@ export function RiderApp() {
                   see you live.
                 </Notice>
               )}
-            {flash && (
+            {flash && route.state !== "CLOSED" && (
               <Notice tone="success" icon="check">
                 {flash}
               </Notice>

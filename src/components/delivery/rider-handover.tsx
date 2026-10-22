@@ -251,7 +251,6 @@ export function HandoverPanel({
               label="Confirm delivery"
               disabled={locked}
               onConfirm={onComplete}
-              className={hasCash ? "is-green" : ""}
               hint={
                 busy
                   ? "Saving…"

@@ -3037,3 +3037,62 @@
 .dv-missing-toggle {
   justify-self: center;
 }
+
+/* Page title row for the rider screens: title left, status and menu right. */
+.rf-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rf-page-head h1 {
+  margin: 0;
+  min-width: 0;
+}
+
+.rf-page-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A closed shift: one calm summary, then the next job. */
+.rf-closed {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-block: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.rf-closed-mark {
+  display: grid;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-brand-navy);
+  color: #ffffff;
+}
+
+.rf-closed h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-text-primary);
+}
+
+.rf-closed p {
+  margin: 4px 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  text-wrap: pretty;
+}

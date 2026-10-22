@@ -25,7 +25,7 @@ export function SwipeConfirm({
   onConfirm: () => void;
   /** Shown dimmed and ignores drags, e.g. while a requirement is unmet. */
   disabled?: boolean;
-  /** Extra class names for styling variants like is-green. */
+  /** Extra class names for styling variants. */
   className?: string;
 }) {
   const track = useRef<HTMLDivElement>(null);

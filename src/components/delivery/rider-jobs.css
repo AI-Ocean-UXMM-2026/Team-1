@@ -8,9 +8,16 @@
 
 .rj-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.rj-title-block {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
 }
 
 .rj-header h1 {
@@ -41,16 +48,49 @@
   font-weight: 600;
 }
 
+/* One field: truck icon, value, chevron. The native picker stays for a11y and phones. */
+.rj-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.rj-select-icon,
+.rj-select-chevron {
+  position: absolute;
+  display: inline-flex;
+  color: var(--color-brand-navy);
+  pointer-events: none;
+}
+
+.rj-select-icon {
+  left: 14px;
+}
+
+.rj-select-chevron {
+  right: 14px;
+}
+
 .rj-vehicle select {
   width: 100%;
-  min-height: 48px;
-  padding: 0 12px;
+  min-height: 52px;
+  padding: 0 44px;
   border: 1px solid var(--color-border-control);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--color-surface);
   color: var(--color-text-primary);
   font: inherit;
-  font-size: 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  appearance: none;
+  -webkit-appearance: none;
+  text-overflow: ellipsis;
+}
+
+.rj-vehicle select:focus-visible {
+  outline: 3px solid var(--color-brand-orange);
+  outline-offset: 2px;
+  border-color: var(--color-brand-navy);
 }
 
 /* ---------- Status, error, empty ---------- */
@@ -143,7 +183,13 @@
 }
 
 .rj-card.is-selected {
-  border-color: var(--color-text-primary);
+  border-color: var(--color-brand-navy);
+  box-shadow: 0 6px 18px -8px rgb(23 43 77 / 0.28);
+}
+
+.rj-card-content:focus-visible {
+  outline: 3px solid var(--color-brand-orange);
+  outline-offset: -3px;
 }
 
 .rj-card-content {
@@ -211,15 +257,22 @@
 .rj-facts {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 0;
-  color: var(--color-text-secondary-subtle);
+  gap: 6px 16px;
+  color: var(--color-text-secondary);
   font-size: 0.9375rem;
   font-variant-numeric: tabular-nums;
 }
 
-.rj-facts > span + span::before {
-  content: "·";
-  margin-inline: 8px;
+.rj-facts > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.rj-facts svg {
+  flex: none;
+  color: var(--color-text-secondary-subtle);
 }
 
 .rj-card-detail {
@@ -242,66 +295,9 @@
   font-weight: 600;
 }
 
-/* Swipe on the board: solid, high-contrast, no shimmer. */
-.rj-card-detail .dv-swipe.is-green {
-  background: #047857;
-}
-
-.rj-card-detail .dv-swipe.is-green .dv-swipe-knob {
-  color: #047857;
-}
-
-.rj-card-detail .dv-swipe.is-green .dv-swipe-label {
-  animation: none;
-  background: none;
-  -webkit-text-fill-color: var(--color-text-inverse);
-  font-weight: 700;
-}
-
-.rj-card-detail .dv-swipe.is-green.is-disabled {
-  background: var(--color-surface-subtle);
-}
-
-.rj-card-detail .dv-swipe.is-green.is-disabled .dv-swipe-label {
-  -webkit-text-fill-color: var(--color-text-secondary-subtle);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .rj-chevron,
   .rj-card {
     transition: none;
   }
-}
-
-/* ---------- Driver App Bar & View Tabs ---------- */
-
-.rf-driver-appbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 8px;
-}
-
-.rf-appbar-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.rf-driver-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-text-primary, #172b4d);
-}
-
-.rf-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
