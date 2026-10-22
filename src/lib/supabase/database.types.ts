@@ -140,16 +140,20 @@ export type Database = {
       delivery_locations: {
         Row: {
           accuracy_meters: number | null;
+          heading_degrees: number | null;
           driver_id: string;
           id: number;
           latitude: number;
           longitude: number;
           order_id: string;
           recorded_at: string;
+          speed_mps: number | null;
         };
         Insert: {
           accuracy_meters?: number | null;
           driver_id: string;
+          heading_degrees?: number | null;
+          speed_mps?: number | null;
           id?: never;
           latitude: number;
           longitude: number;
@@ -159,6 +163,8 @@ export type Database = {
         Update: {
           accuracy_meters?: number | null;
           driver_id?: string;
+          heading_degrees?: number | null;
+          speed_mps?: number | null;
           id?: never;
           latitude?: number;
           longitude?: number;
@@ -899,6 +905,62 @@ export type Database = {
             columns: ["vehicle_id"];
             isOneToOne: false;
             referencedRelation: "vehicles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      road_report_decisions: {
+        Row: {
+          action: string;
+          category: string;
+          confidence: number;
+          created_at: string;
+          delay_minutes: number;
+          evidence: Json;
+          expires_at: string;
+          model: string | null;
+          radius_meters: number;
+          rationale: string;
+          report_id: string;
+          severity: string;
+          source: string;
+        };
+        Insert: {
+          action: string;
+          category: string;
+          confidence: number;
+          created_at?: string;
+          delay_minutes?: number;
+          evidence?: Json;
+          expires_at: string;
+          model?: string | null;
+          radius_meters?: number;
+          rationale: string;
+          report_id: string;
+          severity: string;
+          source: string;
+        };
+        Update: {
+          action?: string;
+          category?: string;
+          confidence?: number;
+          created_at?: string;
+          delay_minutes?: number;
+          evidence?: Json;
+          expires_at?: string;
+          model?: string | null;
+          radius_meters?: number;
+          rationale?: string;
+          report_id?: string;
+          severity?: string;
+          source?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "road_report_decisions_report_id_fkey";
+            columns: ["report_id"];
+            isOneToOne: true;
+            referencedRelation: "road_reports";
             referencedColumns: ["id"];
           },
         ];
@@ -2421,6 +2483,16 @@ export type Database = {
           target_vehicle_id?: string | null;
         };
         Returns: string;
+      };
+      recent_road_speed_cells: {
+        Args: { window_minutes?: number };
+        Returns: {
+          cell_latitude: number;
+          cell_longitude: number;
+          drivers: number;
+          median_speed_kmh: number;
+          samples: number;
+        }[];
       };
       review_road_report: {
         Args: { decision: string; target_report_id: string };

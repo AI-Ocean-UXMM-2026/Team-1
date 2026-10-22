@@ -1,3 +1,4 @@
+import type { AttachedDecision } from "./road-intel/types.ts";
 export type DeliveryStatus =
   | "pending"
   | "assigned"
@@ -86,6 +87,8 @@ export type RoadReport = {
   status: "pending" | "verified" | "rejected";
   reported_at: string;
   expires_at: string;
+  /** The road-intelligence engine's verdict on this note, once analysed. */
+  decision?: AttachedDecision | null;
 };
 
 export type RiderRequestKind = "energy" | "issue";

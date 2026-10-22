@@ -27,6 +27,6 @@ where id in (select route_id from oern_cleanup_routes);
 delete from public.delivery_orders
 where tracking_code like 'DYN-SEED-%';
 delete from public.vehicles
-where registration_number like 'DYN-SEED-%';
+where registration_number in ('E4B1-7K29', 'M7T3-4Q8X');
 
 commit;

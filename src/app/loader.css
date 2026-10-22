@@ -9,15 +9,126 @@
 
 .oern-loader-art {
   display: inline-flex;
-  width: 80px;
-  height: 80px;
+  width: 132px;
+  height: 104px;
   align-items: center;
   justify-content: center;
 }
 
-.oern-loader-art img {
-  object-fit: contain;
-  animation: oern-loader-stride 1s ease-in-out infinite;
+/*
+ * Gallop loop for the cheetah: one bound per --oern-stride. The body
+ * squashes on landing, stretches on push-off and pitches nose-up/nose-down
+ * around its paws, while the ground shadow, dust and speed streaks run on
+ * the same clock so every layer lands together. A slower drift moves the
+ * whole runner forward and back so it reads as racing, not bouncing.
+ */
+.oern-loader-run {
+  --oern-stride: 0.56s;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: oern-loader-drift calc(var(--oern-stride) * 5) ease-in-out infinite;
+}
+
+.oern-loader-rig {
+  position: absolute;
+  left: 30px;
+  bottom: 8px;
+  width: 88px;
+  height: 88px;
+  transform-origin: 50% 92%;
+  animation: oern-loader-gallop var(--oern-stride) linear infinite;
+  will-change: transform;
+}
+
+/*
+ * Each part swings on its own joint (pivots are measured on the art) and
+ * trails the body slightly, so the head and tail follow through after
+ * every landing instead of moving as one rigid sticker.
+ */
+.oern-loader-part,
+.oern-loader-part-head {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.oern-loader-part-tail {
+  transform-origin: 36% 60%;
+  animation: oern-loader-tail var(--oern-stride) ease-in-out infinite;
+}
+.oern-loader-part-leg-back {
+  transform-origin: 33% 67%;
+  animation: oern-loader-leg-back var(--oern-stride) ease-in-out infinite;
+}
+.oern-loader-part-leg-front {
+  transform-origin: 74% 64%;
+  animation: oern-loader-leg-front var(--oern-stride) ease-in-out infinite;
+}
+.oern-loader-part-head {
+  transform-origin: 66% 62%;
+  animation: oern-loader-head var(--oern-stride) ease-in-out infinite;
+}
+.oern-loader-part-head-blink {
+  opacity: 0;
+  animation: oern-loader-blink 4.2s step-end infinite;
+}
+
+.oern-loader-shadow {
+  position: absolute;
+  left: 44px;
+  bottom: 11px;
+  width: 64px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-brand-navy, #172b4d);
+  opacity: 0.16;
+  filter: blur(1.5px);
+  animation: oern-loader-shadow var(--oern-stride) linear infinite;
+}
+
+.oern-loader-streaks i {
+  position: absolute;
+  left: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-brand-orange, #f97316);
+  opacity: 0;
+  transform-origin: right center;
+  animation: oern-loader-streak calc(var(--oern-stride) * 1.5) ease-out infinite;
+}
+.oern-loader-streaks i:nth-child(1) {
+  top: 34px;
+  width: 22px;
+}
+.oern-loader-streaks i:nth-child(2) {
+  top: 50px;
+  width: 30px;
+  animation-delay: calc(var(--oern-stride) * -0.5);
+}
+.oern-loader-streaks i:nth-child(3) {
+  top: 66px;
+  width: 18px;
+  animation-delay: calc(var(--oern-stride) * -1);
+}
+
+.oern-loader-dust i {
+  position: absolute;
+  left: 40px;
+  bottom: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border, #e2e8f0);
+  opacity: 0;
+  animation: oern-loader-dust var(--oern-stride) ease-out infinite;
+}
+.oern-loader-dust i:nth-child(2) {
+  left: 50px;
+  width: 6px;
+  height: 6px;
+  animation-delay: calc(var(--oern-stride) * 0.12);
 }
 
 .oern-loader-label {
@@ -39,15 +150,177 @@
   animation: oern-loader-turn 1s linear infinite;
 }
 
-@keyframes oern-loader-stride {
-  0%,
-  100% {
-    transform: translateY(2px) rotate(-2deg);
+@keyframes oern-loader-gallop {
+  /* landing: front paws hit, body squashes and pitches nose-down */
+  0% {
+    transform: translateY(0) rotate(4deg) scale(1.07, 0.92);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.6, 1);
   }
-  50% {
-    transform: translateY(-2px) rotate(2deg);
+  /* gather: hind legs load under the body */
+  14% {
+    transform: translateY(1px) rotate(1deg) scale(1.03, 0.96);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  /* push-off: stretch tall, nose-up */
+  32% {
+    transform: translateY(-9px) rotate(-6deg) scale(0.95, 1.07);
+    animation-timing-function: cubic-bezier(0.3, 0.6, 0.5, 1);
+  }
+  /* hang time at the apex */
+  52% {
+    transform: translateY(-14px) rotate(-2deg) scale(1.02, 0.99);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.4);
+  }
+  /* falling, reaching forward for the next stride */
+  84% {
+    transform: translateY(-4px) rotate(3deg) scale(1.04, 0.97);
+    animation-timing-function: cubic-bezier(0.6, 0, 1, 0.6);
+  }
+  100% {
+    transform: translateY(0) rotate(4deg) scale(1.07, 0.92);
   }
 }
+
+/* tail drags low on the way up and whips high on the way down */
+@keyframes oern-loader-tail {
+  0%,
+  100% {
+    transform: rotate(7deg);
+  }
+  28% {
+    transform: rotate(-12deg);
+  }
+  52% {
+    transform: rotate(-5deg);
+  }
+  78% {
+    transform: rotate(14deg);
+  }
+}
+
+/* hind leg drives back at push-off, then swings under for the next stride */
+@keyframes oern-loader-leg-back {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  30% {
+    transform: rotate(16deg);
+  }
+  64% {
+    transform: rotate(-4deg);
+  }
+  86% {
+    transform: rotate(-14deg);
+  }
+}
+
+/* front paw sweeps back under the landing, tucks, then reaches forward */
+@keyframes oern-loader-leg-front {
+  0%,
+  100% {
+    transform: rotate(2deg);
+  }
+  22% {
+    transform: rotate(14deg);
+  }
+  50% {
+    transform: rotate(-8deg);
+  }
+  80% {
+    transform: rotate(-16deg);
+  }
+}
+
+/* head settles a beat after the body: nods on landing, lifts on push-off */
+@keyframes oern-loader-head {
+  0%,
+  100% {
+    transform: rotate(-1deg) translateY(0);
+  }
+  12% {
+    transform: rotate(5deg) translateY(1.5px);
+  }
+  38% {
+    transform: rotate(-5deg) translateY(-1px);
+  }
+  64% {
+    transform: rotate(-2deg) translateY(0);
+  }
+}
+
+/* a quick blink, then a double blink, on a slower clock than the stride */
+@keyframes oern-loader-blink {
+  0% {
+    opacity: 0;
+  }
+  46% {
+    opacity: 1;
+  }
+  48% {
+    opacity: 0;
+  }
+  88% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 0;
+  }
+  92% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 0;
+  }
+}
+
+@keyframes oern-loader-shadow {
+  0%,
+  100% {
+    transform: scaleX(1.05);
+    opacity: 0.2;
+  }
+  52% {
+    transform: scaleX(0.7);
+    opacity: 0.09;
+  }
+}
+
+@keyframes oern-loader-streak {
+  0% {
+    transform: translateX(14px) scaleX(0.3);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateX(-16px) scaleX(1);
+    opacity: 0;
+  }
+}
+
+@keyframes oern-loader-dust {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-22px, -8px) scale(1.4);
+    opacity: 0;
+  }
+}
+
+@keyframes oern-loader-drift {
+  0%,
+  100% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
 @keyframes oern-loader-turn {
   to {
     transform: rotate(360deg);
@@ -55,8 +328,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .oern-loader-art img,
+  .oern-loader-run,
+  .oern-loader-rig,
+  .oern-loader-part,
+  .oern-loader-part-head,
+  .oern-loader-shadow,
   .oern-loader-art svg {
     animation: none;
+  }
+  .oern-loader-streaks,
+  .oern-loader-dust {
+    display: none;
   }
 }

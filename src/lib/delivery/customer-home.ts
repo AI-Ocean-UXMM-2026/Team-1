@@ -57,6 +57,17 @@ export function normaliseCode(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+/**
+ * Legacy orders carry a 32-character hex tracking code. Customers see and
+ * quote it as XXXX-XXXX; lookups still match because the short form is a
+ * prefix of the stored code once normalised.
+ */
+export function displayTrackingCode(code: string) {
+  if (!/^[0-9a-f]{32}$/i.test(code)) return code;
+  const short = code.slice(0, 8).toUpperCase();
+  return `${short.slice(0, 4)}-${short.slice(4)}`;
+}
+
 export function matchOrders(orders: DeliveryOrder[], query: string) {
   const code = normaliseCode(query);
   if (!code) return [];

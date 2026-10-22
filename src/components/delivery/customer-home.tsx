@@ -56,6 +56,7 @@ import {
   buildTodayItems,
   codDue,
   describeDelay,
+  displayTrackingCode,
   normaliseCode,
   pickNextParcel,
   progressPercent,
@@ -526,7 +527,7 @@ function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
               variant="caption"
               sx={{ display: "block", opacity: 0.75 }}
             >
-              {order.tracking_code}
+              {displayTrackingCode(order.tracking_code)}
             </Typography>
             <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
               {order.driver_name ?? "Rider being assigned"}
@@ -595,7 +596,7 @@ function TodayRow({ item }: { item: TodayItem }) {
         </Typography>
         <ListItemText
           sx={{ minWidth: 0, m: 0 }}
-          primary={item.order.tracking_code}
+          primary={displayTrackingCode(item.order.tracking_code)}
           secondary={item.order.delivery_address}
           slotProps={{
             primary: { sx: { fontWeight: 700, fontSize: 14 } },
@@ -932,35 +933,34 @@ export function CustomerHome({
             )}
           </>
         ) : (
-          <Box sx={{ px: 2, mt: 1 }}>
-            <ListItemButton
-              component={Link}
-              href="/track"
-              sx={{
-                gap: 1.5,
-                minHeight: 72,
-                px: 1.5,
-                borderRadius: "16px",
-                bgcolor: "grey.100",
-              }}
-            >
-              <Box
-                component="img"
-                src="/icons/arriving-today.svg"
-                alt=""
-                sx={{ display: "block", width: 48, height: 48, flex: "none" }}
-              />
-              <ListItemText
-                primary="No active deliveries"
-                secondary="Parcels on their way to you appear here. Have a code? Track it."
-                slotProps={{
-                  primary: { sx: { fontWeight: 700, fontSize: 14 } },
-                }}
-                sx={{ m: 0 }}
-              />
-              <ChevronRight color="disabled" />
-            </ListItemButton>
-          </Box>
+          <Stack
+            direction="row"
+            sx={{
+              mx: 2,
+              mt: 1,
+              gap: 1.5,
+              minHeight: 72,
+              px: 1.5,
+              alignItems: "center",
+              borderRadius: "16px",
+              bgcolor: "grey.100",
+            }}
+          >
+            <Box
+              component="img"
+              src="/icons/arriving-today.svg"
+              alt=""
+              sx={{ display: "block", width: 48, height: 48, flex: "none" }}
+            />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
+                Nothing on the way
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Parcels heading to you will show up here.
+              </Typography>
+            </Box>
+          </Stack>
         )}
       </Box>
 
@@ -992,7 +992,15 @@ export function CustomerHome({
               See all
             </Button>
           </Stack>
-          <List disablePadding sx={{ px: 2, display: "grid", gap: 1 }}>
+          <List
+            disablePadding
+            sx={{
+              px: 2,
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr)",
+              gap: 1,
+            }}
+          >
             {historyOrders.slice(0, 3).map((order) => (
               <ListItem key={order.id} disablePadding>
                 <ListItemButton
@@ -1009,7 +1017,7 @@ export function CustomerHome({
                   <ListItemText
                     sx={{ m: 0, minWidth: 0 }}
                     primary={order.delivery_address}
-                    secondary={`${order.tracking_code} · ${formatDateTime(order.created_at)}`}
+                    secondary={`${displayTrackingCode(order.tracking_code)} · ${formatDateTime(order.created_at)}`}
                     slotProps={{
                       primary: {
                         noWrap: true,
@@ -1121,7 +1129,7 @@ export function ParcelSwitcher({
           <Chip
             key={order.id}
             clickable
-            label={order.tracking_code}
+            label={displayTrackingCode(order.tracking_code)}
             onClick={() => onSelect(order)}
             aria-pressed={order.id === selectedId}
             color={order.id === selectedId ? "secondary" : "default"}

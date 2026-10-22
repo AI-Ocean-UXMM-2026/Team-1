@@ -44,7 +44,10 @@ import { memo, type ReactNode, useState } from "react";
 
 import { StatusChip, toneSx } from "@/components/delivery/customer-home";
 import { LocationMap } from "@/components/delivery/location-map";
-import { progressPercent } from "@/lib/delivery/customer-home";
+import {
+  displayTrackingCode,
+  progressPercent,
+} from "@/lib/delivery/customer-home";
 import {
   currency,
   formatDateTime,
@@ -275,7 +278,7 @@ function ShareTrackingButton({ order }: { order: DeliveryOrder }) {
 
   async function share() {
     const url = `${window.location.origin}/track?code=${encodeURIComponent(order.tracking_code)}`;
-    const text = `Follow parcel ${order.tracking_code} on Oern`;
+    const text = `Follow parcel ${displayTrackingCode(order.tracking_code)} on Oern`;
     try {
       if (typeof navigator.share === "function") {
         await navigator.share({ title: "Oern delivery", text, url });
@@ -361,7 +364,7 @@ export function TrackDetail({
             sx={{ opacity: 0.8, fontWeight: 650, minWidth: 0 }}
             noWrap
           >
-            {order.tracking_code}
+            {displayTrackingCode(order.tracking_code)}
           </Typography>
           {!closed && <StatusChip status={order.status} />}
         </Stack>
@@ -891,7 +894,7 @@ export function OrdersPage({
                     variant="caption"
                     sx={{ display: "block", color: "text.secondary" }}
                   >
-                    {order.tracking_code} · Ordered{" "}
+                    {displayTrackingCode(order.tracking_code)} · Ordered{" "}
                     {formatDateTime(order.created_at)}
                   </Typography>
                   <Stack

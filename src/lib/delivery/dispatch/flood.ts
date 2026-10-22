@@ -28,6 +28,13 @@ export type FloodReport = {
   lng: number;
   severity: keyof typeof REPORT_WEIGHT;
   category?: string;
+  /** The road-intelligence engine's verdict on the note, when it has one. */
+  decision?: {
+    action: "avoid" | "delay" | "monitor";
+    severity: string;
+    delayMinutes: number;
+    radiusMeters: number;
+  };
 };
 
 type Ring = [number, number][];

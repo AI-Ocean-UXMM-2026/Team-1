@@ -12,6 +12,13 @@ export type TrafficReport = {
   longitude?: number;
   category?: string;
   severity?: string;
+  /** The engine's reading of the note; replaces the raw category/severity table. */
+  decision?: {
+    action: "avoid" | "delay" | "monitor";
+    severity: string;
+    delayMinutes: number;
+    radiusMeters: number;
+  };
 };
 
 export type TrafficOrder = {
@@ -85,6 +92,13 @@ function isTrafficReport(report: TrafficReport): boolean {
 }
 
 function getReportDelay(report: TrafficReport): number {
+  const decision = report.decision;
+  if (decision) {
+    if (decision.action === "monitor") return 0;
+    return decision.action === "avoid"
+      ? Math.max(8, decision.delayMinutes)
+      : decision.delayMinutes;
+  }
   const cat = report.category || "congestion";
   const sev = report.severity || "medium";
   return (
@@ -94,6 +108,10 @@ function getReportDelay(report: TrafficReport): number {
 }
 
 function isReportBlocking(report: TrafficReport): boolean {
+  if (report.decision)
+    return (
+      report.decision.action === "avoid" && report.decision.severity === "blocked"
+    );
   return (
     report.severity === "blocked" ||
     (report.category === "closure" && report.severity === "high")
@@ -229,7 +247,10 @@ export function applyTraffic(
       // Check live traffic road reports along the corridor
       for (const { report, point } of validTrafficReports) {
         const dist = distanceToSegmentKm(point, from, to);
-        if (dist <= corridorThresholdKm) {
+        const reach = report.decision
+          ? Math.max(0.15, report.decision.radiusMeters / 1000)
+          : corridorThresholdKm;
+        if (dist <= reach) {
           const reportDelay = getReportDelay(report);
           arcDelay += reportDelay;
           matchedReports.add(report);

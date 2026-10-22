@@ -2,8 +2,15 @@ export type RiderLocationPoint = {
   latitude: number;
   longitude: number;
   accuracy: number | null;
+  /** Ground speed from the device, when it reports one. */
+  speedMps: number | null;
+  /** Direction of travel in degrees clockwise from north, when known. */
+  headingDegrees: number | null;
   recordedAt: string;
 };
+
+const finiteOrNull = (value: number | null | undefined) =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
 
 type LocationWatchOptions = {
   geolocation: Pick<Geolocation, "watchPosition" | "clearWatch">;
@@ -34,7 +41,7 @@ export function watchRiderLocations({
       if (!active || sending) return;
       const timestamp = now();
       if (timestamp - lastSentAt < 10_000) return;
-      const { latitude, longitude, accuracy } = position.coords;
+      const { latitude, longitude, accuracy, speed, heading } = position.coords;
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
       lastSentAt = timestamp;
       sending = true;
@@ -43,6 +50,8 @@ export function watchRiderLocations({
           latitude,
           longitude,
           accuracy: Number.isFinite(accuracy) ? accuracy : null,
+          speedMps: finiteOrNull(speed) == null ? null : Math.max(0, speed ?? 0),
+          headingDegrees: finiteOrNull(heading),
           recordedAt: new Date(timestamp).toISOString(),
         };
         const results = await Promise.allSettled(

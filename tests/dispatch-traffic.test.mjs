@@ -346,3 +346,42 @@ test("planDispatch incorporates traffic road reports and order traffic delays", 
 });
 
 
+
+test("applyTraffic prices a report by the engine's decision, not its raw category", () => {
+  // Two points in open country, away from any mapped signal
+  const points = [
+    { lat: 17.2, lng: 96.3 },
+    { lat: 17.2, lng: 96.31 },
+  ];
+  const base = buildStraightLineMatrix(points, { speedKmh: 30, roadFactor: 1.25 });
+  const at = { lat: 17.2, lng: 96.305 };
+  const run = (report) => applyTraffic(base, points, { reports: [report] });
+
+  const raw = run({ ...at, category: "closure", severity: "blocked" });
+  assert.equal(raw.summary.blockedArcs, 2);
+
+  const delayed = run({
+    ...at,
+    category: "closure",
+    severity: "blocked",
+    decision: { action: "delay", severity: "high", delayMinutes: 6, radiusMeters: 120 },
+  });
+  assert.equal(delayed.summary.blockedArcs, 0);
+  assert.equal(delayed.summary.addedDelayMin, 12);
+
+  const avoid = run({
+    ...at,
+    category: "closure",
+    severity: "blocked",
+    decision: { action: "avoid", severity: "blocked", delayMinutes: 30, radiusMeters: 120 },
+  });
+  assert.equal(avoid.summary.blockedArcs, 2);
+
+  const monitored = run({
+    ...at,
+    category: "congestion",
+    severity: "high",
+    decision: { action: "monitor", severity: "low", delayMinutes: 0, radiusMeters: 120 },
+  });
+  assert.equal(monitored.summary.addedDelayMin, 0);
+});

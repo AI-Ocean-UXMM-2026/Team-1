@@ -128,14 +128,22 @@ function nearestInIndex(
   return best;
 }
 
+let defaultNodes: SignalNode[] | null = null;
 let defaultIndex: SignalIndex | null = null;
+
+/** Every known signal in Yangon with duplicates merged. */
+export function defaultSignalNodes(): readonly SignalNode[] {
+  defaultNodes ??= mergeSignalNodes(
+    ALL_YANGON_INTERCEPTION_POINTS,
+    YANGON_TRAFFIC_SIGNALS,
+  );
+  return defaultNodes;
+}
 const customIndexes = new WeakMap<object, WeakMap<object, SignalIndex>>();
 
 /** Index of every known signal in Yangon, built once. */
 export function defaultSignalIndex(): SignalIndex {
-  defaultIndex ??= buildSignalIndex(
-    mergeSignalNodes(ALL_YANGON_INTERCEPTION_POINTS, YANGON_TRAFFIC_SIGNALS),
-  );
+  defaultIndex ??= buildSignalIndex([...defaultSignalNodes()]);
   return defaultIndex;
 }
 
@@ -247,4 +255,33 @@ export function signalsAlongPath(
     );
   }
   return [...best.values()].sort((a, b) => a.alongKm - b.alongKm);
+}
+
+/**
+ * Shortest distance from a point to a polyline of [longitude, latitude]
+ * pairs, in kilometres, checking every segment rather than only the vertices.
+ */
+export function distanceToPathKm(
+  coordinates: readonly (readonly [number, number])[],
+  point: { latitude: number; longitude: number },
+): number {
+  if (coordinates.length === 0) return Number.POSITIVE_INFINITY;
+  const kmPerDegLng =
+    KM_PER_DEG_LAT * Math.cos((point.latitude * Math.PI) / 180);
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < Math.max(1, coordinates.length - 1); i++) {
+    const [ax, ay] = coordinates[i];
+    const [bx, by] = coordinates[Math.min(i + 1, coordinates.length - 1)];
+    const dx = (bx - ax) * kmPerDegLng;
+    const dy = (by - ay) * KM_PER_DEG_LAT;
+    const px = (point.longitude - ax) * kmPerDegLng;
+    const py = (point.latitude - ay) * KM_PER_DEG_LAT;
+    const lengthSq = dx * dx + dy * dy;
+    const t =
+      lengthSq === 0
+        ? 0
+        : Math.max(0, Math.min(1, (px * dx + py * dy) / lengthSq));
+    best = Math.min(best, Math.hypot(px - t * dx, py - t * dy));
+  }
+  return best;
 }

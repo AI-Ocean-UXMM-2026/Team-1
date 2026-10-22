@@ -106,6 +106,7 @@ import type {
   WorkspaceData,
 } from "@/lib/delivery/types";
 import { usePermissionRecovery } from "@/lib/delivery/use-permission-recovery";
+import { useRoadSpeedCells } from "@/lib/delivery/road-intel/use-road-intel";
 import { useRoadRoute } from "@/lib/delivery/use-road-route";
 import { useStoredState } from "@/lib/delivery/use-stored-state";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
@@ -423,6 +424,7 @@ export function RiderApp() {
           point.latitude,
           point.longitude,
           point.accuracy,
+          { speedMps: point.speedMps, headingDegrees: point.headingDegrees },
         ),
       onSent: (sentIds) => setSharing(sentIds.length),
       onError: (_msg, permissionDenied) => {
@@ -463,9 +465,10 @@ export function RiderApp() {
       ),
     [stop, route.upcoming],
   );
+  const speedCells = useRoadSpeedCells(live.canUseLiveData && !isPreview);
   const routeOptions = useMemo(
-    () => ({ roadReports: data.roadReports, now }),
-    [data.roadReports, now],
+    () => ({ roadReports: data.roadReports, speedCells, now }),
+    [data.roadReports, speedCells, now],
   );
   const legRoute = useRoadRoute(
     riderPoint,

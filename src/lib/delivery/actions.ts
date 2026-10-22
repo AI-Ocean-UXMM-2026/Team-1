@@ -52,6 +52,7 @@ export async function sendDriverLocation(
   latitude: number,
   longitude: number,
   accuracy: number | null,
+  motion?: { speedMps: number | null; headingDegrees: number | null },
 ) {
   const { error } = await supabase.from("delivery_locations").insert({
     order_id: orderId,
@@ -59,6 +60,13 @@ export async function sendDriverLocation(
     latitude,
     longitude,
     accuracy_meters: accuracy,
+    // Speed and heading feed the shared road-speed picture used for routing
+    speed_mps:
+      motion?.speedMps != null ? Math.min(70, Math.round(motion.speedMps * 100) / 100) : null,
+    heading_degrees:
+      motion?.headingDegrees != null
+        ? Math.round((((motion.headingDegrees % 360) + 360) % 360) * 100) / 100
+        : null,
   });
   if (error) throw new Error(error.message);
 }

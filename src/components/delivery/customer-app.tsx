@@ -40,6 +40,7 @@ import {
   buildNotifications,
   type CustomerNotification,
   codDue,
+  displayTrackingCode,
   homeSummary,
   matchOrders,
   normaliseCode,
@@ -308,7 +309,10 @@ export function CustomerApp({ view }: { view: CustomerView }) {
     },
     track:
       trackDetailOnly && selectedOrder
-        ? { title: selectedOrder.tracking_code, subtitle: "Delivery details" }
+        ? {
+            title: displayTrackingCode(selectedOrder.tracking_code),
+            subtitle: "Delivery details",
+          }
         : {
             title: "Track a parcel",
             subtitle: "Enter the code from your receipt",

@@ -22,6 +22,7 @@ import Link from "next/link";
 import { type FormEvent, useState } from "react";
 
 import { CustomerSheet as Sheet } from "@/components/delivery/customer-sheet";
+import { displayTrackingCode } from "@/lib/delivery/customer-home";
 import { createSupportCase } from "@/lib/delivery/operations-actions";
 import type { DeliveryOrder } from "@/lib/delivery/types";
 import { createClient } from "@/lib/supabase/client";
@@ -106,7 +107,9 @@ export function HelpSheet({
       await createSupportCase(createClient(), {
         requesterId,
         orderId: realOrder?.id,
-        subject: realOrder ? `${topic} · ${realOrder.tracking_code}` : topic,
+        subject: realOrder
+          ? `${topic} · ${displayTrackingCode(realOrder.tracking_code)}`
+          : topic,
         description: details,
         priority: topic === "Late or missing parcel" ? "high" : "normal",
       });
@@ -133,7 +136,8 @@ export function HelpSheet({
     <Sheet open={open} onClose={close} titleId="help-title" title="Get help">
       {order && (
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
-          About parcel <strong>{order.tracking_code}</strong>
+          About parcel{" "}
+          <strong>{displayTrackingCode(order.tracking_code)}</strong>
         </Typography>
       )}
       {(canCall || (order && showStatusLink)) && (
@@ -189,7 +193,10 @@ export function HelpSheet({
           sx={{ borderRadius: "12px" }}
         >
           Request sent. Our support team will follow up on your account
-          {realOrder ? ` about ${realOrder.tracking_code}` : ""}.
+          {realOrder
+            ? ` about ${displayTrackingCode(realOrder.tracking_code)}`
+            : ""}
+          .
         </Alert>
       ) : (
         <Box component="form" onSubmit={send}>

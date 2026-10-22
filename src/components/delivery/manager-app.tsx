@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRoadNoteAnalysis } from "@/lib/delivery/road-intel/use-road-intel";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
@@ -120,6 +121,11 @@ export function ManagerApp({ view }: { view: ManagerView }) {
 
 function ManagerWorkspace({ view }: { view: ManagerView }) {
   const workspace = useWorkspace("manager");
+  useRoadNoteAnalysis(
+    workspace.canUseLiveData && !workspace.isDemo,
+    workspace.data.roadReports,
+    workspace.refresh,
+  );
   return <ManagerDashboard view={view} workspace={workspace} />;
 }
 
@@ -1773,6 +1779,23 @@ export function ManagerDashboard({
                         <small>{formatTime(report.reported_at)}</small>
                       </div>
                       <p>{report.description}</p>
+                      {report.decision && (
+                        <p className="road-report-analysis">
+                          <strong>
+                            {report.decision.source === "agent"
+                              ? "AI analysis"
+                              : "Rule-based analysis"}
+                            : {sentenceCase(report.decision.action)} ·{" "}
+                            {Math.round(report.decision.confidence * 100)}%
+                            confident
+                            {report.decision.delayMinutes > 0
+                              ? ` · +${report.decision.delayMinutes} min`
+                              : ""}
+                          </strong>
+                          <br />
+                          {report.decision.rationale}
+                        </p>
+                      )}
                       <span className="road-report-meta">
                         {report.driver_name}
                         {report.order_id

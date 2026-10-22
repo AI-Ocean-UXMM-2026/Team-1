@@ -124,25 +124,68 @@ export function createSupabaseSource(
     },
 
     async loadReports(now) {
-      const { data, error } = await supabase
-        .from("road_reports")
-        .select("latitude, longitude, severity, category")
-        .eq("status", "verified")
-        .in("category", [
-          "flooding",
-          "closure",
-          "congestion",
-          "roadwork",
-          "hazard",
-        ])
-        .gt("expires_at", now.toISOString());
-      if (error) throw new Error(`road_reports: ${error.message}`);
-      return (data ?? []).map((row) => ({
-        lat: row.latitude,
-        lng: row.longitude,
-        severity: row.severity,
-        category: row.category,
-      })) as FloodReport[];
+      const nowIso = now.toISOString();
+      const categories = [
+        "flooding",
+        "closure",
+        "congestion",
+        "roadwork",
+        "hazard",
+      ];
+      const [reports, decisions] = await Promise.all([
+        supabase
+          .from("road_reports")
+          .select("id, latitude, longitude, severity, category, status")
+          .neq("status", "rejected")
+          .in("category", categories)
+          .gt("expires_at", nowIso),
+        supabase
+          .from("road_report_decisions")
+          .select("report_id, action, severity, confidence, delay_minutes, radius_meters")
+          .gt("expires_at", nowIso),
+      ]);
+      if (reports.error) throw new Error(`road_reports: ${reports.error.message}`);
+      // Decisions are optional: planning works without the table or rows
+      const decisionById = new Map(
+        (decisions.error ? [] : (decisions.data ?? [])).map((row) => [
+          row.report_id,
+          row,
+        ]),
+      );
+      const trusted = (reports.data ?? []).flatMap((row) => {
+        const decision = decisionById.get(row.id);
+        // A note the engine judged stale, cleared or contradicted is dropped
+        if (decision?.action === "ignore") return [];
+        // Unreviewed notes count only when the engine is confident in them
+        if (
+          row.status !== "verified" &&
+          !(
+            decision &&
+            Number(decision.confidence) >= 0.7 &&
+            (decision.action === "avoid" || decision.action === "delay")
+          )
+        )
+          return [];
+        return [
+          {
+            lat: row.latitude,
+            lng: row.longitude,
+            severity: row.severity,
+            category: row.category,
+            ...(decision
+              ? {
+                  decision: {
+                    action: decision.action,
+                    severity: decision.severity,
+                    delayMinutes: Number(decision.delay_minutes),
+                    radiusMeters: decision.radius_meters,
+                  },
+                }
+              : {}),
+          },
+        ];
+      });
+      return trusted as FloodReport[];
     },
 
     async loadLiveFlood(coords) {
