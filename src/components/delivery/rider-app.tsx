@@ -67,6 +67,10 @@ import {
   type RouteSnapshot,
   snapshotRoute,
 } from "@/lib/delivery/driver-route";
+import {
+  type FuelStation,
+  findNearestFuelStation,
+} from "@/lib/delivery/energy-routing";
 import { currency } from "@/lib/delivery/format";
 import { formatDriveMinutes, speedLimitAt } from "@/lib/delivery/mapbox";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
@@ -102,6 +106,7 @@ import type {
   WorkspaceData,
 } from "@/lib/delivery/types";
 import { usePermissionRecovery } from "@/lib/delivery/use-permission-recovery";
+import { useRoadSpeedCells } from "@/lib/delivery/road-intel/use-road-intel";
 import { useRoadRoute } from "@/lib/delivery/use-road-route";
 import { useStoredState } from "@/lib/delivery/use-stored-state";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
@@ -419,6 +424,7 @@ export function RiderApp() {
           point.latitude,
           point.longitude,
           point.accuracy,
+          { speedMps: point.speedMps, headingDegrees: point.headingDegrees },
         ),
       onSent: (sentIds) => setSharing(sentIds.length),
       onError: (_msg, permissionDenied) => {
@@ -437,6 +443,21 @@ export function RiderApp() {
 
   /* ---------------- distances, road routes, cautions ---------------- */
 
+  const [activePitStop, setActivePitStop] = useState<
+    (FuelStation & { distanceKm: number }) | null
+  >(null);
+
+  const currentTargetPoint = useMemo(
+    () =>
+      activePitStop
+        ? {
+            latitude: activePitStop.latitude,
+            longitude: activePitStop.longitude,
+          }
+        : (stop?.point ?? null),
+    [activePitStop, stop?.point],
+  );
+
   const openPoints = useMemo(
     () =>
       [stop, ...route.upcoming].flatMap((item) =>
@@ -444,14 +465,32 @@ export function RiderApp() {
       ),
     [stop, route.upcoming],
   );
+  const speedCells = useRoadSpeedCells(live.canUseLiveData && !isPreview);
+  const routeOptions = useMemo(
+    () => ({ roadReports: data.roadReports, speedCells, now }),
+    [data.roadReports, speedCells, now],
+  );
   const legRoute = useRoadRoute(
     riderPoint,
-    stop?.point && riderPoint ? [stop.point] : [],
+    currentTargetPoint && riderPoint ? [currentTargetPoint] : [],
+    routeOptions,
   );
   const routeOrigin = riderPoint ?? openPoints[0] ?? null;
   const routeRoad = useRoadRoute(
     routeOrigin,
     riderPoint ? openPoints : openPoints.slice(1),
+    routeOptions,
+  );
+  const upcomingDestinations = useMemo(
+    () => [
+      ...(activePitStop && stop?.point ? [stop.point] : []),
+      ...route.upcoming.flatMap((item) => (item?.point ? [item.point] : [])),
+    ],
+    [activePitStop, stop?.point, route.upcoming],
+  );
+  const upcomingRoad = useRoadRoute(
+    currentTargetPoint,
+    upcomingDestinations,
   );
   const straightKm = useMemo(() => {
     let from = routeOrigin;
@@ -463,9 +502,13 @@ export function RiderApp() {
     return openPoints.length ? total : null;
   }, [routeOrigin, riderPoint, openPoints]);
   const legDistance =
-    riderPoint && stop?.point ? distanceKm(riderPoint, stop.point) : null;
+    riderPoint && currentTargetPoint
+      ? distanceKm(riderPoint, currentTargetPoint)
+      : null;
   const legBearing =
-    riderPoint && stop?.point ? bearingDegrees(riderPoint, stop.point) : null;
+    riderPoint && currentTargetPoint
+      ? bearingDegrees(riderPoint, currentTargetPoint)
+      : null;
   const atTarget = legDistance != null && legDistance <= ARRIVAL_RADIUS_KM;
 
   const legPath = useMemo<GeoPoint[]>(() => {
@@ -474,10 +517,10 @@ export function RiderApp() {
         latitude,
         longitude,
       }));
-    return [riderPoint, stop?.point ?? null].filter(
+    return [riderPoint, currentTargetPoint].filter(
       (item): item is GeoPoint => item != null,
     );
-  }, [legRoute, riderPoint, stop?.point]);
+  }, [legRoute, riderPoint, currentTargetPoint]);
   const legCautions = useMemo(
     () => cautionsAlong(legPath, data.roadReports, now),
     [legPath, data.roadReports, now],
@@ -922,23 +965,45 @@ export function RiderApp() {
   const requestHelp = (category: RiderRequestCategory, note: string) =>
     run("request", async () => {
       if (!driverId) return;
+      const isEnergy = category === "refuel" || category === "recharge";
+
+      // If fuel or recharge requested: immediately route to nearest station!
+      let nearestStation: (FuelStation & { distanceKm: number }) | null = null;
+      if (isEnergy) {
+        const driverPos =
+          riderPoint ??
+          (stop?.point
+            ? { latitude: stop.point.latitude, longitude: stop.point.longitude }
+            : null);
+        if (driverPos) {
+          nearestStation = findNearestFuelStation(driverPos);
+          if (nearestStation) {
+            setActivePitStop(nearestStation);
+          }
+        }
+      }
+
+      const telemetryNote =
+        isEnergy && nearestStation
+          ? `[Telemetry] Auto-routed to ${nearestStation.name} (${nearestStation.distanceKm} km away). ${note}`.trim()
+          : note.trim() || null;
+
       const record: RiderRequest = {
         id: `local-${Date.now()}`,
         driver_id: driverId,
         driver_name: profileName,
         order_id: stop?.open[0]?.id ?? null,
         vehicle_id: vehicle?.id ?? null,
-        kind:
-          category === "refuel" || category === "recharge" ? "energy" : "issue",
+        kind: isEnergy ? "energy" : "issue",
         category,
-        note: note.trim() || null,
+        note: telemetryNote,
         energy_level_percent: routeEnergy.levelPercent,
         latitude: riderPoint?.latitude ?? null,
         longitude: riderPoint?.longitude ?? null,
-        status: "open",
+        status: isEnergy ? "resolved" : "open",
         created_at: new Date().toISOString(),
-        acknowledged_at: null,
-        resolved_at: null,
+        acknowledged_at: isEnergy ? new Date().toISOString() : null,
+        resolved_at: isEnergy ? new Date().toISOString() : null,
       };
       if (!isPreview)
         await requestRiderAssistance(createClient(), {
@@ -946,7 +1011,7 @@ export function RiderApp() {
           orderId: record.order_id,
           vehicleId: record.vehicle_id,
           category,
-          note,
+          note: record.note ?? "",
           energyLevelPercent: record.energy_level_percent,
           latitude: record.latitude,
           longitude: record.longitude,
@@ -956,9 +1021,11 @@ export function RiderApp() {
         riderRequests: [record, ...previous.riderRequests],
       }));
       setPanelDone(
-        category === "refuel" || category === "recharge"
-          ? "Operations has your request and your location. Keep driving only if it’s safe."
-          : "Sent to operations with your location and current stop. They’ll contact you.",
+        isEnergy && nearestStation
+          ? `Destination updated to nearest station: ${nearestStation.name} (${nearestStation.distanceKm} km away). Telemetry logged.`
+          : isEnergy
+            ? "Fuel telemetry logged. Safe driving."
+            : "Sent to operations with your location and current stop. They’ll contact you.",
       );
     });
 
@@ -1127,54 +1194,63 @@ export function RiderApp() {
   if (route.state === "IN_PROGRESS" && stop) {
     const arrivedHere =
       stop.state === "ARRIVED" || stop.state === "HANDOVER_IN_PROGRESS";
-    const instruction: Instruction = !stop.point
+    const instruction: Instruction = activePitStop
       ? {
-          title: "No map pin for this address",
-          sub: "Use the address below, or call the recipient",
+          title: `Pitstop: ${activePitStop.name}`,
+          sub: `${legDistance != null ? `${formatDistance(legDistance)} · ` : ""}${activePitStop.road}, ${activePitStop.township}`,
           arrow: null,
-          turnSymbol: "location",
+          turnSymbol: "turn-right",
         }
-      : arrivedHere
+      : !stop.point
         ? {
-            title: `At stop ${stop.number}`,
-            sub: "Park safely, then start the handover",
+            title: "No map pin for this address",
+            sub: "Use the address below, or call the recipient",
             arrow: null,
-            turnSymbol: "arrive",
+            turnSymbol: "location",
           }
-        : !riderPoint
+        : arrivedHere
           ? {
-              title:
-                gpsState === "denied" || gpsState === "unavailable"
-                  ? "Live position unavailable"
-                  : "Finding your location…",
-              sub: "Route shown from stop pins. Check the address below.",
+              title: `At stop ${stop.number}`,
+              sub: "Park safely, then start the handover",
               arrow: null,
-              turnSymbol: "straight",
+              turnSymbol: "arrive",
             }
-          : atTarget
+          : !riderPoint
             ? {
-                title: "You’re at the stop",
-                sub: "Park safely, then tap I’ve arrived",
+                title:
+                  gpsState === "denied" || gpsState === "unavailable"
+                    ? "Live position unavailable"
+                    : "Finding your location…",
+                sub: "Route shown from stop pins. Check the address below.",
                 arrow: null,
-                turnSymbol: "arrive",
+                turnSymbol: "straight",
               }
-            : legRoute?.firstStep
+            : atTarget
               ? {
-                  title: legRoute.firstStep.instruction,
-                  sub: `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} by road to stop ${stop.number}`,
+                  title: "You’re at the stop",
+                  sub: "Park safely, then tap I’ve arrived",
                   arrow: null,
-                  turnSymbol: resolveTurnSymbol(
-                    legRoute.firstStep.instruction,
-                    legRoute.firstStep.maneuverModifier,
-                    legRoute.firstStep.maneuverType,
-                  ),
+                  turnSymbol: "arrive",
                 }
-              : {
-                  title: `Head ${compassDirection(legBearing ?? 0)}`,
-                  sub: `${formatDistance(legDistance)} straight-line to stop ${stop.number}`,
-                  arrow: 0,
-                  turnSymbol: "straight",
-                };
+              : legRoute?.firstStep
+                ? {
+                    title: legRoute.firstStep.instruction,
+                    sub: legRoute.bypassInfo
+                      ? `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} · Taking ${legRoute.bypassInfo.bypassRoad} to skip junction`
+                      : `${formatDistance(legRoute.distanceKm)} · ${formatDriveMinutes(legRoute.durationMin)} by road to stop ${stop.number}`,
+                    arrow: null,
+                    turnSymbol: resolveTurnSymbol(
+                      legRoute.firstStep.instruction,
+                      legRoute.firstStep.maneuverModifier,
+                      legRoute.firstStep.maneuverType,
+                    ),
+                  }
+                : {
+                    title: `Head ${compassDirection(legBearing ?? 0)}`,
+                    sub: `${formatDistance(legDistance)} straight-line to stop ${stop.number}`,
+                    arrow: 0,
+                    turnSymbol: "straight",
+                  };
     const heading = isPreview ? legBearing : (position?.heading ?? legBearing);
     if (instruction.arrow != null)
       instruction.arrow = (legBearing ?? 0) - (heading ?? 0);
@@ -1201,21 +1277,33 @@ export function RiderApp() {
               driver={riderPoint}
               heading={riderPoint ? heading : null}
               follow={riderPoint != null}
-              target={stop.point ? { ...stop.point, kind: "dropoff" } : null}
-              targetId={stop.key}
+              target={
+                currentTargetPoint
+                  ? {
+                      ...currentTargetPoint,
+                      kind: activePitStop ? "pickup" : "dropoff",
+                    }
+                  : null
+              }
+              targetId={activePitStop ? "pitstop" : stop.key}
               stops={navStops}
               upcoming={route.upcoming.flatMap((item) =>
                 item.point ? [item.point] : [],
               )}
+              upcomingRoad={upcomingRoad}
               cautions={navCautions}
               routeThroughStops={riderPoint == null}
               padding={{
                 x: 48,
-                top: nextCaution ? 250 : 190,
+                top: nextCaution || activePitStop ? 250 : 190,
                 bottom: sheetHeight + 16,
               }}
-              road={riderPoint ? legRoute : null}
-              label={`Map to stop ${stop.number} of ${route.stops.length}: ${stop.address}`}
+              road={riderPoint ? legRoute : routeRoad}
+              label={
+                activePitStop
+                  ? `Map to fuel station: ${activePitStop.name}, ${activePitStop.road}`
+                  : `Map to stop ${stop.number} of ${route.stops.length}: ${stop.address}`
+              }
             />
           }
           instruction={instruction}
@@ -1286,7 +1374,74 @@ export function RiderApp() {
           distanceKm={atTarget ? 0 : legDistance}
           onSheetHeight={setSheetPx}
           cautionBanner={
-            nextCaution ? (
+            activePitStop ? (
+              <aside
+                className="rf-pitstop-active-bar"
+                aria-label="Pitstop navigation"
+              >
+                <div className="rf-pitstop-main">
+                  <div className="rf-pitstop-title-row">
+                    <span className="rf-pitstop-pill">
+                      <Icon name="fuel" size={14} />
+                      Pitstop
+                    </span>
+                    <strong>{activePitStop.name}</strong>
+                  </div>
+                  <span className="rf-pitstop-sub">
+                    {activePitStop.road}, {activePitStop.township}
+                    {legDistance != null
+                      ? ` · ${formatDistance(legDistance)} away`
+                      : ""}
+                  </span>
+                </div>
+                <div className="rf-pitstop-bar-actions">
+                  <a
+                    className="rf-pitstop-btn is-maps"
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${activePitStop.latitude},${activePitStop.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Icon name="navigation" size={14} />
+                    Maps
+                  </a>
+                  <button
+                    type="button"
+                    className="rf-pitstop-btn is-resume"
+                    onClick={() => {
+                      setActivePitStop(null);
+                      setFlash("Refueled! Resumed route to delivery stop.");
+                    }}
+                  >
+                    <Icon name="check" size={14} />
+                    Done
+                  </button>
+                </div>
+              </aside>
+            ) : legRoute?.bypassInfo ? (
+              <aside
+                className="rf-pitstop-active-bar"
+                aria-label="Side-street bypass"
+              >
+                <div className="rf-pitstop-main">
+                  <div className="rf-pitstop-title-row">
+                    <span
+                      className="rf-pitstop-pill"
+                      style={{
+                        background: "var(--color-primary-soft, #e0f2fe)",
+                        color: "var(--color-primary, #0284c7)",
+                      }}
+                    >
+                      <Icon name="compass" size={14} />
+                      Bypass active
+                    </span>
+                    <strong>Taking {legRoute.bypassInfo.bypassRoad}</strong>
+                  </div>
+                  <span className="rf-pitstop-sub">
+                    Bypasses {legRoute.bypassInfo.bypassedJunction} (~{legRoute.bypassInfo.timeSavedMin} min saved)
+                  </span>
+                </div>
+              </aside>
+            ) : nextCaution ? (
               <button
                 type="button"
                 className={`rf-caution-banner is-${nextCaution.report.severity}`}

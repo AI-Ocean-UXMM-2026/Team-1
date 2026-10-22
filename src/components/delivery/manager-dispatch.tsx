@@ -536,7 +536,25 @@ export function DispatchApp() {
                     : plan.quality.flood.status === "reports_only"
                       ? "Only verified road reports were used for flooding."
                       : "Flood risk is unknown, not zero."}{" "}
+                  {plan.quality.flood.live && (
+                    <>
+                      Live Open-Meteo: {plan.quality.flood.live.precipitationMm}{" "}
+                      mm/h rain
+                      {plan.quality.flood.live.riverDischargeM3s != null
+                        ? ` (river discharge ${plan.quality.flood.live.riverDischargeM3s} m³/s)`
+                        : ""}
+                      .{" "}
+                    </>
+                  )}
                   {summary.mixedWeights}.
+                  {plan.quality.traffic && plan.quality.traffic.addedDelayMin > 0 && (
+                    <>
+                      {" "}Traffic delay accounted for: {plan.quality.traffic.signalsCovered} signals, {plan.quality.traffic.interceptionsCovered} interception points
+                      {plan.quality.traffic.reportsCovered > 0 ? `, ${plan.quality.traffic.reportsCovered} road reports` : ""}
+                      {plan.quality.traffic.ordersWithTrafficDelay > 0 ? `, ${plan.quality.traffic.ordersWithTrafficDelay} order delays` : ""}
+                      {" "}(+{plan.quality.traffic.addedDelayMin} min total delay).
+                    </>
+                  )}
                 </span>
               </div>
             </section>

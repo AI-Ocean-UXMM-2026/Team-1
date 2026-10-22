@@ -101,6 +101,7 @@ export function MapboxRiderNavMap({
   label,
   road = null,
   upcoming = [],
+  upcomingRoad = null,
   cautions = [],
 }: RiderNavMapProps) {
   const container = useRef<HTMLDivElement>(null);
@@ -331,20 +332,29 @@ export function MapboxRiderNavMap({
     [],
   );
 
-  const upcomingCoordinates =
+  const straightUpcoming =
     target && upcoming.length
       ? [lngLat(target), ...upcoming.map((point) => lngLat(point))]
       : [];
+  const upcomingCoordinates =
+    upcomingRoad && upcomingRoad.coordinates.length > 1
+      ? upcomingRoad.coordinates
+      : straightUpcoming;
 
   useEffect(() => {
     if (!map) return;
     const palette = mapPalette(prefersDark());
     // Later legs first, so the current leg draws on top of them.
-    drawLines(map, "rnav-route-upcoming", [upcomingCoordinates], {
-      color: palette.origin,
-      width: 4,
-      dash: [1.5, 1.5],
-    });
+    drawLines(
+      map,
+      "rnav-route-upcoming",
+      upcomingCoordinates.length > 1 ? [upcomingCoordinates] : [],
+      {
+        color: palette.origin,
+        width: 4,
+        ...(upcomingRoad ? {} : { dash: [1.5, 1.5] }),
+      },
+    );
     drawLines(map, "rnav-route-casing", road ? [routeCoordinates] : [], {
       color: palette.casing,
       width: 11,
@@ -357,7 +367,7 @@ export function MapboxRiderNavMap({
         ? { color: palette.route, width: 6 }
         : { color: palette.origin, width: 4, dash: [1.5, 1.5] },
     );
-  }, [map, routeCoordinates, upcomingCoordinates, road]);
+  }, [map, routeCoordinates, upcomingCoordinates, road, upcomingRoad]);
 
   const handleRecenter = () => {
     try {

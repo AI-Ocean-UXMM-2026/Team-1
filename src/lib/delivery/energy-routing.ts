@@ -1,10 +1,23 @@
 import type { DeliveryOrder, VehicleOption } from "@/lib/delivery/types";
 import {
-  YANGON_USER_INTERCEPTION_POINTS,
+  type CrawledFuelStation,
+  GOOGLE_PLACES_FUEL_STATIONS,
+} from "./data/yangon-google-fuel-stations.ts";
+import {
   type InterceptionPoint,
+  YANGON_USER_INTERCEPTION_POINTS,
+  YANGON_SIDE_STREET_BYPASSES,
+  ALL_YANGON_INTERCEPTION_POINTS,
 } from "./data/yangon-interception-points.ts";
 
-export { YANGON_USER_INTERCEPTION_POINTS, type InterceptionPoint };
+export {
+  YANGON_USER_INTERCEPTION_POINTS,
+  YANGON_SIDE_STREET_BYPASSES,
+  ALL_YANGON_INTERCEPTION_POINTS,
+  type InterceptionPoint,
+  GOOGLE_PLACES_FUEL_STATIONS,
+  type CrawledFuelStation,
+};
 
 export type EnergyRouteOrder = Pick<
   DeliveryOrder,
@@ -19,7 +32,7 @@ export type EnergyRouteOrder = Pick<
 
 export type RecommendedFuelStation = {
   name: string;
-  brand: "Denko" | "Max Energy" | "PT Power" | "BOC" | "Apex";
+  brand: "Denko" | "Max Energy" | "PT Power" | "BOC" | "Apex" | string;
   township: string;
   road: string;
   latitude: number;
@@ -35,6 +48,8 @@ export type SignalBypassOpportunity = {
   netTimeSavedMin: number;
   fuelSavedLitres: number;
   recommendedRotation: string;
+  bypassRoadName?: string;
+  bypassPoint?: { latitude: number; longitude: number };
 };
 
 export type EnergyRouteAssessment = {
@@ -55,11 +70,14 @@ export type EnergyRouteAssessment = {
 
 export type FuelStation = {
   name: string;
-  brand: "Denko" | "Max Energy" | "PT Power" | "BOC" | "Apex";
+  brand: "Denko" | "Max Energy" | "PT Power" | "BOC" | "Apex" | string;
   township: string;
   road: string;
   latitude: number;
   longitude: number;
+  address?: string;
+  phone?: string | null;
+  rating?: number | null;
 };
 
 export type TrafficSignal = {
@@ -383,6 +401,28 @@ export function distanceToSegmentKm(
 }
 
 /**
+ * Cheap reject before the exact distance: a point outside the segment's
+ * bounding box, padded by the corridor width, cannot be within it. The
+ * dispatch matrix calls this for every arc, so most points stop here.
+ */
+function outsideCorridorBox(
+  p: { latitude: number; longitude: number },
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+  corridorThresholdKm: number,
+) {
+  const padLat = corridorThresholdKm / 111;
+  const padLng =
+    corridorThresholdKm / (111 * Math.max(0.1, Math.cos(radians(a.latitude))));
+  return (
+    p.latitude < Math.min(a.latitude, b.latitude) - padLat ||
+    p.latitude > Math.max(a.latitude, b.latitude) + padLat ||
+    p.longitude < Math.min(a.longitude, b.longitude) - padLng ||
+    p.longitude > Math.max(a.longitude, b.longitude) + padLng
+  );
+}
+
+/**
  * Counts traffic signals located along the direct route corridor between two points.
  */
 export function countTrafficSignalsBetween(
@@ -392,6 +432,7 @@ export function countTrafficSignalsBetween(
 ): { count: number; signals: TrafficSignal[] } {
   const matched: TrafficSignal[] = [];
   for (const signal of YANGON_TRAFFIC_SIGNALS) {
+    if (outsideCorridorBox(signal, from, to, corridorThresholdKm)) continue;
     const dist = distanceToSegmentKm(signal, from, to);
     if (dist <= corridorThresholdKm) {
       matched.push(signal);
@@ -408,7 +449,8 @@ export function countInterceptionPointsBetween(
   to: { latitude: number; longitude: number },
   corridorThresholdKm = 0.5,
 ): { count: number; points: readonly InterceptionPoint[] } {
-  const matched = YANGON_USER_INTERCEPTION_POINTS.filter((pt) => {
+  const matched = ALL_YANGON_INTERCEPTION_POINTS.filter((pt) => {
+    if (outsideCorridorBox(pt, from, to, corridorThresholdKm)) return false;
     return distanceToSegmentKm(pt, from, to) <= corridorThresholdKm;
   });
   return { count: matched.length, points: matched };
@@ -454,27 +496,115 @@ export function findOptimalFuelStation(
 }
 
 /**
+ * Merged fuel station dataset: curated corridor stations plus all 64 crawled
+ * Google Places stations across Yangon, deduplicated by geographic proximity.
+ */
+export const ALL_YANGON_FUEL_STATIONS: readonly FuelStation[] = [
+  ...YANGON_FUEL_STATIONS,
+  ...GOOGLE_PLACES_FUEL_STATIONS.filter(
+    (g) =>
+      !YANGON_FUEL_STATIONS.some(
+        (cur) =>
+          distanceKm(
+            { latitude: cur.latitude, longitude: cur.longitude },
+            { latitude: g.latitude, longitude: g.longitude },
+          ) < 0.05,
+      ),
+  ),
+];
+
+/**
+ * Finds the absolute nearest fuel or recharge station from the driver's
+ * current geographic position, using the combined Yangon stations dataset.
+ */
+export function findNearestFuelStation(
+  origin: { latitude: number; longitude: number },
+  stations: readonly FuelStation[] = ALL_YANGON_FUEL_STATIONS,
+): (FuelStation & { distanceKm: number }) | null {
+  if (!stations.length) return null;
+  let nearest: FuelStation | null = null;
+  let minDistance = Number.POSITIVE_INFINITY;
+
+  for (const station of stations) {
+    const dist = distanceKm(origin, {
+      latitude: station.latitude,
+      longitude: station.longitude,
+    });
+    if (dist < minDistance) {
+      minDistance = dist;
+      nearest = station;
+    }
+  }
+
+  if (!nearest) return null;
+  return {
+    ...nearest,
+    distanceKm: Math.round(minDistance * 10) / 10,
+  };
+}
+
+/**
  * Evaluates whether taking a minor side-street rotation around a congested
- * signalized junction (cycle >= 85s) saves time and fuel compared to waiting
+ * signalized junction or bottleneck (such as Sain Yadanar Road) saves time and fuel compared to waiting
  * in the red-light queue.
  */
 export function detectSignalBypasses(
-  signals: TrafficSignal[],
+  signals: readonly (TrafficSignal | InterceptionPoint)[],
 ): SignalBypassOpportunity[] {
-  return signals
-    .filter((sig) => sig.estimatedCycleSeconds >= 85)
-    .map((sig) => {
+  const opportunities: SignalBypassOpportunity[] = [];
+  const seenSignals = new Set<string>();
+
+  for (const sig of signals) {
+    if (seenSignals.has(sig.name)) continue;
+    seenSignals.add(sig.name);
+
+    // 1. Check known verified side-street bypasses (e.g. Sain Yadanar Road for Bogyoke AungSan junction)
+    const bypass = YANGON_SIDE_STREET_BYPASSES.find(
+      (b) =>
+        ("id" in sig && b.bypassesPointId === sig.id) ||
+        (distanceKm(sig, b) <= 0.6 &&
+          b.road?.toLowerCase().includes("sain yadanar")),
+    );
+
+    if (bypass) {
+      const redDelayMin =
+        Math.round(
+          ((Math.max(30, sig.estimatedCycleSeconds) * 0.55) / 60 + 0.3) * 10,
+        ) / 10;
+      const bypassDetourKm = 0.25;
+      const bypassDriveTimeMin =
+        Math.round((bypassDetourKm / 25) * 60 * 10) / 10;
+      const netTimeSavedMin = Math.max(
+        0.4,
+        Math.round((redDelayMin - bypassDriveTimeMin) * 10) / 10,
+      );
+      opportunities.push({
+        signalName: sig.name,
+        township: sig.township,
+        estimatedRedDelayMin: redDelayMin,
+        bypassDetourKm,
+        netTimeSavedMin,
+        fuelSavedLitres: 0.04,
+        recommendedRotation: `Take ${bypass.road ?? "Sain Yadanar Rd"} to bypass ${sig.name} (${sig.township}) saves ~${netTimeSavedMin} min`,
+        bypassRoadName: bypass.road ?? "Sain Yadanar Rd",
+        bypassPoint: { latitude: bypass.latitude, longitude: bypass.longitude },
+      });
+      continue;
+    }
+
+    // 2. Long cycle arterial signals (cycle >= 85s)
+    if (sig.estimatedCycleSeconds >= 85) {
       const redDelayMin =
         Math.round(((sig.estimatedCycleSeconds * 0.55) / 60) * 10) / 10;
       const bypassDetourKm = 0.35;
       const bypassDriveTimeMin =
-        Math.round(((bypassDetourKm / 25) * 60) * 10) / 10;
+        Math.round((bypassDetourKm / 25) * 60 * 10) / 10;
       const netTimeSavedMin = Math.max(
         0.2,
         Math.round((redDelayMin - bypassDriveTimeMin) * 10) / 10,
       );
       const fuelSavedLitres = 0.03;
-      return {
+      opportunities.push({
         signalName: sig.name,
         township: sig.township,
         estimatedRedDelayMin: redDelayMin,
@@ -482,8 +612,11 @@ export function detectSignalBypasses(
         netTimeSavedMin,
         fuelSavedLitres,
         recommendedRotation: `Side-street rotation around ${sig.name} (${sig.township}) saves ~${netTimeSavedMin} min`,
-      };
-    });
+      });
+    }
+  }
+
+  return opportunities;
 }
 
 export function assessEnergyRoute(
@@ -556,11 +689,12 @@ export function assessEnergyRoute(
   const approachSignals = currentPos
     ? countTrafficSignalsBetween(currentPos, pickup)
     : { count: 0, signals: [] };
-  const allMatchedSignals = [...coreSignals.signals, ...approachSignals.signals];
+  const allMatchedSignals = [
+    ...coreSignals.signals,
+    ...approachSignals.signals,
+  ];
   const totalSignals = allMatchedSignals.length;
-  const signalBypasses = detectSignalBypasses(allMatchedSignals);
-
-  // User-plotted interception midpoints along corridors
+  // User-plotted interception points along corridors
   const coreInterceptions = countInterceptionPointsBetween(pickup, delivery);
   const approachInterceptions = currentPos
     ? countInterceptionPointsBetween(currentPos, pickup)
@@ -568,18 +702,23 @@ export function assessEnergyRoute(
   const totalInterceptions =
     coreInterceptions.count + approachInterceptions.count;
 
+  // Signal and side-street bottleneck bypass detection
+  const allCorridorPoints = [
+    ...allMatchedSignals,
+    ...coreInterceptions.points,
+    ...approachInterceptions.points,
+  ];
+  const signalBypasses = detectSignalBypasses(allCorridorPoints);
+
   // Cargo payload weight and idling fuel calculation
   const payloadWeight = order.parcel_weight_kg ?? 0;
   // Weight factor: +3% fuel per 100 kg
   const weightFactor = 1 + Math.max(0, payloadWeight / 100) * 0.03;
   // Stop-and-go penalty: ~0.035 litres per major signal, ~0.012 litres per intermediate interception
   const idlingPenaltyLitres =
-    Math.round(
-      (totalSignals * 0.035 + totalInterceptions * 0.012) * 100,
-    ) / 100;
+    Math.round((totalSignals * 0.035 + totalInterceptions * 0.012) * 100) / 100;
   // Signal & interception idling range penalty: ~0.35 km per major signal, ~0.12 km per interception
-  const signalRangeDrainKm =
-    totalSignals * 0.35 + totalInterceptions * 0.12;
+  const signalRangeDrainKm = totalSignals * 0.35 + totalInterceptions * 0.12;
 
   // Fuel consumption rate by vehicle type
   const baseRateLPerKm =

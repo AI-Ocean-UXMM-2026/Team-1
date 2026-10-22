@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   destinationKeyFor,
+  evaluateRouteTraffic,
   formatDriveMinutes,
   needsRouteRequest,
   parseRoadRoute,
@@ -175,4 +176,208 @@ test("speedLimitAt is null when Mapbox has no limit for the road", () => {
     speedLimitAt({ coordinates: [], speedLimitsKmh: [] }, yangon),
     null,
   );
+});
+
+test("parseRoadRoute gathers speed limits across all legs in a multi-leg route", () => {
+  const route = parseRoadRoute({
+    routes: [
+      {
+        distance: 2500,
+        duration: 300,
+        geometry: {
+          coordinates: [
+            [96.15, 16.8],
+            [96.151, 16.8],
+            [96.152, 16.8],
+            [96.153, 16.8],
+          ],
+        },
+        legs: [
+          {
+            annotation: {
+              maxspeed: [{ speed: 30, unit: "km/h" }],
+            },
+          },
+          {
+            annotation: {
+              maxspeed: [{ speed: 45, unit: "km/h" }, { speed: 50, unit: "km/h" }],
+            },
+          },
+        ],
+      },
+    ],
+  });
+  assert.ok(route);
+  assert.deepEqual(route.speedLimitsKmh, [30, 45, 50]);
+});
+
+test("parseRoadRoute selects Sain Yadanar Road bypass to avoid junction bottleneck", () => {
+  // Route 0: straight through Kaung Kyite traffic light junction (16.956317, 96.080967)
+  const routeThroughJunction = {
+    distance: 960,
+    duration: 218,
+    geometry: {
+      coordinates: [
+        [96.0762, 16.9569], // Zeta
+        [96.0785, 16.9565], // Myoe Ma Aung
+        [96.08096, 16.95632], // Kaung Kyite junction
+        [96.082, 16.959], // Mother's Taste
+      ],
+    },
+    legs: [
+      {
+        steps: [
+          {
+            distance: 500,
+            maneuver: { instruction: "Drive east on Bogyoke AungSan Road" },
+          },
+          {
+            distance: 460,
+            maneuver: { instruction: "Turn left onto Ngway Street" },
+          },
+        ],
+      },
+    ],
+  };
+
+  // Route 1: turns onto Sain Yadanar Road, skipping the junction entirely
+  const routeViaSainYadanarBypass = {
+    distance: 876,
+    duration: 201,
+    geometry: {
+      coordinates: [
+        [96.0762, 16.9569], // Zeta
+        [96.0768, 16.9586], // Bayintnaung Rd
+        [96.0821, 16.9582], // Sain Yadanar Rd
+        [96.082, 16.959], // Mother's Taste
+      ],
+    },
+    legs: [
+      {
+        steps: [
+          {
+            distance: 200,
+            maneuver: { instruction: "Drive north on Bayintnaung Road" },
+          },
+          {
+            distance: 500,
+            name: "Sain Yadanar Rd",
+            maneuver: { instruction: "Turn right onto Sain Yadanar Road" },
+          },
+          {
+            distance: 176,
+            maneuver: { instruction: "Turn left onto Thiri Mingalar Pat Road" },
+          },
+        ],
+      },
+    ],
+  };
+
+  const chosenRoute = parseRoadRoute({
+    routes: [routeThroughJunction, routeViaSainYadanarBypass],
+  });
+
+  assert.ok(chosenRoute != null);
+  // Must choose the bypass route (Route 1)
+  assert.equal(chosenRoute.distanceKm, 0.876);
+  assert.equal(chosenRoute.durationMin, 201 / 60);
+  assert.ok(chosenRoute.bypassInfo != null);
+  assert.equal(chosenRoute.bypassInfo.bypassRoad, "Sain Yadanar Rd");
+  assert.ok(chosenRoute.bypassInfo.timeSavedMin > 0);
+});
+
+test("evaluateRouteTraffic layers traffic lights and road reports onto route duration", () => {
+  const coordsOnJunction = [
+    [96.0762, 16.9569],
+    [96.08096, 16.95632], // near Kamayut Traffic Light #8
+    [96.082, 16.959],
+  ];
+
+  const roadReports = [
+    {
+      id: "rr-1",
+      category: "congestion",
+      severity: "high",
+      status: "verified",
+      latitude: 16.95632,
+      longitude: 96.08096,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ];
+
+  const delays = evaluateRouteTraffic(coordsOnJunction, { roadReports });
+  assert.ok(delays.signalDelayMin > 0, "Should detect traffic light delay");
+  assert.ok(
+    delays.reportDelayMin >= 4.0,
+    "Should detect high congestion report delay",
+  );
+  assert.ok(delays.totalDelayMin >= 4.5);
+  assert.ok(delays.junctionsEncountered.length > 0);
+});
+
+test("evaluateRouteTraffic finds a light that sits between sparse route vertices", () => {
+  // Kamayut Traffic Light #1 is ~23 m off this line, 5 km from either vertex
+  const delays = evaluateRouteTraffic([
+    [96.07, 16.8855],
+    [96.125, 16.8855],
+  ]);
+  assert.ok(delays.signalCount >= 1);
+  assert.ok(delays.junctionsEncountered.some((name) => name.includes("#1")));
+});
+
+test("evaluateRouteTraffic counts one stop where a mapped light and an arterial signal share a junction", () => {
+  const light = {
+    id: "l1",
+    name: "Mapped light",
+    type: "traffic_light",
+    latitude: 16.8,
+    longitude: 96.1,
+    estimatedCycleSeconds: 60,
+  };
+  const signal = {
+    name: "Arterial signal",
+    township: "x",
+    latitude: 16.8004,
+    longitude: 96.1004,
+    estimatedCycleSeconds: 90,
+  };
+  const delays = evaluateRouteTraffic(
+    [
+      [96.099, 16.8],
+      [96.101, 16.8],
+    ],
+    { trafficLights: [light], trafficSignals: [signal] },
+  );
+  assert.equal(delays.signalCount, 1);
+  assert.deepEqual(delays.junctionsEncountered, ["Mapped light"]);
+});
+
+test("parseRoadRoute prefers the route with fewer lights when times are close", () => {
+  const light = {
+    id: "l1",
+    name: "Mapped light",
+    type: "traffic_light",
+    latitude: 16.8,
+    longitude: 96.1,
+    estimatedCycleSeconds: 30,
+  };
+  const route = (distance, duration, lat) => ({
+    distance,
+    duration,
+    geometry: {
+      coordinates: [
+        [96.09, lat],
+        [96.11, lat],
+      ],
+    },
+  });
+  const chosen = parseRoadRoute(
+    {
+      routes: [route(3000, 600, 16.8), route(3200, 636, 16.82)],
+    },
+    { trafficLights: [light], trafficSignals: [] },
+  );
+  assert.equal(chosen.signalCount, 0);
+  assert.equal(chosen.coordinates[0][1], 16.82);
 });

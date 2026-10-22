@@ -1,0 +1,518 @@
+/*
+ * Manager (admin) desktop polish.
+ *
+ * Loaded last so it settles the layered manager rules in globals.css,
+ * globals-late.css and audit-fixes.css into one 4px-grid system:
+ *   - 1px --color-border on every surface, one radius per tier
+ *   - 16px gutters between cards, 20px inside them, 32px page margins
+ *   - page header = title block left, primary action right (Shopify, Deel)
+ *   - toolbar row = search + filters on one line (Eventbrite, Tailscale)
+ * Desktop only; the phone-first manager layout (<1024px) is untouched.
+ */
+@media (min-width: 1024px) {
+  .manager-app {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  /* ---------- Sidebar ---------- */
+  .manager-sidebar {
+    width: 240px;
+    padding: 20px 12px 16px;
+    gap: 0;
+    overflow-y: auto;
+    border-right: 1px solid rgb(255 255 255 / 8%);
+    background: var(--color-brand-navy);
+  }
+
+  .manager-sidebar-group {
+    margin: 0;
+    padding: 16px 0 12px;
+    border-top: 1px solid rgb(255 255 255 / 8%);
+  }
+
+  .manager-sidebar-group:first-child {
+    padding-top: 4px;
+    border-top: 0;
+  }
+
+  .manager-sidebar-group .manager-sidebar-label {
+    margin: 0;
+    padding: 0 12px 8px;
+    color: rgb(255 255 255 / 56%);
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+
+  .manager-side-nav {
+    gap: 2px;
+  }
+
+  .manager-side-nav a {
+    min-height: 36px;
+    gap: 10px;
+    padding: 0 12px;
+    border-radius: var(--radius-sm);
+    color: rgb(255 255 255 / 80%);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .manager-side-nav a > svg {
+    flex: none;
+    opacity: 0.85;
+  }
+
+  .manager-side-nav a:hover {
+    color: #fff;
+    background: rgb(255 255 255 / 8%);
+  }
+
+  .manager-side-nav a.side-nav-active {
+    color: var(--color-brand-navy);
+    background: #fff;
+    font-weight: 600;
+    box-shadow: none;
+  }
+
+  .manager-side-nav a.side-nav-active > svg {
+    opacity: 1;
+  }
+
+  .manager-side-nav a > span {
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    color: inherit;
+    background: rgb(255 255 255 / 14%);
+    font-size: 11px;
+    line-height: 20px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .manager-side-nav a.side-nav-active > span {
+    background: var(--color-surface-subtle);
+    color: var(--color-text-secondary-subtle);
+  }
+
+  /* ---------- Top bar ---------- */
+  .manager-topbar {
+    height: 64px;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--color-border);
+    background: rgb(255 255 255 / 92%);
+    backdrop-filter: saturate(1.4) blur(8px);
+  }
+
+  .manager-topbar-right {
+    align-items: center;
+    gap: 12px;
+  }
+
+  .manager-date {
+    color: var(--color-text-secondary-subtle);
+    font-size: 12px;
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Page frame ---------- */
+  .manager-content {
+    width: min(1280px, calc(100% - 64px));
+    padding: 32px 0 48px;
+    display: grid;
+    gap: 16px;
+    align-content: start;
+  }
+
+  /* Banners and notices share one rhythm via the grid gap. */
+  .manager-content > * {
+    margin-block: 0;
+  }
+
+  .manager-stale-warning,
+  .manager-error,
+  .manager-demo {
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+  }
+
+  /* ---------- Page header: copy left, action right ---------- */
+  .dash-page-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 24px;
+    row-gap: 4px;
+    margin: 0 0 8px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .dash-page-header > .manual-order-back {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-bottom: 8px;
+    gap: 6px;
+    color: var(--color-text-secondary-subtle);
+    font-size: 13px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+
+  .dash-page-header > .manual-order-back:hover {
+    color: var(--color-brand-navy);
+  }
+
+  .dash-page-header h1 {
+    grid-column: 1;
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+
+  .dash-page-header p {
+    grid-column: 1;
+    max-width: 64ch;
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .dash-page-header > .button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    width: auto;
+    min-height: 40px;
+    padding-inline: 16px;
+    gap: 8px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  /* ---------- Cards ---------- */
+  .dash-card,
+  .manager-app .manager-orders-panel,
+  .manager-app .manager-map-panel,
+  .manager-app .road-knowledge-panel {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: none;
+  }
+
+  .dash-card {
+    padding: 20px;
+  }
+
+  .dash-card-header {
+    min-height: 28px;
+    margin-bottom: 16px;
+  }
+
+  .dash-card-header h2,
+  .panel-heading-row h2 {
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .dash-link {
+    padding: 4px 8px;
+    margin-right: -8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .dash-link:hover {
+    text-decoration: none;
+    background: var(--color-info-surface);
+  }
+
+  /* ---------- Overview grid ---------- */
+  .dash-overview {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 16px;
+  }
+
+  .dash-main,
+  .dash-rail {
+    gap: 16px;
+  }
+
+  /* The KPI strip is one card, divided into equal cells (Shopify, Squarespace). */
+  .dash-main > .dash-card:has(> .dash-kpi-grid) {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .dash-kpi-grid {
+    gap: 0;
+  }
+
+  .dash-kpi,
+  .dash-kpi:first-child {
+    gap: 6px;
+    padding: 20px;
+    border: 0;
+    border-left: 1px solid var(--color-border);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .dash-kpi:first-child {
+    border-left: 0;
+  }
+
+  .dash-kpi:hover {
+    background: var(--color-surface-subtle);
+    box-shadow: none;
+  }
+
+  .dash-kpi-label {
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .dash-kpi-value {
+    font-size: 28px;
+    line-height: 34px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dash-kpi-hint {
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  /* ---------- Tables ---------- */
+  .dash-table th,
+  .dash-table td {
+    padding: 12px 12px 12px 0;
+  }
+
+  .dash-table th {
+    padding-top: 0;
+    padding-bottom: 8px;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .dash-table td {
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .dash-table tbody tr:hover td {
+    background: var(--color-surface-subtle);
+  }
+
+  .dash-cell-main small {
+    margin-top: 2px;
+  }
+
+  /* ---------- Rail lists ---------- */
+  .dash-list li a {
+    min-height: 44px;
+    padding: 0 8px;
+    margin-inline: -8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .dash-list li + li {
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* ---------- Orders workspace ---------- */
+  .manager-operations-grid {
+    grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .manager-orders-panel,
+  .manager-map-panel {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .manager-orders-panel {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 64px - 32px - 32px);
+  }
+
+  .manager-orders-panel .panel-heading-row,
+  .manager-map-panel .panel-heading-row {
+    min-height: 56px;
+    margin: 0;
+    padding: 12px 16px 12px 20px;
+    border-bottom: 1px solid var(--color-border);
+    align-items: center;
+  }
+
+  .manager-app .panel-heading-row .button.button-small {
+    min-height: 32px;
+    padding-inline: 12px;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  /* Toolbar: search then filter chips, with their own padded band. */
+  .manager-orders-panel .manager-search-box {
+    margin: 12px 16px 0;
+  }
+
+  .manager-search-box {
+    min-height: 40px;
+    gap: 8px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border-control);
+    border-radius: var(--radius-sm);
+  }
+
+  .manager-search-box:focus-within {
+    border-color: var(--color-info);
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 18%);
+  }
+
+  .manager-search-box input {
+    font-size: 14px;
+  }
+
+  .order-filter-tabs {
+    gap: 6px;
+    margin: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .order-filter-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .order-filter-tabs button {
+    flex: none;
+    min-height: 32px;
+    gap: 6px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    color: var(--color-text-secondary-subtle);
+    background: var(--color-surface);
+    font-size: 13px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+
+  .order-filter-tabs button:hover {
+    background: var(--color-surface-subtle);
+  }
+
+  .order-filter-tabs button.is-active {
+    border-color: var(--color-brand-navy);
+    color: #fff;
+    background: var(--color-brand-navy);
+  }
+
+  .order-filter-tabs button span {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+  }
+
+  .manager-order-list {
+    gap: 0;
+    padding: 0;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .manager-app .manager-order-row {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px 14px 20px;
+    border: 0;
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 0;
+    text-align: left;
+  }
+
+  .manager-app .manager-order-row:last-child {
+    border-bottom: 0;
+  }
+
+  .manager-app .manager-order-row.is-selected {
+    box-shadow: inset 3px 0 var(--color-info);
+  }
+
+  .manager-row-main {
+    gap: 2px;
+  }
+
+  .manager-row-main > span {
+    gap: 8px;
+    align-items: baseline;
+  }
+
+  .manager-row-main strong {
+    font-size: 14px;
+    line-height: 20px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .manager-row-main > small {
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .manager-row-side {
+    gap: 4px;
+    align-items: flex-end;
+    justify-items: end;
+  }
+
+  .manager-row-side > small {
+    font-size: 12px;
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .manager-empty-list {
+    padding: 40px 20px;
+    text-align: center;
+  }
+
+  .manager-map-panel .map-card {
+    border: 0;
+    border-radius: 0;
+  }
+
+  .manager-live-tag {
+    gap: 8px;
+    padding: 4px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+}

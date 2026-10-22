@@ -155,53 +155,137 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
       aria-label="Create manual order"
       aria-busy={saving}
     >
+      <p className="manual-order-required-note">
+        <span aria-hidden="true">*</span> Required fields
+      </p>
       <fieldset disabled={saving} className="manual-order-fields">
-        <legend>Sender</legend>
+        <legend>
+          <span>Pickup contact</span>
+          <small>Who should the rider contact at collection?</small>
+        </legend>
         <div className="operations-form-row">
           <label>
-            Sender name
+            <span className="manual-order-label">
+              Sender or shop name <span aria-hidden="true">*</span>
+            </span>
             <input
               name="senderName"
               ref={senderField}
               autoComplete="off"
+              placeholder="e.g. Aye Aye Store"
               required
             />
           </label>
           <label>
-            Sender phone
-            <input name="senderPhone" type="tel" required />
+            <span className="manual-order-label">
+              Pickup phone <span aria-hidden="true">*</span>
+            </span>
+            <input
+              name="senderPhone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              placeholder="e.g. 09 123 456 789"
+              required
+            />
           </label>
         </div>
         <label>
-          Pickup address
-          <textarea name="pickupAddress" rows={2} required />
+          <span className="manual-order-label">
+            Pickup address <span aria-hidden="true">*</span>
+          </span>
+          <textarea
+            name="pickupAddress"
+            rows={3}
+            placeholder="Township, street, building and nearby landmark"
+            aria-describedby="pickup-address-help"
+            required
+          />
+          <small id="pickup-address-help" className="manual-order-field-help">
+            Include enough detail for the rider to find the pickup quickly.
+          </small>
         </label>
       </fieldset>
       <fieldset disabled={saving} className="manual-order-fields">
-        <legend>Receiver</legend>
+        <legend>
+          <span>Delivery contact</span>
+          <small>Who will receive the parcel?</small>
+        </legend>
         <div className="operations-form-row">
           <label>
-            Receiver name
-            <input name="receiverName" autoComplete="off" required />
+            <span className="manual-order-label">
+              Receiver name <span aria-hidden="true">*</span>
+            </span>
+            <input
+              name="receiverName"
+              autoComplete="off"
+              placeholder="e.g. Ko Min"
+              required
+            />
           </label>
           <label>
-            Receiver phone
-            <input name="receiverPhone" type="tel" required />
+            <span className="manual-order-label">
+              Receiver phone <span aria-hidden="true">*</span>
+            </span>
+            <input
+              name="receiverPhone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              placeholder="e.g. 09 123 456 789"
+              required
+            />
           </label>
         </div>
         <label>
-          Delivery address
-          <textarea name="deliveryAddress" rows={2} required />
+          <span className="manual-order-label">
+            Delivery address <span aria-hidden="true">*</span>
+          </span>
+          <textarea
+            name="deliveryAddress"
+            rows={3}
+            placeholder="Township, street, building and nearby landmark"
+            aria-describedby="delivery-address-help"
+            required
+          />
+          <small id="delivery-address-help" className="manual-order-field-help">
+            Include access notes such as a floor, gate or building entrance.
+          </small>
         </label>
       </fieldset>
       <fieldset disabled={saving} className="manual-order-fields">
-        <legend>Items</legend>
+        <legend>
+          <span>Parcel contents</span>
+          <small>
+            Add each item so the rider and customer know what to expect.
+          </small>
+        </legend>
         {items.map((item, index) => (
           <div className="manual-order-item" key={item.id}>
+            <div className="manual-order-item-header">
+              <strong>Item {index + 1}</strong>
+              {items.length > 1 && (
+                <button
+                  type="button"
+                  className="manual-order-remove"
+                  aria-label={`Remove item ${index + 1}`}
+                  onClick={() =>
+                    setItems((previous) =>
+                      previous.filter((current) => current.id !== item.id),
+                    )
+                  }
+                >
+                  Remove
+                </button>
+              )}
+            </div>
             <label className="manual-order-description">
-              Description
+              <span className="manual-order-label">
+                Item description <span aria-hidden="true">*</span>
+              </span>
               <input
                 aria-label={`Item ${index + 1} description`}
+                placeholder="e.g. 2 cotton shirts"
                 value={item.description}
                 onChange={(event) =>
                   updateItem(item.id, { description: event.target.value })
@@ -211,10 +295,13 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
             </label>
             <div className="operations-form-row">
               <label>
-                Quantity
+                <span className="manual-order-label">
+                  Quantity <span aria-hidden="true">*</span>
+                </span>
                 <input
                   aria-label={`Item ${index + 1} quantity`}
                   type="number"
+                  inputMode="numeric"
                   min="1"
                   step="1"
                   value={item.quantity}
@@ -227,10 +314,13 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
                 />
               </label>
               <label>
-                Unit price (MMK)
+                <span className="manual-order-label">
+                  Price per item (MMK) <span aria-hidden="true">*</span>
+                </span>
                 <input
                   aria-label={`Item ${index + 1} unit price`}
                   type="number"
+                  inputMode="numeric"
                   min="0"
                   step="100"
                   value={item.unitPrice}
@@ -245,27 +335,13 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
             </div>
             <div className="manual-item-subtotal-row">
               <span className="manual-item-subtotal">
-                Subtotal:{" "}
+                Item total{" "}
                 <strong>
                   {currency.format(
                     Math.max(1, item.quantity) * Math.max(0, item.unitPrice),
                   )}
                 </strong>
               </span>
-              {items.length > 1 && (
-                <button
-                  type="button"
-                  className="button button-outline button-small"
-                  aria-label={`Remove item ${index + 1}`}
-                  onClick={() =>
-                    setItems((previous) =>
-                      previous.filter((current) => current.id !== item.id),
-                    )
-                  }
-                >
-                  Remove item
-                </button>
-              )}
             </div>
           </div>
         ))}
@@ -287,18 +363,28 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
         </div>
       </fieldset>
       <fieldset disabled={saving} className="manual-order-fields">
-        <legend>Payment and notes</legend>
+        <legend>
+          <span>Cash collection and rider notes</span>
+          <small>
+            Confirm what the rider should collect and any special instructions.
+          </small>
+        </legend>
         <div className="manual-cod-row">
           <label>
-            COD amount (MMK)
+            Cash to collect (MMK)
             <input
               name="codAmount"
               type="number"
+              inputMode="numeric"
               min="0"
               step="100"
               value={codAmount}
               onChange={(e) => setCodAmount(e.target.value)}
+              aria-describedby="cod-amount-help"
             />
+            <small id="cod-amount-help" className="manual-order-field-help">
+              Enter 0 if the rider should not collect cash on delivery.
+            </small>
           </label>
           {itemsTotal > 0 && (
             <button
@@ -311,17 +397,28 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
           )}
         </div>
         <label>
-          Notes (optional)
+          Rider instructions (optional)
           <textarea
             name="notes"
             rows={3}
-            placeholder="Delivery instructions or anything the rider should know"
+            placeholder="e.g. Call before arrival; use the east gate"
           />
         </label>
       </fieldset>
-      <p className="manual-order-hint">
-        A tracking ID is generated. A rider is assigned if one is available.
-      </p>
+      <div className="manual-order-outcome">
+        <strong>What happens next</strong>
+        <span>
+          We’ll generate a tracking ID and assign an available rider
+          automatically. If no rider is available, the order will stay ready for
+          assignment.
+        </span>
+      </div>
+      {!canCreate && (
+        <p className="error-notice" role="alert">
+          Order creation is unavailable for this manager account. Refresh the
+          page or sign in again.
+        </p>
+      )}
       {error && (
         <p className="error-notice" role="alert">
           {error}
@@ -337,7 +434,7 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
         </button>
         {!saving && (
           <Link className="button button-outline" href="/manager/order">
-            Cancel
+            Back to orders
           </Link>
         )}
       </div>

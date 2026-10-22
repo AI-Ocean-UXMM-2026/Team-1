@@ -10,6 +10,7 @@ import Link from "next/link";
 
 import { CustomerSheet as Sheet } from "@/components/delivery/customer-sheet";
 import { StatusChip } from "@/components/delivery/customer-ui-utils";
+import { displayTrackingCode } from "@/lib/delivery/customer-home";
 import { currency } from "@/lib/delivery/format";
 import type { DeliveryOrder } from "@/lib/delivery/types";
 
@@ -75,7 +76,7 @@ export function CodSheet({ open, orders, onClose }: CodSheetProps) {
                   }}
                 >
                   <ListItemText
-                    primary={order.tracking_code}
+                    primary={displayTrackingCode(order.tracking_code)}
                     secondary={currency.format(order.cod_amount)}
                     slotProps={{
                       primary: { sx: { fontWeight: 700, fontSize: 14 } },

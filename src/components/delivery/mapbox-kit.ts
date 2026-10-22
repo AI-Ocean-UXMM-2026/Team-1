@@ -178,8 +178,20 @@ export function drawLines(
  * A marker element holding a static SVG. Only pass literal markup or numbers
  * here; text from data goes in through `textContent` or attributes.
  */
-export function svgMarker(inner: string, size: number, viewBox: string) {
-  const element = document.createElement("div");
+export function svgMarker(
+  inner: string,
+  size: number,
+  viewBox: string,
+  asButton = false,
+  ariaLabel?: string,
+) {
+  const element = document.createElement(asButton ? "button" : "div");
+  if (asButton) {
+    (element as HTMLButtonElement).type = "button";
+    if (ariaLabel) {
+      element.setAttribute("aria-label", ariaLabel);
+    }
+  }
   element.className = "mapbox-marker";
   element.innerHTML = `<svg width="${size}" height="${size}" viewBox="${viewBox}" aria-hidden="true" overflow="visible">${inner}</svg>`;
   return element;

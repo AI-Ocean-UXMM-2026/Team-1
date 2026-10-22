@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { CodTag, Notice } from "@/components/delivery/rider-tools";
+import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import {
   type DeliveryStop,
   type DriverRoute,
@@ -634,36 +635,37 @@ export function RouteOverview({
 
       {(state === "ASSIGNED" || state === "READY" || state === "PAUSED") && (
         <div className="rf-dock">
-          <Button
-            fullWidth
-            variant="contained"
-            color="primary"
-            size="large"
-            disabled={busy != null || !online}
-            onClick={
-              state === "ASSIGNED"
-                ? onAcknowledge
-                : state === "READY"
-                  ? onStart
-                  : onResume
-            }
-            endIcon={
-              busy == null && online ? (
-                <Icon name="arrow-right" size={18} />
-              ) : undefined
-            }
-            sx={{ minHeight: 52, borderRadius: 999 }}
-          >
-            {busy
-              ? "Saving…"
-              : !online
-                ? "Waiting for connection"
-                : state === "ASSIGNED"
-                  ? "Acknowledge route"
-                  : state === "READY"
-                    ? `Start route · ${route.stops.length} stops`
+          {state === "READY" ? (
+            <SwipeConfirm
+              label={`Start route · ${route.stops.length} stops`}
+              hint="Swipe to start route"
+              disabled={busy != null || !online}
+              onConfirm={onStart}
+            />
+          ) : (
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              size="large"
+              disabled={busy != null || !online}
+              onClick={state === "ASSIGNED" ? onAcknowledge : onResume}
+              endIcon={
+                busy == null && online ? (
+                  <Icon name="arrow-right" size={18} />
+                ) : undefined
+              }
+              sx={{ minHeight: 52, borderRadius: 999 }}
+            >
+              {busy
+                ? "Saving…"
+                : !online
+                  ? "Waiting for connection"
+                  : state === "ASSIGNED"
+                    ? "Acknowledge route"
                     : `Resume at stop ${route.current?.number ?? ""}`}
-          </Button>
+            </Button>
+          )}
         </div>
       )}
     </main>

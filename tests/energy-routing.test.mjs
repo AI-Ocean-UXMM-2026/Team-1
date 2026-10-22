@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ALL_YANGON_FUEL_STATIONS,
   assessEnergyRoute,
-  countTrafficSignalsBetween,
   countInterceptionPointsBetween,
+  countTrafficSignalsBetween,
   detectSignalBypasses,
   distanceToSegmentKm,
+  findNearestFuelStation,
   findOptimalFuelStation,
   YANGON_FUEL_STATIONS,
   YANGON_TRAFFIC_SIGNALS,
@@ -183,6 +185,19 @@ test("detectSignalBypasses finds small rotation bypasses for long cycle junction
   assert.ok(bypasses[0].recommendedRotation.includes("Hledan"));
 });
 
+test("detectSignalBypasses finds Sain Yadanar Road bypass for Bogyoke AungSan junction", () => {
+  const junction = YANGON_USER_INTERCEPTION_POINTS.find(
+    (p) => p.id === "pt_1792606477515_s3c7",
+  );
+  assert.ok(junction != null);
+  const bypasses = detectSignalBypasses([junction]);
+  assert.equal(bypasses.length, 1);
+  assert.equal(bypasses[0].bypassRoadName, "Sain Yadanar Rd");
+  assert.ok(bypasses[0].bypassPoint != null);
+  assert.ok(bypasses[0].recommendedRotation.includes("Sain Yadanar Rd"));
+  assert.ok(bypasses[0].netTimeSavedMin > 0);
+});
+
 test("user-mapped interception points dataset loads 89 points with valid Yangon coordinates", () => {
   assert.equal(YANGON_USER_INTERCEPTION_POINTS.length, 89);
   for (const pt of YANGON_USER_INTERCEPTION_POINTS) {
@@ -190,6 +205,8 @@ test("user-mapped interception points dataset loads 89 points with valid Yangon 
     assert.ok(pt.longitude > 96.0 && pt.longitude < 96.3);
     assert.ok(pt.estimatedCycleSeconds > 0);
     assert.ok(pt.township.length > 0);
+    assert.equal(pt.type, "traffic_light");
+    assert.ok(pt.name.includes("Traffic Light"));
   }
 });
 
@@ -200,4 +217,25 @@ test("countInterceptionPointsBetween detects intermediate points along Kyauktada
   const result = countInterceptionPointsBetween(p1, p2, 0.5);
   assert.ok(result.count >= 5);
   assert.ok(result.points.some((p) => p.township === "Kyauktada"));
+});
+
+test("findNearestFuelStation locates the closest station from Google Places dataset", () => {
+  assert.ok(
+    ALL_YANGON_FUEL_STATIONS.length >= 60,
+    "Should include Google Places crawled stations",
+  );
+
+  // Near Bahan / Sayar San Road
+  const bahanDriver = { latitude: 16.822, longitude: 96.161 };
+  const nearest = findNearestFuelStation(bahanDriver);
+
+  assert.ok(nearest != null);
+  assert.ok(
+    nearest.distanceKm < 0.8,
+    "Should find station within 800m of Bahan Sayar San",
+  );
+  assert.ok(
+    nearest.name.includes("Max Energy") || nearest.name.includes("Petro K"),
+  );
+  assert.ok(nearest.road.length > 0);
 });

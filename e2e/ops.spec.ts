@@ -268,6 +268,93 @@ test("managers reconcile and settle cash on delivery (O-02)", async ({
   ).toMatchObject({ status: "settled" });
 });
 
+test("manager can group cash by rider and batch settle shift", async ({
+  page,
+  context,
+}) => {
+  const backend = await signInAs(context, "manager", {
+    delivery_orders: [
+      makeOrder({
+        id: "order-c1",
+        tracking_code: "OR-COD-1",
+        status: "delivered",
+        driver_id: "driver-1",
+        driver_name: "Aung Kyaw",
+        cod_amount: 50000,
+        cod_status: "collected",
+      }),
+      makeOrder({
+        id: "order-c2",
+        tracking_code: "OR-COD-2",
+        status: "delivered",
+        driver_id: "driver-1",
+        driver_name: "Aung Kyaw",
+        cod_amount: 30000,
+        cod_status: "collected",
+      }),
+    ],
+    delivery_assignments: [
+      {
+        id: "a-c1",
+        order_id: "order-c1",
+        driver_id: "driver-1",
+        vehicle_id: null,
+        route_id: null,
+        assigned_at: minutesAgo(40),
+        ended_at: null,
+      },
+      {
+        id: "a-c2",
+        order_id: "order-c2",
+        driver_id: "driver-1",
+        vehicle_id: null,
+        route_id: null,
+        assigned_at: minutesAgo(40),
+        ended_at: null,
+      },
+    ],
+    cod_payments: [
+      {
+        order_id: "order-c1",
+        amount: 50000,
+        payment_method: "cash",
+        status: "collected",
+        collected_by: "driver-1",
+        collected_at: minutesAgo(30),
+        settled_at: null,
+      },
+      {
+        order_id: "order-c2",
+        amount: 30000,
+        payment_method: "cash",
+        status: "collected",
+        collected_by: "driver-1",
+        collected_at: minutesAgo(20),
+        settled_at: null,
+      },
+    ],
+  });
+
+  await page.goto("/manager/cod");
+  await page.getByRole("tab", { name: /Group by rider/ }).click();
+
+  const riderCard = page.locator(".cod-rider-card").first();
+  await expect(riderCard).toBeVisible();
+  await expect(
+    riderCard.getByRole("heading", { name: "Aung Kyaw" }),
+  ).toBeVisible();
+  await expect(riderCard.locator(".cod-metric-val").first()).toContainText("80,000");
+
+  const settleBtn = riderCard.getByRole("button", { name: /Settle shift/ });
+  await expect(settleBtn).toBeVisible();
+  await settleBtn.click();
+
+  await riderCard
+    .getByRole("button", { name: "Confirm shift handover" })
+    .click();
+  await expect(page.getByText("Shift settled")).toBeVisible();
+});
+
 test("dispatch can show every rider, not only the top three (O-03)", async ({
   page,
   context,
@@ -352,7 +439,7 @@ test("manager orders queue supports search and filtering", async ({
   await expect(rows).toHaveCount(0);
   await expect(page.getByText("No deliveries match")).toBeVisible();
 
-  await page.getByRole("button", { name: "Clear search" }).click();
+  await page.getByRole("button", { name: "Clear search" }).first().click();
   await expect(rows).toHaveCount(2);
 });
 
@@ -366,6 +453,8 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
         id: "order-r1",
         tracking_code: "OR-REASSIGN",
         status: "assigned",
+        driver_id: "driver-old",
+        driver_name: "Old Driver",
       }),
     ],
     delivery_assignments: [
@@ -380,19 +469,9 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
       },
     ],
     profiles: [
-      { id: "user-mgr", full_name: "Manager", phone: null, role: "manager" },
-      {
-        id: "driver-old",
-        full_name: "Old Driver",
-        phone: null,
-        role: "driver",
-      },
-      {
-        id: "driver-new",
-        full_name: "New Driver",
-        phone: null,
-        role: "driver",
-      },
+      { id: "user-1", full_name: "Manager", phone: null, role: "manager" },
+      { id: "driver-old", full_name: "Old Driver", phone: null, role: "driver" },
+      { id: "driver-new", full_name: "New Driver", phone: null, role: "driver" },
     ],
     driver_profiles: [
       { user_id: "driver-old", availability: "on_delivery" },
@@ -417,22 +496,23 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
   });
   await page.goto("/manager/order");
 
-  const reassignBtn = page.getByRole("button", { name: "Reassign" });
+  const reassignBtn = page
+    .locator(".recommendation-card")
+    .filter({ hasText: "New Driver" })
+    .getByRole("button", { name: "Reassign", exact: true });
   await expect(reassignBtn).toBeVisible();
   await reassignBtn.click();
 
   const modal = page.getByRole("dialog");
   await expect(modal).toBeVisible();
-  await expect(
-    modal.getByRole("heading", { name: "Confirm driver reassignment" }),
-  ).toBeVisible();
+  await expect(modal.getByRole("heading", { name: "Confirm driver reassignment" })).toBeVisible();
   await expect(modal.getByText("New Driver")).toBeVisible();
 
   await modal.getByRole("button", { name: "Confirm reassignment" }).click();
   await expect(modal).toHaveCount(0);
   expect(
-    backend.mutations.find((m) => m.table === "delivery_assignments")?.body,
-  ).toMatchObject({ driver_id: "driver-new" });
+    backend.mutations.find((m) => m.table === "rpc")?.body,
+  ).toMatchObject({ target_driver_id: "driver-new" });
 });
 
 test("mobile bottom nav includes More drawer with full manager operations", async ({
@@ -451,13 +531,59 @@ test("mobile bottom nav includes More drawer with full manager operations", asyn
 
   const menu = page.getByRole("dialog");
   await expect(menu).toBeVisible();
-  await expect(
-    menu.getByRole("heading", { name: "Operations menu" }),
-  ).toBeVisible();
+  await expect(menu.getByRole("heading", { name: "Operations menu" })).toBeVisible();
   await expect(menu.getByRole("link", { name: /Team roster/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /Plan routes/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /Job board/ })).toBeVisible();
+  await expect(menu.getByRole("link", { name: /Fleet insights/ })).toBeVisible();
+});
+
+test("manager profile consolidates team riders and fleet vehicles with direct tab navigation", async ({
+  page,
+  context,
+}) => {
+  await signInAs(context, "manager", {
+    profiles: [
+      { id: "user-1", full_name: "Manager", phone: null, role: "manager" },
+      {
+        id: "driver-1",
+        full_name: "Aung Kyaw",
+        phone: "+95 9 111 222",
+        role: "driver",
+      },
+    ],
+    driver_profiles: [{ user_id: "driver-1", availability: "available" }],
+    vehicles: [
+      {
+        id: "v-1",
+        registration_number: "YGN-FLEET-1",
+        vehicle_type: "motorcycle",
+        status: "available",
+        capacity_kg: 30,
+        energy_source: "fuel",
+        fuel_level_percent: 75,
+        battery_level_percent: null,
+        range_km_at_full: 200,
+        reserve_percent: 10,
+        odometer_km: 12500,
+        service_due_at_km: null,
+      },
+    ],
+  });
+
+  await page.goto("/manager/profile");
   await expect(
-    menu.getByRole("link", { name: /Fleet insights/ }),
+    page.getByRole("heading", { name: "Team & Fleet" }),
   ).toBeVisible();
+  await expect(page.getByText("Aung Kyaw")).toBeVisible();
+
+  // Switch to Vehicles tab
+  await page.getByRole("tab", { name: /Vehicles/ }).click();
+  await expect(page.getByText("YGN-FLEET-1")).toBeVisible();
+  await expect(page.getByText("Motorcycle")).toBeVisible();
+  await expect(page.getByText("75%")).toBeVisible();
+
+  // Direct tab navigation via URL
+  await page.goto("/manager/profile?tab=vehicles");
+  await expect(page.getByText("YGN-FLEET-1")).toBeVisible();
 });

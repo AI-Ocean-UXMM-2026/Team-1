@@ -16,6 +16,7 @@ import { Icon } from "@/components/delivery/icons";
 import { currency, formatDateTime } from "@/lib/delivery/format";
 import {
   autoAcceptOrders,
+  confirmOrders,
   countdownText,
   createJobBatch,
   type DeliveryJob,
@@ -25,7 +26,6 @@ import {
   loadQueue,
   nextBatchAt,
   type QueueEntry,
-  queueOrders,
   reproduceUnclaimedTasks,
   runAutomationWorkflow,
   unqueueOrders,
@@ -138,10 +138,11 @@ export function ManagerJobsApp() {
 
   const accept = (ids: string[]) =>
     run("accept", async () => {
-      const count = await queueOrders(createClient(), ids);
-      return count === 1
-        ? "1 order added to the queue."
-        : `${count} orders added to the queue.`;
+      const result = await confirmOrders(createClient(), ids);
+      if (!result.confirmed) return "Nothing to confirm.";
+      const orders = result.confirmed === 1 ? "1 order" : `${result.confirmed} orders`;
+      const jobs = result.jobs === 1 ? "1 job" : `${result.jobs} jobs`;
+      return `${orders} confirmed. Automation posted ${jobs} to the driver board.`;
     });
 
   const autoAcceptAll = () =>
@@ -206,7 +207,7 @@ export function ManagerJobsApp() {
       <div className="operations-shell">
         <PageHeader
           title="Job board"
-          description="Accept orders into the queue. Every 9 hours or via automation, tasks are batched, monitored, and reproduced if unclaimed."
+          description="Confirm or check new requests. Automation clusters them into jobs for the nearest areas and posts them to the driver board, where drivers take them."
         />
         {(error || workspace.error) && (
           <div className="error-notice" role="alert">
@@ -327,7 +328,7 @@ export function ManagerJobsApp() {
             <section className="operations-grid">
               <div className="operations-panel operations-panel-wide">
                 <div className="section-head-inline">
-                  <h2>New requests</h2>
+                  <h2>New pickup requests</h2>
                   <div style={{ display: "flex", gap: "6px" }}>
                     <button
                       type="button"
@@ -347,7 +348,7 @@ export function ManagerJobsApp() {
                         void accept(requests.map((order) => order.id))
                       }
                     >
-                      {busy === "accept" ? "Accepting…" : "Accept all"}
+                      {busy === "accept" ? "Confirming…" : "Confirm all"}
                     </button>
                   </div>
                 </div>
@@ -375,13 +376,13 @@ export function ManagerJobsApp() {
                         disabled={busy != null}
                         onClick={() => void accept([order.id])}
                       >
-                        Accept
+                        Confirm
                       </button>
                     </article>
                   ))}
                   {!requests.length && (
                     <p className="empty-small-copy">
-                      No new requests are waiting for acceptance.
+                      No new pickup requests to confirm.
                     </p>
                   )}
                 </div>

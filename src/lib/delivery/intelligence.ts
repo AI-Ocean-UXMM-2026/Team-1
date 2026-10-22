@@ -1,4 +1,5 @@
 import {
+  countInterceptionPointsBetween,
   countTrafficSignalsBetween,
   distanceToSegmentKm,
 } from "./energy-routing.ts";
@@ -104,6 +105,10 @@ export function recommendAssignments(
         pickup && driverLocation
           ? countTrafficSignalsBetween(driverLocation, pickup).count
           : 0;
+      const interceptionCount =
+        pickup && driverLocation
+          ? countInterceptionPointsBetween(driverLocation, pickup).count
+          : 0;
 
       // Dynamic Yangon monsoon flood & road caution avoidance
       let floodPenalty = 0;
@@ -144,15 +149,20 @@ export function recommendAssignments(
       const chosenVehicle = rankedVehicles[0] ?? null;
       const availabilityScore = driver.availability === "available" ? 28 : 12;
 
-      // Corridor-adjusted distance with signal bottleneck penalty & flood avoidance
+      // Corridor-adjusted distance with signal bottleneck penalty, interception friction & flood avoidance
       const roadDistanceKm = distance != null ? distance * 1.22 : null;
       const signalPenalty = Math.min(5, signalCount * 1.2);
+      const interceptionPenalty = Math.min(4, interceptionCount * 0.4);
       const proximityScore =
         roadDistanceKm == null
           ? 8
           : Math.max(
               0,
-              30 - roadDistanceKm * 3.3 - signalPenalty - floodPenalty,
+              30 -
+                roadDistanceKm * 3.3 -
+                signalPenalty -
+                interceptionPenalty -
+                floodPenalty,
             );
 
       const workloadScore = Math.max(0, 24 - activeOrders.length * 10);
@@ -217,6 +227,11 @@ export function recommendAssignments(
       if (signalCount > 0) {
         reasons.push(
           `${signalCount} traffic ${signalCount === 1 ? "signal" : "signals"} on corridor`,
+        );
+      }
+      if (interceptionCount > 0) {
+        reasons.push(
+          `${interceptionCount} interception waypoint${interceptionCount === 1 ? "" : "s"} on corridor`,
         );
       }
       if (floodBlocked) {

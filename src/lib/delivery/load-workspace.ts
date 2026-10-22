@@ -1,3 +1,4 @@
+import type { AttachedDecision } from "./road-intel/types.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
@@ -108,6 +109,7 @@ export async function loadWorkspace(
     routesResult,
     routeStopsResult,
     riderRequestsResult,
+    roadDecisionsResult,
   ] = await Promise.all([
     supabase
       .from("delivery_orders")
@@ -152,6 +154,13 @@ export async function loadWorkspace(
           .order("created_at", { ascending: false })
           .limit(100)
       : Promise.resolve({ data: [], error: null }),
+    // Optional: a workspace without the decisions table still loads
+    supabase
+      .from("road_report_decisions")
+      .select(
+        "report_id, action, severity, confidence, delay_minutes, radius_meters, expires_at, rationale, source",
+      )
+      .gt("expires_at", new Date().toISOString()),
   ]);
 
   const firstError =
@@ -203,6 +212,23 @@ export async function loadWorkspace(
   // them read: their assigned vehicle and verified reports near their work.
   const seesFleetData =
     requestedRole === "manager" || requestedRole === "driver";
+  const decisionByReport = new Map(
+    (roadDecisionsResult.error ? [] : (roadDecisionsResult.data ?? [])).map(
+      (row) => [
+        row.report_id,
+        {
+          action: row.action as AttachedDecision["action"],
+          severity: row.severity as AttachedDecision["severity"],
+          confidence: Number(row.confidence),
+          delayMinutes: Number(row.delay_minutes),
+          radiusMeters: row.radius_meters,
+          expiresAt: row.expires_at,
+          rationale: row.rationale,
+          source: row.source as AttachedDecision["source"],
+        } satisfies AttachedDecision,
+      ],
+    ),
+  );
   const roadReports: RoadReport[] = (
     (roadReportsResult.data ?? []) as RoadReportRow[]
   ).map((report) => ({
@@ -218,6 +244,7 @@ export async function loadWorkspace(
     status: report.status as RoadReport["status"],
     reported_at: report.reported_at,
     expires_at: report.expires_at,
+    decision: decisionByReport.get(report.id) ?? null,
   }));
   if (orders.length === 0) {
     const vehicles = (vehiclesResult.data ?? []) as VehicleRow[];

@@ -1,4 +1,5 @@
 import { haversineKm } from "./matrix.ts";
+import type { LiveFloodConditions } from "./open-meteo.ts";
 import type { Matrix, Point } from "./types.ts";
 
 /*
@@ -26,6 +27,14 @@ export type FloodReport = {
   lat: number;
   lng: number;
   severity: keyof typeof REPORT_WEIGHT;
+  category?: string;
+  /** The road-intelligence engine's verdict on the note, when it has one. */
+  decision?: {
+    action: "avoid" | "delay" | "monitor";
+    severity: string;
+    delayMinutes: number;
+    radiusMeters: number;
+  };
 };
 
 type Ring = [number, number][];
@@ -153,10 +162,19 @@ export class FloodField {
   }
 }
 
+function isFloodReport(report: FloodReport) {
+  return (
+    !report.category ||
+    report.category === "flooding" ||
+    report.category === "closure"
+  );
+}
+
 function reportWeightAt(lat: number, lng: number, reports: FloodReport[]) {
   let best = 0;
   const here = { lat, lng };
   for (const report of reports) {
+    if (!isFloodReport(report)) continue;
     if (haversineKm(here, report) <= REPORT_RADIUS_KM)
       best = Math.max(best, REPORT_WEIGHT[report.severity]);
   }
@@ -167,6 +185,7 @@ function blockedAt(lat: number, lng: number, reports: FloodReport[]) {
   const here = { lat, lng };
   return reports.some(
     (report) =>
+      isFloodReport(report) &&
       report.severity === "blocked" &&
       haversineKm(here, report) <= BLOCK_RADIUS_KM,
   );
@@ -213,6 +232,7 @@ export type FloodSummary = {
   reportsUsed: number;
   exposedArcs: number;
   blockedArcs: number;
+  live?: LiveFloodConditions | null;
 };
 
 /** Returns a copy of the matrix with per-arc flood fraction and blocked flags. */
@@ -221,6 +241,7 @@ export function applyFlood(
   points: Point[],
   field: FloodField | null,
   reports: FloodReport[],
+  live?: LiveFloodConditions | null,
 ): { matrix: Matrix; summary: FloodSummary } {
   const hasLayer = field != null && field.featureCount > 0;
   const status: FloodStatus = hasLayer
@@ -237,6 +258,7 @@ export function applyFlood(
         reportsUsed: 0,
         exposedArcs: 0,
         blockedArcs: 0,
+        live: live ?? null,
       },
     };
   }
@@ -270,6 +292,7 @@ export function applyFlood(
       reportsUsed: reports.length,
       exposedArcs: exposed,
       blockedArcs: blockedCount,
+      live: live ?? null,
     },
   };
 }

@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { CheetahRun } from "@/components/delivery/cheetah-run";
 
 /** Shared indeterminate feedback; use compact mode inside labeled controls. */
 export function Loader({
@@ -10,8 +10,8 @@ export function Loader({
 }) {
   return (
     <output className={`oern-loader${compact ? " oern-loader-compact" : ""}`}>
-      <span className="oern-loader-art" aria-hidden="true">
-        {compact ? (
+      {compact ? (
+        <span className="oern-loader-art" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle
               cx="12"
@@ -29,16 +29,10 @@ export function Loader({
             />
             <circle cx="12" cy="21" r="1.5" fill="currentColor" />
           </svg>
-        ) : (
-          <Image
-            src="/brand/oern-character.png"
-            width={80}
-            height={80}
-            alt=""
-            loading="eager"
-          />
-        )}
-      </span>
+        </span>
+      ) : (
+        <CheetahRun />
+      )}
       <span className={compact ? "sr-only" : "oern-loader-label"}>{label}</span>
     </output>
   );

@@ -6,6 +6,7 @@ import {
   hasMapbox,
   needsRouteRequest,
   type RoadRoute,
+  type RoadRouteOptions,
   type RouteRequest,
 } from "@/lib/delivery/mapbox";
 import { distanceKm } from "@/lib/delivery/rider-route";
@@ -19,6 +20,7 @@ import { distanceKm } from "@/lib/delivery/rider-route";
 export function useRoadRoute(
   origin: MapPoint | null,
   destinations: MapPoint[],
+  options?: RoadRouteOptions,
 ) {
   const latitude = origin?.latitude;
   const longitude = origin?.longitude;
@@ -46,8 +48,8 @@ export function useRoadRoute(
     const settle = (route: RoadRoute | null) => {
       if (id === sequence.current) setResult({ destinationKey, route });
     };
-    fetchRoadRoute(points).then(settle, () => settle(null));
-  }, [latitude, longitude, destinationKey, destinations]);
+    fetchRoadRoute(points, options).then(settle, () => settle(null));
+  }, [latitude, longitude, destinationKey, destinations, options]);
 
   return result?.destinationKey === destinationKey ? result.route : null;
 }

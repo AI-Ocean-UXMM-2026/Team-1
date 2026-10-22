@@ -8,9 +8,11 @@ import type {
 } from "./inputs.ts";
 import { buildInstance } from "./inputs.ts";
 import { nodePoints } from "./matrix.ts";
+import type { LiveFloodConditions } from "./open-meteo.ts";
 import { withParams } from "./params.ts";
 import type { RoadMatrixStats } from "./road-matrix.ts";
 import { solve } from "./solve.ts";
+import { applyTraffic, type TrafficSummary } from "./traffic.ts";
 import type { DispatchParams, Matrix, Plan, Point } from "./types.ts";
 import { validateSolution } from "./validate.ts";
 
@@ -27,6 +29,7 @@ export type PlanInput = {
   params?: Partial<DispatchParams>;
   field: FloodField | null;
   reports: FloodReport[];
+  liveFlood?: LiveFloodConditions | null;
 };
 
 export type PlanDeps = {
@@ -64,6 +67,7 @@ export type DataQuality = {
   label: string;
   matrix: RoadMatrixStats | null;
   flood: FloodSummary;
+  traffic?: TrafficSummary;
 };
 
 type Json = Record<string, unknown>;
@@ -176,11 +180,33 @@ export async function planDispatch(
       detail: built.excludedTrucks,
     };
 
-  // Road data first; flood exposure is layered onto the same matrix.
+  // If live rain or flood risk was detected and not manually overridden, adjust flood slowdown.
+  if (
+    input.liveFlood &&
+    input.params?.floodSlowdown == null &&
+    input.liveFlood.suggestedSlowdown > 0
+  ) {
+    params.floodSlowdown = Math.max(
+      params.floodSlowdown,
+      input.liveFlood.suggestedSlowdown,
+    );
+  }
+
+  // Road data first; flood and traffic interception exposure are layered onto the matrix.
   const points = nodePoints(inst);
   const road = await deps.buildMatrix(points, params);
-  const flooded = applyFlood(road.matrix, points, input.field, input.reports);
-  const matrix = flooded.matrix;
+  const flooded = applyFlood(
+    road.matrix,
+    points,
+    input.field,
+    input.reports,
+    input.liveFlood,
+  );
+  const trafficked = applyTraffic(flooded.matrix, points, {
+    reports: input.reports,
+    orders: input.orders,
+  });
+  const matrix = trafficked.matrix;
 
   const plan = solve(inst, matrix, { nowMs: deps.nowMs });
   const violations = validateSolution(inst, matrix, plan);
@@ -198,8 +224,18 @@ export async function planDispatch(
     label: TIER_LABEL[matrix.source],
     matrix: road.stats,
     flood: flooded.summary,
+    traffic: trafficked.summary,
   };
   const warnings = [...built.warnings];
+  if (
+    input.liveFlood &&
+    (input.liveFlood.severity === "heavy_rain" ||
+      input.liveFlood.severity === "flood_risk")
+  ) {
+    warnings.push(
+      `live_flood_alert: Live Open-Meteo reports ${input.liveFlood.precipitationMm} mm/h rain (active weather slowdown applied)`,
+    );
+  }
   if (flooded.summary.status === "unknown")
     warnings.push(
       "flood_unknown: no flood layer or verified reports were available, so flood risk is unknown (not zero)",
@@ -209,6 +245,14 @@ export async function planDispatch(
   if (matrix.source === "straight_line")
     warnings.push(
       "straight_line: no road data was used, so times are rough estimates",
+    );
+  if (trafficked.summary.reportsCovered > 0)
+    warnings.push(
+      `traffic_reports: ${trafficked.summary.reportsCovered} verified traffic report(s) layered onto travel times (+${trafficked.summary.addedDelayMin} min total delay)`,
+    );
+  if (trafficked.summary.ordersWithTrafficDelay > 0)
+    warnings.push(
+      `order_traffic_delays: ${trafficked.summary.ordersWithTrafficDelay} order(s) carry localized traffic delays`,
     );
   if (built.scheduledLater.length > 0)
     warnings.push(
@@ -445,6 +489,7 @@ function buildSavePayload(
       label: quality.label,
       matrix: stats,
       flood: quality.flood,
+      traffic: quality.traffic,
       warnings,
       counts: built.counts,
       excluded_trucks: built.excludedTrucks,

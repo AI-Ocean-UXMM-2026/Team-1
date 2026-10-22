@@ -75,7 +75,7 @@ where order_id in (select id from public.delivery_orders where tracking_code lik
   and route_id is not null;
 
 -- Delete only records owned by this seed. The stable tracking prefix and
--- registration prefix make reruns safe without touching unrelated data.
+-- fixed registration numbers make reruns safe without touching unrelated data.
 delete from public.delivery_notifications
 where order_id in (
   select id from public.delivery_orders where tracking_code like 'DYN-SEED-%'
@@ -105,15 +105,15 @@ where id in (select route_id from oern_seed_existing_routes);
 delete from public.delivery_orders
 where tracking_code like 'DYN-SEED-%';
 delete from public.vehicles
-where registration_number like 'DYN-SEED-%';
+where registration_number in ('E4B1-7K29', 'M7T3-4Q8X');
 
 insert into public.vehicles (
   id, vehicle_type, registration_number, make, model, capacity_kg, status,
   fuel_level_percent, battery_level_percent
 )
 values
-  (gen_random_uuid(), 'e_bike', 'DYN-SEED-E-BIKE', 'Seed Mobility', 'E1', 12, 'in_use', null, 78),
-  (gen_random_uuid(), 'motorcycle', 'DYN-SEED-MOTO', 'Seed Motors', 'M1', 18, 'available', 64, null)
+  (gen_random_uuid(), 'e_bike', 'E4B1-7K29', 'Seed Mobility', 'E1', 12, 'in_use', null, 78),
+  (gen_random_uuid(), 'motorcycle', 'M7T3-4Q8X', 'Seed Motors', 'M1', 18, 'available', 64, null)
 on conflict (registration_number) do update set
   status = excluded.status,
   fuel_level_percent = excluded.fuel_level_percent,
@@ -171,7 +171,7 @@ where tracking_code like 'DYN-SEED-%';
 insert into public.delivery_routes (driver_id, vehicle_id, status, planned_at, created_by)
 values (
   (select driver_one_id from oern_seed_accounts),
-  (select id from public.vehicles where registration_number = 'DYN-SEED-E-BIKE'),
+  (select id from public.vehicles where registration_number = 'E4B1-7K29'),
   'in_progress', now() - interval '20 minutes',
   (select manager_id from oern_seed_accounts)
 );
@@ -181,16 +181,16 @@ select id as route_id
 from public.delivery_routes
 where created_by = (select manager_id from oern_seed_accounts)
   and driver_id = (select driver_one_id from oern_seed_accounts)
-  and vehicle_id = (select id from public.vehicles where registration_number = 'DYN-SEED-E-BIKE')
+  and vehicle_id = (select id from public.vehicles where registration_number = 'E4B1-7K29')
 order by created_at desc
 limit 1;
 
 insert into public.delivery_assignments (order_id, driver_id, vehicle_id, route_id, assigned_by, assigned_at, ended_at)
 values
-  ((select order_id from oern_seed_orders where tracking_code = 'DYN-SEED-002'), (select driver_two_id from oern_seed_accounts), (select id from public.vehicles where registration_number = 'DYN-SEED-MOTO'), null, (select manager_id from oern_seed_accounts), now() - interval '30 minutes', null),
-  ((select order_id from oern_seed_orders where tracking_code = 'DYN-SEED-003'), (select driver_one_id from oern_seed_accounts), (select id from public.vehicles where registration_number = 'DYN-SEED-E-BIKE'), (select route_id from oern_seed_route), (select manager_id from oern_seed_accounts), now() - interval '45 minutes', null),
-  ((select order_id from oern_seed_orders where tracking_code = 'DYN-SEED-004'), (select driver_one_id from oern_seed_accounts), (select id from public.vehicles where registration_number = 'DYN-SEED-E-BIKE'), (select route_id from oern_seed_route), (select manager_id from oern_seed_accounts), now() - interval '2 hours', null),
-  ((select order_id from oern_seed_orders where tracking_code = 'DYN-SEED-005'), (select driver_two_id from oern_seed_accounts), (select id from public.vehicles where registration_number = 'DYN-SEED-MOTO'), null, (select manager_id from oern_seed_accounts), now() - interval '3 hours', now() - interval '1 hour');
+  ((select order_id from oern_seed_orders where tracking_code = 'DYN-SEED-002'), (select driver_two_id from oern_seed_accounts), (select id from public.vehicles where registration_number = 'M7T3-4Q8X'), null, (select manager_id from oern_seed_accounts), now() - interval '30 minutes', null),
+  ((select order_id from oern_seed_orders where tracking_code = 'DYN-SEED-003'), (select driver_one_id from oern_seed_accounts), (select id from public.vehicles where registration_number = 'E4B1-7K29'), (select route_id from oern_seed_route), (select manager_id from oern_seed_accounts), now() - interval '45 minutes', null),
+  ((select order_id from oern_seed_orders where tracking_code = 'DYN-SEED-004'), (select driver_one_id from oern_seed_accounts), (select id from public.vehicles where registration_number = 'E4B1-7K29'), (select route_id from oern_seed_route), (select manager_id from oern_seed_accounts), now() - interval '2 hours', null),
+  ((select order_id from oern_seed_orders where tracking_code = 'DYN-SEED-005'), (select driver_two_id from oern_seed_accounts), (select id from public.vehicles where registration_number = 'M7T3-4Q8X'), null, (select manager_id from oern_seed_accounts), now() - interval '3 hours', now() - interval '1 hour');
 
 insert into public.route_stops (route_id, order_id, stop_type, sequence_number, address, latitude, longitude, status)
 select route_id, order_id, stop_type, sequence_number, address, latitude, longitude, status

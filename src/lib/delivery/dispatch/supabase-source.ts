@@ -5,6 +5,7 @@ import type { FloodReport, GeoJsonLike } from "./flood.ts";
 import { DEFAULT_HAZARD_WEIGHTS, FloodField } from "./flood.ts";
 import type { PlanDataSource, SaveOutcome } from "./handler.ts";
 import type { DepotRow, OrderRow, TruckRow } from "./inputs.ts";
+import { fetchLiveFloodConditions } from "./open-meteo.ts";
 import type { SavePayload } from "./plan.ts";
 
 /*
@@ -60,7 +61,7 @@ export function createSupabaseSource(
       let query = supabase
         .from("delivery_orders")
         .select(
-          "id, status, pickup_address, pickup_latitude, pickup_longitude, delivery_address, delivery_latitude, delivery_longitude, parcel_weight_kg, cod_amount, updated_at, delivery_order_logistics(origin_kind, parcel_size, weight_kg, weight_source, volume_m3, volume_source, pickup_window_start, pickup_window_end, window_source, delivery_deadline_at, deadline_hard, pickup_township_pcode, delivery_township_pcode, updated_at)",
+          "id, status, pickup_address, pickup_latitude, pickup_longitude, delivery_address, delivery_latitude, delivery_longitude, parcel_weight_kg, cod_amount, traffic_delay_minutes, updated_at, delivery_order_logistics(origin_kind, parcel_size, weight_kg, weight_source, volume_m3, volume_source, pickup_window_start, pickup_window_end, window_source, delivery_deadline_at, deadline_hard, pickup_township_pcode, delivery_township_pcode, updated_at)",
         )
         .eq("status", "pending")
         .order("created_at", { ascending: true })
@@ -123,18 +124,72 @@ export function createSupabaseSource(
     },
 
     async loadReports(now) {
-      const { data, error } = await supabase
-        .from("road_reports")
-        .select("latitude, longitude, severity")
-        .eq("status", "verified")
-        .in("category", ["flooding", "closure"])
-        .gt("expires_at", now.toISOString());
-      if (error) throw new Error(`road_reports: ${error.message}`);
-      return (data ?? []).map((row) => ({
-        lat: row.latitude,
-        lng: row.longitude,
-        severity: row.severity,
-      })) as FloodReport[];
+      const nowIso = now.toISOString();
+      const categories = [
+        "flooding",
+        "closure",
+        "congestion",
+        "roadwork",
+        "hazard",
+      ];
+      const [reports, decisions] = await Promise.all([
+        supabase
+          .from("road_reports")
+          .select("id, latitude, longitude, severity, category, status")
+          .neq("status", "rejected")
+          .in("category", categories)
+          .gt("expires_at", nowIso),
+        supabase
+          .from("road_report_decisions")
+          .select("report_id, action, severity, confidence, delay_minutes, radius_meters")
+          .gt("expires_at", nowIso),
+      ]);
+      if (reports.error) throw new Error(`road_reports: ${reports.error.message}`);
+      // Decisions are optional: planning works without the table or rows
+      const decisionById = new Map(
+        (decisions.error ? [] : (decisions.data ?? [])).map((row) => [
+          row.report_id,
+          row,
+        ]),
+      );
+      const trusted = (reports.data ?? []).flatMap((row) => {
+        const decision = decisionById.get(row.id);
+        // A note the engine judged stale, cleared or contradicted is dropped
+        if (decision?.action === "ignore") return [];
+        // Unreviewed notes count only when the engine is confident in them
+        if (
+          row.status !== "verified" &&
+          !(
+            decision &&
+            Number(decision.confidence) >= 0.7 &&
+            (decision.action === "avoid" || decision.action === "delay")
+          )
+        )
+          return [];
+        return [
+          {
+            lat: row.latitude,
+            lng: row.longitude,
+            severity: row.severity,
+            category: row.category,
+            ...(decision
+              ? {
+                  decision: {
+                    action: decision.action,
+                    severity: decision.severity,
+                    delayMinutes: Number(decision.delay_minutes),
+                    radiusMeters: decision.radius_meters,
+                  },
+                }
+              : {}),
+          },
+        ];
+      });
+      return trusted as FloodReport[];
+    },
+
+    async loadLiveFlood(coords) {
+      return fetchLiveFloodConditions(coords);
     },
 
     async save(

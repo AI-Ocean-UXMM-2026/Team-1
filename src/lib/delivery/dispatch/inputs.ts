@@ -51,6 +51,7 @@ export type OrderRow = {
   delivery_longitude: number | null;
   parcel_weight_kg: number | null;
   cod_amount: number;
+  traffic_delay_minutes?: number | null;
   updated_at: string;
   logistics: LogisticsRow | null;
 };

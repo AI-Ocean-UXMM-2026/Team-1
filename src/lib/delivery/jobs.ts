@@ -188,6 +188,18 @@ export async function queueOrders(supabase: JobsClient, orderIds: string[]) {
   return data ?? 0;
 }
 
+/**
+ * Manager confirmation: queues the orders and lets automation cluster them into
+ * jobs on the driver board straight away.
+ */
+export async function confirmOrders(supabase: JobsClient, orderIds: string[]) {
+  const { data, error } = await supabase.rpc("confirm_orders", {
+    p_order_ids: orderIds,
+  });
+  if (error) throw new Error(error.message);
+  return data as { confirmed: number; jobs: number; orders: number };
+}
+
 export async function unqueueOrders(supabase: JobsClient, orderIds: string[]) {
   const { data, error } = await supabase.rpc("unqueue_orders", {
     p_order_ids: orderIds,
