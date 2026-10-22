@@ -154,9 +154,9 @@ from (
   values
     ('DYN-SEED-001', (select customer_one_id from oern_seed_accounts), 'Lanmadaw pickup', 16.779700::numeric, 96.143400::numeric, 'Bahan delivery', 16.817800::numeric, 96.156600::numeric, 'Documents', 0.4::numeric, 0::numeric, interval '2 hours'),
     ('DYN-SEED-002', (select customer_two_id from oern_seed_accounts), 'Sanchaung pickup', 16.805400::numeric, 96.132800::numeric, 'Kamayut delivery', 16.824600::numeric, 96.134800::numeric, 'Clothing', 1.8::numeric, 68000::numeric, interval '90 minutes'),
-    ('DYN-SEED-003', (select customer_one_id from oern_seed_accounts), 'Botahtaung pickup', 16.769000::numeric, 96.174400::numeric, 'Tamwe delivery', 16.799000::numeric, 96.183600::numeric, 'Home goods', 3.2::numeric, 125000::numeric, interval '70 minutes'),
+    ('DYN-SEED-003', (select customer_one_id from oern_seed_accounts), 'Botahtaung pickup', 16.769000::numeric, 96.174400::numeric, 'Tamwe delivery', 16.799000::numeric, 96.183600::numeric, 'Food, small size · Lucky Seven Mohinga set (thermal bag)', 1.2::numeric, 14500::numeric, interval '70 minutes'),
     ('DYN-SEED-004', (select customer_two_id from oern_seed_accounts), 'Ahlone pickup', 16.791600::numeric, 96.131300::numeric, 'Kyauktada delivery', 16.774700::numeric, 96.158100::numeric, 'Printed materials', 1.1::numeric, 32000::numeric, interval '35 minutes'),
-    ('DYN-SEED-005', (select customer_one_id from oern_seed_accounts), 'Hlaing pickup', 16.842000::numeric, 96.121000::numeric, 'Mayangone delivery', 16.866000::numeric, 96.108000::numeric, 'Household parcel', 2.0::numeric, 45000::numeric, interval '25 minutes')
+    ('DYN-SEED-005', (select customer_one_id from oern_seed_accounts), 'Hlaing pickup', 16.842000::numeric, 96.121000::numeric, 'Mayangone delivery', 16.866000::numeric, 96.108000::numeric, 'Food, medium size, fragile · SP Bakery birthday cake', 1.5::numeric, 28000::numeric, interval '25 minutes')
 ) as seed(tracking_code, customer_id, pickup_address, pickup_latitude, pickup_longitude, delivery_address, delivery_latitude, delivery_longitude, parcel_description, parcel_weight_kg, cod_amount, eta_offset)
 join oern_seed_accounts accounts on true
 join public.profiles customer on customer.id = seed.customer_id

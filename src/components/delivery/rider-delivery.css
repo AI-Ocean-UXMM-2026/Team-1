@@ -1730,3 +1730,147 @@
   opacity: 1;
   -webkit-text-fill-color: var(--color-text-secondary);
 }
+
+/* ---------- green payment swipe variant ---------- */
+.dv-swipe.is-green {
+  background: #00b14f;
+}
+
+.dv-swipe.is-green .dv-swipe-knob {
+  color: #00b14f;
+}
+
+.dv-swipe.is-green[data-phase="done"] {
+  background: #059669;
+}
+
+.dv-swipe.is-green[data-phase="done"] .dv-swipe-knob {
+  color: #059669;
+}
+
+/* ---------- full-screen collection view (Image 2 style) ---------- */
+.dv-sheet-head.dv-collect-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 56px;
+  padding: 4px 16px;
+}
+
+.dv-collect-title-wrap {
+  flex: 1;
+  text-align: center;
+  margin-right: 48px; /* Offset the 48px back button to center title */
+}
+
+.dv-collect-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 750;
+  color: var(--color-text-primary);
+  line-height: 24px;
+}
+
+.dv-collect-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  justify-content: space-between;
+  padding: 16px 0 0;
+}
+
+.dv-collect-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px 24px;
+  text-align: center;
+}
+
+.dv-collect-amount-block {
+  margin-bottom: 32px;
+}
+
+.dv-collect-amount-row {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dv-collect-currency {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.dv-collect-amount {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -1.5px;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-collect-subtitle {
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.dv-collect-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  text-align: left;
+}
+
+.dv-collect-card-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #00b14f;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.dv-collect-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.dv-collect-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dv-collect-card-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dv-collect-actions {
+  margin-top: auto;
+}

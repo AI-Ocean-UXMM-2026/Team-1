@@ -37,6 +37,7 @@ import {
   describeParcel,
   type PickupDraft,
   type PickupErrors,
+  foodPresets,
   parcelKinds,
   parcelSizes,
   parseCod,
@@ -651,6 +652,52 @@ function DetailsStep({
                 />
               ))}
             </Stack>
+            {draft.parcelKind === "Food" && (
+              <Box
+                sx={{
+                  mt: 1.25,
+                  p: 1.25,
+                  borderRadius: "12px",
+                  bgcolor: "grey.50",
+                  border: 1,
+                  borderColor: "grey.200",
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 650,
+                    color: "text.secondary",
+                    display: "block",
+                    mb: 0.75,
+                  }}
+                >
+                  Quick food suggestions:
+                </Typography>
+                <Stack direction="row" sx={{ flexWrap: "wrap", gap: 0.75 }}>
+                  {foodPresets.map((preset) => {
+                    const isSelected = draft.parcelDetails === preset.details;
+                    return (
+                      <Chip
+                        key={preset.label}
+                        size="small"
+                        clickable
+                        variant={isSelected ? "filled" : "outlined"}
+                        color={isSelected ? "secondary" : "default"}
+                        label={preset.label}
+                        onClick={() =>
+                          update({
+                            parcelDetails: preset.details,
+                            parcelSize: preset.size,
+                            fragile: preset.fragile,
+                          })
+                        }
+                      />
+                    );
+                  })}
+                </Stack>
+              </Box>
+            )}
           </Box>
           <Box>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>

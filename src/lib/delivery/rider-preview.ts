@@ -129,7 +129,14 @@ const STOPS: StopSeed[] = [
     address: "Room 5B, Golden Valley, Bahan",
     latitude: 16.8015,
     longitude: 96.1488,
-    parcels: [{ description: "Cosmetics", kg: 0.5, cod: 0 }],
+    parcels: [
+      {
+        description:
+          "Food, medium size, fragile · SP Bakery fresh birthday cake & pastries (keep level)",
+        kg: 1.2,
+        cod: 28_000,
+      },
+    ],
   },
   {
     recipient: "Ko Htet Aung",
@@ -149,7 +156,12 @@ const STOPS: StopSeed[] = [
     latitude: 16.7752,
     longitude: 96.1527,
     parcels: [
-      { description: "Fabric", kg: 2.0, cod: 0 },
+      {
+        description:
+          "Food, small size · 999 Shan Noodle House soup & dumplings (thermal bag)",
+        kg: 0.8,
+        cod: 12_500,
+      },
       { description: "Sewing thread", kg: 0.4, cod: 0 },
     ],
   },
@@ -168,7 +180,12 @@ const STOPS: StopSeed[] = [
     latitude: 16.8004,
     longitude: 96.1765,
     parcels: [
-      { description: "Books", kg: 2.6, cod: 0 },
+      {
+        description:
+          "Food, small size · Lucky Seven Mohinga & Pauksi breakfast pack",
+        kg: 0.7,
+        cod: 7_500,
+      },
       { description: "Stationery", kg: 0.8, cod: 0 },
     ],
   },
@@ -603,9 +620,10 @@ export function previewAddStop(
     delivery_address: "No. 15, Parami Road, Mayangone",
     delivery_latitude: 16.8442,
     delivery_longitude: 96.1601,
-    parcel_description: "Medicine box",
-    parcel_weight_kg: 0.4,
-    cod_amount: 12_000,
+    parcel_description:
+      "Food, small size · Rangoon Tea House Samusa soup & Golden Chai (thermal bag)",
+    parcel_weight_kg: 0.95,
+    cod_amount: 14_000,
     cod_status: "pending",
     estimated_delivery_at: new Date(now + 4 * 60 * 60_000).toISOString(),
     created_at: new Date(now).toISOString(),

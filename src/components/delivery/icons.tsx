@@ -9,6 +9,7 @@ export type IconName =
   | "box"
   | "check"
   | "chevron-down"
+  | "chevrons-right"
   | "close"
   | "coin"
   | "compass"
@@ -36,6 +37,7 @@ export type IconName =
   | "shield"
   | "share"
   | "spark"
+  | "store"
   | "track"
   | "truck"
   | "user"
@@ -63,6 +65,14 @@ const pathByName: Record<IconName, ReactNode> = {
   ),
   check: <path d="m5 12 4 4L19 6" />,
   "chevron-down": <path d="m6 9 6 6 6-6" />,
+  "chevrons-right": (
+    <path
+      d="m13 17 5-5-5-5M6 17l5-5-5-5"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  ),
   close: <path d="m6 6 12 12M18 6 6 18" />,
   coin: (
     <>
@@ -181,6 +191,14 @@ const pathByName: Record<IconName, ReactNode> = {
     <>
       <path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z" />
       <path d="m19 15 1 2.5 2.5 1-2.5 1L19 22l-1-2.5-2.5-1 2.5-1L19 15Z" />
+    </>
+  ),
+  store: (
+    <>
+      <path d="m2 7 3-4h14l3 4" />
+      <path d="M4 11v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9" />
+      <path d="M9 22v-6h6v6" />
+      <path d="M2 7h20v4a2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1-2 2 2 2 0 0 1-2-2V7z" />
     </>
   ),
   track: (

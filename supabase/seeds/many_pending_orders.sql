@@ -32,7 +32,12 @@ select
   'No. ' || (rows.n * 7 + rows.k) || ', ' || rows.area || ' main road, ' || rows.area,
   rows.lat + (rows.k - 1.5) * 0.004, rows.lng + (rows.k - 1.5) * 0.004,
   'Customer ' || rows.area || ' ' || rows.k, '+95 9 400 100 ' || lpad(rows.n::text, 3, '0'),
-  'Test parcel ' || rows.n || '-' || rows.k,
+  case (rows.n % 4)
+    when 0 then 'Food, small size · Mohinga breakfast set (thermal bag)'
+    when 1 then 'Food, medium size, fragile · Fresh bakery pastry box'
+    when 2 then 'Food, small size · Shan noodles & steamed dumplings'
+    else 'Standard parcel ' || rows.n || '-' || rows.k
+  end,
   round((0.5 + (rows.n % 5) * 1.5)::numeric, 1),
   case when rows.k = 2 then 5000 * rows.n else 0 end,
   case when rows.k = 2 then 'pending' else 'not_required' end

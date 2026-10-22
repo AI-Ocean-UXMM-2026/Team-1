@@ -22,6 +22,53 @@ export const parcelSizes = [
   { value: "Large", hint: "Bulky" },
 ] as const;
 
+export const foodPresets = [
+  {
+    label: "Hot Soup & Mohinga",
+    details: "Hot soup & mohinga noodles (thermal bag required)",
+    size: "Small" as const,
+    fragile: false,
+  },
+  {
+    label: "Tea Shop & Snacks",
+    details: "Tea shop snacks & steamed buns (pauksi)",
+    size: "Small" as const,
+    fragile: false,
+  },
+  {
+    label: "Shan Noodles / Meeshay",
+    details: "Shan khauk swé & crispy tofu packs",
+    size: "Small" as const,
+    fragile: false,
+  },
+  {
+    label: "Bakery / Cake",
+    details: "Fresh bakery cake & pastries box (keep level)",
+    size: "Medium" as const,
+    fragile: true,
+  },
+  {
+    label: "Hot Curry Meal Box",
+    details: "Burmese curry set with rice & side soup",
+    size: "Medium" as const,
+    fragile: false,
+  },
+  {
+    label: "Groceries & Fresh Produce",
+    details: "Fresh vegetables, eggs & grocery essentials carton",
+    size: "Large" as const,
+    fragile: false,
+  },
+  {
+    label: "Boba & Cold Drinks",
+    details: "Chilled beverages & milk tea in cup carrier",
+    size: "Small" as const,
+    fragile: true,
+  },
+] as const;
+
+export type FoodPreset = (typeof foodPresets)[number];
+
 export type PickupDay = (typeof pickupDays)[number];
 export type PickupWindow = (typeof pickupWindows)[number]["value"];
 export type ParcelKind = (typeof parcelKinds)[number];

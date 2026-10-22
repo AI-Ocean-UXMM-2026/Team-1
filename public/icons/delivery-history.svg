@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <!-- Soft Ground Shadow -->
+    <radialGradient id="groundShadowHist" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1A2B48" stop-opacity="0.22" />
+      <stop offset="70%" stop-color="#1A2B48" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#1A2B48" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Box Gradients -->
+    <linearGradient id="histBoxTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE0B2" />
+      <stop offset="100%" stop-color="#FFBC7D" />
+    </linearGradient>
+    <linearGradient id="histBoxLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E56" />
+      <stop offset="100%" stop-color="#D9772B" />
+    </linearGradient>
+    <linearGradient id="histBoxRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D9772B" />
+      <stop offset="100%" stop-color="#B55915" />
+    </linearGradient>
+
+    <!-- Brand Orange Tape -->
+    <linearGradient id="histTape" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF7A1A" />
+      <stop offset="100%" stop-color="#E04F00" />
+    </linearGradient>
+
+    <!-- 3D History Clock Disc Gradients -->
+    <linearGradient id="clockRim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B5377" />
+      <stop offset="100%" stop-color="#162338" />
+    </linearGradient>
+    <linearGradient id="clockFace" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="70%" stop-color="#E8EEF5" />
+      <stop offset="100%" stop-color="#D0DCEB" />
+    </linearGradient>
+
+    <!-- Emerald Success Seal -->
+    <linearGradient id="successPill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+
+    <!-- Drop Shadow for Clock / Badge -->
+    <filter id="histDropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="-2" dy="5" stdDeviation="4" flood-color="#0F1A2C" flood-opacity="0.32" />
+    </filter>
+  </defs>
+
+  <!-- Ground Shadow -->
+  <ellipse cx="56" cy="103" rx="40" ry="10" fill="url(#groundShadowHist)" />
+
+  <!-- 3D Isometric Parcel Box (Slightly to the left) -->
+  <g transform="translate(-10, -2)">
+    <!-- Top Face -->
+    <path d="M54 24 L90 41 L54 58 L18 41 Z" fill="url(#histBoxTop)" />
+    <!-- Left Face -->
+    <path d="M18 41 L54 58 L54 94 L18 77 Z" fill="url(#histBoxLeft)" />
+    <!-- Right Face -->
+    <path d="M54 58 L90 41 L90 77 L54 94 Z" fill="url(#histBoxRight)" />
+
+    <!-- Orange Packing Tape Across Top & Sides -->
+    <path d="M34 32 L70 49 L76 46 L40 29 Z" fill="url(#histTape)" />
+    <path d="M34 50 L40 53 L40 68 L34 65 Z" fill="url(#histTape)" />
+    <path d="M70 49 L76 46 L76 61 L70 64 Z" fill="#C84300" />
+
+    <!-- Shipping Label / Barcode on Left Face -->
+    <polygon points="25,56 42,64 42,76 25,68" fill="#FFF8F0" opacity="0.9" />
+    <line x1="28" y1="61" x2="38" y2="65.5" stroke="#1A2B48" stroke-width="2" stroke-linecap="round" />
+    <line x1="28" y1="65" x2="34" y2="67.8" stroke="#FF6B00" stroke-width="2" stroke-linecap="round" />
+
+    <!-- Specular Edge Highlights -->
+    <path d="M18 41 L54 58 L90 41" fill="none" stroke="#FFF3E0" stroke-width="1.5" stroke-linecap="round" opacity="0.7" />
+    <line x1="54" y1="58" x2="54" y2="94" stroke="#FFE0B2" stroke-width="1.2" opacity="0.4" />
+  </g>
+
+  <!-- 3D History Clock / Delivered Seal (Foreground right) -->
+  <g filter="url(#histDropShadow)" transform="translate(4, 4)">
+    <!-- Outer Navy Bezel -->
+    <circle cx="72" cy="62" r="24" fill="url(#clockRim)" />
+    <!-- Inner Face Base -->
+    <circle cx="72" cy="62" r="20" fill="url(#clockFace)" />
+
+    <!-- Circular History Counter-Clockwise Arrow Track -->
+    <path d="M72 46 A 16 16 0 1 1 57.5 69" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round" />
+    <!-- Arrowhead on History Arc -->
+    <polygon points="72,42 77,47 72,52" fill="#2563EB" transform="rotate(-15 72 46)" />
+
+    <!-- Clock Center Pin -->
+    <circle cx="72" cy="62" r="2.8" fill="#1E293B" />
+    <!-- Clock Hands (Showing Finished Time 10:10) -->
+    <line x1="72" y1="62" x2="65" y2="54" stroke="#1E293B" stroke-width="2.6" stroke-linecap="round" />
+    <line x1="72" y1="62" x2="80" y2="58" stroke="#FF6200" stroke-width="2.2" stroke-linecap="round" />
+
+    <!-- Specular Glass Highlight -->
+    <path d="M60 52 A 16 16 0 0 1 84 50 A 18 15 0 0 0 62 61 Z" fill="#FFFFFF" opacity="0.5" />
+
+    <!-- Emerald Checkmark Badge (Bottom Right overlapping clock) -->
+    <g transform="translate(76, 68)">
+      <circle cx="10" cy="10" r="11" fill="#FFFFFF" />
+      <circle cx="10" cy="10" r="9.5" fill="url(#successPill)" />
+      <!-- White Checkmark -->
+      <path d="M6.5 10 L8.8 12.5 L13.5 7.5" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+    </g>
+  </g>
+</svg>

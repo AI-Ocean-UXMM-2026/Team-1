@@ -672,31 +672,12 @@ export function CustomerHome({
     orders,
     statusEvents,
   );
-  const next = pickNextParcel(activeOrders);
   const today = buildTodayItems(activeOrders, statusEvents, now);
-  const todayByOrder = new Map(today.map((item) => [item.order.id, item]));
-  const rest = activeOrders
-    .filter((order) => order.id !== next?.id)
-    .map(
-      (order): TodayItem =>
-        todayByOrder.get(order.id) ?? {
-          order,
-          state: "scheduled",
-          etaAt: order.estimated_delivery_at,
-          delayMinutes: 0,
-        },
-    );
-  const codOrders = codDue(orders);
-  const codCount = codOrders.length;
-  // The next parcel's card already shows its own COD, so the summary chip
-  // only earns its place when more than that one payment is due.
-  const showCodChip =
-    codCount > 1 || (codCount === 1 && codOrders[0]?.id !== next?.id);
-
   const activeCount = activeOrders.length;
 
-  // A parcel on the way leads the page; booking another waits underneath.
-  const hasLive = isAuthenticated && next != null;
+  // Keep booking secondary while any delivery is still active, even if its
+  // scheduled day is later than today.
+  const hasLive = isAuthenticated && activeCount > 0;
 
   return (
     <>
@@ -708,65 +689,60 @@ export function CustomerHome({
         aria-labelledby="active-deliveries-title"
         sx={{ mt: hasLive ? 1 : 3, scrollMarginTop: 72 }}
       >
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ alignItems: "center", px: 2, minHeight: 40 }}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            px: 2,
+            minHeight: 40,
+            width: "100%",
+          }}
         >
-          <Typography
-            id="active-deliveries-title"
-            variant="h6"
-            component="h2"
-            sx={{ fontWeight: 750 }}
-          >
-            {next ? "Next delivery" : "Your deliveries"}
-          </Typography>
-          {isAuthenticated && activeCount > 0 && (
-            <Chip size="small" label={activeCount} sx={toneSx("info")} />
-          )}
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Typography
+              id="active-deliveries-title"
+              variant="h6"
+              component="h2"
+              sx={{ fontWeight: 750 }}
+            >
+              Today&apos;s deliveries
+            </Typography>
+            {isAuthenticated && today.length > 0 && (
+              <Chip size="small" label={today.length} sx={toneSx("info")} />
+            )}
+          </Stack>
           {isAuthenticated && orders.length > 0 && (
             <Button
               component={Link}
               href="/orders"
               color="secondary"
               endIcon={<ArrowForward />}
-              sx={{ ml: "auto", minHeight: 40, fontWeight: 700 }}
+              sx={{ minHeight: 40, fontWeight: 700, p: 0 }}
             >
               See all
             </Button>
           )}
-        </Stack>
+        </Box>
 
         {!isAuthenticated ? (
           <SignedOutPrompt onSignIn={onSignIn} />
-        ) : next ? (
-          <>
-            <NextParcelCard order={next} now={now} />
-            {rest.length > 0 && (
-              <Box sx={{ px: 2, mt: 2 }}>
-                <Typography
-                  variant="subtitle2"
-                  component="h3"
-                  sx={{ mb: 1, fontWeight: 750 }}
-                >
-                  Also on the way
-                </Typography>
-                <List
-                  disablePadding
-                  aria-label="Other active deliveries"
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(0, 1fr)",
-                    gap: 1,
-                  }}
-                >
-                  {rest.map((item) => (
-                    <TodayRow key={item.order.id} item={item} />
-                  ))}
-                </List>
-              </Box>
-            )}
-          </>
+        ) : today.length > 0 ? (
+          <List
+            disablePadding
+            aria-label="Today's deliveries"
+            sx={{
+              px: 2,
+              mt: 1,
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr)",
+              gap: 1,
+            }}
+          >
+            {today.map((item) => (
+              <TodayRow key={item.order.id} item={item} />
+            ))}
+          </List>
         ) : (
           <Box sx={{ px: 2, mt: 1 }}>
             <ListItemButton
@@ -787,12 +763,15 @@ export function CustomerHome({
                 sx={{ display: "block", width: 48, height: 48, flex: "none" }}
               />
               <ListItemText
-                primary="No active deliveries"
-                secondary="Parcels on their way to you appear here. Have a code? Track it."
+                primary="No deliveries today"
+                secondary={
+                  activeCount > 0
+                    ? "Your upcoming deliveries are available in Orders."
+                    : "Parcels due today will appear here. Have a code? Track it."
+                }
                 slotProps={{
                   primary: { sx: { fontWeight: 700, fontSize: 14 } },
                 }}
-                sx={{ m: 0 }}
               />
               <ChevronRight color="disabled" />
             </ListItemButton>
@@ -805,8 +784,20 @@ export function CustomerHome({
           <ListItemButton
             component={Link}
             href={ordersHref({ tab: "history" })}
-            sx={{ gap: 1.5, minHeight: 56, px: 1.5, borderRadius: "16px" }}
+            sx={{
+              gap: 1.5,
+              minHeight: 72,
+              px: 1.5,
+              borderRadius: "16px",
+              bgcolor: "grey.100",
+            }}
           >
+            <Box
+              component="img"
+              src="/icons/delivery-history.svg"
+              alt=""
+              sx={{ display: "block", width: 48, height: 48, flex: "none" }}
+            />
             <ListItemText
               primary="Delivery history"
               secondary={`${historyOrders.length} finished ${historyOrders.length === 1 ? "delivery" : "deliveries"}`}
@@ -819,22 +810,6 @@ export function CustomerHome({
           </ListItemButton>
         </Box>
       )}
-
-      {isAuthenticated && showCodChip && (
-        <Box sx={{ px: 2, mt: 2 }}>
-          <Chip
-            clickable
-            onClick={onOpenCod}
-            icon={<PaymentsOutlined />}
-            label={`${codCount} COD ${codCount === 1 ? "payment" : "payments"} due`}
-            sx={{ ...toneSx("warning"), height: 36, borderRadius: "999px" }}
-          />
-        </Box>
-      )}
-
-      {hasLive && <PickupRow />}
-
-      <MoreShortcuts onOpenHelp={onOpenHelp} />
     </>
   );
 }

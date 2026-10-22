@@ -85,7 +85,7 @@ test("COD amount on Track is at least 12px (H-06)", async ({
   expect(size).toBeGreaterThanOrEqual(12);
 });
 
-test("Home keeps every active delivery visible", async ({ page, context }) => {
+test("Home keeps today's deliveries compact", async ({ page, context }) => {
   await signInAs(context, "customer", {
     delivery_orders: [
       makeOrder({
@@ -107,14 +107,9 @@ test("Home keeps every active delivery visible", async ({ page, context }) => {
   await page.goto("/home");
 
   await expect(
-    page.getByRole("heading", { name: "Next delivery" }),
+    page.getByRole("heading", { name: "Today's deliveries" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Also on the way" }),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByRole("list", { name: "Other active deliveries" })
-      .getByText("OR-SCHEDULED"),
-  ).toBeVisible();
+  const list = page.getByRole("list", { name: "Today's deliveries" });
+  await expect(list.getByText("OR-MOVING")).toBeVisible();
+  await expect(list.getByText("OR-SCHEDULED")).toHaveCount(0);
 });

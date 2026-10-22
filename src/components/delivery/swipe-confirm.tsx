@@ -18,12 +18,15 @@ export function SwipeConfirm({
   hint,
   onConfirm,
   disabled = false,
+  className = "",
 }: {
   label: string;
   hint: string;
   onConfirm: () => void;
   /** Shown dimmed and ignores drags, e.g. while a requirement is unmet. */
   disabled?: boolean;
+  /** Extra class names for styling variants like is-green. */
+  className?: string;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLButtonElement>(null);
@@ -186,7 +189,7 @@ export function SwipeConfirm({
   return (
     <div
       ref={track}
-      className={`dv-swipe${disabled ? " is-disabled" : ""}`}
+      className={`dv-swipe${disabled ? " is-disabled" : ""}${className ? ` ${className}` : ""}`}
       data-phase={phase}
       onPointerDown={(e) => handlePointerDown(e, false)}
       onPointerMove={handlePointerMove}
@@ -232,7 +235,7 @@ export function SwipeConfirm({
         {phase === "done" ? (
           <Icon name="check" size={22} strokeWidth={2.6} />
         ) : (
-          <Icon name="arrow-right" size={22} strokeWidth={2.4} />
+          <Icon name="chevrons-right" size={20} strokeWidth={2.6} />
         )}
       </button>
     </div>
