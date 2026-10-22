@@ -9,6 +9,8 @@ export type Role = "customer" | "driver" | "manager" | "seller" | "support";
 type Row = Record<string, unknown>;
 export type Tables = Record<string, Row[]>;
 export type Mutation = { method: string; table: string; body: unknown };
+/** Answers a PostgREST RPC; throw to fail it with a database-style error. */
+export type RpcHandlers = Record<string, (args: Row) => unknown>;
 
 const SUPABASE_URL = "https://oern-e2e.invalid";
 const REF = "oern-e2e";
@@ -155,7 +157,7 @@ export async function signInAs(
   context: BrowserContext,
   role: Role,
   tables: Partial<Tables> = {},
-  options: { userId?: string } = {},
+  options: { userId?: string; rpc?: RpcHandlers } = {},
 ) {
   const userId = options.userId ?? (role === "driver" ? "driver-1" : "user-1");
   const all: Tables = {
@@ -206,6 +208,32 @@ export async function signInAs(
       return route.fulfill({ status: 204, headers });
     if (url.pathname.startsWith("/auth/v1/user"))
       return route.fulfill({ status: 200, headers, json: user });
+    const rpcName = url.pathname.match(/^\/rest\/v1\/rpc\/([^/]+)/)?.[1];
+    if (rpcName) {
+      let args: Row = {};
+      try {
+        args = (request.postDataJSON() ?? {}) as Row;
+      } catch {}
+      mutations.push({ method: "RPC", table: rpcName, body: args });
+      const answer = options.rpc?.[rpcName];
+      if (!answer)
+        return route.fulfill({
+          status: 404,
+          headers,
+          json: { message: `No mock for ${rpcName}` },
+        });
+      try {
+        return route.fulfill({ status: 200, headers, json: answer(args) });
+      } catch (cause) {
+        return route.fulfill({
+          status: 400,
+          headers,
+          json: {
+            message: cause instanceof Error ? cause.message : String(cause),
+          },
+        });
+      }
+    }
     const table = url.pathname.match(/^\/rest\/v1\/([^/]+)/)?.[1];
     if (!table) return route.fulfill({ status: 404, headers, json: {} });
     const matches = (row: Row) =>
