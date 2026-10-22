@@ -116,6 +116,12 @@ export function NotificationsPage({
         spacing={1.5}
         sx={{ alignItems: "center", px: 2, py: 6, textAlign: "center" }}
       >
+        <Box
+          component="img"
+          src="/icons/notifications.svg"
+          alt=""
+          sx={{ display: "block", width: 96, height: 96 }}
+        />
         <Typography variant="h6" component="h2" sx={{ fontWeight: 750 }}>
           Sign in for delivery updates
         </Typography>
@@ -139,6 +145,12 @@ export function NotificationsPage({
         spacing={1}
         sx={{ alignItems: "center", px: 3, py: 6, textAlign: "center" }}
       >
+        <Box
+          component="img"
+          src="/icons/notifications.svg"
+          alt=""
+          sx={{ display: "block", width: 96, height: 96 }}
+        />
         <Typography variant="h6" component="h2" sx={{ fontWeight: 750 }}>
           You’re all caught up
         </Typography>

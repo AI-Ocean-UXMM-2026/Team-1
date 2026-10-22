@@ -2,10 +2,6 @@
 
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import ChevronRight from "@mui/icons-material/ChevronRight";
-import HelpOutlineRounded from "@mui/icons-material/HelpOutlineRounded";
-import HistoryRounded from "@mui/icons-material/HistoryRounded";
-import LogoutRounded from "@mui/icons-material/LogoutRounded";
-import NotificationsNoneOutlined from "@mui/icons-material/NotificationsNoneOutlined";
 import Avatar from "@mui/material/Avatar";
 import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
@@ -14,12 +10,10 @@ import Divider from "@mui/material/Divider";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
-import type { ReactNode } from "react";
 
 import { ordersHref } from "@/lib/delivery/customer-home";
 
@@ -34,34 +28,38 @@ export function initialsOf(name: string | null | undefined) {
 }
 
 function AccountRow({
-  icon,
+  illustration,
   title,
   detail,
   badge,
   ...rest
 }: {
-  icon: ReactNode;
+  /** One of the app's own illustrations in `/public/icons`. */
+  illustration: string;
   title: string;
   detail?: string;
   badge?: number;
 } & ({ href: string } | { onClick: () => void })) {
   const content = (
     <>
-      <ListItemIcon sx={{ minWidth: 40, color: "text.primary" }}>
-        <Badge badgeContent={badge} color="error" max={9}>
-          {icon}
-        </Badge>
-      </ListItemIcon>
+      <Badge badgeContent={badge} color="error" max={9} overlap="circular">
+        <Box
+          component="img"
+          src={illustration}
+          alt=""
+          sx={{ display: "block", width: 48, height: 48 }}
+        />
+      </Badge>
       <ListItemText
         primary={title}
         secondary={detail}
-        slotProps={{ primary: { sx: { fontWeight: 650, fontSize: 15 } } }}
+        slotProps={{ primary: { sx: { fontWeight: 700, fontSize: 15 } } }}
         sx={{ m: 0 }}
       />
       <ChevronRight color="disabled" />
     </>
   );
-  const sx = { minHeight: 56, px: 2 } as const;
+  const sx = { gap: 1.5, minHeight: 72, px: 2 } as const;
   return "href" in rest ? (
     <ListItemButton component={Link} href={rest.href} sx={sx}>
       {content}
@@ -157,7 +155,7 @@ export function ProfilePage({
             <ListItem disablePadding>
               <AccountRow
                 href={ordersHref({ tab: "history" })}
-                icon={<HistoryRounded />}
+                illustration="/icons/arriving-today.svg"
                 title="Delivery history"
                 detail={
                   historyCount > 0
@@ -171,7 +169,7 @@ export function ProfilePage({
             <ListItem disablePadding>
               <AccountRow
                 href="/notifications"
-                icon={<NotificationsNoneOutlined />}
+                illustration="/icons/notifications.svg"
                 title="Notifications"
                 detail={
                   unreadCount > 0
@@ -186,7 +184,7 @@ export function ProfilePage({
           <ListItem disablePadding>
             <AccountRow
               onClick={onOpenHelp}
-              icon={<HelpOutlineRounded />}
+              illustration="/icons/get-help.svg"
               title="Help and support"
               detail="Report a problem with a parcel"
             />
@@ -196,24 +194,16 @@ export function ProfilePage({
       <Divider />
 
       {isAuthenticated && (
-        <List disablePadding sx={{ mt: 3 }}>
-          <ListItem disablePadding>
-            <ListItemButton onClick={onSignOut} sx={{ minHeight: 56, px: 2 }}>
-              <ListItemIcon sx={{ minWidth: 40, color: "error.main" }}>
-                <LogoutRounded />
-              </ListItemIcon>
-              <ListItemText
-                primary="Sign out"
-                slotProps={{
-                  primary: {
-                    sx: { fontWeight: 650, fontSize: 15, color: "error.main" },
-                  },
-                }}
-                sx={{ m: 0 }}
-              />
-            </ListItemButton>
-          </ListItem>
-        </List>
+        <Box sx={{ display: "flex", justifyContent: "center", px: 2, mt: 3 }}>
+          <Button
+            variant="outlined"
+            color="error"
+            onClick={onSignOut}
+            sx={{ minHeight: 48, minWidth: 200 }}
+          >
+            Sign out
+          </Button>
+        </Box>
       )}
     </Box>
   );
