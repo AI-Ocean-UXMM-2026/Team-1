@@ -183,8 +183,8 @@
 }
 
 .rj-card.is-selected {
-  border-color: var(--color-brand-navy);
-  box-shadow: 0 6px 18px -8px rgb(23 43 77 / 0.28);
+  border-color: var(--color-brand-orange-action);
+  box-shadow: 0 0 0 1px var(--color-brand-orange-action);
 }
 
 .rj-card-content:focus-visible {
@@ -222,24 +222,13 @@
   line-height: 1.25;
 }
 
-.rj-tag {
+/* Distance sits on the title row, where a driver compares jobs first. */
+.rj-away {
   flex: none;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-
-/* Urgency is a word, not a stripe or a wash. */
-.rj-tag.is-urgent {
-  background: var(--rf-error-fg);
-  color: var(--color-text-inverse);
-}
-
-.rj-tag.is-high {
-  background: var(--rf-warn-bg);
-  color: var(--rf-warn-fg);
-  box-shadow: inset 0 0 0 1px var(--rf-border-warning);
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .rj-chevron {
@@ -270,6 +259,15 @@
   white-space: nowrap;
 }
 
+.rj-facts .is-over {
+  color: var(--rf-warn-fg);
+  font-weight: 700;
+}
+
+.rj-facts .is-over svg {
+  color: inherit;
+}
+
 .rj-facts svg {
   flex: none;
   color: var(--color-text-secondary-subtle);
@@ -281,18 +279,12 @@
   padding: 0 16px 16px;
 }
 
-.rj-detail-note,
-.rj-lock-reason {
+.rj-detail-note {
   margin: 0;
   color: var(--color-text-secondary-subtle);
   font-size: 0.9375rem;
   line-height: 1.4;
   text-wrap: pretty;
-}
-
-.rj-lock-reason {
-  color: var(--rf-warn-fg);
-  font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {

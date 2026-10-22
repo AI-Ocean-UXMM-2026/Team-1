@@ -151,15 +151,13 @@ export function RiderJobBoard({
   const selectedVehicle = usable.find(
     (vehicle) => vehicle.id === selectedVehicleId,
   );
-  // The reason a swipe is locked, shown once on the card that needs it.
+  const isTooHeavy = (job: DeliveryJob) =>
+    selectedVehicle?.capacity_kg != null &&
+    job.total_weight_kg > selectedVehicle.capacity_kg;
+  // Why the swipe is locked: a few words, shown once, on the swipe itself.
   const lockReason = (job: DeliveryJob) =>
     blocked ??
-    (needsVehicle
-      ? "Choose a vehicle first"
-      : selectedVehicle?.capacity_kg != null &&
-          job.total_weight_kg > selectedVehicle.capacity_kg
-        ? `Too heavy for ${selectedVehicle.registration_number} (${selectedVehicle.capacity_kg} kg max)`
-        : null);
+    (needsVehicle ? "Choose a vehicle" : isTooHeavy(job) ? "Too heavy" : null);
 
   async function take(job: DeliveryJob) {
     if (starting || lockReason(job)) return;
@@ -252,13 +250,12 @@ export function RiderJobBoard({
       ) : (
         <ul className="rj-list">
           {sorted.map(({ job, awayKm }) => {
-            const isUrgent = job.priority === "urgent";
-            const isPriority = job.priority === "high";
             const isExpanded = expandedId === job.id;
             const spread = jobSpreadKm(job);
             const panelId = `rj-job-${job.id}`;
             const title = job.area_label ?? job.label;
             const locked = lockReason(job);
+            const tooHeavy = isTooHeavy(job);
 
             return (
               <li
@@ -274,11 +271,9 @@ export function RiderJobBoard({
                 >
                   <span className="rj-card-top">
                     <strong className="rj-card-title">{title}</strong>
-                    {isUrgent ? (
-                      <span className="rj-tag is-urgent">Urgent</span>
-                    ) : isPriority ? (
-                      <span className="rj-tag is-high">Priority</span>
-                    ) : null}
+                    {awayKm != null && (
+                      <span className="rj-away">{formatDistance(awayKm)}</span>
+                    )}
                     <span
                       className={`rj-chevron${isExpanded ? " is-open" : ""}`}
                       aria-hidden="true"
@@ -292,7 +287,7 @@ export function RiderJobBoard({
                       {job.order_count}{" "}
                       {job.order_count === 1 ? "stop" : "stops"}
                     </span>
-                    <span>
+                    <span className={tooHeavy ? "is-over" : undefined}>
                       <Icon name="box" size={16} />
                       {job.total_weight_kg} kg
                     </span>
@@ -302,23 +297,16 @@ export function RiderJobBoard({
                         ? `COD ${currency.format(job.cod_total)}`
                         : "Prepaid"}
                     </span>
-                    {awayKm != null && (
-                      <span>
-                        <Icon name="navigation" size={16} />
-                        {formatDistance(awayKm)} away
-                      </span>
-                    )}
                   </span>
                 </button>
 
                 {isExpanded && (
                   <div className="rj-card-detail" id={panelId}>
-                    <p className="rj-detail-note">
-                      {spread != null
-                        ? `Stops are within ${formatDistance(spread)} of each other. `
-                        : ""}
-                      Next you check the load, then start the route.
-                    </p>
+                    {spread != null && (
+                      <p className="rj-detail-note">
+                        Stops are within {formatDistance(spread)} of each other.
+                      </p>
+                    )}
                     <SwipeConfirm
                       label={`Take ${title}`}
                       hint={
@@ -330,11 +318,6 @@ export function RiderJobBoard({
                       disabled={starting != null || locked != null}
                       onConfirm={() => void take(job)}
                     />
-                    {locked && (
-                      <p className="rj-lock-reason" role="status">
-                        {locked}
-                      </p>
-                    )}
                   </div>
                 )}
               </li>
