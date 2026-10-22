@@ -262,12 +262,13 @@ test("handover cannot complete without parcel check, recipient and COD", () => {
     handoverRequirements(stop, draft)
       .filter((item) => !item.met)
       .map((item) => item.key);
-  assert.deepEqual(unmet(EMPTY_HANDOVER), ["parcels", "recipient", "cod"]);
+  assert.deepEqual(unmet(EMPTY_HANDOVER), ["parcels", "recipient", "photo", "cod"]);
   assert.deepEqual(
     unmet({
       ...EMPTY_HANDOVER,
       verified: ["a"],
       receivedBy: "Daw Hla",
+      photo: "data:image/jpeg;base64,x",
       codMode: "full",
     }),
     ["parcels"],
@@ -277,6 +278,7 @@ test("handover cannot complete without parcel check, recipient and COD", () => {
       ...EMPTY_HANDOVER,
       verified: ["a", "b"],
       receivedBy: "Daw Hla",
+      photo: "data:image/jpeg;base64,x",
       codMode: "different",
       codAmount: "15000",
     }),
@@ -288,6 +290,7 @@ test("handover cannot complete without parcel check, recipient and COD", () => {
       ...EMPTY_HANDOVER,
       verified: ["a", "b"],
       receivedBy: "Daw Hla",
+      photo: "data:image/jpeg;base64,x",
       codMode: "different",
       codAmount: "15000",
       codReason: "Paid rest by KPay",

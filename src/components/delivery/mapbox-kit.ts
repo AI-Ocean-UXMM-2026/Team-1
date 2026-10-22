@@ -52,6 +52,7 @@ export function useMapboxMap(
 
   useEffect(() => {
     let map: MapboxMap | null = null;
+    let observer: ResizeObserver | null = null;
     let cancelled = false;
     loadMapbox().then((gl) => {
       if (cancelled || !container.current) return;
@@ -64,12 +65,17 @@ export function useMapboxMap(
         attributionControl: true,
       });
       const created = map;
+      // The container often settles after the map is created (full-screen
+      // layouts, sheets); without this the canvas keeps its first size.
+      observer = new ResizeObserver(() => created.resize());
+      observer.observe(container.current);
       created.on("load", () => {
         if (!cancelled) setState({ map: created, gl });
       });
     });
     return () => {
       cancelled = true;
+      observer?.disconnect();
       map?.remove();
       setState(null);
     };

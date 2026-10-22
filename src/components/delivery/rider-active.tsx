@@ -476,7 +476,13 @@ export function ActiveDelivery({
                       : "Next stop"}{" "}
                   · {stop.number} of {route.stops.length}
                 </small>
-                {headEta && !arrived && <strong>{headEta}</strong>}
+                {confirmFar && far ? (
+                  <strong className="dv-far-note" role="alert">
+                    {formatDistance(distanceKm)} away
+                  </strong>
+                ) : (
+                  headEta && !arrived && <strong>{headEta}</strong>
+                )}
               </div>
             </div>
             <div className="dv-stop-head">
@@ -491,38 +497,38 @@ export function ActiveDelivery({
                   </span>
                 </p>
               </div>
+    <fieldset className="dv-strip">
+                  <legend className="sr-only">Stop actions</legend>
+                  {stop.phone ? (
+                    <>
+                      <a
+                        href={phoneHref(stop.phone, "tel")}
+                        aria-label={`Call ${stop.recipient}`}
+                      >
+                        <Icon name="phone" size={20} />
+                        <span>Call</span>
+                      </a>
+                      <a
+                        href={phoneHref(stop.phone, "sms")}
+                        aria-label={`Message ${stop.recipient}`}
+                      >
+                        <Icon name="message" size={20} />
+                        <span>Message</span>
+                      </a>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void navigator.clipboard?.writeText(stop.address)
+                      }
+                    >
+                      <Icon name="copy" size={20} />
+                      <span>Copy address</span>
+                    </button>
+                  )}
+                </fieldset>
             </div>
-            <fieldset className="dv-strip">
-              <legend className="sr-only">Stop actions</legend>
-              {stop.phone ? (
-                <>
-                  <a
-                    href={phoneHref(stop.phone, "tel")}
-                    aria-label={`Call ${stop.recipient}`}
-                  >
-                    <Icon name="phone" size={20} />
-                    <span>Call</span>
-                  </a>
-                  <a
-                    href={phoneHref(stop.phone, "sms")}
-                    aria-label={`Message ${stop.recipient}`}
-                  >
-                    <Icon name="message" size={20} />
-                    <span>Message</span>
-                  </a>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() =>
-                    void navigator.clipboard?.writeText(stop.address)
-                  }
-                >
-                  <Icon name="copy" size={20} />
-                  <span>Copy address</span>
-                </button>
-              )}
-            </fieldset>
 
             {expanded && (
               <div className="rf-sheet-body dv-details">
@@ -545,12 +551,6 @@ export function ActiveDelivery({
                       </dd>
                     </div>
                   ))}
-                  {stop.phone && (
-                    <div>
-                      <dt>Phone</dt>
-                      <dd>{stop.phone}</dd>
-                    </div>
-                  )}
                   {!pickup && stop.notLoaded.length > 0 && (
                     <div>
                       <dt>Not on truck</dt>
@@ -610,28 +610,27 @@ export function ActiveDelivery({
             ) : !arrived ? (
               <div className="dv-sheet-actions">
                 {confirmFar && far ? (
-                  <div className="dv-confirm" role="alert">
-                    <span>
-                      You’re {formatDistance(distanceKm)} away. Arrived anyway?
-                    </span>
+                  <div className="dv-confirm">
                     <Button
-                      variant="text"
+                      variant="outlined"
                       color="inherit"
+                      size="large"
                       onClick={() => setConfirmFar(false)}
-                      sx={{ minHeight: 48, borderRadius: 999 }}
+                      sx={{ minHeight: 56, borderRadius: 999, flex: "1 1 0" }}
                     >
                       Not yet
                     </Button>
                     <Button
                       variant="contained"
                       color="primary"
+                      size="large"
                       onClick={() => {
                         setConfirmFar(false);
                         onArrived();
                       }}
-                      sx={{ minHeight: 48, borderRadius: 999 }}
+                      sx={{ minHeight: 56, borderRadius: 999, flex: "2 1 0" }}
                     >
-                      Yes, I’m here
+                      Confirm anyway
                     </Button>
                   </div>
                 ) : (

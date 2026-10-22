@@ -280,7 +280,6 @@ export function RiderApp() {
         gpsState={loc.gpsState}
         online={ws.online}
         busy={ws.busy}
-        flash={ws.flash}
         revisionNotice={revisionNotice}
         expanded={ws.expanded}
         setExpanded={ws.setExpanded}

@@ -2,19 +2,13 @@
 
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import ArrowForward from "@mui/icons-material/ArrowForward";
-import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import ChevronRight from "@mui/icons-material/ChevronRight";
 import Close from "@mui/icons-material/Close";
 import ContentPasteOutlined from "@mui/icons-material/ContentPasteOutlined";
-import HistoryToggleOff from "@mui/icons-material/HistoryToggleOff";
-import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
-import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
-import NavigationOutlined from "@mui/icons-material/NavigationOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import QrCodeScannerOutlined from "@mui/icons-material/QrCodeScannerOutlined";
 import Search from "@mui/icons-material/Search";
 import TrackChangesOutlined from "@mui/icons-material/TrackChangesOutlined";
-import WarningAmber from "@mui/icons-material/WarningAmber";
 import Alert from "@mui/material/Alert";
 import AppBar from "@mui/material/AppBar";
 import Avatar from "@mui/material/Avatar";
@@ -43,7 +37,6 @@ import { useRouter } from "next/navigation";
 import {
   type FormEvent,
   memo,
-  type ReactElement,
   type ReactNode,
   useEffect,
   useId,
@@ -57,9 +50,8 @@ import {
   readRecentCodes,
   splitOrders,
   type TodayItem,
-  type TodayState,
 } from "@/lib/delivery/customer-home";
-import { currency, formatTime } from "@/lib/delivery/format";
+import { currency } from "@/lib/delivery/format";
 import type { DeliveryOrder, StatusEvent } from "@/lib/delivery/types";
 
 /* ----------------------------------------------------------------- shared */
@@ -191,33 +183,6 @@ export function DemoChip({ onDismiss }: { onDismiss: () => void }) {
 }
 
 /* ------------------------------------------------------------------- home */
-
-const todayLabels: Record<TodayState, string> = {
-  missed: "Missed",
-  delayed: "Delayed",
-  arriving: "Arriving now",
-  on_the_way: "On the way",
-  scheduled: "Scheduled",
-  delivered: "Delivered",
-};
-
-const todayTone: Record<TodayState, Tone> = {
-  missed: "error",
-  delayed: "warning",
-  arriving: "info",
-  on_the_way: "info",
-  scheduled: "neutral",
-  delivered: "success",
-};
-
-const todayIcons: Record<TodayState, ReactElement> = {
-  missed: <WarningAmber />,
-  delayed: <HistoryToggleOff />,
-  arriving: <NavigationOutlined />,
-  on_the_way: <LocalShippingOutlined />,
-  scheduled: <Inventory2Outlined />,
-  delivered: <CheckCircleOutlined />,
-};
 
 /** Secondary shortcut: a quiet filled row, no outline, so the next parcel stays primary. */
 function ShortcutRow({
@@ -449,10 +414,6 @@ const _MoreShortcuts = memo(function MoreShortcuts({
 });
 
 function TodayRow({ item }: { item: TodayItem }) {
-  const label =
-    item.state === "delayed" && item.delayMinutes > 0
-      ? `Delayed · ${item.delayMinutes} min`
-      : todayLabels[item.state];
   const missed = item.state === "missed";
   const hasCodDue =
     item.order.cod_amount > 0 &&
@@ -466,38 +427,18 @@ function TodayRow({ item }: { item: TodayItem }) {
         href={`/track?order=${encodeURIComponent(item.order.id)}`}
         sx={{
           display: "grid",
-          gridTemplateColumns: "64px minmax(0, 1fr)",
-          alignItems: "center",
-          columnGap: 1.25,
-          rowGap: 1,
+          gap: 0.5,
           minHeight: 64,
-          px: 1.5,
-          py: 1.25,
+          px: 2,
+          py: 1.5,
           borderRadius: "16px",
           border: missed ? 1 : 0,
           borderColor: "error.main",
           bgcolor: missed ? "error.light" : "grey.100",
         }}
       >
-        <Typography
-          variant="body2"
-          sx={{
-            gridColumn: 1,
-            gridRow: "1 / span 2",
-            color: "text.secondary",
-            fontWeight: 650,
-            fontVariantNumeric: "tabular-nums",
-            lineHeight: 1.2,
-          }}
-        >
-          {item.etaAt
-            ? formatTime(item.etaAt)
-            : item.state === "delivered" || item.state === "missed"
-              ? "—"
-              : "ETA pending"}
-        </Typography>
         <ListItemText
-          sx={{ gridColumn: 2, gridRow: 1, minWidth: 0, m: 0 }}
+          sx={{ m: 0, minWidth: 0 }}
           primary={item.order.tracking_code}
           secondary={item.order.delivery_address}
           slotProps={{
@@ -508,42 +449,21 @@ function TodayRow({ item }: { item: TodayItem }) {
             secondary: { noWrap: true, sx: { fontSize: 12 } },
           }}
         />
-        <Box
-          sx={{
-            gridColumn: 2,
-            gridRow: 2,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 0.75,
-            minWidth: 0,
-          }}
-        >
-          {hasCodDue && (
-            <Chip
-              size="small"
-              icon={<PaymentsOutlined sx={{ fontSize: 14 }} />}
-              label={`COD ${currency.format(item.order.cod_amount)}`}
-              sx={{
-                ...toneSx("warning"),
-                height: 28,
-                fontWeight: 700,
-                fontSize: 11,
-                "& .MuiChip-icon": { color: "inherit", fontSize: 14 },
-              }}
-            />
-          )}
+        {hasCodDue && (
           <Chip
             size="small"
-            icon={todayIcons[item.state]}
-            label={label}
+            icon={<PaymentsOutlined sx={{ fontSize: 14 }} />}
+            label={`COD ${currency.format(item.order.cod_amount)}`}
             sx={{
-              ...toneSx(todayTone[item.state]),
+              ...toneSx("warning"),
+              justifySelf: "start",
               height: 28,
-              maxWidth: "100%",
-              "& .MuiChip-icon": { color: "inherit", fontSize: 16 },
+              fontWeight: 700,
+              fontSize: 11,
+              "& .MuiChip-icon": { color: "inherit", fontSize: 14 },
             }}
           />
-        </Box>
+        )}
       </ListItemButton>
     </ListItem>
   );

@@ -2,7 +2,7 @@
 
 import Button from "@mui/material/Button";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { Notice, Sheet } from "@/components/delivery/rider-tools";
@@ -40,6 +40,18 @@ function ParcelLine({
   );
 }
 
+/** Downscales a camera photo so it stays small enough to keep with the draft. */
+async function compressPhoto(file: File, maxSide = 1280): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", 0.7);
+}
+
 /**
  * The handover at the current stop, in two short pages. Page one is the
  * delivery information: check each parcel and say who took it. Page two is the
@@ -65,7 +77,9 @@ export function HandoverPanel({
   onComplete: () => void;
   onCannotDeliver: () => void;
 }) {
-  const [page, setPage] = useState<1 | 2>(1);
+  const [step, setStep] = useState(0);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const requirements = handoverRequirements(stop, draft);
   const missing = requirements.find((item) => !item.met);
   const verifiedIds = new Set(draft.verified);
@@ -81,27 +95,143 @@ export function HandoverPanel({
   const locked = !!missing || busy || !online;
   const parcelDone = stop.open.every((order) => verifiedIds.has(order.id));
   const receiverDone = draft.receivedBy.trim().length > 0;
-  const infoDone = parcelDone && receiverDone;
+  const photoDone = !!draft.photo;
+  const infoDone = parcelDone && receiverDone && photoDone;
+  const stepsDone = [parcelDone, receiverDone, photoDone].filter(
+    Boolean,
+  ).length;
+  const nextStepLabel = !parcelDone
+    ? stop.open.length > 1
+      ? "Check all parcels to continue"
+      : "Check the parcel to continue"
+    : !receiverDone
+      ? "Say who received it to continue"
+      : "Take a photo to continue";
+  const takePhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setPhotoError(null);
+    try {
+      onChange({ photo: await compressPhoto(file) });
+    } catch {
+      setPhotoError("Couldn’t read that photo. Try again.");
+    }
+  };
   const hasCash = stop.codDue > 0;
+
+  const steps = ["parcels", "receiver", "photo", ...(hasCash ? ["cash"] : [])];
+  const current = steps[step];
+  const isLast = step === steps.length - 1;
+  const singleParcel = stop.open.length === 1;
+  const stepDone = [parcelDone, receiverDone, photoDone][step] ?? true;
+  const advance = () => {
+    if (steps[step + 1] === "cash") onChange({ codMode: "full" });
+    setStep((value) => Math.min(value + 1, steps.length - 1));
+  };
+  const continueLabel =
+    current === "parcels"
+      ? singleParcel
+        ? "Confirm this parcel"
+        : "Continue"
+      : "Continue";
+  const hintFor: Record<string, string> = {
+    parcels: "Check all parcels to continue",
+    receiver: "Say who received it to continue",
+    photo: "Take a photo to continue",
+  };
+  const stepTitle: Record<string, string> = {
+    parcels: "Delivery information",
+    receiver: "Delivery information",
+    photo: "Proof of delivery",
+    cash: "Cash to collect",
+  };
+
+  const swipe = (
+    <>
+      {!online && (
+        <p className="rf-dock-note">
+          Your entries are kept on this phone. Completion is sent when you’re
+          back online.
+        </p>
+      )}
+      <SwipeConfirm
+        label="Confirm delivery"
+        disabled={locked}
+        onConfirm={onComplete}
+        hint={
+          busy
+            ? "Saving…"
+            : !online
+              ? "Waiting for connection"
+              : missing
+                ? missing.label
+                : "Swipe to confirm delivery"
+        }
+      />
+    </>
+  );
+
+  const noteField = (
+    <details className="dv-note">
+      <summary>
+        <Icon name="message" size={16} /> Add a note
+      </summary>
+      <textarea
+        aria-label="Delivery note"
+        value={draft.note}
+        maxLength={500}
+        placeholder="For example: authorized building security"
+        onChange={(event) => onChange({ note: event.target.value })}
+      />
+    </details>
+  );
 
   return (
     <div className="dv-handover">
-      {hasCash && (
-        <output className="dv-progress">
-          <strong>Page {page} of 2</strong>{" "}
-          {page === 1 ? "Delivery information" : "Cash to collect"}
-        </output>
-      )}
+      <output className="dv-progress">
+        <span className="dv-progress-bar" aria-hidden="true">
+          {steps.map((name, index) => (
+            <i
+              key={name}
+              className={
+                index < step || (index === step && stepDone && index < 3)
+                  ? "is-done"
+                  : index === step
+                    ? "is-current"
+                    : ""
+              }
+              style={{ gridColumn: "auto" }}
+            />
+          ))}
+        </span>
+        <span className="dv-progress-row">
+          <span>
+            <strong>
+              Step {step + 1} of {steps.length}
+            </strong>
+            {" · "}
+            {stepTitle[current]}
+          </span>
+          {step > 0 && (
+            <button
+              type="button"
+              className="dv-progress-back"
+              onClick={() => setStep(step - 1)}
+            >
+              Back
+            </button>
+          )}
+        </span>
+      </output>
 
-      {page === 1 && (
-        <div className="dv-collect-page">
-          <div className="dv-info-body">
+      <div className="dv-collect-page">
+        <div className="dv-info-body">
+          {current === "parcels" && (
             <fieldset className="dv-step">
               <legend>
                 <StepBadge n={1} done={parcelDone} />
-                {stop.open.length > 1
-                  ? `Verify ${stop.open.length} parcels`
-                  : "Verify the parcel"}
+                {singleParcel
+                  ? "Check the parcel"
+                  : `Verify ${stop.open.length} parcels`}
               </legend>
               {stop.open.map((order) => (
                 <label
@@ -129,7 +259,9 @@ export function HandoverPanel({
                 </p>
               )}
             </fieldset>
+          )}
 
+          {current === "receiver" && (
             <fieldset className="dv-step">
               <legend>
                 <StepBadge n={2} done={receiverDone} />
@@ -185,128 +317,109 @@ export function HandoverPanel({
                 </label>
               )}
             </fieldset>
+          )}
 
-            {!hasCash && (
-              <details className="dv-note">
-                <summary>
-                  <Icon name="message" size={16} /> Add a note
-                </summary>
-                <textarea
-                  aria-label="Delivery note"
-                  value={draft.note}
-                  maxLength={500}
-                  placeholder="For example: authorized building security"
-                  onChange={(event) => onChange({ note: event.target.value })}
-                />
-              </details>
-            )}
-            {error}
-          </div>
-
-          <div className="dv-collect-foot">
-            {hasCash ? (
-              <Button
-                fullWidth
-                variant="contained"
-                color="primary"
-                size="large"
-                disabled={!infoDone}
-                onClick={() => {
-                  // Page two's swipe is the cash confirmation, so the full amount is set here.
-                  onChange({ codMode: "full" });
-                  setPage(2);
+          {current === "photo" && (
+            <fieldset className="dv-step">
+              <legend>
+                <StepBadge n={3} done={photoDone} />
+                Photo of the parcel
+              </legend>
+              <input
+                ref={photoInput}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="rf-sr-only"
+                aria-label="Take a photo of the parcel"
+                onChange={(event) => {
+                  void takePhoto(event.target.files?.[0]);
+                  event.target.value = "";
                 }}
-                endIcon={<Icon name="arrow-right" size={18} />}
-                sx={{ minHeight: 52, borderRadius: 999 }}
-              >
-                {infoDone
-                  ? "Next · cash to collect"
-                  : "Check the parcels and receiver"}
-              </Button>
-            ) : (
-              <>
-                {!online && (
-                  <p className="rf-dock-note">
-                    Your entries are kept on this phone. Completion is sent when
-                    you’re back online.
-                  </p>
-                )}
-                <SwipeConfirm
-                  label="Confirm delivery"
-                  disabled={locked}
-                  onConfirm={onComplete}
-                  hint={
-                    busy
-                      ? "Saving…"
-                      : !online
-                        ? "Waiting for connection"
-                        : missing
-                          ? missing.label
-                          : "Swipe to confirm delivery"
-                  }
-                />
-              </>
-            )}
-            <button
-              type="button"
-              className="dv-text-btn"
-              onClick={onCannotDeliver}
-            >
-              Can’t deliver this stop
-            </button>
-          </div>
-        </div>
-      )}
-
-      {page === 2 && (
-        <div className="dv-collect-page">
-          <div className="dv-collect-body">
-            <p className="dv-collect-label">Total to collect</p>
-            <p className="dv-collect-figure">
-              <span>MMK</span> {stop.codDue.toLocaleString()}
-            </p>
-            <p className="dv-collect-from">From {stop.recipient}</p>
-
-            <details className="dv-note">
-              <summary>
-                <Icon name="message" size={16} /> Add a note
-              </summary>
-              <textarea
-                aria-label="Delivery note"
-                value={draft.note}
-                maxLength={500}
-                placeholder="For example: authorized building security"
-                onChange={(event) => onChange({ note: event.target.value })}
               />
-            </details>
+              {draft.photo ? (
+                <div className="dv-photo is-taken">
+                  {/* biome-ignore lint/performance/noImgElement: local data URL */}
+                  <img src={draft.photo} alt="Parcel at the door" />
+                  <button
+                    type="button"
+                    className="dv-photo-retake"
+                    onClick={() => photoInput.current?.click()}
+                  >
+                    <Icon name="refresh" size={16} /> Retake
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="dv-photo dv-photo-empty"
+                  onClick={() => photoInput.current?.click()}
+                >
+                  <Icon name="camera" size={28} />
+                  <strong>Take a photo</strong>
+                  <small>
+                    Show the parcel where you left it or handed it over
+                  </small>
+                </button>
+              )}
+              {photoError && (
+                <p className="rf-muted" role="alert">
+                  {photoError}
+                </p>
+              )}
+              {!hasCash && noteField}
+            </fieldset>
+          )}
 
-            {error}
-          </div>
-
-          <div className="dv-collect-foot">
-            {!online && (
-              <p className="rf-dock-note">
-                Your entries are kept on this phone. Completion is sent when
-                you’re back online.
+          {current === "cash" && (
+            <div className="dv-collect-body">
+              <p className="dv-collect-label">Total to collect</p>
+              <p className="dv-collect-figure">
+                <span>MMK</span> {stop.codDue.toLocaleString()}
               </p>
-            )}
-            <SwipeConfirm
-              label="Confirm delivery"
-              disabled={locked}
-              onConfirm={onComplete}
-              hint={
-                busy
-                  ? "Saving…"
-                  : !online
-                    ? "Waiting for connection"
-                    : missing
-                      ? missing.label
-                      : "Swipe to confirm delivery"
-              }
-            />
-          </div>
+              <p className="dv-collect-from">From {stop.recipient}</p>
+              {noteField}
+            </div>
+          )}
+          {error}
         </div>
-      )}
+
+        <div className="dv-collect-foot">
+          {isLast && (current === "cash" || !hasCash) ? (
+            swipe
+          ) : (
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              size="large"
+              disabled={!stepDone && !(current === "parcels" && singleParcel)}
+              onClick={() => {
+                if (current === "parcels" && singleParcel)
+                  onChange({ verified: stop.open.map((order) => order.id) });
+                advance();
+              }}
+              endIcon={<Icon name="arrow-right" size={18} />}
+              sx={{ minHeight: 52, borderRadius: 999 }}
+            >
+              {current === "parcels" && singleParcel
+                ? continueLabel
+                : stepDone
+                  ? continueLabel
+                  : hintFor[current]}
+            </Button>
+          )}
+          <Button
+            fullWidth
+            variant="outlined"
+            color="inherit"
+            onClick={onCannotDeliver}
+            sx={{ minHeight: 48, borderRadius: 999 }}
+          >
+            Can’t deliver this stop
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

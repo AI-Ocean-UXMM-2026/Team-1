@@ -607,9 +607,13 @@
   background: var(--color-surface-subtle);
 }
 
-.rnav-viewport {
+/* Mapbox's own stylesheet sets .mapboxgl-map to position: relative; without the
+   extra specificity the viewport collapses to zero height and the map vanishes. */
+.rnav-map .rnav-viewport {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -2027,39 +2031,39 @@
   flex: none;
 }
 
+/* Call / Message: round icon buttons beside the address, as in driver apps. */
 .dv-strip {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  min-width: 0;
-  margin: 10px 0 0;
+  display: flex;
+  flex: none;
+  gap: 8px;
+  margin: 0;
   padding: 0;
   border: 0;
-  border-top: 1px solid var(--color-border);
 }
 
 .dv-strip > a,
 .dv-strip > button {
   display: grid;
-  min-height: 56px;
+  width: 48px;
+  height: 48px;
   place-items: center;
-  align-content: center;
-  gap: 2px;
-  padding: 6px 4px;
+  padding: 0;
   border: 0;
-  border-left: 1px solid var(--color-border);
-  background: none;
+  border-radius: 50%;
+  background: var(--color-surface-subtle);
   color: var(--color-text-primary);
   font: inherit;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
 }
 
-.dv-strip > :first-child {
-  border-left: 0;
+.dv-strip > a > span,
+.dv-strip > button > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
 }
 
 .dv-details {
@@ -2164,20 +2168,17 @@
   background: var(--color-surface);
 }
 
+/* Far-away check: same 56px slot as "Confirm arrival", split in two, so the
+   primary action never moves. The distance shows in the sheet's top line. */
 .dv-confirm {
   display: flex;
   flex: 1;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px 8px;
+  gap: 8px;
 }
 
-.dv-confirm > span {
-  flex: 1 1 100%;
-  color: var(--color-text-primary);
+.dv-stage-line .dv-far-note {
+  color: var(--rf-warn-fg);
   font-size: 14px;
-  font-weight: 600;
 }
 
 /* ---------- handover ---------- */
@@ -2946,4 +2947,159 @@
   display: grid;
   gap: 20px;
   padding-top: 8px;
+}
+
+/* Action dock: separated from the scrolling details, with room to breathe. */
+.dv-sheet-actions {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+.dv-more {
+  margin: 12px 0 0;
+}
+
+/* Parcel photo step */
+.rf-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.dv-photo {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+.dv-photo-empty {
+  display: grid;
+  width: 100%;
+  min-height: 112px;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 16px;
+  border: 2px dashed var(--color-border-control);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dv-photo-empty small {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.dv-photo.is-taken img {
+  display: block;
+  width: 100%;
+  height: 168px;
+  object-fit: cover;
+}
+
+.dv-photo-retake {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Handover header and progress: align the back button with the title block. */
+.dv-sheet.is-handover .dv-sheet-head {
+  align-items: flex-start;
+}
+.dv-progress {
+  margin: 8px 0 0;
+}
+.dv-handover {
+  gap: 16px;
+}
+
+/* Handover progress: three segments fill as each step is done. */
+.dv-progress {
+  display: grid;
+  gap: 8px;
+}
+.dv-progress-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.dv-progress-bar i {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-border);
+  transition: background 200ms var(--rf-ease);
+}
+.dv-progress-bar i.is-done {
+  background: var(--color-success);
+}
+.dv-photo-empty {
+  min-height: 150px;
+  border-color: var(--color-brand-orange-action);
+  background: color-mix(in srgb, var(--color-brand-orange) 8%, var(--color-surface));
+}
+.dv-photo-empty svg {
+  color: var(--color-brand-orange-action);
+}
+.dv-photo-empty strong {
+  font-size: 17px;
+}
+.dv-collect-foot .MuiButton-root.Mui-disabled {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+/* Step-per-screen handover */
+.dv-progress-bar i.is-current {
+  background: var(--color-brand-orange-action);
+}
+.dv-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dv-progress-back {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--color-brand-orange-action);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dv-progress-bar {
+  grid-template-columns: unset;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+.dv-collect-foot {
+  display: grid;
+  gap: 8px;
+}
+
+/* Upcoming stops: the name reads before the address, not the same grey. */
+.dv-stop-row.is-dense .dv-stop-copy strong {
+  color: var(--color-text-primary);
 }

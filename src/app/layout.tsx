@@ -8,6 +8,7 @@ import "./audit-fixes.css";
 import "./auth-screen.css";
 import "./manager-polish.css";
 import "./manager-track-polish.css";
+import "./manager-aws.css";
 import { MuiProvider } from "@/components/delivery/mui-provider";
 
 // Self-hosted so essential text never depends on a remote font or on the

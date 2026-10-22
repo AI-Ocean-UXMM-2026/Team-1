@@ -7,6 +7,7 @@ export type IconName =
   | "battery"
   | "bell"
   | "box"
+  | "camera"
   | "check"
   | "chevron-down"
   | "chevrons-right"
@@ -168,6 +169,12 @@ const pathByName: Record<IconName, ReactNode> = {
     <>
       <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
       <path d="m4.5 7.5 7.5 4 7.5-4M12 12v9" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="13" r="3.6" />
     </>
   ),
   phone: (

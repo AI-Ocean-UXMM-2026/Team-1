@@ -1,19 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { type ReactNode, useState } from "react";
 import { StatusBadge } from "@/components/delivery/common";
 import "./manager-home.css";
+import "./manager-home-simple.css";
 import { Icon } from "@/components/delivery/icons";
-import { LocationMap } from "@/components/delivery/location-map";
-import {
-  CardHeader,
-  KpiCell,
-} from "@/components/delivery/manager-ui-components";
 import {
   type attentionSummary,
   managerExceptions,
 } from "@/lib/delivery/dashboard";
 import { currency, formatTime } from "@/lib/delivery/format";
+import {
+  orderPaymentMethod,
+  paymentBadge,
+} from "@/lib/delivery/payment-methods";
 import type { DeliveryOrder, VehicleOption } from "@/lib/delivery/types";
 import type { useWorkspace } from "@/lib/delivery/use-workspace";
 
@@ -26,7 +27,6 @@ export type ManagerHomeViewProps = {
   atRiskCount: number;
   refreshing: boolean;
   onRefresh: () => Promise<void>;
-  movingOrders: DeliveryOrder[];
   recentList: DeliveryOrder[];
   summary: ReturnType<typeof attentionSummary>;
   freeRiders: number;
@@ -34,91 +34,384 @@ export type ManagerHomeViewProps = {
   tasks: { requests: number; queued: number; open: number } | null;
 };
 
-function RecentDeliveries({ orders }: { orders: DeliveryOrder[] }) {
+const VISIBLE_EXCEPTIONS = 4;
+
+type Tone = "success" | "warning" | "error" | "info" | "muted";
+
+type Metric = {
+  label: string;
+  value: number;
+  hint: string;
+  href: string;
+  tone: Tone;
+};
+
+type HealthRow = {
+  service: string;
+  tone: Tone;
+  status: string;
+  detail: string;
+  href: string;
+};
+
+function ratio(part: number, total: number) {
+  return total ? `${part} / ${total}` : "—";
+}
+
+/** Cloudscape-style status indicator: a small outlined glyph and a label. */
+function StatusIndicator({
+  tone,
+  children,
+}: {
+  tone: Tone;
+  children: ReactNode;
+}) {
   return (
-    <section className="dash-card" aria-label="Recent deliveries">
-      <CardHeader title="Recent deliveries" icon="package">
-        <Link className="dash-link" href="/manager/order">
-          View queue
-        </Link>
-      </CardHeader>
-      <table className="dash-table">
-        <caption className="visually-hidden">Recent deliveries</caption>
-        <thead>
-          <tr>
-            <th scope="col">Delivery</th>
-            <th scope="col">Status</th>
-            <th scope="col">Rider</th>
-            <th scope="col">ETA</th>
-            <th scope="col">COD</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map((order) => (
-            <tr key={order.id} className="dash-table-row">
-              <td className="dash-cell-main">
-                <Link
-                  href={`/manager/order?id=${order.id}`}
-                  aria-label={`Open delivery ${order.tracking_code} for ${order.customer_name}`}
-                >
-                  <strong>{order.tracking_code}</strong>
-                </Link>
-                <small>{order.customer_name}</small>
-              </td>
-              <td>
-                <StatusBadge status={order.status} />
-              </td>
-              <td className="dash-cell-truncate">
-                {order.driver_name || "Unassigned"}
-              </td>
-              <td>{formatTime(order.estimated_delivery_at)}</td>
-              <td
-                className={order.cod_amount > 0 ? "dash-cell-cod" : undefined}
-              >
-                {order.cod_amount > 0 ? currency.format(order.cod_amount) : "—"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <ul className="dash-delivery-list" aria-label="Recent deliveries">
-        {orders.map((order) => (
-          <li key={order.id}>
-            <Link
-              href={`/manager/order?id=${order.id}`}
-              aria-label={`Open delivery ${order.tracking_code} for ${order.customer_name}`}
-            >
-              <span className="dash-delivery-heading">
-                <strong>{order.tracking_code}</strong>
-                <StatusBadge status={order.status} />
-              </span>
-              <span className="dash-delivery-customer">
-                {order.customer_name}
-              </span>
-              <span className="dash-delivery-facts">
-                <span>
-                  <small>Rider</small>
-                  {order.driver_name || "Unassigned"}
-                </span>
-                <span>
-                  <small>ETA</small>
-                  {formatTime(order.estimated_delivery_at)}
-                </span>
-                <span>
-                  <small>COD</small>
-                  {order.cod_amount > 0
-                    ? currency.format(order.cod_amount)
-                    : "None"}
-                </span>
-              </span>
+    <span className={`mh-status is-${tone}`}>
+      <svg
+        viewBox="0 0 16 16"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {tone === "success" && (
+          <>
+            <circle cx="8" cy="8" r="6.2" />
+            <path d="m5.2 8.2 2 2 3.6-4" />
+          </>
+        )}
+        {tone === "warning" && (
+          <>
+            <path d="M8 2 14.2 13H1.8L8 2Z" />
+            <path d="M8 6.5v3M8 11.4v.1" />
+          </>
+        )}
+        {tone === "error" && (
+          <>
+            <circle cx="8" cy="8" r="6.2" />
+            <path d="m5.8 5.8 4.4 4.4M10.2 5.8l-4.4 4.4" />
+          </>
+        )}
+        {tone === "info" && (
+          <>
+            <circle cx="8" cy="8" r="6.2" />
+            <path d="M8 7.2v3.6M8 5.1v.1" />
+          </>
+        )}
+        {tone === "muted" && (
+          <>
+            <circle cx="8" cy="8" r="6.2" />
+            <path d="M5.4 8h5.2" />
+          </>
+        )}
+      </svg>
+      {children}
+    </span>
+  );
+}
+
+function Container({
+  id,
+  title,
+  count,
+  description,
+  action,
+  children,
+}: {
+  id: string;
+  title: string;
+  count?: number | string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="mh-card" aria-labelledby={id}>
+      <header className="mh-card-head">
+        <div className="mh-card-title">
+          <h2 id={id}>
+            {title}
+            {count !== undefined && (
+              <span className="mh-card-count"> ({count})</span>
+            )}
+          </h2>
+          {description && <p>{description}</p>}
+        </div>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function SummaryContainer({ metrics }: { metrics: Metric[] }) {
+  return (
+    <Container
+      id="mh-summary-title"
+      title="Delivery summary"
+      description="Live counts for the current shift. Select a figure to open its list."
+    >
+      <ul className="mh-metrics">
+        {metrics.map((metric) => (
+          <li key={metric.label}>
+            <Link href={metric.href}>
+              <span className="mh-metric-label">{metric.label}</span>
+              <strong className={`is-${metric.tone}`}>{metric.value}</strong>
+              <StatusIndicator tone={metric.tone}>
+                {metric.hint}
+              </StatusIndicator>
             </Link>
           </li>
         ))}
       </ul>
-      {!orders.length && (
-        <p className="dash-empty">No deliveries have been created yet.</p>
+    </Container>
+  );
+}
+
+function Alerts({
+  exceptions,
+}: {
+  exceptions: ReturnType<typeof managerExceptions>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? exceptions : exceptions.slice(0, VISIBLE_EXCEPTIONS);
+  const hidden = exceptions.length - VISIBLE_EXCEPTIONS;
+  const severity = {
+    critical: { tone: "error", label: "Critical" },
+    warning: { tone: "warning", label: "Warning" },
+    info: { tone: "info", label: "Info" },
+  } as const;
+
+  return (
+    <Container
+      id="mh-alerts-title"
+      title="Alerts"
+      count={exceptions.length}
+      description="Items that need a dispatcher decision, most urgent first."
+    >
+      {exceptions.length ? (
+        <>
+          <div className="mh-table-wrap">
+            <table className="mh-table">
+              <thead>
+                <tr>
+                  <th scope="col">Severity</th>
+                  <th scope="col">Alert</th>
+                  <th scope="col">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((item) => {
+                  const level = severity[item.tone];
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <StatusIndicator tone={level.tone}>
+                          {level.label}
+                        </StatusIndicator>
+                      </td>
+                      <td>
+                        <Link className="mh-link" href={item.href}>
+                          {item.title}
+                        </Link>
+                      </td>
+                      <td className="mh-muted">
+                        {item.detail} · {item.meta}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {hidden > 0 && (
+            <button
+              type="button"
+              className="mh-more"
+              aria-expanded={expanded}
+              onClick={() => setExpanded((open) => !open)}
+            >
+              {expanded ? "Show fewer alerts" : `Show ${hidden} more`}
+            </button>
+          )}
+        </>
+      ) : (
+        <p className="mh-empty">
+          <StatusIndicator tone="success">No active alerts</StatusIndicator>
+          Locations are live, and no delays, unassigned deliveries or unsettled
+          cash were found.
+        </p>
       )}
-    </section>
+    </Container>
+  );
+}
+
+function RecentDeliveries({ orders }: { orders: DeliveryOrder[] }) {
+  return (
+    <Container
+      id="mh-recent-title"
+      title="Recent deliveries"
+      count={orders.length}
+      action={
+        <Link className="button button-outline mh-action" href="/manager/order">
+          View all deliveries
+        </Link>
+      }
+    >
+      {orders.length ? (
+        <div className="mh-table-wrap">
+          <table className="mh-table">
+            <thead>
+              <tr>
+                <th scope="col">Delivery</th>
+                <th scope="col">Customer</th>
+                <th scope="col">Status</th>
+                <th scope="col">Payment</th>
+                <th scope="col">Rider</th>
+                <th scope="col">ETA</th>
+                <th scope="col" className="mh-num">
+                  COD
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id}>
+                  <td className="mh-nowrap">
+                    <Link
+                      className="mh-link"
+                      href={`/manager/order?id=${order.id}`}
+                    >
+                      {order.tracking_code}
+                    </Link>
+                  </td>
+                  <td>{order.customer_name}</td>
+                  <td>
+                    <StatusBadge status={order.status} />
+                  </td>
+                  <td className="mh-nowrap">
+                    {paymentBadge(orderPaymentMethod(order))}
+                  </td>
+                  <td>
+                    {order.driver_name || (
+                      <span className="mh-muted">Unassigned</span>
+                    )}
+                  </td>
+                  <td className="mh-nowrap">
+                    {formatTime(order.estimated_delivery_at)}
+                  </td>
+                  <td className="mh-num">
+                    {order.cod_amount > 0 ? (
+                      currency.format(order.cod_amount)
+                    ) : (
+                      <span className="mh-muted">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="mh-empty">No deliveries have been created yet.</p>
+      )}
+    </Container>
+  );
+}
+
+function OperationalHealth({ rows }: { rows: HealthRow[] }) {
+  const attention = rows.filter((row) => row.tone !== "success").length;
+  return (
+    <Container
+      id="mh-health-title"
+      title="Operational health"
+      description={
+        attention
+          ? `${attention} of ${rows.length} checks need attention.`
+          : "All checks are passing."
+      }
+    >
+      <ul className="mh-health">
+        {rows.map((row) => (
+          <li key={row.service}>
+            <Link href={row.href}>
+              <span className="mh-health-copy">
+                <strong>{row.service}</strong>
+                <small>{row.detail}</small>
+              </span>
+              <StatusIndicator tone={row.tone}>{row.status}</StatusIndicator>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Container>
+  );
+}
+
+function Capacity({
+  riders,
+  vehicles,
+  cash,
+  tasks,
+}: {
+  riders: { free: number; total: number };
+  vehicles: { ready: number; total: number };
+  cash: { value: string; detail: string; warn: boolean };
+  tasks: { open: number; detail: string } | null;
+}) {
+  const bars = [
+    {
+      label: "Riders free",
+      href: "/manager/profile?tab=riders",
+      ...riders,
+      part: riders.free,
+    },
+    {
+      label: "Vehicles ready",
+      href: "/manager/vehicles",
+      ...vehicles,
+      part: vehicles.ready,
+    },
+  ];
+  return (
+    <Container id="mh-capacity-title" title="Fleet and cash">
+      <div className="mh-capacity">
+        {bars.map((bar) => (
+          <Link key={bar.label} href={bar.href} className="mh-bar">
+            <span className="mh-bar-head">
+              <span>{bar.label}</span>
+              <strong>{ratio(bar.part, bar.total)}</strong>
+            </span>
+            <progress
+              max={bar.total || 1}
+              value={bar.part}
+              aria-label={`${bar.label}: ${bar.part} of ${bar.total}`}
+            />
+          </Link>
+        ))}
+        <dl className="mh-kv">
+          <div>
+            <dt>Cash to settle</dt>
+            <dd className={cash.warn ? "is-warning" : undefined}>
+              <Link href="/manager/cod">{cash.value}</Link>
+              <small>{cash.detail}</small>
+            </dd>
+          </div>
+          <div>
+            <dt>Open tasks</dt>
+            <dd>
+              <Link href="/manager/jobs">{tasks ? tasks.open : "—"}</Link>
+              {tasks && <small>{tasks.detail}</small>}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </Container>
   );
 }
 
@@ -129,7 +422,6 @@ export function ManagerHomeView({
   atRiskCount,
   refreshing,
   onRefresh,
-  movingOrders,
   recentList,
   summary,
   freeRiders,
@@ -140,15 +432,14 @@ export function ManagerHomeView({
     workspace.data.orders,
     workspace.data.riderRequests ?? [],
   );
+  const { drivers, vehicles, orders } = workspace.data;
   const hasOperationalData =
-    workspace.data.orders.length > 0 ||
-    workspace.data.drivers.length > 0 ||
-    workspace.data.vehicles.length > 0;
+    orders.length > 0 || drivers.length > 0 || vehicles.length > 0;
 
   if (!hasOperationalData) {
     return (
       <section
-        className="dash-card manager-zero-state"
+        className="mh-card manager-zero-state"
         aria-labelledby="manager-zero-title"
       >
         <span className="manager-zero-icon" aria-hidden="true">
@@ -162,7 +453,7 @@ export function ManagerHomeView({
           </p>
         </div>
         <div className="manager-zero-actions">
-          <Link className="button button-primary" href="/manager/order">
+          <Link className="button button-primary" href="/manager/order/create">
             Create a delivery <Icon name="arrow-right" size={16} />
           </Link>
           <Link className="button button-outline" href="/manager/profile">
@@ -182,210 +473,110 @@ export function ManagerHomeView({
     );
   }
 
+  const metrics: Metric[] = [
+    {
+      label: "On route",
+      value: movingCount,
+      hint: `${summary.gpsLive} GPS live`,
+      href: "/manager/track",
+      tone: "info",
+    },
+    {
+      label: "Needs rider",
+      value: summary.needsRider,
+      hint: summary.needsRider ? "Awaiting assignment" : "All assigned",
+      href: "/manager/order?filter=unassigned",
+      tone: summary.needsRider ? "warning" : "success",
+    },
+    {
+      label: "Delivered today",
+      value: deliveredCount,
+      hint: "Local time",
+      href: "/manager/order",
+      tone: "success",
+    },
+    {
+      label: "At risk",
+      value: atRiskCount,
+      hint: atRiskCount ? "Delayed or failed" : "None at risk",
+      href: "/manager/order",
+      tone: atRiskCount ? "error" : "success",
+    },
+  ];
+
+  const onRoute = summary.gpsLive + summary.staleLocations;
+  const health: HealthRow[] = [
+    {
+      service: "Rider GPS",
+      tone: summary.staleLocations ? "error" : "success",
+      status: summary.staleLocations ? "Stale" : "Normal",
+      detail: onRoute
+        ? `${summary.gpsLive} of ${onRoute} on-route locations are live`
+        : "No deliveries on route",
+      href: "/manager/track",
+    },
+    {
+      service: "Dispatch queue",
+      tone: summary.needsRider ? "warning" : "success",
+      status: summary.needsRider ? "Needs rider" : "Normal",
+      detail: `${summary.needsRider} awaiting assignment`,
+      href: "/manager/order?filter=unassigned",
+    },
+    {
+      service: "Traffic delays",
+      tone: summary.delayed ? "warning" : "success",
+      status: summary.delayed ? "Delayed" : "Normal",
+      detail: `${summary.delayed} active deliveries running late`,
+      href: "/manager/track",
+    },
+    {
+      service: "Cash settlement",
+      tone: summary.codToSettle ? "warning" : "success",
+      status: summary.codToSettle ? "To settle" : "Normal",
+      detail: `${summary.codToSettle} collected, ${summary.codPending} still due`,
+      href: "/manager/cod",
+    },
+    {
+      service: "Road reports",
+      tone: summary.pendingReports ? "info" : "success",
+      status: summary.pendingReports ? "To review" : "Normal",
+      detail: `${summary.pendingReports} pending review`,
+      href: "/manager/track",
+    },
+  ];
+
   return (
-    <div className="dash-overview">
-      <section
-        className="dash-card dash-priority"
-        aria-label="Priority exceptions"
-      >
-        <CardHeader
-          title="Act now"
-          icon="warning"
-          meta={
-            exceptions.length ? (
-              <span className="dash-pill-alert">
-                {exceptions.length} prioritised
-              </span>
-            ) : (
-              <span className="dash-pill-clear">Operations checked</span>
-            )
-          }
-        />
-        {exceptions.length ? (
-          <ol className="dash-exception-list">
-            {exceptions.map((item) => (
-              <li key={item.id} className={`is-${item.tone}`}>
-                <Link href={item.href}>
-                  <span className="dash-exception-icon" aria-hidden="true">
-                    <Icon
-                      name={item.title.includes("cash") ? "coin" : "warning"}
-                      size={17}
-                    />
-                  </span>
-                  <span className="dash-exception-copy">
-                    <strong>{item.title}</strong>
-                    <small>{item.detail}</small>
-                  </span>
-                  <span className="dash-exception-meta">{item.meta}</span>
-                  <Icon name="arrow-right" size={15} />
-                </Link>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <div className="dash-healthy-state">
-            <Icon name="check" size={18} />
-            <span>
-              <strong>No urgent intervention needed</strong>
-              <small>
-                Live data loaded and no stale locations, delays, unassigned
-                deliveries, rider requests, or unsettled cash were found.
-              </small>
-            </span>
-          </div>
-        )}
-      </section>
-
-      <div className="dash-main">
-        <section className="dash-card" aria-label="Delivery metrics">
-          <div className="dash-kpi-grid">
-            <KpiCell
-              label="On route"
-              value={movingCount}
-              hint={`${summary.gpsLive} GPS live · ${summary.staleLocations} stale`}
-              tone="live"
-              icon="track"
-              href="/manager/track"
-            />
-            <KpiCell
-              label="Needs rider"
-              value={summary.needsRider}
-              hint="Awaiting assignment"
-              icon="user"
-              tone={summary.needsRider ? "warning" : undefined}
-              href="/manager/order?filter=unassigned"
-            />
-            <KpiCell
-              label="Delivered today"
-              value={deliveredCount}
-              hint="Local time"
-              tone="success"
-              icon="check"
-              href="/manager/order"
-            />
-            <KpiCell
-              label="At risk"
-              value={atRiskCount}
-              hint="Delayed or failed"
-              icon="warning"
-              tone={atRiskCount ? "warning" : undefined}
-              href="/manager/order"
-            />
-          </div>
-        </section>
-
-        <section className="dash-card" aria-label="Live map">
-          <CardHeader
-            title="Route locations"
-            icon="location"
-            meta={`${summary.gpsLive} GPS live`}
+    <div className="mh-page">
+      <SummaryContainer metrics={metrics} />
+      <div className="mh-columns">
+        <div className="mh-stack">
+          <Alerts exceptions={exceptions} />
+          <RecentDeliveries orders={recentList} />
+        </div>
+        <div className="mh-stack">
+          <OperationalHealth rows={health} />
+          <Capacity
+            riders={{ free: freeRiders, total: drivers.length }}
+            vehicles={{
+              ready: availableVehicles.length,
+              total: vehicles.length,
+            }}
+            cash={{
+              value: currency.format(summary.codToSettleTotal),
+              detail: `${currency.format(summary.codPendingTotal)} still due`,
+              warn: summary.codToSettle > 0,
+            }}
+            tasks={
+              tasks
+                ? {
+                    open: tasks.open,
+                    detail: `${tasks.requests} requests · ${tasks.queued} queued`,
+                  }
+                : null
+            }
           />
-          <div className="dash-map">
-            <LocationMap
-              order={null}
-              orders={movingOrders}
-              mode="manager"
-              isDemo={workspace.isDemo}
-              roadReports={workspace.data.roadReports}
-              compact
-            />
-            {movingCount === 0 && (
-              <p className="dash-map-empty">
-                No parcels are currently on route
-              </p>
-            )}
-          </div>
-        </section>
-
-        <RecentDeliveries orders={recentList} />
+        </div>
       </div>
-
-      <aside className="dash-rail">
-        <section className="dash-card" aria-label="Cash on delivery status">
-          <CardHeader title="Cash on delivery" icon="coin">
-            <Link className="dash-link" href="/manager/cod">
-              Open ledger
-            </Link>
-          </CardHeader>
-          <dl className="dash-money-list">
-            <div>
-              <dt>COD due</dt>
-              <dd>{currency.format(summary.codPendingTotal)}</dd>
-              <small>{summary.codPending} awaiting collection</small>
-            </div>
-            <div className={summary.codToSettle ? "is-warning" : undefined}>
-              <dt>Collected · not settled</dt>
-              <dd>{currency.format(summary.codToSettleTotal)}</dd>
-              <small>{summary.codToSettle} awaiting handover</small>
-            </div>
-          </dl>
-        </section>
-
-        <section className="dash-card" aria-label="Task automation">
-          <CardHeader title="Task automation" icon="spark">
-            <Link className="dash-link" href="/manager/jobs">
-              Open
-            </Link>
-          </CardHeader>
-          <ul className="dash-list">
-            {[
-              { label: "Requests waiting", value: tasks?.requests },
-              { label: "In queue", value: tasks?.queued },
-              { label: "Open tasks", value: tasks?.open },
-            ].map((row) => (
-              <li key={row.label}>
-                <Link href="/manager/jobs">
-                  <span>{row.label}</span>
-                  <strong>{row.value ?? "—"}</strong>
-                  <Icon name="arrow-right" size={14} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="dash-card" aria-label="Fleet status">
-          <CardHeader title="Fleet" icon="truck">
-            <Link className="dash-link" href="/manager/vehicles">
-              Open
-            </Link>
-          </CardHeader>
-          <ul className="dash-list">
-            <li>
-              <Link href="/manager/profile?tab=riders">
-                <span>Riders free</span>
-                <strong>
-                  {workspace.data.drivers.length ? (
-                    <>
-                      {freeRiders}
-                      <small> / {workspace.data.drivers.length}</small>
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </strong>
-                <Icon name="arrow-right" size={14} />
-              </Link>
-            </li>
-            <li>
-              <Link href="/manager/vehicles">
-                <span>Vehicles ready</span>
-                <strong>
-                  {workspace.data.vehicles.length ? (
-                    <>
-                      {availableVehicles.length}
-                      <small> / {workspace.data.vehicles.length}</small>
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </strong>
-                <Icon name="arrow-right" size={14} />
-              </Link>
-            </li>
-          </ul>
-        </section>
-      </aside>
     </div>
   );
 }

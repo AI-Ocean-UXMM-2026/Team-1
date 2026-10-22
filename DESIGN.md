@@ -314,7 +314,7 @@ Confident and unmissable on phones; compact and quiet in workspaces.
 - **Filter or parcel chip:** an outlined 1px Control Slate pill. When selected it becomes a Dispatch Navy fill with white text.
 
 ### Cards and list rows
-- **List row (customer):** a Surface Subtle fill with 16px corners and no border, at least 64px tall. A 64px tabular time column on the left, the tracking code (700) and address (12px, one line) on the right, and chips below. A missed row switches to a Failed Red wash with a 1px red edge.
+- **List row (customer):** a Surface Subtle fill with 16px corners and no border, at least 64px tall. The tracking code (700) sits above the address (12px, one line), with a COD chip below when cash is due. No time estimate and no delay or status badge appear on the row: the delivery detail carries that. A missed row switches to a Failed Red wash with a 1px red edge.
 - **Shortcut tile:** a white tile with 16px corners, a 1px Hairline border, a 40px illustrated icon above a 15px/600 label, and a minimum height of 112px, laid out in a three-up grid.
 - **Manager panel:** a white panel with 16px corners, a 1px Hairline border, 20px padding and no shadow. A 16px/700 title leads, with a muted count on the right. KPI cells are separated by vertical hairlines.
 
@@ -366,7 +366,7 @@ State changes run at 120–240ms on `--rf-ease` (`cubic-bezier(0.16, 1, 0.3, 1)`
 The customer app is a mobile-first shell. Signed-in screens carry no logo.
 
 - **Bottom tabs:** Home, Orders, Pickup, Profile. The tab bar shows on the four tab roots and hides on focused steps: order details, pickup steps 2–3, map selection and notifications. Every hidden-tab screen has a Back control that stays inside Oern.
-- **Home:** a three-up shortcut grid (Request pickup, Track parcel, Help & support). If any deliveries are finished, a "Delivery history" row follows. Then "Today's deliveries": one row per active parcel with its ETA, tracking code, address, status chip and a COD chip when cash is due. Finished parcels never appear here.
+- **Home:** a three-up shortcut grid (Request pickup, Track parcel, Help & support). If any deliveries are finished, a "Delivery history" row follows. Then "Today's deliveries": one row per active parcel with its tracking code, address and a COD chip when cash is due. Finished parcels never appear here.
 - **Orders:** an Active / History segmented control. Search is scoped to the selected tab. History adds an outcome filter (Delivered, Failed, Cancelled) and is sorted by the latest terminal status event, falling back to the order's creation time. The tab, search and outcome live in the URL (`/orders?tab=history&q=…&outcome=failed`), so Back from a delivery restores them.
 - **Track:** a tracking-code lookup (paste and scan) with the customer's own parcels as chips. A tracked parcel shows the map and a bottom summary (status, ETA, freshness, call and help). Route, progress timeline, parcel notes and COD sit behind labeled expandable sections. Stale GPS, missing location, delay and failure each get their own explanation and recovery action.
 - **Pickup:** three steps: Addresses (`/pickup`), Parcel and contacts (`/pickup/details`), and Review and request (`/pickup/review`). The map screens read and write the same stored draft, so addresses, pins and contacts survive navigation, sign-in and failed requests. Each step has one primary action. The app describes the requested time as a request and never promises a time the data doesn't hold. Success shows the tracking code and a "View order" action.

@@ -15,6 +15,12 @@ import type { RoadRoute } from "@/lib/delivery/mapbox";
 import type { GeoPoint } from "@/lib/delivery/rider-route";
 import type { VehicleOption } from "@/lib/delivery/types";
 
+/** Map room kept clear of the stops sheet, which covers up to 56% of the screen. */
+function sheetClearance() {
+  const height = typeof window === "undefined" ? 800 : window.innerHeight;
+  return Math.round(height * 0.56) + 16;
+}
+
 export function RiderOverviewScreen({
   route,
   shiftRoute,
@@ -91,7 +97,7 @@ export function RiderOverviewScreen({
               target={null}
               stops={navStops}
               cautions={navCautions}
-              padding={{ x: 28, top: 28, bottom: 28 }}
+              padding={{ x: 36, top: 96, bottom: sheetClearance() }}
               routeThroughStops
               road={routeRoad}
               interactive={false}

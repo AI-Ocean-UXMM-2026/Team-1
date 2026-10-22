@@ -470,6 +470,8 @@ export type DeliveryOutcomeInput = {
   /** Cash received for this parcel; null when no COD is open. */
   codReceived: number | null;
   codReason: string | null;
+  /** Photo of the parcel at the door, a JPEG data URL; sent before the outcome. */
+  proofPhoto?: string | null;
 };
 
 export type DeliveryOutcomeResult = {
@@ -487,6 +489,8 @@ export async function completeDelivery(
   supabase: DeliveryActionClient,
   input: DeliveryOutcomeInput,
 ): Promise<DeliveryOutcomeResult> {
+  if (input.outcome === "delivered" && input.proofPhoto)
+    await uploadDeliveryProof(supabase, input);
   const { data, error } = await supabase.rpc("complete_delivery", {
     target_order_id: input.orderId,
     client_request_id: input.requestId,
@@ -513,6 +517,42 @@ export async function completeDelivery(
   }
   if (!isMissingSchema(error)) throw new Error(error.message);
   return completeDeliveryLegacy(supabase, input);
+}
+
+/**
+ * Stores the door photo before the outcome is recorded. The file name comes from
+ * the request id and the row is keyed by parcel, so a resend replaces the same
+ * photo instead of adding another. A database without the proof migration yet
+ * skips the photo rather than blocking the delivery.
+ */
+async function uploadDeliveryProof(
+  supabase: DeliveryActionClient,
+  input: DeliveryOutcomeInput,
+) {
+  const photo = input.proofPhoto;
+  if (!photo) return;
+  const blob = await (await fetch(photo)).blob();
+  const path = `${input.driverId}/${input.requestId}.jpg`;
+  const upload = await supabase.storage
+    .from("delivery-proof")
+    .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+  if (upload.error) {
+    if (/bucket not found/i.test(upload.error.message)) return;
+    throw new Error(`Couldn’t save the parcel photo: ${upload.error.message}`);
+  }
+  // The proof table is newer than the generated database types.
+  const { error } = await (supabase as unknown as SupabaseClient)
+    .from("delivery_proofs")
+    .upsert(
+      {
+        order_id: input.orderId,
+        driver_id: input.driverId,
+        storage_path: path,
+      },
+      { onConflict: "order_id" },
+    );
+  if (error && !isMissingSchema(error))
+    throw new Error(`Couldn’t save the parcel photo: ${error.message}`);
 }
 
 async function completeDeliveryLegacy(

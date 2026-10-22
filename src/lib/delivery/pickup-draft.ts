@@ -1,4 +1,5 @@
 import type { MapPoint } from "@/lib/delivery/map-projection";
+import { isPaymentMethod, type PaymentMethod } from "./payment-methods.ts";
 
 export const PICKUP_DRAFT_KEY = "oern.pickup-draft.v1";
 
@@ -87,6 +88,9 @@ export type PickupDraft = {
   fragile: boolean;
   parcelDetails: string;
   codAmount: string;
+  /** Set once the customer picks; until then the default follows awayFromHome. */
+  paymentMethod: PaymentMethod | null;
+  awayFromHome: boolean;
   notes: string;
   day: PickupDay;
   window: PickupWindow;
@@ -142,6 +146,8 @@ export function emptyDraft(
     fragile: false,
     parcelDetails: "",
     codAmount: "",
+    paymentMethod: null,
+    awayFromHome: false,
     notes: "",
     ...schedule,
   };
@@ -186,6 +192,8 @@ export function sanitizeDraft(raw: unknown, fresh: PickupDraft): PickupDraft {
     fragile: r.fragile === true,
     parcelDetails: text(r.parcelDetails, 300),
     codAmount: text(r.codAmount, 12),
+    paymentMethod: isPaymentMethod(r.paymentMethod) ? r.paymentMethod : null,
+    awayFromHome: r.awayFromHome === true,
     notes: text(r.notes, 300),
     day,
     window: window ?? fresh.window,

@@ -30,7 +30,23 @@ import { Loader } from "@/components/delivery/loader";
 import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import { usePickupDraft } from "@/components/delivery/use-pickup-draft";
 import { createCustomerPickupOrder } from "@/lib/delivery/actions";
+import {
+  FeeBreakdown,
+  PaymentMethodPicker,
+  PrepaidStub,
+} from "@/components/delivery/payment-picker";
+import {
+  estimateDeliveryFee,
+  PARCEL_WEIGHT_KG,
+  roadDistanceKm,
+} from "@/lib/delivery/delivery-fee";
 import { currency } from "@/lib/delivery/format";
+import {
+  defaultPaymentMethod,
+  isAwayFromHome,
+  type PaymentMethod,
+  paymentNote,
+} from "@/lib/delivery/payment-methods";
 import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
 import {
   availableWindows,
@@ -825,8 +841,19 @@ function SummaryRow({
   );
 }
 
+/** The method the customer chose, else the default for where they are. */
+function resolvePayment(draft: PickupDraft): PaymentMethod {
+  return (
+    draft.paymentMethod ??
+    defaultPaymentMethod({
+      awayFromHome: isAwayFromHome({ declaredAway: draft.awayFromHome }),
+    })
+  );
+}
+
 function ReviewStep({
   draft,
+  update,
   submit,
   state,
   error,
@@ -834,6 +861,7 @@ function ReviewStep({
   onBack,
 }: {
   draft: PickupDraft;
+  update: (patch: Partial<PickupDraft>) => void;
   onBack: () => void;
   submit: () => void;
   state: "editing" | "sending";
@@ -841,6 +869,16 @@ function ReviewStep({
   signedIn: boolean | null;
 }) {
   const cod = parseCod(draft.codAmount) ?? 0;
+  const method = resolvePayment(draft);
+  const distanceKm = roadDistanceKm(draft.pickupPoint, draft.deliveryPoint);
+  const estimate =
+    distanceKm === null
+      ? null
+      : estimateDeliveryFee({
+          distanceKm,
+          weightKg: PARCEL_WEIGHT_KG[draft.parcelSize],
+          method,
+        });
   return (
     <PickupShell
       step="review"
@@ -914,6 +952,15 @@ function ReviewStep({
           href="/pickup/details"
         />
       </Box>
+      <PaymentMethodPicker
+        name="pickup-payment"
+        value={method}
+        onChange={(next) => update({ paymentMethod: next })}
+        awayFromHome={draft.awayFromHome}
+        onAwayChange={(away) => update({ awayFromHome: away })}
+      />
+      <FeeBreakdown estimate={estimate} method={method} itemCash={cod} />
+      <PrepaidStub method={method} amount={estimate?.total ?? 0} />
     </PickupShell>
   );
 }
@@ -994,7 +1041,7 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
         recipientPhone: draft.recipientPhone.trim(),
         // The window is written in the form the database turns into a stored
         // pickup window, so it is a real request rather than a promise.
-        parcelDescription: describeParcel(draft),
+        parcelDescription: `${describeParcel(draft)} · ${paymentNote(resolvePayment(draft))}`,
         codAmount: parseCod(draft.codAmount) ?? 0,
       });
       setSent({
@@ -1075,6 +1122,7 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
     ) : (
       <ReviewStep
         draft={draft}
+        update={update}
         submit={() => void submit()}
         state={state === "sending" ? "sending" : "editing"}
         error={error}

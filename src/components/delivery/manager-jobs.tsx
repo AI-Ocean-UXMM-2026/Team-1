@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AuthDialog } from "@/components/delivery/auth-dialog";
@@ -15,11 +16,7 @@ import {
   UserActions,
 } from "@/components/delivery/common";
 import { Icon, type IconName } from "@/components/delivery/icons";
-import {
-  type FloodPoint,
-  FloodWatch,
-  floodZoneAt,
-} from "@/components/delivery/manager-flood-watch";
+import { floodZoneAt } from "@/components/delivery/manager-flood-watch";
 import { ManagerSidebar } from "@/components/delivery/manager-sidebar";
 import {
   type FloodZone,
@@ -196,34 +193,6 @@ export function ManagerJobsApp() {
       ? (workspace.data.drivers.find((driver) => driver.id === id)?.full_name ??
         "Driver")
       : null;
-  const floodPoints = useMemo<FloodPoint[]>(() => {
-    const result: FloodPoint[] = [];
-    for (const order of requests) {
-      if (order.delivery_latitude != null && order.delivery_longitude != null)
-        result.push({
-          id: order.id,
-          label: order.tracking_code,
-          latitude: order.delivery_latitude,
-          longitude: order.delivery_longitude,
-          kind: "request",
-        });
-    }
-    for (const job of tasks) {
-      if (
-        job.center_latitude != null &&
-        job.center_longitude != null &&
-        ["open", "claimed", "in_progress"].includes(job.status)
-      )
-        result.push({
-          id: job.id,
-          label: job.label,
-          latitude: job.center_latitude,
-          longitude: job.center_longitude,
-          kind: "task",
-        });
-    }
-    return result;
-  }, [requests, tasks]);
 
   async function run(action: () => Promise<string>) {
     if (busy) return;
@@ -291,6 +260,10 @@ export function ManagerJobsApp() {
 
       <div className="manager-main">
         <header className="manager-topbar">
+          <Link className="manager-topbar-brand" href="/manager/home">
+            <span aria-hidden="true">O</span>
+            Oern <small>Dispatch console</small>
+          </Link>
           <div className="manager-topbar-right">
             <UserActions
               profile={workspace.profile}
@@ -303,6 +276,17 @@ export function ManagerJobsApp() {
         </header>
 
         <div className="manager-content">
+          <nav className="manager-breadcrumbs" aria-label="Breadcrumb">
+            <ol>
+              <li>
+                <Link href="/manager/home">Oern</Link>
+              </li>
+              <li>
+                <Link href="/manager/home">Dispatch</Link>
+              </li>
+              <li aria-current="page">Task Automation</li>
+            </ol>
+          </nav>
           <PageHeader
             title="Task Automation"
             description="Queue new requests and automation groups nearby drop-offs into jobs. Post now to skip the queue."
@@ -540,8 +524,6 @@ export function ManagerJobsApp() {
                   })}
                 </div>
               </section>
-
-              <FloodWatch zones={floodZones} points={floodPoints} />
             </>
           )}
         </div>

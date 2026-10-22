@@ -542,7 +542,7 @@ export function ManagerDashboard({
     : "more";
 
   return (
-    <main className="manager-app">
+    <main className="manager-app" data-view={view}>
       <ManagerSidebar
         active={view === "create" ? "create" : activeNav}
         orderCount={orders.length}
@@ -557,6 +557,10 @@ export function ManagerDashboard({
 
       <div className="manager-main">
         <header className="manager-topbar">
+          <Link className="manager-topbar-brand" href="/manager/home">
+            <span aria-hidden="true">O</span>
+            Oern <small>Dispatch console</small>
+          </Link>
           <div className="manager-topbar-right">
             <span className="manager-date">
               {signedOut
@@ -624,6 +628,19 @@ export function ManagerDashboard({
           )}
 
           <header className="dash-page-header">
+            <nav className="manager-breadcrumbs" aria-label="Breadcrumb">
+              <ol>
+                <li>
+                  <Link href="/manager/home">Oern</Link>
+                </li>
+                {view !== "home" && (
+                  <li>
+                    <Link href="/manager/home">Dispatch</Link>
+                  </li>
+                )}
+                <li aria-current="page">{pageCopy.title}</li>
+              </ol>
+            </nav>
             {view === "create" && (
               <Link className="manual-order-back" href="/manager/order">
                 <Icon name="arrow-left" size={18} /> Back to orders
@@ -670,7 +687,6 @@ export function ManagerDashboard({
               atRiskCount={atRiskCount}
               refreshing={refreshing}
               onRefresh={refreshWorkspace}
-              movingOrders={movingOrders}
               recentList={recentList}
               summary={summary}
               freeRiders={freeRiders}
@@ -1286,14 +1302,14 @@ export function ManagerDashboard({
               </div>
             </Link>
             <Link
-              href="/manager/dispatch"
+              href="/manager/order/create"
               className="mobile-more-item"
               onClick={() => setMoreOpen(false)}
             >
-              <Icon name="navigation" size={20} />
+              <Icon name="plus" size={20} />
               <div>
-                <strong>Plan routes</strong>
-                <small>Depot multi-truck assignment &amp; routing</small>
+                <strong>Create order</strong>
+                <small>Add pickup, delivery and payment details</small>
               </div>
             </Link>
             <Link
@@ -1303,18 +1319,18 @@ export function ManagerDashboard({
             >
               <Icon name="box" size={20} />
               <div>
-                <strong>Job board</strong>
-                <small>Batch requests and task automation</small>
+                <strong>Task automation</strong>
+                <small>Batch requests and the driver job board</small>
               </div>
             </Link>
             <Link
-              href="/manager/insights"
+              href="/manager/vehicles"
               className="mobile-more-item"
               onClick={() => setMoreOpen(false)}
             >
               <Icon name="truck" size={20} />
               <div>
-                <strong>Fleet insights</strong>
+                <strong>Vehicles</strong>
                 <small>
                   Energy reserves, service due &amp; operating costs
                 </small>

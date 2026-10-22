@@ -1,0 +1,484 @@
+/* AWS console style for the manager workspace: flat, dense, square, orange primary.
+   Loaded last and scoped to .manager-app so rider and customer apps are untouched. */
+.manager-app {
+  --aws-nav: #161d26;
+  --aws-nav-hover: #232f3e;
+  --aws-bg: #f2f3f3;
+  --aws-border: #d5dbdb;
+  --aws-text: #16191f;
+  --aws-muted: #5f6b7a;
+  --aws-link: #0972d3;
+  --aws-orange: #ec7211;
+  --aws-orange-hover: #eb5f07;
+  --color-background: var(--aws-bg);
+  --radius-md: 2px;
+  background: var(--aws-bg);
+  color: var(--aws-text);
+}
+
+.manager-app .manager-main,
+.manager-app .manager-content {
+  background: var(--aws-bg);
+}
+
+/* Side navigation: dark, flat, orange active rail */
+.manager-app .manager-sidebar {
+  background: var(--aws-nav);
+  border-right: 1px solid #000;
+}
+.manager-app .manager-sidebar-label {
+  color: #8d99a8;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.manager-app .manager-side-nav a {
+  border-radius: 0;
+  color: #d1d5db;
+  font-size: 14px;
+  padding: 8px 14px;
+  border-left: 3px solid transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.manager-app .manager-side-nav a:hover {
+  background: var(--aws-nav-hover);
+  color: #fff;
+}
+.manager-app .manager-side-nav a.side-nav-active {
+  background: var(--aws-nav-hover);
+  color: #fff;
+  font-weight: 700;
+  border-left-color: var(--aws-orange);
+}
+.manager-app .manager-side-nav a span {
+  border-radius: 2px;
+  background: #354150;
+  color: #fff;
+}
+
+/* Top bar */
+.manager-app .manager-topbar {
+  background: var(--aws-nav-hover);
+  border-bottom: 1px solid #000;
+  color: #d1d5db;
+  min-height: 48px;
+}
+.manager-app .manager-topbar .manager-date {
+  color: #aab4c0;
+  font-size: 12px;
+}
+.manager-app .manager-topbar .icon-button,
+.manager-app .manager-topbar .button {
+  background: transparent;
+  color: #fff;
+  border: 1px solid #8d99a8;
+  border-radius: 2px;
+  box-shadow: none;
+}
+.manager-app .manager-topbar .icon-button:hover,
+.manager-app .manager-topbar .button:hover {
+  background: #354150;
+}
+
+/* Page header: AWS "Title + description" block */
+.manager-app .dash-page-header {
+  border-bottom: 0;
+  padding-bottom: 8px;
+}
+.manager-app .dash-page-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--aws-text);
+}
+.manager-app .dash-page-header p {
+  color: var(--aws-muted);
+  font-size: 14px;
+}
+
+/* Containers: flat white boxes with a thin border and a header strip */
+.manager-app .dash-card,
+.manager-app .manager-live-orders,
+.manager-app .manager-track-map,
+.manager-app .road-knowledge-panel,
+.manager-app .manager-profile-card,
+.manager-app .manager-order-panel-paper,
+.manager-app .manager-order-map-paper {
+  background: #fff !important;
+  border: 1px solid var(--aws-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 0 1px 1px rgba(0, 28, 36, 0.3), 1px 1px 1px rgba(0, 28, 36, 0.15),
+    -1px 1px 1px rgba(0, 28, 36, 0.15) !important;
+}
+.manager-app .dash-card-header,
+.manager-app .panel-heading-row,
+.manager-app .road-knowledge-heading {
+  border-bottom: 1px solid var(--aws-border);
+  background: #fff;
+}
+.manager-app .dash-card-header h2,
+.manager-app .panel-heading-row h2,
+.manager-app .road-knowledge-heading h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--aws-text);
+}
+.manager-app .section-kicker {
+  color: var(--aws-muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+.manager-app .dash-link,
+.manager-app .road-knowledge-intro a {
+  color: var(--aws-link);
+  font-weight: 700;
+}
+.manager-app .dash-link:hover {
+  text-decoration: underline;
+}
+
+/* Buttons */
+.manager-app .button {
+  border-radius: 2px;
+  font-weight: 700;
+  box-shadow: none;
+}
+.manager-app .button-primary {
+  background: var(--aws-orange);
+  border: 1px solid var(--aws-orange);
+  color: #fff;
+}
+.manager-app .button-primary:hover {
+  background: var(--aws-orange-hover);
+  border-color: var(--aws-orange-hover);
+}
+.manager-app .button-outline {
+  background: #fff;
+  border: 1px solid #545b64;
+  color: #545b64;
+}
+.manager-app .button-outline:hover {
+  background: #f2f3f3;
+  color: var(--aws-text);
+}
+.manager-app .button-dark {
+  background: #232f3e;
+  border-color: #232f3e;
+  color: #fff;
+}
+
+/* KPI strip: AWS "key metrics" with dividers instead of colour fills */
+.manager-app .dash-kpi-grid > * {
+  background: #fff !important;
+  border-radius: 0 !important;
+  border-right: 1px solid var(--aws-border);
+}
+.manager-app .dash-kpi-grid > *:last-child {
+  border-right: 0;
+}
+
+/* Act now list: flat rows with a coloured status bar */
+.manager-app .dash-exception-list li,
+.manager-app .dash-exception-list li.is-critical,
+.manager-app .dash-exception-list li.is-warning,
+.manager-app .dash-exception-list li.is-info {
+  border-radius: 2px;
+  background: #fff;
+  border: 1px solid var(--aws-border);
+  border-left-width: 4px;
+}
+.manager-app .dash-exception-list li.is-critical {
+  border-left-color: #d13212;
+}
+.manager-app .dash-exception-list li.is-warning {
+  border-left-color: #f89256;
+}
+.manager-app .dash-exception-list li.is-info {
+  border-left-color: var(--aws-link);
+}
+.manager-app .dash-exception-list li:hover {
+  background: #f9fafa;
+}
+
+/* Tables */
+.manager-app .dash-table th {
+  background: #fafafa;
+  color: var(--aws-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  border-bottom: 1px solid var(--aws-border);
+}
+.manager-app .dash-table td {
+  border-bottom: 1px solid #eaeded;
+}
+.manager-app .dash-table-row:hover {
+  background: #f1faff;
+}
+.manager-app .dash-cell-main a {
+  color: var(--aws-link);
+}
+
+/* Status badges: square-ish pills */
+.manager-app .status-badge,
+.manager-app .manager-live-tag,
+.manager-app .dash-pill-alert,
+.manager-app .dash-pill-clear {
+  border-radius: 2px;
+}
+
+/* Track page list rows and order queue cards */
+.manager-app .manager-order-row,
+.manager-app .manager-queue-card {
+  border-radius: 0;
+}
+.manager-app .manager-order-row.is-selected {
+  background: #f1faff;
+  box-shadow: inset 3px 0 0 var(--aws-link);
+}
+.manager-app .manager-queue-card {
+  border-radius: 2px !important;
+}
+.manager-app .manager-queue-card.is-selected {
+  border: 1px solid var(--aws-link) !important;
+  box-shadow: inset 3px 0 0 var(--aws-link) !important;
+  background: #f1faff !important;
+}
+.manager-app .MuiChip-root {
+  border-radius: 2px !important;
+}
+
+/* Demo and error banners */
+.manager-app .workspace-demo {
+  border-radius: 2px;
+  border-left: 4px solid var(--aws-link);
+  background: #f1faff;
+  border-color: #b0d7f2;
+}
+
+/* Page-specific overrides in manager-order-view.css reset the top bar; keep it dark. */
+.manager-app:has(.manager-order-view-container) .manager-topbar,
+.manager-app .manager-topbar {
+  background-color: var(--aws-nav-hover);
+  border-bottom: 1px solid #000;
+}
+.manager-app:has(.manager-order-view-container),
+.manager-app:has(.manager-order-view-container) .manager-main,
+.manager-app:has(> .manager-main .manager-order-view-container) .manager-content {
+  background-color: var(--aws-bg);
+}
+
+.manager-app .manager-topbar .icon-button,
+.manager-app .manager-topbar .button,
+.manager-app .manager-topbar button {
+  background: transparent !important;
+  color: #fff !important;
+  border-color: #8d99a8 !important;
+}
+
+.manager-app .manager-topbar,
+.manager-app:has(.manager-order-view-container) .manager-topbar {
+  background-color: var(--aws-nav-hover) !important;
+}
+
+.manager-proof-photo {
+  margin: 0;
+  border: 1px solid var(--aws-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.manager-proof-photo img {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+}
+.manager-proof-photo figcaption {
+  padding: 8px 12px;
+  color: var(--aws-muted);
+  font-size: 12px;
+}
+
+/* Containers on the jobs, vehicles and create-order pages use their own class names. */
+.manager-app .operations-panel,
+.manager-app .jobs-stage,
+.manager-app .jobs-board,
+.manager-app .flood-watch,
+.manager-app .vehicles-panel,
+.manager-app .vehicles-overview {
+  background: #fff;
+  border: 1px solid var(--aws-border);
+  border-radius: 2px;
+  box-shadow: 0 1px 1px rgba(0, 28, 36, 0.3), 1px 1px 1px rgba(0, 28, 36, 0.15),
+    -1px 1px 1px rgba(0, 28, 36, 0.15);
+}
+
+/* Form controls: square corners and a blue focus ring, as in the AWS console. */
+.manager-app input:not([type="checkbox"]):not([type="radio"]),
+.manager-app select,
+.manager-app textarea {
+  border-radius: 2px;
+  border-color: #8d99a8;
+}
+.manager-app input:focus-visible,
+.manager-app select:focus-visible,
+.manager-app textarea:focus-visible,
+.manager-app a:focus-visible,
+.manager-app button:focus-visible {
+  outline: 2px solid var(--aws-link);
+  outline-offset: 1px;
+}
+
+/* Global header: brand left, utilities right, as in the AWS console. */
+.manager-app .manager-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.manager-app .manager-topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.manager-app .manager-topbar-brand span {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 2px;
+  background: var(--aws-orange);
+  color: #161d26;
+  font-size: 14px;
+  font-weight: 800;
+}
+.manager-app .manager-topbar-brand small {
+  padding-left: 10px;
+  border-left: 1px solid #5f6b7a;
+  color: #aab4c0;
+  font-size: 13px;
+  font-weight: 400;
+}
+@media (max-width: 640px) {
+  .manager-app .manager-topbar-brand small {
+    display: none;
+  }
+}
+
+/* Breadcrumbs sit above the page title and span the full header width. */
+.manager-app .manager-breadcrumbs {
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
+}
+.manager-app .manager-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--aws-muted);
+}
+.manager-app .manager-breadcrumbs li + li::before {
+  content: "›";
+  margin: 0 8px;
+  color: #8d99a8;
+}
+.manager-app .manager-breadcrumbs a {
+  color: var(--aws-link);
+}
+.manager-app .manager-breadcrumbs a:hover {
+  text-decoration: underline;
+}
+.manager-app .dash-page-header > .button {
+  border-radius: 2px;
+  min-height: 32px;
+}
+@media (min-width: 1024px) {
+  .manager-app .dash-page-header > .button {
+    grid-row: 2 / span 2;
+  }
+}
+
+/* Cloudscape rounding for Overview, Orders and Live track:
+   containers 16px, cards and inputs 8px, buttons and chips 20px. */
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+  :is(
+    .dash-card,
+    .mh-card,
+    .manager-live-orders,
+    .manager-track-map,
+    .manager-orders-panel,
+    .manager-map-panel,
+    .road-knowledge-panel,
+    .manager-order-panel-paper,
+    .manager-order-map-paper,
+    .map-card,
+    .MuiPaper-root
+  ) {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+  :is(
+    .manager-order-row,
+    .manager-queue-card,
+    .recommendation-card,
+    .workspace-demo,
+    .mh-table-wrap,
+    .manager-error,
+    .manager-stale-warning
+  ) {
+  border-radius: 8px !important;
+}
+
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+  :is(.button, .icon-button, .MuiButton-root) {
+  border-radius: 20px !important;
+}
+
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+  :is(
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea,
+    .MuiOutlinedInput-root,
+    .MuiOutlinedInput-notchedOutline,
+    .MuiOutlinedInput-input
+  ) {
+  border-radius: 8px;
+}
+
+.manager-app:is([data-view="home"], [data-view="order"], [data-view="track"])
+  :is(
+    .status-badge,
+    .MuiChip-root,
+    .manager-live-tag,
+    .dash-pill-alert,
+    .dash-pill-clear,
+    .order-filter-tabs button
+  ) {
+  border-radius: 12px !important;
+}
+
+/* Header strips on the rounded overview containers match the corner. */
+.manager-app[data-view="home"] .mh-card-head {
+  border-radius: 16px 16px 0 0;
+}
+
+.manager-app[data-view="home"] .mh-card {
+  box-shadow: 0 1px 1px rgba(0, 28, 36, 0.2), 0 1px 4px rgba(0, 28, 36, 0.08);
+}
+
+.manager-app[data-view="home"] .mh-table-wrap {
+  border-radius: 0 !important;
+}

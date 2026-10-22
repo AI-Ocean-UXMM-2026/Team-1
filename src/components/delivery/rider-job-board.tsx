@@ -12,7 +12,6 @@ import {
 
 import { Icon } from "@/components/delivery/icons";
 import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
-import { currency } from "@/lib/delivery/format";
 import {
   type DeliveryJob,
   isSampleJob,
@@ -77,7 +76,6 @@ export function RiderJobBoard({
   notices?: ReactNode;
 }) {
   const [jobs, setJobs] = useState<DeliveryJob[] | null>(null);
-  const [vehicleId, setVehicleId] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -150,10 +148,8 @@ export function RiderJobBoard({
   const usable = vehicles.filter(
     (vehicle) => vehicle.status === "available" || vehicle.status === "in_use",
   );
-  // A driver with one usable vehicle never has to pick it.
-  const selectedVehicleId =
-    vehicleId || (usable.length === 1 ? usable[0].id : "");
-  const needsVehicle = usable.length > 0 && !selectedVehicleId;
+  // Riders no longer choose a vehicle; it is only used when exactly one is usable.
+  const selectedVehicleId = usable.length === 1 ? usable[0].id : "";
   const selectedVehicle = usable.find(
     (vehicle) => vehicle.id === selectedVehicleId,
   );
@@ -162,8 +158,7 @@ export function RiderJobBoard({
     job.total_weight_kg > selectedVehicle.capacity_kg;
   // Why the swipe is locked: a few words, shown once, on the swipe itself.
   const lockReason = (job: DeliveryJob) =>
-    blocked ??
-    (needsVehicle ? "Choose a vehicle" : isTooHeavy(job) ? "Too heavy" : null);
+    blocked ?? (isTooHeavy(job) ? "Too heavy" : null);
 
   async function take(job: DeliveryJob) {
     if (starting || lockReason(job)) return;
@@ -198,34 +193,6 @@ export function RiderJobBoard({
 
       {notices}
 
-      {usable.length > 0 && (
-        <div className="rj-vehicle">
-          <label htmlFor="rj-vehicle">Your vehicle</label>
-          <div className="rj-select">
-            <span className="rj-select-icon" aria-hidden="true">
-              <Icon name="truck" size={20} />
-            </span>
-            <select
-              id="rj-vehicle"
-              value={selectedVehicleId}
-              onChange={(event) => setVehicleId(event.target.value)}
-            >
-              <option value="">Choose your vehicle…</option>
-              {usable.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.registration_number} ·{" "}
-                  {vehicle.vehicle_type.replace("_", "-")}
-                  {vehicle.capacity_kg ? ` · ${vehicle.capacity_kg} kg` : ""}
-                </option>
-              ))}
-            </select>
-            <span className="rj-select-chevron" aria-hidden="true">
-              <Icon name="chevron-down" size={18} />
-            </span>
-          </div>
-        </div>
-      )}
-
       {(error || loadFailed) && (
         <div className="rj-error-banner" role="alert">
           <Icon name="warning" size={18} />
@@ -253,7 +220,7 @@ export function RiderJobBoard({
         </div>
       ) : (
         <ul className="rj-list">
-          {sorted.map(({ job, awayKm }) => {
+          {sorted.map(({ job, awayKm }, index) => {
             const isExpanded = expandedId === job.id;
             const spread = jobSpreadKm(job);
             const panelId = `rj-job-${job.id}`;
@@ -273,8 +240,35 @@ export function RiderJobBoard({
                   aria-expanded={isExpanded}
                   aria-controls={panelId}
                 >
-                  <span className="rj-card-top">
-                    <strong className="rj-card-title">{title}</strong>
+                  <span
+                    className="rj-stops"
+                    role="img"
+                    aria-label={`${job.order_count} ${job.order_count === 1 ? "stop" : "stops"}`}
+                  >
+                    <strong>{job.order_count}</strong>
+                    <small>{job.order_count === 1 ? "stop" : "stops"}</small>
+                  </span>
+                  <span className="rj-main">
+                    <span className="rj-card-title-row">
+                      <strong className="rj-card-title">{title}</strong>
+                      {job.priority === "urgent" || job.priority === "high" ? (
+                        <span className="rj-tag is-urgent">
+                          {job.priority === "urgent" ? "Urgent" : "Priority"}
+                        </span>
+                      ) : index === 0 && awayKm != null ? (
+                        <span className="rj-tag">Nearest</span>
+                      ) : null}
+                    </span>
+                    <span className="rj-facts">
+                      <span className={tooHeavy ? "is-over" : undefined}>
+                        {job.total_weight_kg} kg
+                      </span>
+                      {spread != null && (
+                        <span>Within {formatDistance(spread)}</span>
+                      )}
+                    </span>
+                  </span>
+                  <span className="rj-side">
                     {awayKm != null && (
                       <span className="rj-away">{formatDistance(awayKm)}</span>
                     )}
@@ -285,32 +279,10 @@ export function RiderJobBoard({
                       <Icon name="chevron-down" size={18} />
                     </span>
                   </span>
-                  <span className="rj-facts">
-                    <span>
-                      <Icon name="location" size={16} />
-                      {job.order_count}{" "}
-                      {job.order_count === 1 ? "stop" : "stops"}
-                    </span>
-                    <span className={tooHeavy ? "is-over" : undefined}>
-                      <Icon name="box" size={16} />
-                      {job.total_weight_kg} kg
-                    </span>
-                    <span>
-                      <Icon name="coin" size={16} />
-                      {job.cod_total
-                        ? `COD ${currency.format(job.cod_total)}`
-                        : "Prepaid"}
-                    </span>
-                  </span>
                 </button>
 
                 {isExpanded && (
                   <div className="rj-card-detail" id={panelId}>
-                    {spread != null && (
-                      <p className="rj-detail-note">
-                        Stops are within {formatDistance(spread)} of each other.
-                      </p>
-                    )}
                     <SwipeConfirm
                       label={`Take ${title}`}
                       hint={

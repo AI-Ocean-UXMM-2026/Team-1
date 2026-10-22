@@ -17,7 +17,7 @@ import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { EmptyState } from "@/components/delivery/customer-pages";
+import { EmptyState, journeyIndex } from "@/components/delivery/customer-pages";
 import { etaLabel, StatusChip } from "@/components/delivery/customer-ui-utils";
 import {
   type HistoryOutcome,
@@ -61,6 +61,10 @@ const OrderRow = memo(function OrderRow({
   onOpen: () => void;
 }) {
   const cod = codSummary(order);
+  const ended =
+    order.status === "delivered" ||
+    order.status === "failed" ||
+    order.status === "cancelled";
   return (
     <ListItem disablePadding>
       <ListItemButton
@@ -68,55 +72,96 @@ const OrderRow = memo(function OrderRow({
         href={`/track?order=${encodeURIComponent(order.id)}`}
         onClick={onOpen}
         sx={{
-          gap: 1.5,
+          gap: 1,
           minHeight: 72,
-          px: 1.5,
+          px: 2,
+          py: 1.75,
           borderRadius: "16px",
-          bgcolor: "grey.100",
+          bgcolor: "background.paper",
+          border: 1,
+          borderColor: "divider",
           alignItems: "flex-start",
         }}
       >
         <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: "center", justifyContent: "space-between" }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 750, minWidth: 0 }}
+              noWrap
+            >
+              {order.tracking_code}
+            </Typography>
+            <StatusChip status={order.status} />
+          </Stack>
+
+          {/* Where it is on the four-step journey, readable without opening it. */}
+          {!ended && (
+            <Box
+              role="img"
+              aria-label={`Step ${journeyIndex(order.status) + 1} of 4`}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: 0.5,
+                mt: 1.5,
+              }}
+            >
+              {[0, 1, 2, 3].map((step) => {
+                const at = journeyIndex(order.status);
+                return (
+                  <Box
+                    key={step}
+                    sx={{
+                      height: 4,
+                      borderRadius: "999px",
+                      bgcolor:
+                        step < at
+                          ? "secondary.main"
+                          : step === at
+                            ? "info.main"
+                            : "grey.200",
+                    }}
+                  />
+                );
+              })}
+            </Box>
+          )}
+
           <Typography
             variant="body2"
-            sx={{ fontWeight: 700, overflowWrap: "anywhere" }}
+            sx={{ mt: 1.25, fontWeight: 600, overflowWrap: "anywhere" }}
           >
-            {order.delivery_address}
+            To {order.delivery_address}
           </Typography>
           <Typography
             variant="caption"
             sx={{ display: "block", color: "text.secondary" }}
           >
-            {order.tracking_code} · {when}
+            {when}
           </Typography>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{
-              alignItems: "center",
-              flexWrap: "wrap",
-              rowGap: 0.5,
-              mt: 0.75,
-            }}
-          >
-            <StatusChip status={order.status} />
-            {cod && (
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 600,
-                  color:
-                    cod.tone === "warn"
-                      ? "warning.dark"
-                      : cod.tone === "ok"
-                        ? "success.dark"
-                        : "text.secondary",
-                }}
-              >
-                {cod.text}
-              </Typography>
-            )}
-          </Stack>
+          {cod && (
+            <Typography
+              variant="caption"
+              sx={{
+                display: "block",
+                mt: 0.25,
+                fontWeight: 600,
+                color:
+                  cod.tone === "warn"
+                    ? "warning.dark"
+                    : cod.tone === "ok"
+                      ? "success.dark"
+                      : "text.secondary",
+              }}
+            >
+              {cod.text}
+            </Typography>
+          )}
         </Box>
         <ChevronRight color="disabled" sx={{ alignSelf: "center" }} />
       </ListItemButton>

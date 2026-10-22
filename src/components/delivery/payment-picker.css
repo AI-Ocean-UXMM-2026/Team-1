@@ -1,0 +1,216 @@
+/* Payment choice and fee breakdown. Neutral colours with fallbacks so the
+   same block works in the customer (MUI) and manager (AWS) screens. */
+.pay-picker {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.pay-picker legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pay-away {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d5dbdb;
+  border-radius: 12px;
+  background: #f9fafa;
+  cursor: pointer;
+}
+
+.pay-away input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: #0972d3;
+}
+
+.pay-away span,
+.pay-option-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pay-away small,
+.pay-option-copy small,
+.pay-fee-meta,
+.pay-stub small {
+  color: #5f6b7a;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.pay-options {
+  display: grid;
+  gap: 8px;
+}
+
+.pay-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid #d5dbdb;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pay-option:hover {
+  border-color: #0972d3;
+}
+
+.pay-option.is-selected {
+  border-color: #0972d3;
+  box-shadow: 0 0 0 1px #0972d3;
+  background: #f1faff;
+}
+
+.pay-option input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+}
+
+.pay-option:has(input:focus-visible) {
+  outline: 2px solid #0972d3;
+  outline-offset: 2px;
+}
+
+.pay-option-copy strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.pay-option-copy em {
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #037f0c;
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.pay-logo {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.pay-logo-mmqr {
+  background: #0b2a4a;
+  color: #fff;
+}
+
+.pay-logo-ctzpay {
+  background: #fff1e6;
+  color: #9a3d00;
+  border: 1px solid #f4b183;
+}
+
+.pay-logo-cod {
+  background: #eaf7ec;
+  color: #037f0c;
+}
+
+.pay-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 4px solid #f89256;
+  border-radius: 8px;
+  background: #fdf3ec;
+  color: #7a3300;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.pay-fee {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #d5dbdb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.pay-fee h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.pay-fee dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.pay-fee dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.pay-fee dt {
+  color: #5f6b7a;
+}
+
+.pay-fee dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-fee-total {
+  padding-top: 8px;
+  border-top: 1px solid #eaeded;
+  font-weight: 700;
+}
+
+.pay-fee-total dt {
+  color: inherit;
+}
+
+.pay-fee-due {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pay-fee-meta {
+  margin: 0;
+}
+
+.pay-stub {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px dashed #0972d3;
+  border-radius: 12px;
+  background: #f1faff;
+}
+
+.pay-stub > div {
+  display: grid;
+  gap: 2px;
+}

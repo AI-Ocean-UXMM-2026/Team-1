@@ -13,6 +13,8 @@ export type HandoverDraft = {
   /** Parcel ids the driver checked against the manifest. */
   verified: string[];
   receivedBy: string;
+  /** Photo of the parcel at the door, a downscaled JPEG data URL kept on the phone. */
+  photo?: string;
   codMode: CodMode | null;
   codAmount: string;
   codReason: string;
@@ -52,6 +54,11 @@ export function handoverRequirements(
       key: "recipient",
       label: "Record who received it",
       met: draft.receivedBy.trim().length > 0,
+    },
+    {
+      key: "photo",
+      label: "Take a photo of the parcel",
+      met: !!draft.photo,
     },
   ];
   if (stop.codDue > 0) {

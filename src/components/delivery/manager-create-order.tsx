@@ -7,7 +7,16 @@ import {
   createManualDeliveryOrder,
   type ManualOrderItem,
 } from "@/lib/delivery/actions";
+import {
+  FeeBreakdown,
+  PaymentMethodPicker,
+} from "@/components/delivery/payment-picker";
+import { estimateDeliveryFee } from "@/lib/delivery/delivery-fee";
 import { currency } from "@/lib/delivery/format";
+import {
+  type PaymentMethod,
+  paymentNote,
+} from "@/lib/delivery/payment-methods";
 import { createClient } from "@/lib/supabase/client";
 
 type DraftItem = ManualOrderItem & { id: number };
@@ -22,6 +31,9 @@ const firstItem = (): DraftItem => ({
 export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
   const [items, setItems] = useState<DraftItem[]>(() => [firstItem()]);
   const [codAmount, setCodAmount] = useState<number | string>(0);
+  const [method, setMethod] = useState<PaymentMethod>("cod");
+  const [distanceKm, setDistanceKm] = useState<number | string>(3);
+  const [urgent, setUrgent] = useState(false);
   const nextItemId = useRef(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +87,9 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
         deliveryAddress: String(form.get("deliveryAddress") || ""),
         items,
         codAmount: Number(form.get("codAmount") || 0),
-        notes: String(form.get("notes") || ""),
+        notes: [String(form.get("notes") || "").trim(), paymentNote(method)]
+          .filter(Boolean)
+          .join(" · "),
       });
       setCreated(result);
     } catch (cause) {
@@ -404,6 +418,50 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
             placeholder="e.g. Call before arrival; use the east gate"
           />
         </label>
+      </fieldset>
+      <fieldset disabled={saving} className="manual-order-fields">
+        <legend>
+          <span>Payment and delivery fee</span>
+          <small>
+            Prepaid orders are paid in the app, so the rider collects no fee.
+          </small>
+        </legend>
+        <PaymentMethodPicker
+          name="manual-payment"
+          value={method}
+          onChange={setMethod}
+        />
+        <div className="manual-cod-row">
+          <label>
+            Distance (km)
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.5"
+              value={distanceKm}
+              onChange={(e) => setDistanceKm(e.target.value)}
+            />
+          </label>
+          <label className="manual-urgent">
+            <input
+              type="checkbox"
+              checked={urgent}
+              onChange={(e) => setUrgent(e.target.checked)}
+            />
+            Urgent delivery
+          </label>
+        </div>
+        <FeeBreakdown
+          estimate={estimateDeliveryFee({
+            distanceKm: Number(distanceKm) || 0,
+            weightKg: 1,
+            method,
+            urgent,
+          })}
+          method={method}
+          itemCash={Number(codAmount) || 0}
+        />
       </fieldset>
       <div className="manual-order-outcome">
         <strong>What happens next</strong>

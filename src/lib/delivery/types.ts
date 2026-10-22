@@ -35,6 +35,8 @@ export type DeliveryOrder = {
   pickup_contact_phone?: string | null;
   parcel_description: string | null;
   parcel_weight_kg: number | null;
+  /** Not stored yet; see orderPaymentMethod. Absent means cash on delivery. */
+  payment_method?: "mmqr" | "ctzpay" | "cod" | null;
   cod_amount: number;
   cod_status: "not_required" | "pending" | "collected" | "settled";
   estimated_delivery_at: string | null;

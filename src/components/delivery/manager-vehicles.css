@@ -443,3 +443,9 @@
     padding: 0 8px;
   }
 }
+
+/* List-only fleet view: id, status, odometer. */
+.vehicles-app .vehicle-row {
+  grid-template-columns: minmax(130px, 1.4fr) auto minmax(80px, 0.6fr);
+  list-style: none;
+}

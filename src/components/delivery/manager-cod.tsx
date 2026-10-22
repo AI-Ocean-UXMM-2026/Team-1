@@ -13,6 +13,10 @@ import {
   settleCodPayment,
   summariseCodLedger,
 } from "@/lib/delivery/cod-ledger";
+import {
+  orderPaymentMethod,
+  paymentBadge,
+} from "@/lib/delivery/payment-methods";
 import { currency } from "@/lib/delivery/format";
 import type { DeliveryOrder } from "@/lib/delivery/types";
 import { createClient } from "@/lib/supabase/client";
@@ -423,6 +427,9 @@ export function CodLedgerView({
               <li key={row.order.id} className="cod-ledger-row">
                 <div className="cod-ledger-main">
                   <strong>{row.order.tracking_code}</strong>
+                  <span className="cod-pay-method">
+                    {paymentBadge(orderPaymentMethod(row.order))}
+                  </span>
                   <span>
                     {row.order.driver_name ?? "Unassigned"} ·{" "}
                     {row.order.customer_name}

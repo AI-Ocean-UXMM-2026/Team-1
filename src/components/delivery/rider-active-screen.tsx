@@ -54,7 +54,6 @@ export function RiderActiveScreen({
   gpsState,
   online,
   busy,
-  flash,
   revisionNotice,
   expanded,
   setExpanded,
@@ -101,7 +100,6 @@ export function RiderActiveScreen({
   gpsState: GpsState;
   online: boolean;
   busy: string | null;
-  flash: string | null;
   revisionNotice: ReactNode;
   expanded: boolean;
   setExpanded: (val: boolean) => void;
@@ -260,7 +258,6 @@ export function RiderActiveScreen({
         syncing={busy != null}
         revision={
           <>
-            {flash && <div className="rf-notice is-success">{flash}</div>}
             {revisionNotice}
           </>
         }

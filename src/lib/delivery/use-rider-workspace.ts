@@ -781,6 +781,7 @@ export function useRiderWorkspace() {
             due > 0 && allocation && allocation.get(order.id) !== due
               ? current.codReason
               : null,
+          proofPhoto: current.photo ?? null,
         });
         if (result.duplicate) duplicates += 1;
         applyStatus(order.id, result.status as DeliveryStatus, {

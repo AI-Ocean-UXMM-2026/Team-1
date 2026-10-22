@@ -10,6 +10,8 @@ export type CodOrder = {
   driver_id?: string | null;
   driver_name: string | null;
   customer_name: string;
+  payment_method?: "mmqr" | "ctzpay" | "cod" | null;
+  parcel_description?: string | null;
 };
 export type CodPayment = {
   order_id: string;

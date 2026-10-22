@@ -710,16 +710,44 @@ export async function fetchRoadRoute(
   };
 }
 
+/** Most specific first. Peripheral townships often have no street address, so they fall back to a neighbourhood or township. */
+const PLACE_RANK = ["address", "poi", "neighborhood", "locality", "place"];
+
+/** The country is redundant in a delivery address, so it is dropped from the label. */
+const COUNTRY_SUFFIX = /,\s*Myanmar(\s*\(Burma\))?$/i;
+
 export function reverseGeocodeUrl(point: MapPoint) {
   const params = new URLSearchParams({
     access_token: MAPBOX_TOKEN,
-    types: "address,place",
-    limit: "1",
+    types: PLACE_RANK.join(","),
+    limit: "5",
   });
   return `https://api.mapbox.com/geocoding/v5/mapbox.places/${point.longitude},${point.latitude}.json?${params}`;
 }
 
-type GeocodeBody = { features?: { place_name?: string }[] };
+type GeocodeFeature = { place_name?: string; place_type?: string[] };
+type GeocodeBody = { features?: GeocodeFeature[] };
+
+function placeRank(feature: GeocodeFeature) {
+  const ranks = (feature.place_type ?? [])
+    .map((type) => PLACE_RANK.indexOf(type))
+    .filter((rank) => rank >= 0);
+  return ranks.length ? Math.min(...ranks) : PLACE_RANK.length;
+}
+
+/**
+ * The most specific named feature as a label, keeping Mapbox's relevance order
+ * between features of equal rank.
+ */
+export function pickPlaceLabel(features: GeocodeFeature[]) {
+  let best: GeocodeFeature | null = null;
+  for (const feature of features) {
+    if (!feature.place_name) continue;
+    if (!best || placeRank(feature) < placeRank(best)) best = feature;
+  }
+  const label = best?.place_name?.replace(COUNTRY_SUFFIX, "").trim();
+  return label || null;
+}
 
 /** A human-readable place name for a picked point, or null if it can't be resolved. */
 export async function reverseGeocode(point: MapPoint, signal?: AbortSignal) {
@@ -728,7 +756,7 @@ export async function reverseGeocode(point: MapPoint, signal?: AbortSignal) {
     const response = await fetch(reverseGeocodeUrl(point), { signal });
     if (!response.ok) return null;
     const body = (await response.json()) as GeocodeBody;
-    return body.features?.[0]?.place_name ?? null;
+    return pickPlaceLabel(body.features ?? []);
   } catch {
     return null;
   }

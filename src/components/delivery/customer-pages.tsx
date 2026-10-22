@@ -12,12 +12,14 @@ import {
 import CheckRounded from "@mui/icons-material/CheckRounded";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import HelpOutlineRounded from "@mui/icons-material/HelpOutlineRounded";
+import HomeOutlined from "@mui/icons-material/HomeOutlined";
 import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
 import IosShare from "@mui/icons-material/IosShare";
 import LocationOnOutlined from "@mui/icons-material/LocationOnOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import PhoneOutlined from "@mui/icons-material/PhoneOutlined";
+import TwoWheelerOutlined from "@mui/icons-material/TwoWheelerOutlined";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
@@ -27,6 +29,7 @@ import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
 import { alpha } from "@mui/material/styles";
@@ -323,6 +326,127 @@ function AddressRow({
   );
 }
 
+const journey = [
+  { label: "Placed", icon: Inventory2Outlined },
+  { label: "Rider", icon: PersonOutlined },
+  { label: "On the way", icon: TwoWheelerOutlined },
+  { label: "Delivered", icon: HomeOutlined },
+] as const;
+
+/** Where the parcel is on the four-step journey (0 = just placed). */
+export function journeyIndex(status: DeliveryOrder["status"]) {
+  switch (status) {
+    case "assigned":
+    case "accepted":
+      return 1;
+    case "picked_up":
+    case "in_transit":
+      return 2;
+    case "delivered":
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Four icon nodes on one rail, so the customer sees the whole journey and
+ * their place in it at a glance. Navy is done, blue is where the parcel is.
+ */
+function JourneyRail({ status }: { status: DeliveryOrder["status"] }) {
+  const current = journeyIndex(status);
+  const finished = status === "delivered";
+  return (
+    <Box
+      component="ol"
+      aria-label="Delivery journey"
+      sx={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${journey.length}, 1fr)`,
+        m: 0,
+        mt: 2,
+        p: 0,
+        listStyle: "none",
+      }}
+    >
+      {journey.map((step, index) => {
+        const done = index < current || finished;
+        const here = index === current && !finished;
+        const StepIcon = step.icon;
+        return (
+          <Box
+            component="li"
+            key={step.label}
+            aria-current={here ? "step" : undefined}
+            sx={{
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 0.75,
+            }}
+          >
+            {index > 0 && (
+              <Box
+                aria-hidden="true"
+                sx={{
+                  position: "absolute",
+                  top: 17,
+                  right: "50%",
+                  width: "100%",
+                  height: 3,
+                  borderRadius: "999px",
+                  bgcolor:
+                    index <= current || finished
+                      ? "secondary.main"
+                      : "grey.200",
+                }}
+              />
+            )}
+            <Box
+              sx={{
+                position: "relative",
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                display: "grid",
+                placeItems: "center",
+                bgcolor: done
+                  ? "secondary.main"
+                  : here
+                    ? "info.main"
+                    : "grey.100",
+                color: done || here ? "common.white" : "text.disabled",
+                boxShadow: here
+                  ? (theme) =>
+                      `0 0 0 4px ${alpha(theme.palette.info.main, 0.18)}`
+                  : "none",
+              }}
+            >
+              {done ? (
+                <CheckRounded sx={{ fontSize: 20 }} />
+              ) : (
+                <StepIcon sx={{ fontSize: 20 }} />
+              )}
+            </Box>
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: here ? 750 : 600,
+                color: done || here ? "text.primary" : "text.secondary",
+                textAlign: "center",
+                lineHeight: 1.2,
+              }}
+            >
+              {step.label}
+            </Typography>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
 /**
  * Share a link anyone can open: tracking by code works without an account,
  * so the recipient's family or a colleague can follow the same parcel.
@@ -410,6 +534,72 @@ export function TrackDetail({
     </Box>
   );
 
+  // Before pickup there is no rider to plot, so the map would be an empty
+  // tile. Show the two ends of the trip instead; the map arrives at pickup.
+  const routePreview = (
+    <Box sx={{ px: 2, pb: 1 }}>
+      <Box
+        sx={{
+          p: 2,
+          borderRadius: "16px",
+          border: 1,
+          borderColor: "divider",
+          bgcolor: "background.paper",
+        }}
+      >
+        <Stack direction="row" spacing={1.5}>
+          <Stack sx={{ alignItems: "center", pt: 0.5 }}>
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                border: 3,
+                borderColor: "secondary.main",
+              }}
+            />
+            <Box
+              sx={{
+                flex: 1,
+                my: 0.5,
+                borderLeft: 2,
+                borderStyle: "dashed",
+                borderColor: "grey.300",
+              }}
+            />
+            <LocationOnOutlined
+              sx={{ fontSize: 18, color: "primary.dark", ml: "-3px" }}
+            />
+          </Stack>
+          <Stack spacing={2} sx={{ minWidth: 0, flex: 1 }}>
+            <Box>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                Pickup
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 650, overflowWrap: "anywhere" }}
+              >
+                {order.pickup_address}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                Drop-off
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 650, overflowWrap: "anywhere" }}
+              >
+                {order.delivery_address}
+              </Typography>
+            </Box>
+          </Stack>
+        </Stack>
+      </Box>
+    </Box>
+  );
+
   const summary = (
     <Box
       sx={{
@@ -455,12 +645,16 @@ export function TrackDetail({
       <Typography variant="body2" sx={{ mt: 0.5, color: "text.secondary" }}>
         {view.detail}
       </Typography>
-      <Typography
-        variant="body2"
-        sx={{ mt: 1, fontWeight: 650, overflowWrap: "anywhere" }}
-      >
-        To {order.delivery_address}
-      </Typography>
+      {view.stage !== "preparing" && (
+        <Typography
+          variant="body2"
+          sx={{ mt: 1, fontWeight: 650, overflowWrap: "anywhere" }}
+        >
+          To {order.delivery_address}
+        </Typography>
+      )}
+
+      {!stopped && <JourneyRail status={order.status} />}
 
       {/* Real progress only; nothing is drawn without a route percentage. */}
       {!closed && order.route_progress_percent != null && (
@@ -574,60 +768,67 @@ export function TrackDetail({
         <Stack
           direction="row"
           spacing={1.5}
-          sx={{ alignItems: "center", mt: 1.5 }}
+          sx={{
+            alignItems: "center",
+            mt: 2,
+            p: 1.5,
+            borderRadius: "16px",
+            bgcolor: "grey.100",
+          }}
         >
           <Avatar
             sx={{
               ...toneSx("neutral"),
-              bgcolor: "grey.100",
-              width: 40,
-              height: 40,
+              bgcolor: "background.paper",
+              width: 44,
+              height: 44,
             }}
           >
             <PersonOutlined />
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {order.driver_name ? "Your rider" : "Rider"}
+            </Typography>
             <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
               {order.driver_name ?? "Finding your rider"}
             </Typography>
             <Typography
               variant="caption"
-              sx={{ color: "text.secondary" }}
+              sx={{ color: "text.secondary", display: "block" }}
               noWrap
             >
               {order.vehicle_label ??
                 (order.driver_name
                   ? "On a delivery route"
-                  : "Not assigned yet")}
+                  : "We’ll show them here once matched")}
             </Typography>
           </Box>
+          {callable && (
+            <IconButton
+              component="a"
+              href={`tel:${order.driver_phone}`}
+              aria-label="Call rider"
+              sx={{
+                width: 48,
+                height: 48,
+                bgcolor: "background.paper",
+                color: "secondary.main",
+                border: 1,
+                borderColor: "divider",
+              }}
+            >
+              <PhoneOutlined />
+            </IconButton>
+          )}
         </Stack>
       )}
 
       <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-        {callable && (
-          <Button
-            fullWidth
-            component="a"
-            href={`tel:${order.driver_phone}`}
-            variant={view.primaryAction === "call" ? "contained" : "outlined"}
-            color="secondary"
-            startIcon={<PhoneOutlined />}
-            sx={{ minHeight: 48 }}
-          >
-            Call rider
-          </Button>
-        )}
-        {!closed && !isDemo && !callable && (
-          <ShareTrackingButton order={order} />
-        )}
+        {!closed && !isDemo && <ShareTrackingButton order={order} />}
         <Button
           fullWidth
-          variant={
-            view.primaryAction === "help" || !callable
-              ? "contained"
-              : "outlined"
-          }
+          variant="contained"
           color="secondary"
           startIcon={<HelpOutlineRounded />}
           onClick={onOpenHelp}
@@ -636,11 +837,6 @@ export function TrackDetail({
           Get help
         </Button>
       </Stack>
-      {!closed && !isDemo && callable && (
-        <Box sx={{ mt: 1 }}>
-          <ShareTrackingButton order={order} />
-        </Box>
-      )}
     </Box>
   );
 
@@ -651,6 +847,11 @@ export function TrackDetail({
           {map}
           {summary}
         </>
+      ) : view.stage === "preparing" ? (
+        <>
+          {summary}
+          {routePreview}
+        </>
       ) : (
         <>
           {summary}
@@ -659,25 +860,27 @@ export function TrackDetail({
       )}
 
       <Box sx={{ px: 2, mt: 2 }}>
-        <Section
-          id="track-route"
-          title="Route and addresses"
-          expanded={expanded.route}
-          onToggle={toggle("route")}
-        >
-          <Stack spacing={1.5}>
-            <AddressRow
-              label="From"
-              value={order.pickup_address}
-              icon={<Inventory2Outlined fontSize="small" />}
-            />
-            <AddressRow
-              label="To"
-              value={order.delivery_address}
-              icon={<LocationOnOutlined fontSize="small" />}
-            />
-          </Stack>
-        </Section>
+        {view.stage !== "preparing" && (
+          <Section
+            id="track-route"
+            title="Route and addresses"
+            expanded={expanded.route}
+            onToggle={toggle("route")}
+          >
+            <Stack spacing={1.5}>
+              <AddressRow
+                label="From"
+                value={order.pickup_address}
+                icon={<Inventory2Outlined fontSize="small" />}
+              />
+              <AddressRow
+                label="To"
+                value={order.delivery_address}
+                icon={<LocationOnOutlined fontSize="small" />}
+              />
+            </Stack>
+          </Section>
+        )}
 
         <Section
           id="track-progress"

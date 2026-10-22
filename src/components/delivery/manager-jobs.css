@@ -296,3 +296,150 @@
   color: var(--color-text-secondary-subtle);
   font-size: 13px;
 }
+
+/* AWS Cloudscape look: rounded containers (16px), 8px inputs and cards,
+   pill buttons (20px), a header strip per container and visible status. */
+.manager-app.jobs-app .jobs-stage,
+.manager-app.jobs-app .jobs-board {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--aws-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 1px rgba(0, 28, 36, 0.2), 0 1px 4px rgba(0, 28, 36, 0.08);
+}
+
+.manager-app.jobs-app .jobs-stage-head {
+  min-height: 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--aws-border);
+  background: #fafafa;
+}
+
+.manager-app.jobs-app .jobs-stage-head h2 {
+  color: var(--aws-text);
+  font-size: 18px;
+}
+
+/* Count as a visible badge instead of faint grey text. */
+.manager-app.jobs-app .jobs-stage-head h2 span {
+  min-width: 24px;
+  padding: 1px 9px;
+  border-radius: 12px;
+  background: #0972d3;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.manager-app.jobs-app .jobs-stage > :not(.jobs-stage-head),
+.manager-app.jobs-app .jobs-board > :not(.jobs-stage-head) {
+  margin: 16px 20px;
+}
+
+.manager-app.jobs-app .jobs-stage > .jobs-empty {
+  margin: 20px;
+}
+
+.manager-app.jobs-app .operations-list {
+  display: grid;
+  gap: 10px;
+}
+
+.manager-app.jobs-app .operations-list-item,
+.manager-app.jobs-app .task-card {
+  border: 1px solid var(--aws-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.manager-app.jobs-app .operations-list-item:hover,
+.manager-app.jobs-app .task-card:hover {
+  border-color: #0972d3;
+  box-shadow: 0 0 0 1px #0972d3;
+}
+
+.manager-app.jobs-app .operations-list-item > div strong {
+  color: var(--aws-link);
+  font-size: 15px;
+}
+
+.manager-app.jobs-app .operations-list-item > div span {
+  color: var(--aws-text);
+}
+
+/* Buttons: pill shape, compact height, clear primary / secondary / dark. */
+.manager-app.jobs-app .button {
+  min-height: 32px;
+  padding: 0 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.manager-app.jobs-app .button-outline {
+  border: 2px solid #0972d3;
+  color: #0972d3;
+  background: #fff;
+}
+
+.manager-app.jobs-app .button-outline:hover {
+  background: #f1faff;
+  color: #033160;
+}
+
+.manager-app.jobs-app .button-dark {
+  background: #0972d3;
+  border-color: #0972d3;
+}
+
+.manager-app.jobs-app .button-dark:hover {
+  background: #033160;
+  border-color: #033160;
+}
+
+.manager-app.jobs-app .jobs-empty {
+  border: 2px dashed #aab7b8;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+/* Status board: coloured top rule per column, bold readable status. */
+.manager-app.jobs-app .jobs-board-columns {
+  gap: 16px;
+}
+
+.manager-app.jobs-app .jobs-board-column {
+  padding: 12px;
+  border: 1px solid var(--aws-border);
+  border-top: 4px solid var(--col-color, #5f6b7a);
+  border-radius: 8px;
+  background: #f9fafa;
+}
+
+.manager-app.jobs-app .jobs-board-column h3 {
+  color: var(--aws-text);
+  font-size: 14px;
+}
+
+.manager-app.jobs-app .jobs-board-column h3 span {
+  padding: 0 8px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--aws-border);
+  color: var(--aws-text);
+}
+
+.manager-app.jobs-app .jobs-status {
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.manager-app.jobs-app .jobs-board-empty {
+  color: var(--aws-muted);
+  font-size: 13px;
+}

@@ -48,6 +48,7 @@ import type {
 } from "@/lib/delivery/types";
 import { useJobBoard } from "@/lib/delivery/use-job-board";
 import type { useWorkspace } from "@/lib/delivery/use-workspace";
+import { ProofPhoto } from "@/components/delivery/manager-proof-photo";
 import { createClient } from "@/lib/supabase/client";
 import "./manager-order-view.css";
 
@@ -588,7 +589,7 @@ export function ManagerOrderView({
                 return (
                   <Card
                     key={order.id}
-                    className={`manager-order-row ${isSelected ? "is-selected" : ""}`}
+                    className={`manager-queue-card ${isSelected ? "is-selected" : ""}`}
                     elevation={0}
                     onClick={() => {
                       setSelectedId(order.id);
@@ -961,6 +962,12 @@ export function ManagerOrderView({
                     {notice.text}
                   </Alert>
                 )}
+
+                {selectedOrder.status === "delivered" &&
+                  !workspace.isDemo &&
+                  !selectedOrder.id.startsWith("demo-") && (
+                    <ProofPhoto orderId={selectedOrder.id} />
+                  )}
 
                 {/* INTERACTIVE DELIVERY MAP */}
                 <Box
