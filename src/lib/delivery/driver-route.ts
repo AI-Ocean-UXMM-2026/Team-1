@@ -38,6 +38,7 @@ function distanceKm(from: GeoPoint, to: GeoPoint) {
 
 export type ParcelState =
   | "ASSIGNED"
+  | "TO_COLLECT"
   | "LOADED"
   | "OUT_FOR_DELIVERY"
   | "DELIVERED"
@@ -71,8 +72,16 @@ export type RouteSession = {
   cod_declared: number | null;
 };
 
-/** Failed parcels stay on the truck until they are handed back at the depot. */
-export function parcelState(order: DeliveryOrder): ParcelState {
+/**
+ * Failed parcels stay on the truck until they are handed back at the depot.
+ * A door parcel that is still to be collected at the customer's address is
+ * TO_COLLECT, not "not loaded": it is never loaded at the depot.
+ */
+export function parcelState(
+  order: DeliveryOrder,
+  toCollect = false,
+): ParcelState {
+  if (toCollect) return "TO_COLLECT";
   switch (order.status) {
     case "picked_up":
       return "LOADED";
@@ -91,6 +100,7 @@ export function parcelState(order: DeliveryOrder): ParcelState {
 
 export const PARCEL_STATE_LABELS: Record<ParcelState, string> = {
   ASSIGNED: "Not loaded",
+  TO_COLLECT: "To collect",
   LOADED: "Loaded",
   OUT_FOR_DELIVERY: "On board",
   DELIVERED: "Delivered",
@@ -99,6 +109,8 @@ export const PARCEL_STATE_LABELS: Record<ParcelState, string> = {
 };
 
 export type DeliveryStop = {
+  /** A delivery to a recipient, or a door pickup at a customer's address. */
+  kind: "delivery" | "pickup";
   key: string;
   /** Position in today's route, from 1. */
   number: number;
@@ -107,6 +119,15 @@ export type DeliveryStop = {
   open: DeliveryOrder[];
   /** Parcels added to this stop that are not on the truck yet. */
   notLoaded: DeliveryOrder[];
+  /** Pickup stops: parcels still to collect here. Empty for deliveries. */
+  collect: DeliveryOrder[];
+  /** Delivery stops: door parcels whose pickup has not happened yet. */
+  awaitingPickup: DeliveryOrder[];
+  /** Pickup stops: the customer's pickup window, ISO times. */
+  windowStart: string | null;
+  windowEnd: string | null;
+  /** True when dispatch planned this stop (it has a sequence from the plan). */
+  planned: boolean;
   recipient: string;
   phone: string | null;
   address: string;
@@ -179,7 +200,7 @@ function sequenceKey(order: DeliveryOrder, sequence: Map<string, number>) {
   return [
     sequence.get(order.id) ?? Number.MAX_SAFE_INTEGER,
     order.estimated_delivery_at ?? "~",
-    order.created_at ?? "",
+    order.created_at,
   ] as const;
 }
 
@@ -215,8 +236,10 @@ export type DriverRoute = {
   parcels: DeliveryOrder[];
   /** Assigned by dispatch and not yet acknowledged by the driver. */
   unacknowledged: DeliveryOrder[];
-  /** Acknowledged but not on the truck yet. */
+  /** Acknowledged, loaded at the depot, but not on the truck yet. */
   toLoad: DeliveryOrder[];
+  /** Door parcels still to be collected from customers. */
+  toCollect: DeliveryOrder[];
   onBoard: DeliveryOrder[];
   /** Failed parcels that go back to the depot. */
   returns: DeliveryOrder[];
@@ -225,11 +248,38 @@ export type DriverRoute = {
   codToCollect: number;
   delivered: number;
   failed: number;
-  signalsOnRoute?: number;
-  interceptionsOnRoute?: number;
+  signalsOnRoute: number;
+  interceptionsOnRoute: number;
 };
 
 const ACTIVE = new Set(["assigned", "accepted", "picked_up", "in_transit"]);
+
+function pickupPoint(order: DeliveryOrder): GeoPoint | null {
+  return order.pickup_latitude != null && order.pickup_longitude != null
+    ? { latitude: order.pickup_latitude, longitude: order.pickup_longitude }
+    : null;
+}
+
+function samePickupPlace(a: DeliveryOrder, b: DeliveryOrder) {
+  const pa = pickupPoint(a);
+  const pb = pickupPoint(b);
+  if (pa && pb) return distanceKm(pa, pb) <= SAME_STOP_KM;
+  return (
+    a.pickup_address.trim().toLowerCase() ===
+    b.pickup_address.trim().toLowerCase()
+  );
+}
+
+/** Key of a pickup stop: named after its earliest parcel, apart from delivery keys. */
+export const pickupStopKey = (parcels: DeliveryOrder[]) =>
+  `pickup:${stopKey(parcels)}`;
+
+/** The parcels a driver can act on at this stop right now. */
+export const stopParcels = (stop: DeliveryStop) =>
+  stop.kind === "pickup" ? stop.collect : stop.open;
+
+export const isActionable = (stop: DeliveryStop) =>
+  stopParcels(stop).length > 0;
 
 export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
   const today = yangonDay(input.now);
@@ -244,10 +294,32 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
         closedToday(order, input.events, today)),
   );
 
+  // Dispatch order for the delivery stops (legacy and planned alike).
   const sequence = new Map<string, number>();
-  for (const stop of input.routeStops)
+  // Stops that came from a committed plan carry a run-stop id. A parcel is a
+  // door pickup only if its order has such a pickup stop; everything else
+  // behaves exactly as before (loaded at the depot).
+  const planPickup = new Map<string, RouteStop>();
+  const planDelivery = new Map<string, RouteStop>();
+  for (const stop of input.routeStops) {
     if (stop.stop_type === "delivery")
       sequence.set(stop.order_id, stop.sequence_number);
+    if (!stop.dispatch_run_stop_id || stop.status === "skipped") continue;
+    if (stop.stop_type === "pickup") planPickup.set(stop.order_id, stop);
+    else planDelivery.set(stop.order_id, stop);
+  }
+  const isDoor = (order: DeliveryOrder) => planPickup.has(order.id);
+  const pickupPending = (order: DeliveryOrder) => {
+    const stop = planPickup.get(order.id);
+    return (
+      stop != null &&
+      (order.status === "assigned" || order.status === "accepted") &&
+      (stop.status === "pending" || stop.status === "arrived")
+    );
+  };
+  // It was never on the truck: nothing to deliver, nothing to hand back.
+  const pickupFailed = (order: DeliveryOrder) =>
+    planPickup.get(order.id)?.status === "failed";
 
   const ordered = [...parcels].sort((a, b) =>
     compareSequence(sequenceKey(a, sequence), sequenceKey(b, sequence)),
@@ -256,108 +328,66 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
   // Group parcels for the same recipient at the same place into one stop.
   const groups: DeliveryOrder[][] = [];
   for (const order of ordered) {
+    if (pickupFailed(order)) continue;
     const group = groups.find((items) => sameStop(items[0], order));
     if (group) group.push(order);
     else groups.push([order]);
   }
 
-  const deferred = new Set(input.deferred);
-  const finished = (items: DeliveryOrder[]) =>
-    items.every((order) => isClosed(order.status));
-
-  function groupPoint(items: DeliveryOrder[]): GeoPoint | null {
-    for (const order of items) {
-      const pt = deliveryPoint(order);
-      if (pt) return pt;
-    }
-    return null;
-  }
-
-  function detourDelta(
-    prev: DeliveryOrder[],
-    cand: DeliveryOrder[],
-    next: DeliveryOrder[] | null,
-  ): number {
-    const pPrev = groupPoint(prev);
-    const pCand = groupPoint(cand);
-    if (!pPrev || !pCand) return Number.POSITIVE_INFINITY;
-    if (!next) {
-      const legKm = distanceKm(pPrev, pCand);
-      const sigs = countTrafficSignalsBetween(pPrev, pCand).count;
-      const ints = countInterceptionPointsBetween(pPrev, pCand).count;
-      return legKm + sigs * 0.45 + ints * 0.25;
-    }
-    const pNext = groupPoint(next);
-    if (!pNext) return Number.POSITIVE_INFINITY;
-    const directKm =
-      distanceKm(pPrev, pCand) +
-      distanceKm(pCand, pNext) -
-      distanceKm(pPrev, pNext);
-    const addedSigs =
-      countTrafficSignalsBetween(pPrev, pCand).count +
-      countTrafficSignalsBetween(pCand, pNext).count -
-      countTrafficSignalsBetween(pPrev, pNext).count;
-    const addedInts =
-      countInterceptionPointsBetween(pPrev, pCand).count +
-      countInterceptionPointsBetween(pCand, pNext).count -
-      countInterceptionPointsBetween(pPrev, pNext).count;
-    return (
-      directKm +
-      Math.max(0, addedSigs) * 0.45 +
-      Math.max(0, addedInts) * 0.25
+  // Group door parcels collected at the same place into one pickup stop.
+  const pickupGroups: DeliveryOrder[][] = [];
+  const byPickup = parcels
+    .filter(isDoor)
+    .sort(
+      (a, b) =>
+        (planPickup.get(a.id)?.sequence_number ?? 0) -
+        (planPickup.get(b.id)?.sequence_number ?? 0),
     );
+  for (const order of byPickup) {
+    const group = pickupGroups.find((items) =>
+      samePickupPlace(items[0], order),
+    );
+    if (group) group.push(order);
+    else pickupGroups.push([order]);
   }
 
-  // Finished stops first; deferred stops are intelligently re-inserted
-  // at the minimum marginal detour position among upcoming stops.
-  const finishedGroups = groups.filter((g) => finished(g));
-  const openGroups = groups.filter(
-    (g) => !finished(g) && !deferred.has(stopKey(g)),
-  );
-  const deferredGroups = groups.filter(
-    (g) => !finished(g) && deferred.has(stopKey(g)),
-  );
+  const minPlanSeq = (items: DeliveryOrder[], map: Map<string, RouteStop>) => {
+    const values = items
+      .map((order) => map.get(order.id)?.sequence_number)
+      .filter((value): value is number => value != null);
+    return values.length ? Math.min(...values) : null;
+  };
 
-  for (const defGroup of deferredGroups) {
-    if (openGroups.length <= 1) {
-      openGroups.push(defGroup);
-      continue;
-    }
-
-    let bestIndex = openGroups.length;
-    let minDetour = Number.POSITIVE_INFINITY;
-
-    for (let k = 1; k <= openGroups.length; k++) {
-      const prev = openGroups[k - 1];
-      const next = k < openGroups.length ? openGroups[k] : null;
-      const delta = detourDelta(prev, defGroup, next);
-      if (delta < minDetour) {
-        minDetour = delta;
-        bestIndex = k;
-      }
-    }
-
-    openGroups.splice(bestIndex, 0, defGroup);
-  }
-
-  const sortedGroups = [...finishedGroups, ...openGroups];
-
-  const stops: DeliveryStop[] = sortedGroups.map((items, index) => {
+  const deliveryStops: DeliveryStop[] = groups.map((items) => {
     const first = items[0];
     const open = items.filter((order) => hasParcelOnBoard(order.status));
+    const awaitingPickup = items.filter(pickupPending);
     const notLoaded = items.filter(
-      (order) => order.status === "assigned" || order.status === "accepted",
+      (order) =>
+        (order.status === "assigned" || order.status === "accepted") &&
+        !pickupPending(order),
     );
     const etas = items
-      .map((order) => order.estimated_delivery_at)
+      .map(
+        (order) =>
+          order.estimated_delivery_at ??
+          planDelivery.get(order.id)?.planned_arrival_at ??
+          null,
+      )
       .filter((value): value is string => value != null)
       .sort();
     return {
+      kind: "delivery",
       key: stopKey(items),
-      number: index + 1,
+      number: 0,
       parcels: items,
       open,
       notLoaded,
+      collect: [],
+      awaitingPickup,
+      windowStart: null,
+      windowEnd: null,
+      planned: items.every((order) => planDelivery.has(order.id)),
       recipient: first.recipient_name || first.customer_name || "Recipient",
       phone:
         items.find((order) => order.recipient_phone)?.recipient_phone ?? null,
@@ -369,8 +399,170 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
     };
   });
 
+  const pickupStops: DeliveryStop[] = pickupGroups.map((items) => {
+    const first = items[0];
+    const stops = items
+      .map((order) => planPickup.get(order.id))
+      .filter((stop): stop is RouteStop => stop != null);
+    const arrivals = stops
+      .map((stop) => stop.planned_arrival_at)
+      .filter((value): value is string => value != null)
+      .sort();
+    return {
+      kind: "pickup",
+      key: pickupStopKey(items),
+      number: 0,
+      parcels: items,
+      open: [],
+      notLoaded: [],
+      collect: items.filter(pickupPending),
+      awaitingPickup: [],
+      windowStart:
+        stops.map((stop) => stop.window_start_at).find(Boolean) ?? null,
+      windowEnd: stops.map((stop) => stop.window_end_at).find(Boolean) ?? null,
+      planned: true,
+      recipient: first.pickup_contact_name || first.customer_name || "Customer",
+      phone:
+        items.find((order) => order.pickup_contact_phone)
+          ?.pickup_contact_phone ?? null,
+      address: first.pickup_address,
+      point: pickupPoint(first),
+      codDue: 0,
+      etaAt: arrivals[0] ?? null,
+      state: "PENDING",
+    };
+  });
+
+  const finished = (stop: DeliveryStop) =>
+    stop.kind === "pickup"
+      ? stop.collect.length === 0
+      : stop.parcels.every((order) => isClosed(order.status));
+
+  // A deferred pickup takes its deliveries with it, so a parcel is never
+  // delivered before it has been collected.
+  const deferred = new Set(input.deferred);
+  for (const pickup of pickupStops)
+    if (deferred.has(pickup.key))
+      for (const delivery of deliveryStops)
+        if (delivery.parcels.some((order) => pickup.parcels.includes(order)))
+          deferred.add(delivery.key);
+
+  // Order: planned stops by the plan's sequence, then anything dispatch did
+  // not plan by promised time. Finished first, open next, deferred last.
+  const seqOf = (stop: DeliveryStop) =>
+    stop.kind === "pickup"
+      ? minPlanSeq(stop.parcels, planPickup)
+      : stop.planned
+        ? minPlanSeq(stop.parcels, planDelivery)
+        : null;
+  const stops = [...deliveryStops, ...pickupStops];
+  const sortKey = (stop: DeliveryStop) => {
+    const seq = seqOf(stop);
+    if (seq != null) return [0, seq, "", ""] as const;
+    // Not planned: keep the dispatcher's own order, then promised time.
+    const legacy = stop.parcels
+      .map((order) => sequence.get(order.id))
+      .filter((value): value is number => value != null);
+    return [
+      1,
+      legacy.length ? Math.min(...legacy) : Number.MAX_SAFE_INTEGER,
+      stop.etaAt ?? "~",
+      stop.parcels.map((order) => order.created_at).sort()[0] ?? "",
+    ] as const;
+  };
+  stops.sort((a, b) => {
+    const ka = sortKey(a);
+    const kb = sortKey(b);
+    return (
+      ka[0] - kb[0] ||
+      ka[1] - kb[1] ||
+      ka[2].localeCompare(kb[2]) ||
+      ka[3].localeCompare(kb[3])
+    );
+  });
+  const finishedStops = stops.filter(finished);
+  const openStops = stops.filter(
+    (stop) => !finished(stop) && !deferred.has(stop.key),
+  );
+  const deferredStops = stops.filter(
+    (stop) => !finished(stop) && deferred.has(stop.key),
+  );
+
+  const detourDelta = (
+    previous: DeliveryStop,
+    candidate: DeliveryStop,
+    next: DeliveryStop | null,
+  ) => {
+    if (!previous.point || !candidate.point) return Number.POSITIVE_INFINITY;
+    if (!next?.point) {
+      const signals = countTrafficSignalsBetween(
+        previous.point,
+        candidate.point,
+      ).count;
+      const interceptions = countInterceptionPointsBetween(
+        previous.point,
+        candidate.point,
+      ).count;
+      return (
+        distanceKm(previous.point, candidate.point) +
+        signals * 0.45 +
+        interceptions * 0.25
+      );
+    }
+    const addedDistance =
+      distanceKm(previous.point, candidate.point) +
+      distanceKm(candidate.point, next.point) -
+      distanceKm(previous.point, next.point);
+    const addedSignals =
+      countTrafficSignalsBetween(previous.point, candidate.point).count +
+      countTrafficSignalsBetween(candidate.point, next.point).count -
+      countTrafficSignalsBetween(previous.point, next.point).count;
+    const addedInterceptions =
+      countInterceptionPointsBetween(previous.point, candidate.point).count +
+      countInterceptionPointsBetween(candidate.point, next.point).count -
+      countInterceptionPointsBetween(previous.point, next.point).count;
+    return (
+      addedDistance +
+      Math.max(0, addedSignals) * 0.45 +
+      Math.max(0, addedInterceptions) * 0.25
+    );
+  };
+
+  for (const deferredStop of deferredStops) {
+    // Planned pickup and delivery stops retain their relative dispatch order,
+    // which guarantees a door parcel is collected before it is delivered.
+    if (deferredStop.planned || openStops.length <= 1) {
+      openStops.push(deferredStop);
+      continue;
+    }
+
+    let bestIndex = openStops.length;
+    let minimumDetour = Number.POSITIVE_INFINITY;
+    for (let index = 1; index <= openStops.length; index += 1) {
+      const delta = detourDelta(
+        openStops[index - 1],
+        deferredStop,
+        index < openStops.length ? openStops[index] : null,
+      );
+      if (delta < minimumDetour) {
+        minimumDetour = delta;
+        bestIndex = index;
+      }
+    }
+    openStops.splice(bestIndex, 0, deferredStop);
+  }
+
+  stops.splice(0, stops.length, ...finishedStops, ...openStops);
+  stops.forEach((stop, index) => {
+    stop.number = index + 1;
+  });
+
+  const toCollect = parcels.filter(pickupPending);
   const unacknowledged = parcels.filter((order) => order.status === "assigned");
-  const toLoad = parcels.filter((order) => order.status === "accepted");
+  // Door parcels are collected on the road, never loaded at the depot.
+  const toLoad = parcels.filter(
+    (order) => order.status === "accepted" && !pickupPending(order),
+  );
   const onBoard = parcels.filter((order) => hasParcelOnBoard(order.status));
   const active = parcels.filter((order) => ACTIVE.has(order.status));
   const started =
@@ -383,11 +575,14 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
       ? "CLOSED"
       : !parcels.length
         ? "NONE"
-        : !onBoard.length && !unacknowledged.length && !toLoad.length
+        : !onBoard.length &&
+            !unacknowledged.length &&
+            !toLoad.length &&
+            !toCollect.length
           ? "COMPLETED"
           : input.session?.status === "paused"
             ? "PAUSED"
-            : started && onBoard.length
+            : started && (onBoard.length || toCollect.length)
               ? "IN_PROGRESS"
               : unacknowledged.length
                 ? "ASSIGNED"
@@ -399,12 +594,15 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
   const navigable = state === "IN_PROGRESS" || state === "PAUSED";
   let current: DeliveryStop | null = null;
   for (const stop of stops) {
-    if (finished(stop.parcels)) {
-      const failed = stop.parcels.every((order) => order.status === "failed");
+    if (finished(stop)) {
+      const failed =
+        stop.kind === "pickup"
+          ? stop.parcels.every(pickupFailed)
+          : stop.parcels.every((order) => order.status === "failed");
       stop.state = failed ? "FAILED" : "COMPLETED";
       continue;
     }
-    if (navigable && !current && stop.open.length) {
+    if (navigable && !current && isActionable(stop)) {
       current = stop;
       stop.state =
         input.handover === stop.key
@@ -428,13 +626,12 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
 
   let signalsOnRoute = 0;
   let interceptionsOnRoute = 0;
-  for (let s = 0; s < stops.length - 1; s++) {
-    const pA = stops[s].point;
-    const pB = stops[s + 1].point;
-    if (pA && pB) {
-      signalsOnRoute += countTrafficSignalsBetween(pA, pB).count;
-      interceptionsOnRoute += countInterceptionPointsBetween(pA, pB).count;
-    }
+  for (let index = 0; index < stops.length - 1; index += 1) {
+    const from = stops[index].point;
+    const to = stops[index + 1].point;
+    if (!from || !to) continue;
+    signalsOnRoute += countTrafficSignalsBetween(from, to).count;
+    interceptionsOnRoute += countInterceptionPointsBetween(from, to).count;
   }
 
   return {
@@ -445,8 +642,11 @@ export function buildDriverRoute(input: DriverRouteInput): DriverRoute {
     parcels,
     unacknowledged,
     toLoad,
+    toCollect,
     onBoard,
-    returns: parcels.filter((order) => order.status === "failed"),
+    returns: parcels.filter(
+      (order) => order.status === "failed" && !pickupFailed(order),
+    ),
     codExpected: codOrders.reduce((sum, order) => sum + order.cod_amount, 0),
     codCollected,
     codToCollect: parcels.reduce((sum, order) => sum + codDue(order), 0),
@@ -502,7 +702,10 @@ export function diffRoute(
   const addedParcels = route.parcels.filter(
     (order) => after.has(order.id) && !before.has(order.id),
   );
-  const removedParcels = previous.parcels.filter((id) => !after.has(id));
+  // Removed means gone from the driver's list (reassigned or cancelled). A
+  // parcel the driver closed themselves is still listed, with its outcome.
+  const listed = new Set(route.parcels.map((order) => order.id));
+  const removedParcels = previous.parcels.filter((id) => !listed.has(id));
   const kept = next.stops.filter((key) => previous.stops.includes(key));
   const keptBefore = previous.stops.filter((key) => kept.includes(key));
   const reordered = kept.some((key, index) => keptBefore[index] !== key);
@@ -547,6 +750,8 @@ export type HandoverDraft = {
   note: string;
   /** One request id per parcel, kept across retries so a resend is not a second delivery. */
   requestIds: Record<string, string>;
+  /** Pickup stops: the weight read on the scale per parcel id, in kg, as typed. */
+  weights?: Record<string, string>;
 };
 
 export const EMPTY_HANDOVER: HandoverDraft = {
@@ -596,6 +801,80 @@ export function handoverRequirements(
   }
   return requirements;
 }
+
+/** What must be done before a door pickup can be recorded as collected. */
+export function pickupRequirements(
+  stop: DeliveryStop,
+  draft: HandoverDraft,
+): Requirement[] {
+  const weights = draft.weights ?? {};
+  const badWeight = stop.collect.some((order) => {
+    const typed = (weights[order.id] ?? "").trim();
+    if (typed === "") return false;
+    const value = Number(typed);
+    return !Number.isFinite(value) || value <= 0 || value > 100000;
+  });
+  return [
+    {
+      key: "parcels",
+      label:
+        stop.collect.length > 1
+          ? `Check all ${stop.collect.length} parcels`
+          : "Check the parcel",
+      met: stop.collect.every((order) => draft.verified.includes(order.id)),
+    },
+    {
+      key: "weight",
+      label: "Enter a weight above 0 kg, or leave it empty",
+      met: !badWeight,
+    },
+  ];
+}
+
+export type PickupReasonOption = {
+  id:
+    | "customer_unavailable"
+    | "parcel_not_ready"
+    | "wrong_parcel"
+    | "refused"
+    | "oversize"
+    | "other";
+  label: string;
+  detail: string;
+};
+
+export const PICKUP_REASONS: PickupReasonOption[] = [
+  {
+    id: "customer_unavailable",
+    label: "Nobody there",
+    detail: "No one to hand the parcel over",
+  },
+  {
+    id: "parcel_not_ready",
+    label: "Parcel not ready",
+    detail: "Not packed or not available yet",
+  },
+  {
+    id: "wrong_parcel",
+    label: "Wrong parcel",
+    detail: "Doesn’t match the order",
+  },
+  {
+    id: "refused",
+    label: "Customer cancelled",
+    detail: "Doesn’t want it collected",
+  },
+  {
+    id: "oversize",
+    label: "Too big or heavy",
+    detail: "Won’t fit or can’t be lifted safely",
+  },
+  {
+    id: "other",
+    label: "Something else",
+    detail: "Describe it for operations",
+  },
+];
 
 /**
  * Splits the cash received at a stop across its COD parcels in route order.
@@ -722,6 +1001,11 @@ export function finishEstimate(route: DriverRoute) {
       .sort()
       .at(-1) ?? null
   );
+}
+
+/** Time shown for a stop: a pickup's window, or a delivery's promised time. */
+export function isPickup(stop: DeliveryStop) {
+  return stop.kind === "pickup";
 }
 
 export function openStops(route: DriverRoute) {

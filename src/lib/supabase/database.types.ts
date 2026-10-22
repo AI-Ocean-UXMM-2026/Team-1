@@ -2353,6 +2353,66 @@ export type Database = {
           },
         ];
       };
+      pickup_reports: {
+        Row: {
+          created_at: string;
+          declared_kg: number | null;
+          driver_id: string;
+          failure_reason: string | null;
+          id: string;
+          note: string | null;
+          order_id: string;
+          outcome: string;
+          parcel_checked: boolean;
+          request_id: string;
+          weighed_kg: number | null;
+          weight_variance_pct: number | null;
+        };
+        Insert: {
+          created_at?: string;
+          declared_kg?: number | null;
+          driver_id: string;
+          failure_reason?: string | null;
+          id?: string;
+          note?: string | null;
+          order_id: string;
+          outcome: string;
+          parcel_checked?: boolean;
+          request_id: string;
+          weighed_kg?: number | null;
+          weight_variance_pct?: number | null;
+        };
+        Update: {
+          created_at?: string;
+          declared_kg?: number | null;
+          driver_id?: string;
+          failure_reason?: string | null;
+          id?: string;
+          note?: string | null;
+          order_id?: string;
+          outcome?: string;
+          parcel_checked?: boolean;
+          request_id?: string;
+          weighed_kg?: number | null;
+          weight_variance_pct?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pickup_reports_driver_id_fkey";
+            columns: ["driver_id"];
+            isOneToOne: false;
+            referencedRelation: "driver_profiles";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "pickup_reports_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       latest_delivery_locations: {
@@ -2596,6 +2656,18 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      complete_pickup: {
+        Args: {
+          client_request_id: string;
+          note?: string;
+          parcel_checked?: boolean;
+          pickup_outcome: string;
+          reason?: string;
+          target_order_id: string;
+          weighed_kg?: number;
+        };
+        Returns: Json;
       };
     };
     Enums: {

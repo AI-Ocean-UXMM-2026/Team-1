@@ -25,10 +25,15 @@ import type {
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
-import { StopRow } from "@/components/delivery/rider-overview";
+import { StopMark, StopRow } from "@/components/delivery/rider-overview";
+import { CodTag } from "@/components/delivery/rider-tools";
 import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
-import type { DeliveryStop, DriverRoute } from "@/lib/delivery/driver-route";
-import { formatTime } from "@/lib/delivery/format";
+import {
+  type DeliveryStop,
+  type DriverRoute,
+  stopParcels,
+} from "@/lib/delivery/driver-route";
+import { currency, formatTime } from "@/lib/delivery/format";
 import {
   formatDistance,
   resolveTurnSymbol,
@@ -350,11 +355,15 @@ export function ActiveDelivery({
     return () => observer.disconnect();
   }, [onSheetHeight]);
   const far = distanceKm != null && distanceKm > FAR_FROM_STOP_KM;
+  const pickup = stop.kind === "pickup";
+  const parcelsHere = stopParcels(stop);
   const headEta = liveEtaAt
     ? `ETA ${formatTime(liveEtaAt)}`
-    : stop.etaAt
-      ? `Due by ${formatTime(stop.etaAt)}`
-      : null;
+    : pickup && stop.windowEnd
+      ? `Window until ${formatTime(stop.windowEnd)}`
+      : stop.etaAt
+        ? `Due by ${formatTime(stop.etaAt)}`
+        : null;
   const nextStops = route.upcoming.slice(0, 2);
   const upcomingTimes = timelineTimes(liveEtaAt ?? stop.etaAt, nextStops);
 
@@ -477,7 +486,8 @@ export function ActiveDelivery({
               </IconButton>
               <div>
                 <small>
-                  Stop {stop.number} of {route.stops.length} · Handover
+                  Stop {stop.number} of {route.stops.length} ·{" "}
+                  {pickup ? "Pickup" : "Handover"}
                 </small>
                 <h2>{stop.recipient}</h2>
                 <p>{stop.address}</p>
@@ -491,8 +501,14 @@ export function ActiveDelivery({
             <div className="dv-stage">
               <div className="dv-stage-line">
                 <small className={arrived ? "is-arrived" : ""}>
-                  {arrived ? "At the stop" : "Next stop"} · {stop.number} of{" "}
-                  {route.stops.length}
+                  {pickup
+                    ? arrived
+                      ? "At the pickup"
+                      : "Next pickup"
+                    : arrived
+                      ? "At the stop"
+                      : "Next stop"}{" "}
+                  · {stop.number} of {route.stops.length}
                 </small>
                 {headEta && !arrived && <strong>{headEta}</strong>}
               </div>
@@ -505,8 +521,9 @@ export function ActiveDelivery({
                 <p>
                   <Icon name="user" size={14} />
                   <MarqueeText>
-                    {stop.recipient} · {stop.open.length}{" "}
-                    {stop.open.length === 1 ? "parcel" : "parcels"}
+                    {pickup ? "Collect from " : ""}
+                    {stop.recipient} · {parcelsHere.length}{" "}
+                    {parcelsHere.length === 1 ? "parcel" : "parcels"}
                   </MarqueeText>
                 </p>
               </div>
@@ -554,7 +571,7 @@ export function ActiveDelivery({
             {expanded && (
               <div className="rf-sheet-body dv-details">
                 <dl className="dv-rows">
-                  {stop.open.map((order) => (
+                  {parcelsHere.map((order) => (
                     <div key={order.id}>
                       <dt>Parcel</dt>
                       <dd>
@@ -578,7 +595,7 @@ export function ActiveDelivery({
                       <dd>{stop.phone}</dd>
                     </div>
                   )}
-                  {stop.notLoaded.length > 0 && (
+                  {!pickup && stop.notLoaded.length > 0 && (
                     <div>
                       <dt>Not on truck</dt>
                       <dd>{stop.notLoaded.length} more for this recipient</dd>
@@ -635,7 +652,7 @@ export function ActiveDelivery({
                     endIcon={<Icon name="arrow-right" size={18} />}
                     sx={{ minHeight: 56, borderRadius: 999 }}
                   >
-                    Start handover
+                    {pickup ? "Start pickup" : "Start handover"}
                   </Button>
                 ) : confirmFar && far ? (
                   <div className="dv-confirm" role="alert">

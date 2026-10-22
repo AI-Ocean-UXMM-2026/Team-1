@@ -25,11 +25,14 @@ export const PREVIEW_SCENARIOS = [
   "active",
   "paused",
   "complete",
+  "mixed",
 ] as const;
 
 export type PreviewScenario = (typeof PREVIEW_SCENARIOS)[number];
 
-export function isPreviewScenario(value: string | null): value is PreviewScenario {
+export function isPreviewScenario(
+  value: string | null,
+): value is PreviewScenario {
   return PREVIEW_SCENARIOS.includes(value as PreviewScenario);
 }
 
@@ -244,6 +247,239 @@ function routeStopsFor(orders: DeliveryOrder[]): RouteStop[] {
   }));
 }
 
+/**
+ * "mixed": a committed truck plan with door pickups between deliveries.
+ * Sample data, labelled as such: two parcels already at the depot (the load
+ * check lists only these) and four collected from customers on the road,
+ * interleaved the way the planner sequences them.
+ */
+function mixedPlan(): { orders: DeliveryOrder[]; routeStops: RouteStop[] } {
+  const common = {
+    customer_id: null,
+    status: "accepted" as DeliveryStatus,
+    cod_status: "not_required" as const,
+    route_progress_percent: null,
+    traffic_delay_minutes: 0,
+    eta_confidence: null,
+    eta_updated_at: null,
+    estimated_delivery_at: null,
+    driver_id: PREVIEW_DRIVER_ID,
+    driver_name: "Preview driver",
+    driver_phone: null,
+    vehicle_id: VEHICLE.id,
+    vehicle_label: "YGN-07 · Light truck",
+    route_id: "preview-plan-route",
+    latest_location: null,
+    cod_amount: 0,
+  };
+  const spec = [
+    {
+      id: "m1",
+      door: true,
+      sender: "Sample shop A",
+      to: "Sample customer 1",
+      at: [16.8402, 96.1301],
+      drop: [16.8211, 96.1522],
+      kg: 4,
+    },
+    {
+      id: "m2",
+      door: true,
+      sender: "Sample shop B",
+      to: "Sample customer 2",
+      at: [16.8455, 96.1334],
+      drop: [16.8133, 96.1611],
+      kg: 2.5,
+    },
+    {
+      id: "d1",
+      door: false,
+      sender: "Depot",
+      to: "Sample customer 3",
+      at: [PREVIEW_DEPOT.latitude, PREVIEW_DEPOT.longitude],
+      drop: [16.8302, 96.1405],
+      kg: 1.2,
+    },
+    {
+      id: "m3",
+      door: true,
+      sender: "Sample shop C",
+      to: "Sample customer 4",
+      at: [16.8021, 96.1688],
+      drop: [16.8266, 96.1759],
+      kg: 8,
+    },
+    {
+      id: "d2",
+      door: false,
+      sender: "Depot",
+      to: "Sample customer 5",
+      at: [PREVIEW_DEPOT.latitude, PREVIEW_DEPOT.longitude],
+      drop: [16.8188, 96.1466],
+      kg: 0.8,
+    },
+    {
+      id: "m4",
+      door: true,
+      sender: "Sample shop D",
+      to: "Sample customer 6",
+      at: [16.8099, 96.1743],
+      drop: [16.8355, 96.1802],
+      kg: 3,
+    },
+  ];
+  const orders: DeliveryOrder[] = spec.map((item, index) => ({
+    ...common,
+    id: `mixed-${item.id}`,
+    tracking_code: `SAMPLE-${item.id.toUpperCase()}`,
+    customer_name: item.sender,
+    pickup_contact_name: item.door ? item.sender : null,
+    pickup_contact_phone: item.door ? `+95 9 400 000 ${100 + index}` : null,
+    pickup_address: item.door
+      ? `${item.sender} (sample address)`
+      : "Oern depot (sample)",
+    pickup_latitude: item.at[0],
+    pickup_longitude: item.at[1],
+    delivery_address: `${item.to} (sample address)`,
+    delivery_latitude: item.drop[0],
+    delivery_longitude: item.drop[1],
+    recipient_name: item.to,
+    recipient_phone: `+95 9 400 000 ${200 + index}`,
+    parcel_description: `Sample parcel ${item.id}`,
+    parcel_weight_kg: item.kg,
+    created_at: at(-30 + index),
+  }));
+  // The plan's sequence: pickups and deliveries interleaved.
+  const sequence: [string, "pickup" | "delivery"][] = [
+    ["m1", "pickup"],
+    ["m2", "pickup"],
+    ["m1", "delivery"],
+    ["d1", "delivery"],
+    ["m3", "pickup"],
+    ["m2", "delivery"],
+    ["m4", "pickup"],
+    ["m3", "delivery"],
+    ["d2", "delivery"],
+    ["m4", "delivery"],
+  ];
+  const routeStops: RouteStop[] = sequence.map(([id, type], index) => {
+    const order = orders.find(
+      (item) => item.id === `mixed-${id}`,
+    ) as DeliveryOrder;
+    const pickup = type === "pickup";
+    return {
+      id: `mixed-stop-${id}-${type}`,
+      route_id: "preview-plan-route",
+      order_id: order.id,
+      stop_type: type,
+      sequence_number: index + 1,
+      address: pickup ? order.pickup_address : order.delivery_address,
+      latitude: pickup ? order.pickup_latitude : order.delivery_latitude,
+      longitude: pickup ? order.pickup_longitude : order.delivery_longitude,
+      status: "pending",
+      completed_at: null,
+      created_at: order.created_at,
+      dispatch_run_stop_id: `mixed-run-${id}-${type}`,
+      planned_arrival_at: at(30 + index * 25),
+      planned_departure_at: at(35 + index * 25),
+      window_start_at: pickup ? at(0) : null,
+      window_end_at: pickup ? at(240) : null,
+      arrived_at: null,
+    };
+  });
+  return { orders, routeStops };
+}
+
+/**
+ * Door pickup in the preview, mirroring complete_pickup: a collected parcel
+ * becomes picked_up (in_transit once the route is under way), its pickup stop
+ * is completed and a weighed weight replaces the declared one; a failed pickup
+ * fails the order, fails the pickup stop and skips the delivery stop.
+ */
+export function previewCollect(
+  data: WorkspaceData,
+  orderId: string,
+  input: {
+    outcome: "collected" | "failed";
+    weighedKg: number | null;
+    routeStarted: boolean;
+  },
+): WorkspaceData {
+  const order = data.orders.find((item) => item.id === orderId);
+  if (!order) throw new Error("This parcel is not assigned to you");
+  if (order.status === "picked_up" || order.status === "in_transit")
+    throw new Error("This parcel is already collected");
+  if (order.status !== "assigned" && order.status !== "accepted")
+    throw new Error(`This parcel already has an outcome: ${order.status}`);
+  const pickup = data.routeStops.find(
+    (stop) =>
+      stop.order_id === orderId &&
+      stop.stop_type === "pickup" &&
+      stop.dispatch_run_stop_id &&
+      (stop.status === "pending" || stop.status === "arrived"),
+  );
+  if (!pickup)
+    throw new Error("This order has no pending pickup stop on your route");
+  const status: DeliveryStatus =
+    input.outcome === "failed"
+      ? "failed"
+      : input.routeStarted
+        ? "in_transit"
+        : "picked_up";
+  const stamp = new Date().toISOString();
+  const events = [
+    ...(input.outcome === "collected" && order.status === "assigned"
+      ? (["accepted"] as DeliveryStatus[])
+      : []),
+    ...(input.outcome === "collected"
+      ? (["picked_up"] as DeliveryStatus[])
+      : []),
+    ...(status === "in_transit" || status === "failed" ? [status] : []),
+  ];
+  return {
+    ...data,
+    orders: data.orders.map((item) =>
+      item.id === orderId
+        ? {
+            ...item,
+            status,
+            parcel_weight_kg:
+              input.outcome === "collected" && input.weighedKg != null
+                ? input.weighedKg
+                : item.parcel_weight_kg,
+          }
+        : item,
+    ),
+    routeStops: data.routeStops.map((stop) => {
+      if (stop.id === pickup.id)
+        return {
+          ...stop,
+          status: input.outcome === "collected" ? "completed" : "failed",
+          completed_at: stamp,
+          arrived_at: stop.arrived_at ?? stamp,
+        };
+      if (
+        input.outcome === "failed" &&
+        stop.order_id === orderId &&
+        stop.stop_type === "delivery" &&
+        stop.status === "pending"
+      )
+        return { ...stop, status: "skipped" };
+      return stop;
+    }),
+    statusEvents: [
+      ...data.statusEvents,
+      ...events.map((event, index) => ({
+        id: data.statusEvents.length + index + 1,
+        order_id: orderId,
+        status: event,
+        note: null,
+        created_at: stamp,
+      })),
+    ],
+  };
+}
+
 export type PreviewState = {
   data: WorkspaceData;
   session: RouteSession | null;
@@ -265,6 +501,13 @@ export function previewState(
     routeStops: [],
   };
   if (scenario === "empty") return { data: empty, session: null };
+  if (scenario === "mixed") {
+    const plan = mixedPlan();
+    return {
+      data: { ...empty, orders: plan.orders, routeStops: plan.routeStops },
+      session: null,
+    };
+  }
 
   const initial: DeliveryStatus =
     scenario === "assigned"
@@ -324,15 +567,30 @@ export function previewState(
     },
     session:
       scenario === "active" || scenario === "complete"
-        ? { status: "in_progress", started_at: started, paused_at: null, closed_at: null, cod_declared: null }
+        ? {
+            status: "in_progress",
+            started_at: started,
+            paused_at: null,
+            closed_at: null,
+            cod_declared: null,
+          }
         : scenario === "paused"
-          ? { status: "paused", started_at: started, paused_at: closedAt, closed_at: null, cod_declared: null }
+          ? {
+              status: "paused",
+              started_at: started,
+              paused_at: closedAt,
+              closed_at: null,
+              cod_declared: null,
+            }
           : null,
   };
 }
 
 /** Dispatcher adds one new stop with one parcel, assigned but not loaded. */
-export function previewAddStop(data: WorkspaceData, now: number): WorkspaceData {
+export function previewAddStop(
+  data: WorkspaceData,
+  now: number,
+): WorkspaceData {
   const serial = data.orders.length + 1;
   const order: DeliveryOrder = {
     ...makeOrders("assigned")[0],
@@ -355,7 +613,13 @@ export function previewAddStop(data: WorkspaceData, now: number): WorkspaceData 
   return {
     ...data,
     orders: [...data.orders, order],
-    routeStops: [...data.routeStops, ...routeStopsFor([order]).map((stop) => ({ ...stop, sequence_number: 999 }))],
+    routeStops: [
+      ...data.routeStops,
+      ...routeStopsFor([order]).map((stop) => ({
+        ...stop,
+        sequence_number: 999,
+      })),
+    ],
   };
 }
 
@@ -370,16 +634,24 @@ export function previewReorder(data: WorkspaceData): WorkspaceData {
   )?.delivery_address;
   if (!firstPlace || !secondPlace) return data;
   const first = new Set(
-    open.filter((order) => order.delivery_address === firstPlace).map((o) => o.id),
+    open
+      .filter((order) => order.delivery_address === firstPlace)
+      .map((o) => o.id),
   );
   const second = new Set(
-    open.filter((order) => order.delivery_address === secondPlace).map((o) => o.id),
+    open
+      .filter((order) => order.delivery_address === secondPlace)
+      .map((o) => o.id),
   );
   const firstSeq = Math.min(
-    ...data.routeStops.filter((stop) => first.has(stop.order_id)).map((s) => s.sequence_number),
+    ...data.routeStops
+      .filter((stop) => first.has(stop.order_id))
+      .map((s) => s.sequence_number),
   );
   const secondSeq = Math.min(
-    ...data.routeStops.filter((stop) => second.has(stop.order_id)).map((s) => s.sequence_number),
+    ...data.routeStops
+      .filter((stop) => second.has(stop.order_id))
+      .map((s) => s.sequence_number),
   );
   return {
     ...data,
@@ -409,7 +681,9 @@ export function previewSetStatus(
   const order = data.orders.find((item) => item.id === orderId);
   if (!order) throw new Error("This parcel is not assigned to you");
   if (!ALLOWED[order.status]?.includes(status))
-    throw new Error(`Invalid delivery status transition: ${order.status} to ${status}`);
+    throw new Error(
+      `Invalid delivery status transition: ${order.status} to ${status}`,
+    );
   return {
     ...data,
     orders: data.orders.map((item) =>

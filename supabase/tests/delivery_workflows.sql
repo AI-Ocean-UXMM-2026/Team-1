@@ -833,6 +833,182 @@ select pg_temp.expect_error('synthetic plans can never be stored',
 set local role authenticated;
 select pg_temp.as_user('customer');
 
+-- ---------------------------------------------------------------------------
+-- Door pickups: complete_pickup and the route-close rule (truck flow, M5)
+-- ---------------------------------------------------------------------------
+reset role;
+-- A second driver with their own truck, so this block is independent of the
+-- plan committed above.
+insert into auth.users (id, email, raw_user_meta_data)
+values ('0d0d0d0d-0000-4000-8000-000000000002', 'oern-pickup-driver@example.invalid',
+  jsonb_build_object('full_name', 'Pickup driver', 'phone', '+959000000001'));
+update public.profiles set role = 'driver' where id = '0d0d0d0d-0000-4000-8000-000000000002';
+insert into public.driver_profiles (user_id, availability)
+values ('0d0d0d0d-0000-4000-8000-000000000002', 'available');
+update public.vehicles set capacity_kg = 50, status = 'available' where id = pg_temp.fixture_id('other_vehicle');
+insert into workflow_fixture_ids (name, id) values ('driver_two', '0d0d0d0d-0000-4000-8000-000000000002');
+grant select on workflow_fixture_ids to authenticated;
+
+create function pg_temp.pickup_plan(p_date date)
+returns jsonb language sql stable security invoker
+as $$
+  select jsonb_build_object(
+    'depot_id', (select id from public.depots where code = 'MGD'),
+    'service_date', p_date, 'engine_version', 'workflow-test', 'data_quality', 'straight_line',
+    'routes', jsonb_build_array(jsonb_build_object(
+      'vehicle_id', pg_temp.fixture_id('other_vehicle'), 'driver_id', pg_temp.fixture_id('driver_two'),
+      'planned_depart_at', now(), 'planned_return_at', now() + interval '4 hours', 'peak_kg', 40,
+      'stops', jsonb_build_array(
+        jsonb_build_object('order_id', pg_temp.plan_id('pk1'), 'stop_type', 'pickup', 'seq', 1, 'address', 'Pickup 1', 'latitude', 16.91, 'longitude', 96.15, 'planned_arrival_at', now() + interval '20 minutes'),
+        jsonb_build_object('order_id', pg_temp.plan_id('pk2'), 'stop_type', 'pickup', 'seq', 2, 'address', 'Pickup 2', 'latitude', 16.92, 'longitude', 96.15, 'planned_arrival_at', now() + interval '40 minutes'),
+        jsonb_build_object('order_id', pg_temp.plan_id('pk1'), 'stop_type', 'delivery', 'seq', 3, 'address', 'Drop 1', 'latitude', 16.93, 'longitude', 96.16, 'planned_arrival_at', now() + interval '60 minutes'),
+        jsonb_build_object('order_id', pg_temp.plan_id('pk2'), 'stop_type', 'delivery', 'seq', 4, 'address', 'Drop 2', 'latitude', 16.94, 'longitude', 96.16, 'planned_arrival_at', now() + interval '80 minutes'),
+        jsonb_build_object('order_id', pg_temp.plan_id('pk3'), 'stop_type', 'pickup', 'seq', 5, 'address', 'Pickup 3', 'latitude', 16.95, 'longitude', 96.16, 'planned_arrival_at', now() + interval '100 minutes'),
+        jsonb_build_object('order_id', pg_temp.plan_id('pk3'), 'stop_type', 'delivery', 'seq', 6, 'address', 'Drop 3', 'latitude', 16.96, 'longitude', 96.17, 'planned_arrival_at', now() + interval '120 minutes'),
+        jsonb_build_object('order_id', pg_temp.plan_id('pk4'), 'stop_type', 'pickup', 'seq', 7, 'address', 'Pickup 4', 'latitude', 16.97, 'longitude', 96.17, 'planned_arrival_at', now() + interval '140 minutes'),
+        jsonb_build_object('order_id', pg_temp.plan_id('pk4'), 'stop_type', 'delivery', 'seq', 8, 'address', 'Drop 4', 'latitude', 16.98, 'longitude', 96.18, 'planned_arrival_at', now() + interval '160 minutes')
+      )
+    )),
+    'orders', (
+      select jsonb_agg(jsonb_build_object('order_id', pg_temp.plan_id(n), 'disposition', 'assigned',
+        'vehicle_id', pg_temp.fixture_id('other_vehicle'), 'origin_kind', 'door',
+        'order_updated_at', (select updated_at from public.delivery_orders where id = pg_temp.plan_id(n)),
+        'logistics_updated_at', (select updated_at from public.delivery_order_logistics where order_id = pg_temp.plan_id(n))))
+      from unnest(array['pk1', 'pk2', 'pk3', 'pk4']) as n
+    )
+  )
+$$;
+
+set local role authenticated;
+select pg_temp.as_user('manager');
+insert into plan_ids (name, id) values
+  ('pk1', pg_temp.new_order('pk1')), ('pk2', pg_temp.new_order('pk2')),
+  ('pk3', pg_temp.new_order('pk3')), ('pk4', pg_temp.new_order('pk4'));
+insert into plan_results (name, result)
+select 'pickup_save', public.save_dispatch_run(pg_temp.pickup_plan(pg_temp.today()), '00000000-0000-4000-8000-0000000000c1');
+select pg_temp.assert_check('a plan with pickup stops saves', (
+  select (result ->> 'saved')::boolean from plan_results where name = 'pickup_save'
+));
+select pg_temp.assert_check('a plan with pickup stops commits onto the driver''s route', (
+  select (result ->> 'committed')::boolean
+  from (select public.commit_dispatch_run(
+    pg_temp.run_by_key('00000000-0000-4000-8000-0000000000c1'), 1,
+    '00000000-0000-4000-8000-0000000000c2') as result) as committed
+));
+select pg_temp.assert_check('the committed route holds pickup and delivery stops in sequence', (
+  select array_agg(stop_type order by sequence_number) = array['pickup','pickup','delivery','delivery','pickup','delivery','pickup','delivery']
+  from public.route_stops where route_id = (
+    select id from public.delivery_routes where dispatch_run_id = pg_temp.run_by_key('00000000-0000-4000-8000-0000000000c1'))
+));
+
+-- ---- who may record a pickup
+select pg_temp.as_user('customer');
+select pg_temp.expect_error('a customer cannot record a pickup', format(
+  'select public.complete_pickup(%L, %L, %L, true)', pg_temp.plan_id('pk1'), gen_random_uuid(), 'collected'), 'signed-in driver');
+select pg_temp.as_user('manager');
+select pg_temp.expect_error('a manager cannot record a pickup', format(
+  'select public.complete_pickup(%L, %L, %L, true)', pg_temp.plan_id('pk1'), gen_random_uuid(), 'collected'), 'signed-in driver');
+select pg_temp.as_user('driver');
+select pg_temp.expect_error('another driver cannot record this pickup', format(
+  'select public.complete_pickup(%L, %L, %L, true)', pg_temp.plan_id('pk1'), gen_random_uuid(), 'collected'), 'not assigned to you');
+
+-- ---- validation, as the assigned driver
+select pg_temp.as_user('driver_two');
+select pg_temp.expect_error('collecting needs the parcel checked', format(
+  'select public.complete_pickup(%L, %L, %L, false)', pg_temp.plan_id('pk1'), gen_random_uuid(), 'collected'), 'Check the parcel');
+select pg_temp.expect_error('a weight must be above zero', format(
+  'select public.complete_pickup(%L, %L, %L, true, -3)', pg_temp.plan_id('pk1'), gen_random_uuid(), 'collected'), 'above 0');
+select pg_temp.expect_error('a failed pickup needs a reason', format(
+  'select public.complete_pickup(%L, %L, %L)', pg_temp.plan_id('pk3'), gen_random_uuid(), 'failed'), 'Choose why');
+select pg_temp.expect_error('an unknown failure reason is refused', format(
+  'select public.complete_pickup(%L, %L, %L, false, null, %L)', pg_temp.plan_id('pk3'), gen_random_uuid(), 'failed', 'made_up'), 'Choose why');
+select pg_temp.expect_error('"other" needs a description', format(
+  'select public.complete_pickup(%L, %L, %L, false, null, %L)', pg_temp.plan_id('pk3'), gen_random_uuid(), 'failed', 'other'), 'Describe');
+select pg_temp.expect_error('an unknown outcome is refused', format(
+  'select public.complete_pickup(%L, %L, %L)', pg_temp.plan_id('pk1'), gen_random_uuid(), 'maybe'), 'Unknown outcome');
+select pg_temp.assert_check('refused calls changed nothing', (
+  select status = 'assigned' from public.delivery_orders where id = pg_temp.plan_id('pk1')
+) and (
+  select count(*) = 0 from public.pickup_reports where order_id = pg_temp.plan_id('pk1')
+));
+
+-- ---- a successful pickup with a weighed parcel (route not started yet)
+insert into plan_results (name, result)
+select 'collect1', public.complete_pickup(pg_temp.plan_id('pk1'), '00000000-0000-4000-8000-0000000000d1', 'collected', true, 12.5);
+select pg_temp.assert_check('collecting moves the order to picked_up and starts tracking', (
+  select (result ->> 'status') = 'picked_up' and not (result ->> 'duplicate')::boolean
+    and (result ->> 'weight_kg')::numeric = 12.5 and result -> 'warnings' = '[]'::jsonb
+  from plan_results where name = 'collect1'
+) and (
+  select status = 'picked_up' from public.delivery_orders where id = pg_temp.plan_id('pk1')
+));
+select pg_temp.assert_check('the pickup stop is completed and arrival is stamped', (
+  select status = 'completed' and completed_at is not null and arrived_at is not null
+  from public.route_stops where order_id = pg_temp.plan_id('pk1') and stop_type = 'pickup'
+));
+select pg_temp.assert_check('the delivery stop is still pending', (
+  select status = 'pending' from public.route_stops where order_id = pg_temp.plan_id('pk1') and stop_type = 'delivery'
+));
+reset role;
+select pg_temp.assert_check('the weighed weight is recorded as weighed and mirrored to the order', (
+  select logistics.weight_kg = 12.5 and logistics.weight_source = 'weighed' and o.parcel_weight_kg = 12.5
+  from public.delivery_order_logistics logistics join public.delivery_orders o on o.id = logistics.order_id
+  where o.id = pg_temp.plan_id('pk1')
+));
+set local role authenticated;
+select pg_temp.as_user('driver_two');
+select pg_temp.assert_check('a repeat with the same request id is a duplicate, not a second pickup', (
+  select (result ->> 'duplicate')::boolean and result ->> 'status' = 'picked_up'
+  from (select public.complete_pickup(pg_temp.plan_id('pk1'), '00000000-0000-4000-8000-0000000000d1', 'collected', true, 12.5) as result) as again
+) and (select count(*) = 1 from public.pickup_reports where order_id = pg_temp.plan_id('pk1')));
+select pg_temp.expect_error('a collected parcel cannot be collected again', format(
+  'select public.complete_pickup(%L, %L, %L, true)', pg_temp.plan_id('pk1'), gen_random_uuid(), 'collected'), 'already collected');
+select pg_temp.assert_check('the driver can read their own pickup report', (
+  select count(*) = 1 from public.pickup_reports where order_id = pg_temp.plan_id('pk1')));
+select pg_temp.expect_error('pickup reports cannot be written directly', format(
+  'insert into public.pickup_reports (order_id, driver_id, request_id, outcome, parcel_checked) values (%L, %L, %L, %L, true)',
+  pg_temp.plan_id('pk2'), pg_temp.fixture_id('driver_two'), gen_random_uuid(), 'collected'), 'permission denied');
+
+-- ---- the route is open, and the truck is overloaded: collected, with a warning
+select public.set_driver_route_state('in_progress');
+insert into plan_results (name, result)
+select 'collect2', public.complete_pickup(pg_temp.plan_id('pk2'), '00000000-0000-4000-8000-0000000000d2', 'collected', true, 60);
+select pg_temp.assert_check('a pickup during an open route goes straight to in_transit', (
+  select status = 'in_transit' from public.delivery_orders where id = pg_temp.plan_id('pk2')));
+select pg_temp.assert_check('an overweight truck is reported as a warning, not refused', (
+  select result -> 'warnings' -> 0 ->> 'code' = 'overweight'
+    and (result -> 'warnings' -> 0 ->> 'capacity_kg')::numeric = 50
+    and (result -> 'warnings' -> 0 ->> 'on_board_kg')::numeric = 72.5
+  from plan_results where name = 'collect2'));
+
+-- ---- a failed pickup never reaches the truck
+insert into plan_results (name, result)
+select 'fail3', public.complete_pickup(pg_temp.plan_id('pk3'), '00000000-0000-4000-8000-0000000000d3', 'failed', false, null, 'customer_unavailable', 'Gate locked');
+select pg_temp.assert_check('a failed pickup fails the order and the pickup stop', (
+  select o.status = 'failed' and s.status = 'failed'
+  from public.delivery_orders o join public.route_stops s on s.order_id = o.id and s.stop_type = 'pickup'
+  where o.id = pg_temp.plan_id('pk3')));
+select pg_temp.assert_check('a failed pickup skips its delivery stop', (
+  select status = 'skipped' from public.route_stops where order_id = pg_temp.plan_id('pk3') and stop_type = 'delivery'));
+select pg_temp.assert_check('the failure reason and note are kept', (
+  select failure_reason = 'customer_unavailable' and note = 'Gate locked' and weighed_kg is null
+  from public.pickup_reports where order_id = pg_temp.plan_id('pk3')));
+
+-- ---- closing the route
+-- Deliver what is on the truck, so only the pending pickup can block closing.
+select public.complete_delivery(pg_temp.plan_id('pk1'), gen_random_uuid(), 'delivered', true, 'Recipient 1');
+select public.complete_delivery(pg_temp.plan_id('pk2'), gen_random_uuid(), 'delivered', true, 'Recipient 2');
+select pg_temp.expect_error('the route cannot close with a pickup still pending', format(
+  'select public.set_driver_route_state(%L, null, 0)', 'closed'), 'Collect or report every pickup');
+select public.complete_pickup(pg_temp.plan_id('pk4'), gen_random_uuid(), 'failed', false, null, 'parcel_not_ready');
+select pg_temp.assert_check('the route closes once every pickup is collected or reported', (
+  select status = 'closed' from public.set_driver_route_state('closed', null, 0)));
+select pg_temp.as_user('manager');
+select pg_temp.assert_check('a manager reads all pickup reports', (
+  select count(*) = 3 from public.pickup_reports where order_id in (pg_temp.plan_id('pk1'), pg_temp.plan_id('pk2'), pg_temp.plan_id('pk3'))));
+select pg_temp.as_user('customer');
+select pg_temp.assert_check('a customer sees no pickup reports', (select count(*) = 0 from public.pickup_reports));
+
 select count(*) as checks_passed, array_agg(name order by name) as verified_checks
 from workflow_checks;
 rollback;

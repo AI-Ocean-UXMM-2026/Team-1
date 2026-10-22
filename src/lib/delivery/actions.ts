@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  DeliveryStatus,
   RiderRequest,
   RiderRequestCategory,
   RoadReport,
@@ -628,16 +629,88 @@ export async function setRouteState(
   return data as unknown as StoredRouteSession;
 }
 
-/** Marks the delivery stops for these parcels as arrived, where dispatch created them. */
+/**
+ * Marks the stops of one kind for these parcels as arrived, where dispatch
+ * created them. Pickup stops come from committed truck plans; delivery stops
+ * exist for both single-order and planned routes.
+ */
 export async function markStopArrived(
   supabase: DeliveryActionClient,
   orderIds: string[],
+  stopType: "pickup" | "delivery" = "delivery",
 ) {
   const { error } = await supabase
     .from("route_stops")
     .update({ status: "arrived" })
     .in("order_id", orderIds)
-    .eq("stop_type", "delivery")
+    .eq("stop_type", stopType)
     .eq("status", "pending");
   if (error) throw new Error(error.message);
+}
+
+export type PickupReason =
+  | "customer_unavailable"
+  | "parcel_not_ready"
+  | "wrong_parcel"
+  | "refused"
+  | "oversize"
+  | "other";
+
+export type PickupInput = {
+  orderId: string;
+  /** Stays the same across retries, so a resend never records a second pickup. */
+  requestId: string;
+  outcome: "collected" | "failed";
+  parcelChecked: boolean;
+  /** Weighed at the door, in kg. Optional: the declared weight stands without it. */
+  weighedKg: number | null;
+  reason: PickupReason | null;
+  note: string | null;
+};
+
+export type PickupResult = {
+  status: DeliveryStatus;
+  duplicate: boolean;
+  weightKg: number | null;
+  variancePct: number | null;
+  warnings: { code: string; onBoardKg?: number; capacityKg?: number }[];
+};
+
+/** Records a door pickup through the atomic, idempotent database function. */
+export async function completePickup(
+  supabase: DeliveryActionClient,
+  input: PickupInput,
+): Promise<PickupResult> {
+  const { data, error } = await supabase.rpc("complete_pickup", {
+    target_order_id: input.orderId,
+    client_request_id: input.requestId,
+    pickup_outcome: input.outcome,
+    parcel_checked: input.parcelChecked,
+    weighed_kg: input.weighedKg ?? undefined,
+    reason: input.reason ?? undefined,
+    note: input.note ?? undefined,
+  });
+  if (error) {
+    if (isMissingSchema(error))
+      throw new Error("Pickups aren’t set up on the server yet.");
+    throw new Error(error.message);
+  }
+  const result = data as {
+    status: DeliveryStatus;
+    duplicate: boolean;
+    weight_kg: number | null;
+    variance_pct: number | null;
+    warnings: { code: string; on_board_kg?: number; capacity_kg?: number }[];
+  };
+  return {
+    status: result.status,
+    duplicate: result.duplicate,
+    weightKg: result.weight_kg,
+    variancePct: result.variance_pct,
+    warnings: result.warnings.map((warning) => ({
+      code: warning.code,
+      onBoardKg: warning.on_board_kg,
+      capacityKg: warning.capacity_kg,
+    })),
+  };
 }
