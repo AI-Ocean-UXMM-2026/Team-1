@@ -153,7 +153,9 @@ export async function loadJobs(
 export async function loadQueue(supabase: JobsClient): Promise<QueueEntry[]> {
   const { data, error } = await supabase
     .from("delivery_queue")
-    .select("order_id, queued_at, job_id, auto_accepted, reproduce_count, last_calculated_at")
+    .select(
+      "order_id, queued_at, job_id, auto_accepted, reproduce_count, last_calculated_at",
+    )
     .order("queued_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => ({
@@ -162,7 +164,9 @@ export async function loadQueue(supabase: JobsClient): Promise<QueueEntry[]> {
     job_id: row.job_id ? String(row.job_id) : null,
     auto_accepted: Boolean(row.auto_accepted),
     reproduce_count: toNumber(row.reproduce_count) || 0,
-    last_calculated_at: row.last_calculated_at ? String(row.last_calculated_at) : null,
+    last_calculated_at: row.last_calculated_at
+      ? String(row.last_calculated_at)
+      : null,
   }));
 }
 
@@ -229,6 +233,36 @@ export async function claimJob(
       "Those parcels were already assigned elsewhere, so the job was closed.",
     );
   return data;
+}
+
+/**
+ * One swipe on the board: claims the job, orders its stops nearest-first from
+ * the driver's position, loads the parcels and starts the route.
+ */
+export async function startJob(
+  supabase: JobsClient,
+  jobId: string,
+  vehicleId: string | null,
+  from: { latitude: number; longitude: number } | null,
+) {
+  const { data, error } = await supabase.rpc("start_delivery_job", {
+    p_job_id: jobId,
+    p_vehicle_id: vehicleId,
+    p_latitude: from?.latitude ?? null,
+    p_longitude: from?.longitude ?? null,
+  });
+  if (error) throw new Error(error.message);
+  if (!data)
+    throw new Error(
+      "Those parcels were already assigned elsewhere, so the job was closed.",
+    );
+  return data;
+}
+
+/** How far apart the job's drop-offs are, from its clustering metadata. */
+export function jobSpreadKm(job: DeliveryJob): number | null {
+  const value = Number(job.metadata?.spread_km);
+  return Number.isFinite(value) ? value : null;
 }
 
 export async function releaseJob(supabase: JobsClient, jobId: string) {
@@ -337,9 +371,8 @@ export function enrichReproducedTask(
   const existingEst = task.estimated_delivery_at
     ? Date.parse(task.estimated_delivery_at)
     : NaN;
-  const baseTime = Number.isFinite(existingEst) && existingEst > nowMs
-    ? existingEst
-    : nowMs;
+  const baseTime =
+    Number.isFinite(existingEst) && existingEst > nowMs ? existingEst : nowMs;
   const newDeliveryAt = new Date(baseTime + 90 * 60_000).toISOString();
 
   return {

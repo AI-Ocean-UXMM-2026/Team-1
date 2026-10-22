@@ -16,6 +16,7 @@ export type IconName =
   | "delivery"
   | "external"
   | "filter"
+  | "flood"
   | "fuel"
   | "help"
   | "home"
@@ -91,6 +92,12 @@ const pathByName: Record<IconName, ReactNode> = {
     <path d="M14 4h6v6m0-6-9 9M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
   ),
   filter: <path d="M4 7h16M7 12h10m-7 5h4" />,
+  flood: (
+    <>
+      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+      <path d="M7 16c1.5-1 3.5-1 5 0 1.5-1 3.5-1 5 0" />
+    </>
+  ),
   fuel: (
     <path d="M4 20V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v15M3 20h11M4 10h9m0 1h2a1 1 0 0 1 1 1v4a1.5 1.5 0 0 0 3 0V9l-2.5-2.5" />
   ),

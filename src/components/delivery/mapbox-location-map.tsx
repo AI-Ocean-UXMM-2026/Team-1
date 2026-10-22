@@ -1,25 +1,37 @@
 "use client";
 
-import type { Marker as MapboxMarker } from "mapbox-gl";
-import { useEffect, useRef, useState } from "react";
+import type { MapLayerMouseEvent, Marker as MapboxMarker } from "mapbox-gl";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/delivery/icons";
 import type { LocationMapProps } from "@/components/delivery/location-map";
 import {
   type Coordinate,
   drawLines,
+  drawPolygons,
   fitToPoints,
   labelElement,
   lngLat,
   mapPalette,
   prefersDark,
+  removePolygonLayers,
   svgMarker,
   useMapboxMap,
 } from "@/components/delivery/mapbox-kit";
+import {
+  type LiveFloodConditions,
+  fetchLiveFloodConditions,
+} from "@/lib/delivery/dispatch/open-meteo";
 import {
   dispatchRows,
   latestRecordedAt,
   locationStatusText,
 } from "@/lib/delivery/dispatch-rows";
+import {
+  type FloodZone,
+  checkRouteFloodExposure,
+  generateCirclePolygon,
+  getYangonFloodZones,
+} from "@/lib/delivery/flood-zones";
 import {
   canShowParcelLocation,
   isRecentLocation,
@@ -66,10 +78,7 @@ function hazardMarker(report: RoadReport) {
   const isSevere = report.severity === "high" || report.severity === "blocked";
   const color = isSevere ? "#DC2626" : "#D97706";
   const bg = isSevere ? "#FEF2F2" : "#FFFBEB";
-  const icon =
-    report.category === "flooding"
-      ? `<path d="M-5 1 C-3 -1 -1 3 1 1 C3 -1 5 3 7 1" stroke="${color}" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M-5 -2 C-3 -4 -1 0 1 -2 C3 -4 5 0 7 -2" stroke="${color}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
-      : `<path d="M0 -6 L6 5 L-6 5 Z" fill="${color}"/><circle cx="0" cy="2.5" r="0.8" fill="#FFFFFF"/>`;
+  const icon = `<path d="M0 -6 L6 5 L-6 5 Z" fill="${color}"/><circle cx="0" cy="2.5" r="0.8" fill="#FFFFFF"/>`;
   const el = svgMarker(
     `<circle r="12" fill="${bg}" stroke="${color}" stroke-width="1.5"/>${icon}`,
     28,
@@ -81,8 +90,28 @@ function hazardMarker(report: RoadReport) {
   return el;
 }
 
+function floodHazardMarker(report: RoadReport) {
+  const isSevere = report.severity === "high" || report.severity === "blocked";
+  const color = isSevere ? "#DC2626" : "#0284C7";
+  const bg = isSevere ? "#FEF2F2" : "#F0F9FF";
+  const halo = isSevere
+    ? `<circle class="flood-pulse" r="22" fill="#DC2626" fill-opacity="0.25"/>`
+    : `<circle class="flood-pulse" r="18" fill="#0284C7" fill-opacity="0.2"/>`;
+  const el = svgMarker(
+    `${halo}<circle r="13" fill="${bg}" stroke="${color}" stroke-width="1.8"/><path d="M-5 1 C-3 -1 -1 3 1 1 C3 -1 5 3 7 1" stroke="${color}" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M-5 -2 C-3 -4 -1 0 1 -2 C3 -4 5 0 7 -2" stroke="${color}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
+    44,
+    "-22 -22 44 44",
+    true,
+    `Flood hazard: ${report.description}`,
+  );
+  el.classList.add("mapbox-flood-marker");
+  el.append(
+    labelElement(isSevere ? "FLOOD (BLOCKED)" : "FLOOD HAZARD"),
+  );
+  return el;
+}
+
 function destinationMarker(palette: Palette, label: string | null) {
-  // The pin's tip sits at y=13; the 3px shift puts it on the box's bottom edge.
   const element = svgMarker(
     `<circle r="16" fill="${palette.destination}" fill-opacity="0.18"/><g transform="translate(0 3)"><path fill="${palette.destination}" stroke="#ffffff" stroke-width="2" d="M0-10c-5.5 0-9 4.2-9 9.2C-9 5-1 12 0 13c1-1 9-8 9-13.8C9-5.8 5.5-10 0-10Z"/></g>`,
     32,
@@ -103,9 +132,8 @@ function pickupMarker(palette: Palette) {
 }
 
 /**
- * Dispatch map on Mapbox GL. Every rider with a live location gets a marker;
- * clicking one selects its order. The selected order's road route is drawn,
- * and the other riders show a faint straight connector to their drop-off.
+ * Dispatch map on Mapbox GL with live flood hazard visualization,
+ * telemetry indicators, and road report overlays.
  */
 export function MapboxLocationMap({
   order,
@@ -117,6 +145,9 @@ export function MapboxLocationMap({
   onSelectOrder,
   roadReports,
   focusPoint,
+  floodZones: propFloodZones,
+  liveFlood: propLiveFlood,
+  initialShowFlood = true,
 }: LocationMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapState = useMapboxMap(container, true);
@@ -124,6 +155,10 @@ export function MapboxLocationMap({
   const gl = mapState?.gl ?? null;
   const [moved, setMoved] = useState(false);
   const [now, setNow] = useState(0);
+  const [showFlood, setShowFlood] = useState(initialShowFlood);
+  const [liveFlood, setLiveFlood] = useState<LiveFloodConditions | null>(
+    propLiveFlood ?? null,
+  );
   const [activeRiderPopup, setActiveRiderPopup] = useState<{
     order: DeliveryOrder;
     point: MapPoint;
@@ -131,8 +166,29 @@ export function MapboxLocationMap({
   const [activeHazardPopup, setActiveHazardPopup] = useState<RoadReport | null>(
     null,
   );
+  const [activeFloodZone, setActiveFloodZone] = useState<FloodZone | null>(null);
+  const [showWeatherModal, setShowWeatherModal] = useState(false);
   const [otherRoutes, setOtherRoutes] = useState<Record<string, Coordinate[]>>({});
   const flownTo = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (propLiveFlood) {
+      setLiveFlood(propLiveFlood);
+    }
+  }, [propLiveFlood]);
+
+  useEffect(() => {
+    if (mode !== "manager" || propLiveFlood) return;
+    let cancelled = false;
+    fetchLiveFloodConditions({ lat: 16.8007, lng: 96.15 })
+      .then((conditions) => {
+        if (!cancelled && conditions) setLiveFlood(conditions);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, propLiveFlood]);
 
   useEffect(() => {
     setNow(Date.now());
@@ -148,6 +204,23 @@ export function MapboxLocationMap({
       duration: 800,
     });
   }, [map, focusPoint]);
+
+  const floodZones = useMemo(
+    () => propFloodZones ?? getYangonFloodZones(),
+    [propFloodZones],
+  );
+
+  const activeFloodReports = useMemo(
+    () =>
+      roadReports?.filter(
+        (r) =>
+          r.status !== "rejected" &&
+          (r.category === "flooding" || r.severity === "blocked"),
+      ) ?? [],
+    [roadReports],
+  );
+
+  const floodAlertCount = floodZones.length + activeFloodReports.length;
 
   const livePoint =
     order?.latest_location && canShowParcelLocation(order.status)
@@ -225,8 +298,6 @@ export function MapboxLocationMap({
     };
   }, [map]);
 
-  // Keep every visible rider in view until the user pans or zooms.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fitKey tracks fitPoints
   useEffect(() => {
     if (!map || moved || !fitPoints.length) return;
     fitToPoints(
@@ -235,10 +306,8 @@ export function MapboxLocationMap({
       { x: 56, top: 92, bottom: 92 },
       mode === "customer" ? 14 : 15,
     );
-    // `fitPoints` is derived from the props above; `fitKey` carries its identity.
   }, [map, moved, fitKey, mode]);
 
-  // A new selection flies to that rider once; GPS ticks do not re-fly.
   useEffect(() => {
     if (!map || !selectedRow || flownTo.current === order?.id) return;
     flownTo.current = order?.id ?? null;
@@ -248,6 +317,78 @@ export function MapboxLocationMap({
       duration: 800,
     });
   }, [map, order?.id, selectedRow]);
+
+  // Draw or update flood polygon layers in Mapbox
+  useEffect(() => {
+    if (!map || mode !== "manager") return;
+
+    if (!showFlood) {
+      removePolygonLayers(map, "flood-hazard-zones");
+      removePolygonLayers(map, "flood-report-buffers");
+      return;
+    }
+
+    const zonePolygons = floodZones.map((z) => ({
+      coordinates: [z.coordinates as Coordinate[]],
+      properties: {
+        id: z.id,
+        name: z.name,
+        hazardClass: z.hazardClass,
+      },
+    }));
+
+    drawPolygons(map, "flood-hazard-zones", zonePolygons, {
+      fillColor: "#0284C7",
+      fillOpacity: 0.28,
+      lineColor: "#0369A1",
+      lineWidth: 2,
+      lineDash: [3, 2],
+    });
+
+    const bufferPolygons = activeFloodReports.map((report) => ({
+      coordinates: [
+        generateCirclePolygon(
+          { latitude: report.latitude, longitude: report.longitude },
+          0.4,
+          24,
+        ) as Coordinate[],
+      ],
+      properties: {
+        id: report.id,
+      },
+    }));
+
+    drawPolygons(map, "flood-report-buffers", bufferPolygons, {
+      fillColor: "#0284C7",
+      fillOpacity: 0.16,
+      lineColor: "#0284C7",
+      lineWidth: 1.5,
+      lineDash: [2, 2],
+    });
+  }, [map, mode, showFlood, floodZones, activeFloodReports]);
+
+  // Click on flood zone polygon layer to inspect
+  useEffect(() => {
+    if (!map || mode !== "manager") return;
+
+    const onZoneClick = (e: MapLayerMouseEvent) => {
+      const feature = e.features?.[0] as unknown as
+        | { properties?: Record<string, unknown> }
+        | undefined;
+      const id = feature?.properties?.id;
+      const zone = floodZones.find((z) => z.id === id);
+      if (zone) {
+        setActiveFloodZone(zone);
+        setActiveRiderPopup(null);
+        setActiveHazardPopup(null);
+      }
+    };
+
+    map.on("click", "flood-hazard-zones-fill", onZoneClick);
+    return () => {
+      map.off("click", "flood-hazard-zones-fill", onZoneClick);
+    };
+  }, [map, mode, floodZones]);
 
   useEffect(() => {
     if (!map || !gl) return;
@@ -276,6 +417,7 @@ export function MapboxLocationMap({
         onSelectOrder?.(row.order.id);
         setActiveRiderPopup({ order: row.order, point: row.rider });
         setActiveHazardPopup(null);
+        setActiveFloodZone(null);
       });
       place(rider, row.rider, "center");
       if (row.destination)
@@ -293,10 +435,15 @@ export function MapboxLocationMap({
     if (roadReports?.length) {
       for (const report of roadReports) {
         if (report.status === "rejected") continue;
-        const hazard = hazardMarker(report);
+        const isFlooding = report.category === "flooding";
+        const hazard = isFlooding
+          ? floodHazardMarker(report)
+          : hazardMarker(report);
+
         hazard.addEventListener("click", () => {
           setActiveHazardPopup(report);
           setActiveRiderPopup(null);
+          setActiveFloodZone(null);
         });
         place(
           hazard,
@@ -309,7 +456,6 @@ export function MapboxLocationMap({
     return () => {
       for (const marker of markers) marker.remove();
     };
-    // Points are recreated on each render, so they are read from the props above.
   }, [
     map,
     gl,
@@ -321,6 +467,26 @@ export function MapboxLocationMap({
     onSelectOrder,
     roadReports,
   ]);
+
+  const routeCoords: Coordinate[] = useMemo(() => {
+    if (road && road.coordinates.length > 1) {
+      return road.coordinates;
+    }
+    if (selectedRow?.rider && selectedRow?.destination) {
+      return [lngLat(selectedRow.rider), lngLat(selectedRow.destination)];
+    }
+    return [];
+  }, [road, selectedRow]);
+
+  const routeFloodRisk = useMemo(
+    () =>
+      checkRouteFloodExposure(
+        routeCoords,
+        showFlood ? floodZones : [],
+        showFlood ? activeFloodReports : [],
+      ),
+    [routeCoords, showFlood, floodZones, activeFloodReports],
+  );
 
   useEffect(() => {
     if (!map) return;
@@ -343,20 +509,21 @@ export function MapboxLocationMap({
         ? [lngLat(selectedRow.rider), lngLat(selectedRow.destination)]
         : [];
     drawLines(map, "dispatch-route-casing", [selectedLine], {
-      color: palette.casing,
+      color: routeFloodRisk.hasFloodRisk ? "#F59E0B" : palette.casing,
       width: 9,
     });
     drawLines(map, "dispatch-route", [selectedLine], {
       color: palette.route,
       width: 5,
     });
-  }, [map, markerRows, order?.id, road, selectedRow, otherRoutes]);
+  }, [map, markerRows, order?.id, road, selectedRow, otherRoutes, routeFloodRisk.hasFloodRisk]);
 
   const handleRecenter = () => {
     if (!map || !fitPoints.length) return;
     setMoved(false);
     setActiveRiderPopup(null);
     setActiveHazardPopup(null);
+    setActiveFloodZone(null);
     fitToPoints(
       map,
       fitPoints,
@@ -391,24 +558,54 @@ export function MapboxLocationMap({
               {order?.tracking_code ?? "Yangon operations"}
             </span>
           </div>
-          <div
-            className={`map-live-pill ${liveRiderCount && !isDemo ? "is-connected" : ""}`}
-          >
-            <span className="live-dot" />
-            {isDemo
-              ? "Simulated tracking"
-              : mode === "manager" && liveRiderCount
-                ? `${liveRiderCount} ${liveRiderCount === 1 ? "rider" : "riders"} live`
-                : mode !== "manager" &&
-                    parcelLocationState(order, now) === "closed"
-                  ? "Tracking ended"
-                  : liveRiderCount
-                    ? "Live GPS"
-                    : trackedOrders.length
-                      ? isRecentLocation(order, now)
-                        ? "Refreshing"
-                        : "Last known location"
-                      : "Location pending"}
+          <div className="map-toolbar-pills">
+            {mode === "manager" && liveFlood && (
+              <button
+                type="button"
+                className={`map-weather-pill weather-severity-${liveFlood.severity}`}
+                onClick={() => setShowWeatherModal((v) => !v)}
+                title="Open-Meteo live hydrology & rain conditions"
+                aria-label="Live weather & flood telemetry"
+              >
+                <span className={`live-weather-dot dot-${liveFlood.severity}`} />
+                <span className="live-weather-text">
+                  {liveFlood.precipitationMm > 0
+                    ? `${liveFlood.precipitationMm} mm/h rain`
+                    : "Clear weather"}
+                  {liveFlood.riverDischargeM3s != null
+                    ? ` · River ${liveFlood.riverDischargeM3s} m³/s`
+                    : ""}
+                </span>
+                <span className={`live-weather-tag tag-${liveFlood.severity}`}>
+                  {liveFlood.severity === "flood_risk"
+                    ? "Flood Risk"
+                    : liveFlood.severity === "heavy_rain"
+                      ? "Heavy Rain"
+                      : liveFlood.severity === "light_rain"
+                        ? "Rain"
+                        : "Normal"}
+                </span>
+              </button>
+            )}
+            <div
+              className={`map-live-pill ${liveRiderCount && !isDemo ? "is-connected" : ""}`}
+            >
+              <span className="live-dot" />
+              {isDemo
+                ? "Simulated tracking"
+                : mode === "manager" && liveRiderCount
+                  ? `${liveRiderCount} ${liveRiderCount === 1 ? "rider" : "riders"} live`
+                  : mode !== "manager" &&
+                      parcelLocationState(order, now) === "closed"
+                    ? "Tracking ended"
+                    : liveRiderCount
+                      ? "Live GPS"
+                      : trackedOrders.length
+                        ? isRecentLocation(order, now)
+                          ? "Refreshing"
+                          : "Last known location"
+                        : "Location pending"}
+            </div>
           </div>
         </div>
       )}
@@ -427,6 +624,20 @@ export function MapboxLocationMap({
             >
               <Icon name="navigation" size={14} />
               <span>Recenter</span>
+            </button>
+            <button
+              type="button"
+              className={`map-action-btn map-flood-toggle ${showFlood ? "is-active" : ""}`}
+              onClick={() => setShowFlood((v) => !v)}
+              aria-pressed={showFlood}
+              aria-label="Toggle flood hazard overlay"
+              title="Toggle flood hazard visualization"
+            >
+              <Icon name="flood" size={14} />
+              <span>Flood</span>
+              {floodAlertCount > 0 && (
+                <span className="map-flood-count-tag">{floodAlertCount}</span>
+              )}
             </button>
             <div className="map-zoom-group">
               <button
@@ -447,6 +658,43 @@ export function MapboxLocationMap({
               >
                 −
               </button>
+            </div>
+          </div>
+        )}
+
+        {routeFloodRisk?.hasFloodRisk && (
+          <div className="map-flood-warning-banner" role="alert">
+            <Icon name="warning" size={15} />
+            <span>
+              <strong>Monsoon Caution:</strong> {routeFloodRisk.warningMessage}
+              {routeFloodRisk.suggestedSlowdownPercent > 0 &&
+                ` (+${routeFloodRisk.suggestedSlowdownPercent}% delay risk)`}
+            </span>
+          </div>
+        )}
+
+        {/* Flood Legend for Manager Map */}
+        {showFlood && mode === "manager" && (
+          <div className="map-flood-legend" aria-label="Flood risk legend">
+            <div className="flood-legend-header">
+              <span className="flood-legend-title">
+                <Icon name="flood" size={13} />
+                Flood Risk
+              </span>
+              <span className="flood-legend-count">
+                {floodAlertCount} monitored
+              </span>
+            </div>
+            <div className="flood-legend-items">
+              <span className="legend-item">
+                <i className="legend-swatch class-1" /> Class 1 (10–25cm)
+              </span>
+              <span className="legend-item">
+                <i className="legend-swatch class-2" /> Class 2 (25–50cm)
+              </span>
+              <span className="legend-item">
+                <i className="legend-swatch class-3" /> Class 3 (&gt;50cm)
+              </span>
             </div>
           </div>
         )}
@@ -502,6 +750,49 @@ export function MapboxLocationMap({
           </div>
         )}
 
+        {/* Flood Hazard Zone Details Popover */}
+        {activeFloodZone && (
+          <div
+            className="map-popover-card flood-zone-popover"
+            role="dialog"
+            aria-label="Flood hazard zone details"
+          >
+            <div className="map-popover-header">
+              <span
+                className={`flood-severity-badge hazard-class-${activeFloodZone.hazardClass}`}
+              >
+                <Icon name="flood" size={13} />
+                CLASS {activeFloodZone.hazardClass} ·{" "}
+                {activeFloodZone.severity.toUpperCase()} HAZARD
+              </span>
+              <button
+                type="button"
+                className="map-popover-close"
+                onClick={() => setActiveFloodZone(null)}
+                aria-label="Close flood details"
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <div className="map-popover-body">
+              <strong>{activeFloodZone.name}</strong>
+              <p className="hazard-description">{activeFloodZone.description}</p>
+              <div className="flood-popover-meta">
+                <span>
+                  Est. depth:{" "}
+                  <strong>~{activeFloodZone.waterDepthEstimateCm} cm</strong>
+                </span>
+                <span>
+                  Flow: <strong>{activeFloodZone.flowRisk}</strong>
+                </span>
+              </div>
+              <div className="flood-advisory-box">
+                <strong>Dispatch Advisory:</strong> {activeFloodZone.advisory}
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeHazardPopup && (
           <div
             className="map-popover-card hazard-popover"
@@ -512,6 +803,7 @@ export function MapboxLocationMap({
               <span
                 className={`road-severity road-severity-${activeHazardPopup.severity}`}
               >
+                {activeHazardPopup.category === "flooding" ? "🌊 " : ""}
                 {activeHazardPopup.category.toUpperCase()} ·{" "}
                 {activeHazardPopup.severity}
               </span>
@@ -532,9 +824,71 @@ export function MapboxLocationMap({
                 Reported by {activeHazardPopup.driver_name} ·{" "}
                 {formatTime(activeHazardPopup.reported_at)}
               </span>
+              {activeHazardPopup.category === "flooding" && (
+                <div className="flood-advisory-box">
+                  <strong>Flood Caution:</strong>{" "}
+                  {activeHazardPopup.severity === "blocked"
+                    ? "Road blocked by standing water. Mandatory detour."
+                    : "Water on road surface. High-clearance vehicles advised."}
+                </div>
+              )}
               <span className="hazard-status-tag">
                 Status: {activeHazardPopup.status}
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Open-Meteo Weather Modal Popover */}
+        {showWeatherModal && liveFlood && (
+          <div
+            className="map-popover-card weather-popover"
+            role="dialog"
+            aria-label="Open-Meteo weather details"
+          >
+            <div className="map-popover-header">
+              <span className={`weather-badge-pill weather-${liveFlood.severity}`}>
+                <span className="live-weather-dot" />
+                LIVE HYDROLOGY · OPEN-METEO
+              </span>
+              <button
+                type="button"
+                className="map-popover-close"
+                onClick={() => setShowWeatherModal(false)}
+                aria-label="Close weather details"
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <div className="map-popover-body">
+              <div className="weather-metrics-grid">
+                <div className="weather-metric-item">
+                  <span>Precipitation</span>
+                  <strong>{liveFlood.precipitationMm} mm/h</strong>
+                </div>
+                <div className="weather-metric-item">
+                  <span>River Discharge</span>
+                  <strong>
+                    {liveFlood.riverDischargeM3s != null
+                      ? `${liveFlood.riverDischargeM3s} m³/s`
+                      : "Normal"}
+                  </strong>
+                </div>
+                <div className="weather-metric-item">
+                  <span>Flood Risk</span>
+                  <strong className={`risk-text-${liveFlood.severity}`}>
+                    {liveFlood.severity.replace("_", " ").toUpperCase()}
+                  </strong>
+                </div>
+                <div className="weather-metric-item">
+                  <span>ETA Slowdown</span>
+                  <strong>+{Math.round(liveFlood.suggestedSlowdown * 100)}%</strong>
+                </div>
+              </div>
+              <p className="weather-source-note">
+                Live open data from Copernicus GloFAS & Open-Meteo. Automatically
+                factored into route feasibility and dispatch planning.
+              </p>
             </div>
           </div>
         )}

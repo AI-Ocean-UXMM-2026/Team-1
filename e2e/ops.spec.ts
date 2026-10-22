@@ -609,3 +609,56 @@ test("manager profile consolidates team riders and fleet vehicles with direct ta
   await page.goto("/manager/profile?tab=vehicles");
   await expect(page.getByText("YGN-FLEET-1")).toBeVisible();
 });
+
+test("admin map displays flood visualization and toggle controls", async ({
+  page,
+  context,
+}) => {
+  await signInAs(context, "manager", {
+    delivery_orders: [
+      makeOrder({
+        id: "order-1",
+        tracking_code: "OR-FLOOD-1",
+        status: "in_transit",
+        delivery_latitude: 16.816,
+        delivery_longitude: 96.192,
+      }),
+    ],
+    road_reports: [
+      {
+        id: "report-flood-1",
+        driver_id: "driver-1",
+        category: "flooding",
+        severity: "high",
+        description: "Deep water accumulation near Thingangyun bridge",
+        latitude: 16.815,
+        longitude: 96.191,
+        status: "verified",
+        reported_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+      },
+    ],
+  });
+
+  await page.goto("/manager/order");
+  const mapCard = page.locator(".map-card");
+  await expect(mapCard).toBeVisible();
+
+  const floodToggle = page.getByRole("button", {
+    name: /Toggle flood hazard overlay/i,
+  });
+  await expect(floodToggle).toBeVisible();
+  await expect(floodToggle).toHaveAttribute("aria-pressed", "true");
+
+  await expect(page.getByLabel("Flood risk legend")).toBeVisible();
+  await expect(page.getByText("Thingangyun Canal Corridor").first()).toBeVisible();
+
+  await floodToggle.click();
+  await expect(floodToggle).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByLabel("Flood risk legend")).toHaveCount(0);
+
+  await floodToggle.click();
+  await expect(floodToggle).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Flood risk legend")).toBeVisible();
+});
+

@@ -2,38 +2,75 @@
 
 import "./rider-jobs.css";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
 import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import { currency } from "@/lib/delivery/format";
-import { claimJob, type DeliveryJob, loadJobs } from "@/lib/delivery/jobs";
+import {
+  type DeliveryJob,
+  jobSpreadKm,
+  loadJobs,
+  startJob,
+} from "@/lib/delivery/jobs";
+import {
+  distanceKm,
+  formatDistance,
+  type GeoPoint,
+} from "@/lib/delivery/rider-route";
 import type { VehicleOption } from "@/lib/delivery/types";
 import { createClient } from "@/lib/supabase/client";
 
-/** Open jobs a driver can pick from when they have no route yet. */
+const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
+
+/** One fix, or null when location is off or slow. Never throws. */
+function currentPoint(timeout = 6000): Promise<GeoPoint | null> {
+  if (typeof navigator === "undefined" || !("geolocation" in navigator))
+    return Promise.resolve(null);
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (fix) =>
+        resolve({
+          latitude: fix.coords.latitude,
+          longitude: fix.coords.longitude,
+        }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout, maximumAge: 60_000 },
+    );
+  });
+}
+
+const centreOf = (job: DeliveryJob): GeoPoint | null =>
+  job.center_latitude != null && job.center_longitude != null
+    ? { latitude: job.center_latitude, longitude: job.center_longitude }
+    : null;
+
+/**
+ * Open jobs every driver can see. Tap a card to see the load, swipe to take
+ * it: the route starts at once and the app switches to navigation.
+ */
 export function RiderJobBoard({
   vehicles,
-  onClaimed,
+  onStarted,
 }: {
   vehicles: VehicleOption[];
-  onClaimed: () => void;
+  onStarted: () => void;
 }) {
   const [jobs, setJobs] = useState<DeliveryJob[] | null>(null);
   const [vehicleId, setVehicleId] = useState("");
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [claiming, setClaiming] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [starting, setStarting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [here, setHere] = useState<GeoPoint | null>(null);
 
   const reload = useCallback(async () => {
     try {
       const all = await loadJobs(createClient());
       const open = all.filter((job) => job.status === "open");
       setJobs(open);
-      setSelectedJobId((current) => {
-        if (current && open.some((j) => j.id === current)) return current;
-        return open.length === 1 ? open[0].id : null;
-      });
+      setExpandedId((current) =>
+        current && open.some((job) => job.id === current) ? current : null,
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Jobs could not load.");
       setJobs((current) => current ?? []);
@@ -42,6 +79,7 @@ export function RiderJobBoard({
 
   useEffect(() => {
     void reload();
+    void currentPoint().then((point) => point && setHere(point));
     const supabase = createClient();
     const channel = supabase
       .channel("rider-job-board")
@@ -56,52 +94,72 @@ export function RiderJobBoard({
     };
   }, [reload]);
 
-  async function take(job: DeliveryJob) {
-    if (claiming) return;
-    setClaiming(job.id);
+  // Nearest first once we know where the driver is; urgent work leads either way.
+  const sorted = useMemo(() => {
+    if (!jobs) return null;
+    const away = (job: DeliveryJob) => {
+      const centre = centreOf(job);
+      return here && centre ? distanceKm(here, centre) : null;
+    };
+    return jobs
+      .map((job) => ({ job, awayKm: away(job) }))
+      .sort(
+        (a, b) =>
+          PRIORITY_RANK[a.job.priority] - PRIORITY_RANK[b.job.priority] ||
+          (a.awayKm ?? Number.POSITIVE_INFINITY) -
+            (b.awayKm ?? Number.POSITIVE_INFINITY) ||
+          b.job.created_at.localeCompare(a.job.created_at),
+      );
+  }, [jobs, here]);
+
+  async function start(job: DeliveryJob) {
+    if (starting) return;
+    setStarting(job.id);
     setError(null);
     try {
-      await claimJob(createClient(), job.id, vehicleId || null);
-      onClaimed();
+      const from = (await currentPoint(4000)) ?? here;
+      await startJob(createClient(), job.id, vehicleId || null, from);
+      onStarted();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not take the job.",
+        cause instanceof Error ? cause.message : "Could not start the job.",
       );
       await reload();
     } finally {
-      setClaiming(null);
+      setStarting(null);
     }
   }
 
   const usable = vehicles.filter(
     (vehicle) => vehicle.status === "available" || vehicle.status === "in_use",
   );
+  const needsVehicle = usable.length > 0 && !vehicleId;
 
   return (
     <section className="rj-board" aria-labelledby="rj-title">
       <header className="rj-header">
         <div className="rj-header-text">
-          <h2 id="rj-title">Job Board</h2>
+          <h2 id="rj-title">Jobs</h2>
           <p className="rf-muted">
-            Select an automated round-trip batch. Review your load and swipe to
-            start.
+            Each job groups drop-offs that are close together. Tap one to see
+            the load, then swipe to start.
           </p>
         </div>
       </header>
 
       {usable.length > 0 && (
         <div className="rj-vehicle-card">
-          <div className="rj-vehicle-label">
+          <label className="rj-vehicle-label" htmlFor="rj-vehicle">
             <Icon name="truck" size={18} />
-            <span>Assigned Vehicle</span>
-          </div>
+            <span>Vehicle</span>
+          </label>
           <select
+            id="rj-vehicle"
             className="rj-vehicle-select"
             value={vehicleId}
             onChange={(event) => setVehicleId(event.target.value)}
-            aria-label="Select delivery vehicle"
           >
-            <option value="">Choose vehicle for shift…</option>
+            <option value="">Choose your vehicle…</option>
             {usable.map((vehicle) => (
               <option key={vehicle.id} value={vehicle.id}>
                 {vehicle.registration_number} ·{" "}
@@ -120,141 +178,148 @@ export function RiderJobBoard({
         </div>
       )}
 
-      {jobs === null ? (
+      {sorted === null ? (
         <div className="rj-loading">
           <span className="rf-result-mark is-neutral">
             <Icon name="refresh" size={24} />
           </span>
-          <p className="rf-muted">Loading available jobs…</p>
+          <p className="rf-muted">Loading jobs…</p>
         </div>
-      ) : jobs.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="rf-empty rj-empty">
           <span className="rf-result-mark is-neutral">
             <Icon name="truck" size={28} />
           </span>
           <h3>No jobs open right now</h3>
           <p>
-            Jobs are scheduled in 9-hour batch cycles. New round trips will
-            appear as soon as dispatch posts them.
+            New jobs appear here as soon as dispatch confirms orders. This list
+            updates by itself.
           </p>
         </div>
       ) : (
         <ul className="rj-list">
-          {jobs.map((job) => {
+          {sorted.map(({ job, awayKm }) => {
             const isUrgent = job.priority === "urgent";
-            const isPriority =
-              job.priority === "high" || job.reproduce_count > 0;
-            const isSelected = selectedJobId === job.id;
-            const needsVehicle = usable.length > 0 && !vehicleId;
+            const isPriority = job.priority === "high";
+            const isExpanded = expandedId === job.id;
+            const spread = jobSpreadKm(job);
+            const panelId = `rj-job-${job.id}`;
 
             return (
               <li
                 key={job.id}
                 className={`rj-card${isUrgent ? " is-urgent" : isPriority ? " is-priority" : ""}${
-                  isSelected ? " is-selected" : ""
+                  isExpanded ? " is-selected" : ""
                 }`}
               >
                 <button
                   type="button"
                   className="rj-card-content"
-                  onClick={() => setSelectedJobId(job.id)}
-                  aria-expanded={isSelected}
+                  onClick={() => setExpandedId(isExpanded ? null : job.id)}
+                  aria-expanded={isExpanded}
+                  aria-controls={panelId}
                 >
                   <div className="rj-card-header">
                     <div className="rj-card-title-group">
                       <strong className="rj-card-title">
                         {job.area_label ?? job.label}
                       </strong>
-                      <span className="rj-card-subtitle">{job.label}</span>
+                      <span className="rj-card-subtitle">
+                        {job.order_count}{" "}
+                        {job.order_count === 1 ? "drop-off" : "drop-offs"}
+                        {awayKm != null
+                          ? ` · ${formatDistance(awayKm)} from you`
+                          : ""}
+                      </span>
                     </div>
 
                     <div className="rj-badges-group">
-                      <span className="rj-circuit-pill">↺ Round trip</span>
                       {isUrgent ? (
                         <span className="rj-priority-pill is-urgent">
-                          ⚡ Urgent
+                          Urgent
                         </span>
                       ) : isPriority ? (
                         <span className="rj-priority-pill is-high">
-                          ⚡ Priority
-                          {job.reproduce_count > 0
-                            ? ` · R${job.reproduce_count}`
-                            : ""}
+                          Priority
                         </span>
                       ) : null}
-                    </div>
-                  </div>
-
-                  <div className="rj-meta-grid">
-                    <div className="rj-meta-item">
-                      <Icon name="package" size={16} />
-                      <span>
-                        <strong>{job.order_count}</strong>{" "}
-                        {job.order_count === 1 ? "parcel" : "parcels"}
-                      </span>
-                    </div>
-
-                    <div className="rj-meta-item">
-                      <Icon name="truck" size={16} />
-                      <span>
-                        <strong>{job.total_weight_kg}</strong> kg payload
-                      </span>
-                    </div>
-
-                    <div className="rj-meta-item">
-                      <Icon name="coin" size={16} />
-                      <span>
-                        {job.cod_total ? (
-                          <>
-                            COD{" "}
-                            <strong>{currency.format(job.cod_total)}</strong>
-                          </>
-                        ) : (
-                          "Prepaid · No COD"
-                        )}
+                      <span
+                        className={`rj-chevron${isExpanded ? " is-open" : ""}`}
+                        aria-hidden="true"
+                      >
+                        <Icon name="arrow-right" size={16} />
                       </span>
                     </div>
                   </div>
                 </button>
 
-                <div className="rj-card-actions">
-                  {isSelected ? (
-                    <div className="rj-swipe-section">
-                      {needsVehicle ? (
-                        <div className="rj-vehicle-hint">
-                          <Icon name="warning" size={16} />
-                          <span>Select your vehicle above to start</span>
+                {isExpanded && (
+                  <div className="rj-card-detail" id={panelId}>
+                    <div className="rj-meta-grid">
+                      <div className="rj-meta-item">
+                        <Icon name="package" size={16} />
+                        <span>
+                          <strong>{job.order_count}</strong>{" "}
+                          {job.order_count === 1 ? "parcel" : "parcels"}
+                        </span>
+                      </div>
+                      <div className="rj-meta-item">
+                        <Icon name="truck" size={16} />
+                        <span>
+                          <strong>{job.total_weight_kg}</strong> kg
+                        </span>
+                      </div>
+                      <div className="rj-meta-item">
+                        <Icon name="coin" size={16} />
+                        <span>
+                          {job.cod_total ? (
+                            <>
+                              COD{" "}
+                              <strong>{currency.format(job.cod_total)}</strong>
+                            </>
+                          ) : (
+                            "Prepaid"
+                          )}
+                        </span>
+                      </div>
+                      {spread != null && (
+                        <div className="rj-meta-item">
+                          <Icon name="location" size={16} />
+                          <span>
+                            Within <strong>{formatDistance(spread)}</strong>
+                          </span>
                         </div>
-                      ) : null}
-
-                      <SwipeConfirm
-                        label={
-                          claiming === job.id
-                            ? "Starting job…"
-                            : "Swipe to start job"
-                        }
-                        hint={
-                          needsVehicle
-                            ? "Pick vehicle first"
-                            : claiming === job.id
-                              ? "Locking in job…"
-                              : "Slide right to accept & load"
-                        }
-                        disabled={claiming != null || needsVehicle}
-                        onConfirm={() => void take(job)}
-                      />
+                      )}
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="rj-select-trigger"
-                      onClick={() => setSelectedJobId(job.id)}
-                    >
-                      <span>Select this job</span>
-                      <Icon name="arrow-right" size={16} />
-                    </button>
-                  )}
-                </div>
+
+                    <p className="rj-detail-note">
+                      Stops are ordered nearest first from where you are when
+                      you start.
+                    </p>
+
+                    {needsVehicle && (
+                      <div className="rj-vehicle-hint">
+                        <Icon name="warning" size={16} />
+                        <span>Choose your vehicle above to start</span>
+                      </div>
+                    )}
+
+                    <SwipeConfirm
+                      label={
+                        starting === job.id ? "Starting…" : "Swipe to start job"
+                      }
+                      hint={
+                        needsVehicle
+                          ? "Choose a vehicle first"
+                          : starting === job.id
+                            ? "Setting up your route…"
+                            : "Opens navigation to the first stop"
+                      }
+                      disabled={starting != null || needsVehicle}
+                      onConfirm={() => void start(job)}
+                    />
+                  </div>
+                )}
               </li>
             );
           })}

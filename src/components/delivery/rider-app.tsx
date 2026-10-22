@@ -1676,7 +1676,7 @@ export function RiderApp() {
           isPreview || !live.canUseLiveData || !driverId ? undefined : (
             <RiderJobBoard
               vehicles={data.vehicles}
-              onClaimed={() => void live.refresh()}
+              onStarted={() => void live.refresh()}
             />
           )
         }

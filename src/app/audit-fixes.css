@@ -1225,3 +1225,387 @@ button.mapbox-marker:focus-visible {
 .energy-bar-fill.is-low {
   background: var(--color-error, #dc2626);
 }
+
+/* Flood visualization on Admin Map */
+.map-flood-toggle.is-active {
+  background: rgba(2, 132, 199, 0.12);
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.map-flood-count-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #0284c7;
+  color: #ffffff;
+  min-width: 16px;
+  height: 16px;
+}
+
+.map-weather-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border-subtle, #e2e8f0);
+  color: var(--color-text-secondary, #475569);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.map-weather-pill:hover {
+  border-color: #0284c7;
+  color: #0284c7;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.15);
+}
+
+.live-weather-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+.live-weather-dot.dot-clear {
+  background: #10b981;
+}
+
+.live-weather-dot.dot-light_rain {
+  background: #0284c7;
+}
+
+.live-weather-dot.dot-heavy_rain {
+  background: #d97706;
+}
+
+.live-weather-dot.dot-flood_risk {
+  background: #dc2626;
+  animation: pulse-dot 1.5s infinite;
+}
+
+.live-weather-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.live-weather-tag.tag-flood_risk {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.live-weather-tag.tag-heavy_rain {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.live-weather-tag.tag-light_rain {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.map-flood-warning-banner {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: rgba(254, 243, 199, 0.96);
+  backdrop-filter: blur(6px);
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(180, 83, 9, 0.15);
+  max-width: 90%;
+  pointer-events: auto;
+}
+
+.map-flood-legend {
+  position: absolute;
+  bottom: 44px;
+  left: 12px;
+  z-index: 8;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--color-border-subtle, #e2e8f0);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.flood-legend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--color-text-primary, #172b4d);
+}
+
+.flood-legend-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #0284c7;
+}
+
+.flood-legend-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #64748b);
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.flood-legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary, #475569);
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legend-swatch.class-1 {
+  background: #0ea5e9;
+  opacity: 0.8;
+}
+
+.legend-swatch.class-2 {
+  background: #0284c7;
+  opacity: 0.8;
+}
+
+.legend-swatch.class-3 {
+  background: #ef4444;
+  opacity: 0.8;
+}
+
+/* SVG Flood Styling */
+.flood-polygon-shape {
+  cursor: pointer;
+  transition: fill-opacity 0.2s ease, stroke-width 0.2s ease;
+}
+
+.hazard-class-1 .flood-polygon-shape {
+  fill: #0ea5e9;
+  fill-opacity: 0.22;
+  stroke: #0284c7;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.hazard-class-2 .flood-polygon-shape {
+  fill: #0284c7;
+  fill-opacity: 0.28;
+  stroke: #0369a1;
+  stroke-width: 1.8;
+  stroke-dasharray: 6 4;
+}
+
+.hazard-class-3 .flood-polygon-shape {
+  fill: #ef4444;
+  fill-opacity: 0.26;
+  stroke: #dc2626;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.flood-zone-group:hover .flood-polygon-shape {
+  fill-opacity: 0.42;
+  stroke-width: 2.5;
+}
+
+.flood-zone-label {
+  font-size: 11px;
+  font-weight: 700;
+  fill: #0369a1;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.flood-hazard-radius {
+  fill: #0284c7;
+  fill-opacity: 0.14;
+  stroke: #0284c7;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.flood-hazard-ripple {
+  fill: none;
+  stroke: #38bdf8;
+  stroke-width: 1;
+  stroke-opacity: 0.5;
+}
+
+.flood-pulse-ring {
+  fill: none;
+  stroke: #dc2626;
+  stroke-width: 2;
+  opacity: 0.6;
+  animation: flood-ring 2s infinite ease-out;
+}
+
+@keyframes flood-ring {
+  0% {
+    r: 13px;
+    opacity: 0.8;
+  }
+  100% {
+    r: 26px;
+    opacity: 0;
+  }
+}
+
+.flood-badge-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  fill: #0369a1;
+}
+
+.flood-severity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.flood-severity-badge.hazard-class-1 {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.flood-severity-badge.hazard-class-2 {
+  background: #bae6fd;
+  color: #0284c7;
+}
+
+.flood-severity-badge.hazard-class-3 {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.flood-popover-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary, #64748b);
+  padding: 4px 0;
+}
+
+.flood-advisory-box {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--color-text-primary, #172b4d);
+  line-height: 1.4;
+}
+
+.weather-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.weather-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.weather-metric-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #f1f5f9;
+}
+
+.weather-metric-item span {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.weather-metric-item strong {
+  font-size: 14px;
+  color: #172b4d;
+  margin-top: 2px;
+}
+
+.weather-source-note {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.risk-text-flood_risk {
+  color: #dc2626 !important;
+}
+
+.risk-text-heavy_rain {
+  color: #d97706 !important;
+}
+
+.risk-text-light_rain {
+  color: #0284c7 !important;
+}
+
+.risk-text-clear {
+  color: #16a34a !important;
+}

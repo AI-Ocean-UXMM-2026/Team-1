@@ -286,6 +286,7 @@ export function ManagerHomeView({
               orders={movingOrders}
               mode="manager"
               isDemo={workspace.isDemo}
+              roadReports={workspace.data.roadReports}
               compact
             />
             {movingCount === 0 && (

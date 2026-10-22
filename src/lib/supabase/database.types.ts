@@ -2465,6 +2465,15 @@ export type Database = {
         Args: { p_job_id: string; p_vehicle_id?: string | null };
         Returns: string;
       };
+      start_delivery_job: {
+        Args: {
+          p_job_id: string;
+          p_vehicle_id?: string | null;
+          p_latitude?: number | null;
+          p_longitude?: number | null;
+        };
+        Returns: string | null;
+      };
       release_delivery_job: {
         Args: { p_job_id: string };
         Returns: undefined;

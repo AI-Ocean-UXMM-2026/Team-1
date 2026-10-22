@@ -140,7 +140,8 @@ export function ManagerJobsApp() {
     run("accept", async () => {
       const result = await confirmOrders(createClient(), ids);
       if (!result.confirmed) return "Nothing to confirm.";
-      const orders = result.confirmed === 1 ? "1 order" : `${result.confirmed} orders`;
+      const orders =
+        result.confirmed === 1 ? "1 order" : `${result.confirmed} orders`;
       const jobs = result.jobs === 1 ? "1 job" : `${result.jobs} jobs`;
       return `${orders} confirmed. Automation posted ${jobs} to the driver board.`;
     });
@@ -156,9 +157,7 @@ export function ManagerJobsApp() {
   const reproduceUnclaimed = () =>
     run("reproduce", async () => {
       const res = await reproduceUnclaimedTasks(createClient());
-      return res.reproduced_jobs > 0
-        ? `Extracted ${res.extracted_tasks} tasks, superseded ${res.superseded_jobs} jobs, and reproduced ${res.reproduced_jobs} jobs on the board.`
-        : res.message || "No unclaimed tasks require reproduction.";
+      return res.message || "No unclaimed jobs to escalate.";
     });
 
   const runWorkflow = () =>
@@ -234,13 +233,13 @@ export function ManagerJobsApp() {
                       Automation Engine Active
                     </span>
                   </div>
-                  <h3>Auto-Accepted Orders & Task Reproduction</h3>
+                  <h3>Group nearby orders into jobs</h3>
                   <p>
-                    Automatically accepts pending orders. If tasks are not taken
-                    by any driver when automation calculation runs, tasks are
-                    extracted, enriched with escalated priority &amp; extended
-                    delivery buffers, and reproduced back onto the board for
-                    drivers.
+                    Each run takes the waiting orders, unpacks open jobs no
+                    driver has taken, and regroups everything by delivery
+                    distance, so drop-offs close to each other share one job.
+                    Drivers take jobs from their board; automation only builds
+                    the groups and the stop order.
                   </p>
                 </div>
                 <div className="automation-actions">
@@ -252,7 +251,7 @@ export function ManagerJobsApp() {
                   >
                     {busy === "workflow"
                       ? "Running workflow…"
-                      : "Run Full Workflow"}
+                      : "Accept all and regroup"}
                   </button>
                   <button
                     type="button"
@@ -261,8 +260,8 @@ export function ManagerJobsApp() {
                     onClick={() => void reproduceUnclaimed()}
                   >
                     {busy === "reproduce"
-                      ? "Reproducing…"
-                      : "Reproduce Unclaimed Tasks"}
+                      ? "Escalating…"
+                      : "Escalate unclaimed jobs"}
                   </button>
                   <button
                     type="button"

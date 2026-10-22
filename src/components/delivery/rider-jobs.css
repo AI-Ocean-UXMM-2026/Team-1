@@ -207,18 +207,6 @@
   justify-content: flex-end;
 }
 
-.rj-circuit-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 8px;
-  background: var(--color-surface-subtle, #f1f5f9);
-  color: var(--color-text-secondary, #475569);
-  border-radius: 9999px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
 .rj-priority-pill {
   display: inline-flex;
   align-items: center;
@@ -269,43 +257,40 @@
   font-weight: 600;
 }
 
-/* ---------- Card Actions & Swipe Area ---------- */
+/* ---------- Expanded Detail ---------- */
 
-.rj-card-actions {
-  padding: 0 16px 16px;
+.rj-chevron {
+  display: inline-flex;
+  color: var(--color-text-secondary, #64748b);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.rj-select-trigger {
-  width: 100%;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 16px;
-  background: var(--color-surface-subtle, #f1f5f9);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 12px;
-  color: var(--color-text-primary, #172b4d);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+.rj-chevron.is-open {
+  transform: rotate(90deg);
 }
 
-.rj-select-trigger:hover {
-  background: #e2e8f0;
-  border-color: #cbd5e1;
-}
-
-.rj-swipe-section {
+.rj-card-detail {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  padding: 0 16px 16px;
   animation: rjFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.rj-detail-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary, #64748b);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rj-chevron,
+  .rj-card-detail {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ---------- Card Actions & Swipe Area ---------- */
 
 .rj-vehicle-hint {
   display: flex;

@@ -5,10 +5,20 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/delivery/icons";
 import { MapboxLocationMap } from "@/components/delivery/mapbox-location-map";
 import {
+  type LiveFloodConditions,
+  fetchLiveFloodConditions,
+} from "@/lib/delivery/dispatch/open-meteo";
+import {
   dispatchRows,
   latestRecordedAt,
   locationStatusText,
 } from "@/lib/delivery/dispatch-rows";
+import {
+  type FloodZone,
+  calculateRadiusPixels,
+  checkRouteFloodExposure,
+  getYangonFloodZones,
+} from "@/lib/delivery/flood-zones";
 import {
   canShowParcelLocation,
   isRecentLocation,
@@ -22,6 +32,14 @@ type Tile = { x: number; y: number; src: string; left: number; top: number };
 
 const ZOOM = 15;
 const TILE_SIZE = 256;
+
+function formatTime(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 function toWorldPixel({ latitude, longitude }: Point, zoom = ZOOM) {
   const latitudeRadians =
@@ -47,11 +65,19 @@ function pointAt(
   };
 }
 
-export type LocationMapProps = Parameters<typeof OsmLocationMap>[0] & {
-  /** Selects a rider's order from the Mapbox dispatch markers. */
+export type LocationMapProps = {
+  order: DeliveryOrder | null;
+  orders?: DeliveryOrder[];
+  mode?: "customer" | "rider" | "manager";
+  isDemo: boolean;
+  tall?: boolean;
+  compact?: boolean;
   onSelectOrder?: (orderId: string) => void;
   roadReports?: RoadReport[];
   focusPoint?: Point | null;
+  floodZones?: FloodZone[];
+  liveFlood?: LiveFloodConditions | null;
+  initialShowFlood?: boolean;
 };
 
 /** Mapbox when a token is configured; the OSM tile map otherwise. */
@@ -59,6 +85,9 @@ export function LocationMap({
   onSelectOrder,
   roadReports,
   focusPoint,
+  floodZones,
+  liveFlood,
+  initialShowFlood,
   ...props
 }: LocationMapProps) {
   return hasMapbox ? (
@@ -67,6 +96,9 @@ export function LocationMap({
       onSelectOrder={onSelectOrder}
       roadReports={roadReports}
       focusPoint={focusPoint}
+      floodZones={floodZones}
+      liveFlood={liveFlood}
+      initialShowFlood={initialShowFlood}
     />
   ) : (
     <OsmLocationMap
@@ -74,6 +106,9 @@ export function LocationMap({
       onSelectOrder={onSelectOrder}
       roadReports={roadReports}
       focusPoint={focusPoint}
+      floodZones={floodZones}
+      liveFlood={liveFlood}
+      initialShowFlood={initialShowFlood}
     />
   );
 }
@@ -88,24 +123,43 @@ function OsmLocationMap({
   onSelectOrder,
   roadReports,
   focusPoint,
-}: {
-  order: DeliveryOrder | null;
-  orders?: DeliveryOrder[];
-  mode?: "customer" | "rider" | "manager";
-  isDemo: boolean;
-  tall?: boolean;
-  compact?: boolean;
-  onSelectOrder?: (orderId: string) => void;
-  roadReports?: RoadReport[];
-  focusPoint?: Point | null;
-}) {
+  floodZones: propFloodZones,
+  liveFlood: propLiveFlood,
+  initialShowFlood = true,
+}: LocationMapProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [now, setNow] = useState(0);
   const [manualCenter, setManualCenter] = useState<Point | null>(null);
+  const [showFlood, setShowFlood] = useState(initialShowFlood);
+  const [liveFlood, setLiveFlood] = useState<LiveFloodConditions | null>(
+    propLiveFlood ?? null,
+  );
+  const [activeFloodZone, setActiveFloodZone] = useState<FloodZone | null>(null);
+  const [activeHazardPopup, setActiveHazardPopup] = useState<RoadReport | null>(null);
+  const [showWeatherModal, setShowWeatherModal] = useState(false);
 
   useEffect(() => {
     if (focusPoint) setManualCenter(focusPoint);
   }, [focusPoint]);
+
+  useEffect(() => {
+    if (propLiveFlood) {
+      setLiveFlood(propLiveFlood);
+    }
+  }, [propLiveFlood]);
+
+  useEffect(() => {
+    if (mode !== "manager" || propLiveFlood) return;
+    let cancelled = false;
+    fetchLiveFloodConditions({ lat: 16.8007, lng: 96.15 })
+      .then((conditions) => {
+        if (!cancelled && conditions) setLiveFlood(conditions);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, propLiveFlood]);
 
   useEffect(() => {
     const node = document.querySelector<HTMLElement>(`[data-map-id="${mode}"]`);
@@ -126,6 +180,23 @@ function OsmLocationMap({
     const timer = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  const floodZones = useMemo(
+    () => propFloodZones ?? getYangonFloodZones(),
+    [propFloodZones],
+  );
+
+  const activeFloodReports = useMemo(
+    () =>
+      roadReports?.filter(
+        (r) =>
+          r.status !== "rejected" &&
+          (r.category === "flooding" || r.severity === "blocked"),
+      ) ?? [],
+    [roadReports],
+  );
+
+  const floodAlertCount = floodZones.length + activeFloodReports.length;
 
   const livePoint =
     order?.latest_location && canShowParcelLocation(order.status)
@@ -254,6 +325,32 @@ function OsmLocationMap({
     order,
   });
 
+  const routeCoords: [number, number][] = useMemo(() => {
+    if (livePoint && destinationPoint) {
+      return [
+        [livePoint.longitude, livePoint.latitude],
+        [destinationPoint.longitude, destinationPoint.latitude],
+      ];
+    }
+    if (pickupPoint && destinationPoint) {
+      return [
+        [pickupPoint.longitude, pickupPoint.latitude],
+        [destinationPoint.longitude, destinationPoint.latitude],
+      ];
+    }
+    return [];
+  }, [livePoint, destinationPoint, pickupPoint]);
+
+  const routeFloodRisk = useMemo(
+    () =>
+      checkRouteFloodExposure(
+        routeCoords,
+        showFlood ? floodZones : [],
+        showFlood ? activeFloodReports : [],
+      ),
+    [routeCoords, showFlood, floodZones, activeFloodReports],
+  );
+
   return (
     <section
       className={`map-card ${tall ? "map-card-tall" : ""} ${compact ? "map-card-compact" : ""}`}
@@ -269,24 +366,54 @@ function OsmLocationMap({
               {order?.tracking_code ?? "Yangon operations"}
             </span>
           </div>
-          <div
-            className={`map-live-pill ${liveRiderCount && !isDemo ? "is-connected" : ""}`}
-          >
-            <span className="live-dot" />
-            {isDemo
-              ? "Simulated tracking"
-              : mode === "manager" && liveRiderCount
-                ? `${liveRiderCount} ${liveRiderCount === 1 ? "rider" : "riders"} live`
-                : mode !== "manager" &&
-                    parcelLocationState(order, now) === "closed"
-                  ? "Tracking ended"
-                  : liveRiderCount
-                    ? "Live GPS"
-                    : trackedOrders.length
-                      ? isRecentLocation(order, now)
-                        ? "Refreshing"
-                        : "Last known location"
-                      : "Location pending"}
+          <div className="map-toolbar-pills">
+            {mode === "manager" && liveFlood && (
+              <button
+                type="button"
+                className={`map-weather-pill weather-severity-${liveFlood.severity}`}
+                onClick={() => setShowWeatherModal((v) => !v)}
+                title="Open-Meteo live hydrology & rain conditions"
+                aria-label="Live weather & flood telemetry"
+              >
+                <span className={`live-weather-dot dot-${liveFlood.severity}`} />
+                <span className="live-weather-text">
+                  {liveFlood.precipitationMm > 0
+                    ? `${liveFlood.precipitationMm} mm/h rain`
+                    : "Clear weather"}
+                  {liveFlood.riverDischargeM3s != null
+                    ? ` · River ${liveFlood.riverDischargeM3s} m³/s`
+                    : ""}
+                </span>
+                <span className={`live-weather-tag tag-${liveFlood.severity}`}>
+                  {liveFlood.severity === "flood_risk"
+                    ? "Flood Risk"
+                    : liveFlood.severity === "heavy_rain"
+                      ? "Heavy Rain"
+                      : liveFlood.severity === "light_rain"
+                        ? "Rain"
+                        : "Normal"}
+                </span>
+              </button>
+            )}
+            <div
+              className={`map-live-pill ${liveRiderCount && !isDemo ? "is-connected" : ""}`}
+            >
+              <span className="live-dot" />
+              {isDemo
+                ? "Simulated tracking"
+                : mode === "manager" && liveRiderCount
+                  ? `${liveRiderCount} ${liveRiderCount === 1 ? "rider" : "riders"} live`
+                  : mode !== "manager" &&
+                      parcelLocationState(order, now) === "closed"
+                    ? "Tracking ended"
+                    : liveRiderCount
+                      ? "Live GPS"
+                      : trackedOrders.length
+                        ? isRecentLocation(order, now)
+                          ? "Refreshing"
+                          : "Last known location"
+                        : "Location pending"}
+            </div>
           </div>
         </div>
       )}
@@ -316,13 +443,42 @@ function OsmLocationMap({
             <button
               type="button"
               className="map-action-btn"
-              onClick={() => setManualCenter(null)}
+              onClick={() => {
+                setManualCenter(null);
+                setActiveFloodZone(null);
+                setActiveHazardPopup(null);
+              }}
               aria-label="Recenter all vehicles"
               title="Recenter fleet"
             >
               <Icon name="navigation" size={14} />
               <span>Recenter</span>
             </button>
+            <button
+              type="button"
+              className={`map-action-btn map-flood-toggle ${showFlood ? "is-active" : ""}`}
+              onClick={() => setShowFlood((v) => !v)}
+              aria-pressed={showFlood}
+              aria-label="Toggle flood hazard overlay"
+              title="Toggle flood hazard visualization"
+            >
+              <Icon name="flood" size={14} />
+              <span>Flood</span>
+              {floodAlertCount > 0 && (
+                <span className="map-flood-count-tag">{floodAlertCount}</span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {routeFloodRisk?.hasFloodRisk && (
+          <div className="map-flood-warning-banner" role="alert">
+            <Icon name="warning" size={15} />
+            <span>
+              <strong>Monsoon Caution:</strong> {routeFloodRisk.warningMessage}
+              {routeFloodRisk.suggestedSlowdownPercent > 0 &&
+                ` (+${routeFloodRisk.suggestedSlowdownPercent}% delay risk)`}
+            </span>
           </div>
         )}
 
@@ -332,6 +488,79 @@ function OsmLocationMap({
             viewBox={`0 0 ${size.width} ${size.height}`}
             aria-hidden="true"
           >
+            {/* Flood Hazard Zones Layer */}
+            {showFlood && mode === "manager" && (
+              <g className="flood-zones-group">
+                {floodZones.map((zone) => {
+                  const pointsStr = zone.coordinates
+                    .map(([lng, lat]) => {
+                      const p = pointAt(
+                        { latitude: lat, longitude: lng },
+                        center,
+                        size,
+                        zoom,
+                      );
+                      return `${p.x},${p.y}`;
+                    })
+                    .join(" ");
+                  const centerPx = pointAt(zone.center, center, size, zoom);
+                  return (
+                    <g
+                      key={zone.id}
+                      className={`flood-zone-group hazard-class-${zone.hazardClass}`}
+                      onClick={() => {
+                        setActiveFloodZone(zone);
+                        setActiveHazardPopup(null);
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Flood hazard zone: ${zone.name}`}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <polygon points={pointsStr} className="flood-polygon-shape" />
+                      <text
+                        x={centerPx.x}
+                        y={centerPx.y}
+                        className="flood-zone-label"
+                        textAnchor="middle"
+                      >
+                        🌊 {zone.name}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            )}
+
+            {/* Circular buffers around flood reports */}
+            {showFlood &&
+              mode === "manager" &&
+              activeFloodReports.map((report) => {
+                const pos = pointAt(
+                  { latitude: report.latitude, longitude: report.longitude },
+                  center,
+                  size,
+                  zoom,
+                );
+                const rPx = calculateRadiusPixels(400, report.latitude, zoom);
+                return (
+                  <g key={`flood-buf-${report.id}`} className="flood-report-buffer">
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={rPx}
+                      className="flood-hazard-radius"
+                    />
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={rPx * 0.65}
+                      className="flood-hazard-ripple"
+                    />
+                  </g>
+                );
+              })}
+
             {markerRows.map((row) => {
               const rider = pointAt(row.rider, center, size, zoom);
               const destination = row.destination
@@ -346,7 +575,7 @@ function OsmLocationMap({
                         d={`M ${rider.x} ${rider.y} Q ${(rider.x + destination.x) / 2 + 30} ${(rider.y + destination.y) / 2 - 24} ${destination.x} ${destination.y}`}
                       />
                       <path
-                        className="route-line"
+                        className={`route-line ${routeFloodRisk.hasFloodRisk && row.order.id === order?.id ? "route-flood-caution" : ""}`}
                         d={`M ${rider.x} ${rider.y} Q ${(rider.x + destination.x) / 2 + 30} ${(rider.y + destination.y) / 2 - 24} ${destination.x} ${destination.y}`}
                       />
                       <g
@@ -386,39 +615,95 @@ function OsmLocationMap({
                 </g>
               );
             })}
-            {roadReports?.filter((r) => r.status !== "rejected").map((report) => {
-              const pos = pointAt(
-                { latitude: report.latitude, longitude: report.longitude },
-                center,
-                size,
-                zoom,
-              );
-              const isSevere =
-                report.severity === "high" || report.severity === "blocked";
-              return (
-                <g
-                  key={report.id}
-                  transform={`translate(${pos.x} ${pos.y})`}
-                  className="hazard-marker"
-                  aria-label={`Hazard: ${report.category} (${report.severity})`}
-                >
-                  <circle
-                    r="12"
-                    fill={isSevere ? "#FEF2F2" : "#FFFBEB"}
-                    stroke={isSevere ? "#DC2626" : "#D97706"}
-                    strokeWidth="1.5"
-                  />
-                  <path
-                    d="M0 -6 L6 5 L-6 5 Z"
-                    fill={isSevere ? "#DC2626" : "#D97706"}
-                  />
-                  <circle cx="0" cy="3" r="0.8" fill="#FFFFFF" />
-                  <text className="map-marker-label" x="14" y="4">
-                    {report.category}
-                  </text>
-                </g>
-              );
-            })}
+
+            {/* Road Reports & Flood Incidents */}
+            {roadReports
+              ?.filter((r) => r.status !== "rejected")
+              .map((report) => {
+                const pos = pointAt(
+                  { latitude: report.latitude, longitude: report.longitude },
+                  center,
+                  size,
+                  zoom,
+                );
+                const isSevere =
+                  report.severity === "high" || report.severity === "blocked";
+
+                if (report.category === "flooding") {
+                  return (
+                    <g
+                      key={report.id}
+                      transform={`translate(${pos.x} ${pos.y})`}
+                      className={`flood-hazard-marker severity-${report.severity}`}
+                      onClick={() => {
+                        setActiveHazardPopup(report);
+                        setActiveFloodZone(null);
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Flooding report: ${report.description}`}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {isSevere && <circle className="flood-pulse-ring" r="24" />}
+                      <circle
+                        r="13"
+                        fill={isSevere ? "#FEF2F2" : "#F0F9FF"}
+                        stroke={isSevere ? "#DC2626" : "#0284C7"}
+                        strokeWidth="1.8"
+                      />
+                      <path
+                        d="M-5 1 C-3 -1 -1 3 1 1 C3 -1 5 3 7 1"
+                        stroke={isSevere ? "#DC2626" : "#0284C7"}
+                        strokeWidth="1.8"
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M-5 -2 C-3 -4 -1 0 1 -2 C3 -4 5 0 7 -2"
+                        stroke={isSevere ? "#DC2626" : "#0284C7"}
+                        strokeWidth="1.8"
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                      <text className="map-marker-label flood-badge-label" x="15" y="4">
+                        {isSevere ? "FLOOD (BLOCKED)" : "FLOOD HAZARD"}
+                      </text>
+                    </g>
+                  );
+                }
+
+                return (
+                  <g
+                    key={report.id}
+                    transform={`translate(${pos.x} ${pos.y})`}
+                    className="hazard-marker"
+                    onClick={() => {
+                      setActiveHazardPopup(report);
+                      setActiveFloodZone(null);
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Hazard: ${report.category} (${report.severity})`}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <circle
+                      r="12"
+                      fill={isSevere ? "#FEF2F2" : "#FFFBEB"}
+                      stroke={isSevere ? "#DC2626" : "#D97706"}
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M0 -6 L6 5 L-6 5 Z"
+                      fill={isSevere ? "#DC2626" : "#D97706"}
+                    />
+                    <circle cx="0" cy="3" r="0.8" fill="#FFFFFF" />
+                    <text className="map-marker-label" x="14" y="4">
+                      {report.category}
+                    </text>
+                  </g>
+                );
+              })}
+
             {pickupPosition && !livePoint && (
               <g
                 transform={`translate(${pickupPosition.x} ${pickupPosition.y})`}
@@ -457,6 +742,176 @@ function OsmLocationMap({
               </g>
             )}
           </svg>
+        )}
+
+        {/* Flood Legend for Manager Map */}
+        {showFlood && mode === "manager" && (
+          <div className="map-flood-legend" aria-label="Flood risk legend">
+            <div className="flood-legend-header">
+              <span className="flood-legend-title">
+                <Icon name="flood" size={13} />
+                Flood Risk
+              </span>
+              <span className="flood-legend-count">
+                {floodAlertCount} monitored
+              </span>
+            </div>
+            <div className="flood-legend-items">
+              <span className="legend-item">
+                <i className="legend-swatch class-1" /> Class 1 (10–25cm)
+              </span>
+              <span className="legend-item">
+                <i className="legend-swatch class-2" /> Class 2 (25–50cm)
+              </span>
+              <span className="legend-item">
+                <i className="legend-swatch class-3" /> Class 3 (&gt;50cm)
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Flood Zone Details Popover */}
+        {activeFloodZone && (
+          <div
+            className="map-popover-card flood-zone-popover"
+            role="dialog"
+            aria-label="Flood hazard zone details"
+          >
+            <div className="map-popover-header">
+              <span
+                className={`flood-severity-badge hazard-class-${activeFloodZone.hazardClass}`}
+              >
+                <Icon name="flood" size={13} />
+                CLASS {activeFloodZone.hazardClass} ·{" "}
+                {activeFloodZone.severity.toUpperCase()} HAZARD
+              </span>
+              <button
+                type="button"
+                className="map-popover-close"
+                onClick={() => setActiveFloodZone(null)}
+                aria-label="Close flood details"
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <div className="map-popover-body">
+              <strong>{activeFloodZone.name}</strong>
+              <p className="hazard-description">{activeFloodZone.description}</p>
+              <div className="flood-popover-meta">
+                <span>
+                  Est. depth:{" "}
+                  <strong>~{activeFloodZone.waterDepthEstimateCm} cm</strong>
+                </span>
+                <span>
+                  Flow: <strong>{activeFloodZone.flowRisk}</strong>
+                </span>
+              </div>
+              <div className="flood-advisory-box">
+                <strong>Dispatch Advisory:</strong> {activeFloodZone.advisory}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hazard / Flood Report Popover */}
+        {activeHazardPopup && (
+          <div
+            className="map-popover-card hazard-popover"
+            role="dialog"
+            aria-label="Road hazard details"
+          >
+            <div className="map-popover-header">
+              <span
+                className={`road-severity road-severity-${activeHazardPopup.severity}`}
+              >
+                {activeHazardPopup.category === "flooding" ? "🌊 " : ""}
+                {activeHazardPopup.category.toUpperCase()} ·{" "}
+                {activeHazardPopup.severity}
+              </span>
+              <button
+                type="button"
+                className="map-popover-close"
+                onClick={() => setActiveHazardPopup(null)}
+                aria-label="Close hazard details"
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <div className="map-popover-body">
+              <p className="hazard-description">
+                {activeHazardPopup.description}
+              </p>
+              <span className="map-popover-meta">
+                Reported by {activeHazardPopup.driver_name || "Assigned rider"} ·{" "}
+                {formatTime(activeHazardPopup.reported_at)}
+              </span>
+              {activeHazardPopup.category === "flooding" && (
+                <div className="flood-advisory-box">
+                  <strong>Flood Caution:</strong>{" "}
+                  {activeHazardPopup.severity === "blocked"
+                    ? "Road blocked by standing water. Mandatory detour."
+                    : "Water on road surface. High-clearance vehicles advised."}
+                </div>
+              )}
+              <span className="hazard-status-tag">
+                Status: {activeHazardPopup.status}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Open-Meteo Weather Modal Popover */}
+        {showWeatherModal && liveFlood && (
+          <div
+            className="map-popover-card weather-popover"
+            role="dialog"
+            aria-label="Open-Meteo weather details"
+          >
+            <div className="map-popover-header">
+              <span className={`weather-badge-pill weather-${liveFlood.severity}`}>
+                <span className="live-weather-dot" />
+                LIVE HYDROLOGY · OPEN-METEO
+              </span>
+              <button
+                type="button"
+                className="map-popover-close"
+                onClick={() => setShowWeatherModal(false)}
+                aria-label="Close weather details"
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <div className="map-popover-body">
+              <div className="weather-metrics-grid">
+                <div className="weather-metric-item">
+                  <span>Precipitation</span>
+                  <strong>{liveFlood.precipitationMm} mm/h</strong>
+                </div>
+                <div className="weather-metric-item">
+                  <span>River Discharge</span>
+                  <strong>
+                    {liveFlood.riverDischargeM3s != null
+                      ? `${liveFlood.riverDischargeM3s} m³/s`
+                      : "Normal"}
+                  </strong>
+                </div>
+                <div className="weather-metric-item">
+                  <span>Flood Risk</span>
+                  <strong className={`risk-text-${liveFlood.severity}`}>
+                    {liveFlood.severity.replace("_", " ").toUpperCase()}
+                  </strong>
+                </div>
+                <div className="weather-metric-item">
+                  <span>ETA Slowdown</span>
+                  <strong>+{Math.round(liveFlood.suggestedSlowdown * 100)}%</strong>
+                </div>
+              </div>
+              <p className="weather-source-note">
+                Live open data from Copernicus GloFAS & Open-Meteo. Automatically
+                factored into route feasibility and dispatch planning.
+              </p>
+            </div>
+          </div>
         )}
 
         <div className="map-location-chip">

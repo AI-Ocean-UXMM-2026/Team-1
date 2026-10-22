@@ -174,6 +174,73 @@ export function drawLines(
   });
 }
 
+export type PolygonFeature = {
+  coordinates: Coordinate[][];
+  properties?: Record<string, unknown>;
+};
+
+export type PolygonStyle = {
+  fillColor: string;
+  fillOpacity: number;
+  lineColor?: string;
+  lineWidth?: number;
+  lineDash?: number[];
+};
+
+/**
+ * Draws (or updates) a GeoJSON polygon fill and outline layer on the map.
+ */
+export function drawPolygons(
+  map: MapboxMap,
+  id: string,
+  polygons: PolygonFeature[],
+  style: PolygonStyle,
+) {
+  const data = {
+    type: "FeatureCollection" as const,
+    features: polygons.map((poly) => ({
+      type: "Feature" as const,
+      properties: poly.properties ?? {},
+      geometry: {
+        type: "Polygon" as const,
+        coordinates: poly.coordinates,
+      },
+    })),
+  };
+  const source = map.getSource<GeoJSONSource>(id);
+  if (source) {
+    source.setData(data);
+    return;
+  }
+  map.addSource(id, { type: "geojson", data });
+  map.addLayer({
+    id: `${id}-fill`,
+    type: "fill",
+    source: id,
+    paint: {
+      "fill-color": style.fillColor,
+      "fill-opacity": style.fillOpacity,
+    },
+  });
+  map.addLayer({
+    id: `${id}-line`,
+    type: "line",
+    source: id,
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": style.lineColor ?? style.fillColor,
+      "line-width": style.lineWidth ?? 1.5,
+      ...(style.lineDash ? { "line-dasharray": style.lineDash } : {}),
+    },
+  });
+}
+
+export function removePolygonLayers(map: MapboxMap, id: string) {
+  if (map.getLayer(`${id}-fill`)) map.removeLayer(`${id}-fill`);
+  if (map.getLayer(`${id}-line`)) map.removeLayer(`${id}-line`);
+  if (map.getSource(id)) map.removeSource(id);
+}
+
 /**
  * A marker element holding a static SVG. Only pass literal markup or numbers
  * here; text from data goes in through `textContent` or attributes.

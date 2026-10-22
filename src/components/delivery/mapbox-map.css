@@ -36,3 +36,26 @@
   position: absolute;
   inset: 0;
 }
+
+/* Mapbox flood hazard marker styles */
+.mapbox-flood-marker {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.mapbox-flood-marker .flood-pulse {
+  animation: mapbox-flood-ripple 2.2s infinite cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transform-origin: center;
+}
+
+@keyframes mapbox-flood-ripple {
+  0% {
+    r: 14;
+    opacity: 0.8;
+  }
+  100% {
+    r: 28;
+    opacity: 0;
+  }
+}
+
