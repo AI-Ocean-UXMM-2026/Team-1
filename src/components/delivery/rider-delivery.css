@@ -1986,3 +1986,10 @@
   background: var(--color-text-primary);
   color: var(--color-surface);
 }
+
+/* Delivery information page: parcels and receiver on top, action pinned below. */
+.dv-info-body {
+  display: grid;
+  gap: 20px;
+  padding-top: 8px;
+}

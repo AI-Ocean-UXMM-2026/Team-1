@@ -86,13 +86,16 @@ export function HandoverPanel({
 
   return (
     <div className="dv-handover">
-      <p className="dv-progress" role="status">
-        <strong>Page {page} of 2</strong>{" "}
-        {page === 1 ? "Delivery information" : "Cash to collect"}
-      </p>
+      {hasCash && (
+        <p className="dv-progress" role="status">
+          <strong>Page {page} of 2</strong>{" "}
+          {page === 1 ? "Delivery information" : "Cash to collect"}
+        </p>
+      )}
 
       {page === 1 && (
-        <>
+        <div className="dv-collect-page">
+          <div className="dv-info-body">
           <fieldset className="dv-step">
             <legend>
               <StepBadge n={1} done={parcelDone} />
@@ -181,48 +184,84 @@ export function HandoverPanel({
             )}
           </fieldset>
 
-          <button type="button" className="dv-text-btn" onClick={onCannotDeliver}>
-            Can’t deliver this stop
-          </button>
-          <div className="dv-sheet-actions">
-            <Button
-              fullWidth
-              variant="contained"
-              color="primary"
-              size="large"
-              disabled={!infoDone}
-              onClick={() => {
-                // Page two's swipe is the cash confirmation, so the full amount is set here.
-                if (hasCash) onChange({ codMode: "full" });
-                setPage(2);
-              }}
-              endIcon={<Icon name="arrow-right" size={18} />}
-              sx={{ minHeight: 52, borderRadius: 999 }}
-            >
-              {!infoDone
-                ? "Check the parcels and receiver"
-                : hasCash
-                  ? "Next · cash to collect"
-                  : "Next · confirm delivery"}
-            </Button>
+          {!hasCash && (
+            <details className="dv-note">
+              <summary>
+                <Icon name="message" size={16} /> Add a note
+              </summary>
+              <textarea
+                aria-label="Delivery note"
+                value={draft.note}
+                maxLength={500}
+                placeholder="For example: authorized building security"
+                onChange={(event) => onChange({ note: event.target.value })}
+              />
+            </details>
+          )}
+          {error}
           </div>
-        </>
+
+          <div className="dv-collect-foot">
+            {hasCash ? (
+              <Button
+                fullWidth
+                variant="contained"
+                color="primary"
+                size="large"
+                disabled={!infoDone}
+                onClick={() => {
+                  // Page two's swipe is the cash confirmation, so the full amount is set here.
+                  onChange({ codMode: "full" });
+                  setPage(2);
+                }}
+                endIcon={<Icon name="arrow-right" size={18} />}
+                sx={{ minHeight: 52, borderRadius: 999 }}
+              >
+                {infoDone ? "Next · cash to collect" : "Check the parcels and receiver"}
+              </Button>
+            ) : (
+              <>
+                {!online && (
+                  <p className="rf-dock-note">
+                    Your entries are kept on this phone. Completion is sent when
+                    you’re back online.
+                  </p>
+                )}
+                <SwipeConfirm
+                  label="Confirm delivery"
+                  disabled={locked}
+                  onConfirm={onComplete}
+                  hint={
+                    busy
+                      ? "Saving…"
+                      : !online
+                        ? "Waiting for connection"
+                        : missing
+                          ? missing.label
+                          : "Swipe to confirm delivery"
+                  }
+                />
+              </>
+            )}
+            <button
+              type="button"
+              className="dv-text-btn"
+              onClick={onCannotDeliver}
+            >
+              Can’t deliver this stop
+            </button>
+          </div>
+        </div>
       )}
 
       {page === 2 && (
         <div className="dv-collect-page">
           <div className="dv-collect-body">
-            {hasCash ? (
-              <>
-                <p className="dv-collect-label">Total to collect</p>
-                <p className="dv-collect-figure" aria-label={`MMK ${stop.codDue}`}>
-                  <span>MMK</span> {stop.codDue.toLocaleString()}
-                </p>
-                <p className="dv-collect-from">From {stop.recipient}</p>
-              </>
-            ) : (
-              <p className="dv-collect-from">No cash to collect at this stop.</p>
-            )}
+            <p className="dv-collect-label">Total to collect</p>
+            <p className="dv-collect-figure" aria-label={`MMK ${stop.codDue}`}>
+              <span>MMK</span> {stop.codDue.toLocaleString()}
+            </p>
+            <p className="dv-collect-from">From {stop.recipient}</p>
 
             <details className="dv-note">
               <summary>

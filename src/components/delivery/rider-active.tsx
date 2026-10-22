@@ -417,9 +417,7 @@ export function ActiveDelivery({
       >
         {handover ? (
           <>
-            <div
-              className={`dv-sheet-head${!pickup && stop.codDue > 0 ? " dv-collect-header" : ""}`}
-            >
+            <div className="dv-sheet-head">
               <IconButton
                 onClick={onCloseHandover}
                 aria-label="Back to stop"
@@ -428,20 +426,14 @@ export function ActiveDelivery({
               >
                 <Icon name="arrow-left" size={20} />
               </IconButton>
-              {!pickup && stop.codDue > 0 ? (
-                <div className="dv-collect-title-wrap">
-                  <h2 className="dv-collect-title">Confirm delivery</h2>
-                </div>
-              ) : (
-                <div>
-                  <small>
-                    Stop {stop.number} of {route.stops.length} ·{" "}
-                    {pickup ? "Pickup" : "Delivery"}
-                  </small>
-                  <h2>{stop.recipient}</h2>
-                  <p>{stop.address}</p>
-                </div>
-              )}
+              <div>
+                <small>
+                  Stop {stop.number} of {route.stops.length} ·{" "}
+                  {pickup ? "Pickup" : "Delivery"}
+                </small>
+                <h2>{stop.recipient}</h2>
+                <p>{stop.address}</p>
+              </div>
             </div>
             {handover}
           </>
