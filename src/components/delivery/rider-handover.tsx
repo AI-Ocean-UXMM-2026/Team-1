@@ -86,77 +86,6 @@ export function HandoverPanel({
   const done = [parcelDone, receiverDone, stop.codDue > 0 && cashDone].filter(
     Boolean,
   ).length;
-  if (stop.codDue > 0) {
-    return (
-      <div className="dv-collect-screen">
-        <div className="dv-collect-content">
-          <div className="dv-collect-amount-block">
-            <div className="dv-collect-amount-row">
-              <span className="dv-collect-currency">MMK</span>
-              <span className="dv-collect-amount">
-                {stop.codDue.toLocaleString()}
-              </span>
-            </div>
-            <p className="dv-collect-subtitle">Amount to collect</p>
-          </div>
-
-          <div className="dv-collect-card">
-            <div className="dv-collect-card-icon" aria-hidden="true">
-              <Icon name="store" size={24} />
-            </div>
-            <div className="dv-collect-card-body">
-              <h3 className="dv-collect-card-title">{stop.recipient}</h3>
-              <p className="dv-collect-card-desc">
-                {stop.address}
-                {stop.open.length > 0
-                  ? ` · ${stop.open.map((o) => o.tracking_code).join(", ")}`
-                  : ""}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {error}
-
-        <div className="dv-sheet-actions dv-collect-actions">
-          {!online && (
-            <p className="rf-dock-note">
-              Your entries are kept on this phone. Completion is sent when you’re
-              back online.
-            </p>
-          )}
-          <SwipeConfirm
-            label={`Collect ${currency.format(stop.codDue)}`}
-            hint={
-              busy
-                ? "Saving…"
-                : !online
-                  ? "Waiting for connection"
-                  : `Pay With MMK ${stop.codDue.toLocaleString()}`
-            }
-            className="is-green"
-            disabled={busy || !online}
-            onConfirm={() => {
-              onChange({
-                codMode: "full",
-                codAmount: String(stop.codDue),
-                verified: stop.open.map((order) => order.id),
-                receivedBy: draft.receivedBy.trim() || stop.recipient,
-              });
-              onComplete();
-            }}
-          />
-          <button
-            type="button"
-            className="dv-text-btn"
-            onClick={onCannotDeliver}
-          >
-            Can’t deliver this stop
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="dv-handover">
@@ -252,6 +181,51 @@ export function HandoverPanel({
         )}
       </fieldset>
 
+      {stop.codDue > 0 && (
+        <fieldset className="dv-step dv-cash-step">
+          <legend>
+            <StepBadge n={3} done={cashDone} />
+            Collect cash
+          </legend>
+          <div className="dv-cash-card">
+            <div className="dv-cash-due">
+              <span>Amount due</span>
+              <div className="dv-collect-amount-block">
+                <div className="dv-collect-amount-row">
+                  <span className="dv-collect-currency">MMK</span>
+                  <span className="dv-collect-amount">
+                    {stop.codDue.toLocaleString()}
+                  </span>
+                </div>
+                <p className="dv-collect-subtitle">Amount to collect</p>
+              </div>
+            </div>
+
+            <div className="dv-collect-card">
+              <div className="dv-collect-card-icon" aria-hidden="true">
+                <Icon name="store" size={24} />
+              </div>
+              <div className="dv-collect-card-body">
+                <h3 className="dv-collect-card-title">{stop.recipient}</h3>
+                <p className="dv-collect-card-desc">{stop.address}</p>
+              </div>
+            </div>
+
+            <div className="dv-seg">
+              <label className={draft.codMode === "full" ? "is-on" : undefined}>
+                <input
+                  type="radio"
+                  name="cod-mode"
+                  checked={draft.codMode === "full"}
+                  onChange={() => onChange({ codMode: "full" })}
+                />
+                <span>I received the full amount in cash</span>
+              </label>
+            </div>
+          </div>
+        </fieldset>
+      )}
+
       <details className="dv-note">
         <summary>
           <Icon name="message" size={16} /> Add a note
@@ -277,6 +251,7 @@ export function HandoverPanel({
           label="Complete delivery"
           disabled={locked}
           onConfirm={onComplete}
+          className={stop.codDue > 0 ? "is-green" : ""}
           hint={
             busy
               ? "Saving…"

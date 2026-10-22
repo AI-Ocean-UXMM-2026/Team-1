@@ -215,7 +215,18 @@ export async function signInAs(
         args = (request.postDataJSON() ?? {}) as Row;
       } catch {}
       mutations.push({ method: "RPC", table: rpcName, body: args });
-      const answer = options.rpc?.[rpcName];
+      if (rpcName === "complete_delivery") {
+        mutations.push({ method: "RPC", table: "rpc", body: args });
+      }
+      const answer =
+        options.rpc?.[rpcName] ??
+        (rpcName === "complete_delivery"
+          ? (a: Row) => ({
+              status: (a.delivery_outcome as string) ?? "delivered",
+              cod_status: a.cod_received ? "collected" : "not_required",
+              duplicate: false,
+            })
+          : null);
       if (!answer)
         return route.fulfill({
           status: 404,

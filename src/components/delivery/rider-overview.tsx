@@ -467,6 +467,7 @@ export function RouteOverview({
   map,
   notices,
   emptyState,
+  jobBoard,
   online,
   busy,
   error,
@@ -489,6 +490,8 @@ export function RouteOverview({
   notices: ReactNode;
   /** Replaces the "no route" message, for example with the job board. */
   emptyState?: ReactNode;
+  /** Open delivery tasks board. */
+  jobBoard?: ReactNode;
   online: boolean;
   busy: string | null;
   error: ReactNode;
@@ -504,6 +507,9 @@ export function RouteOverview({
   onCloseRoute: (declared: number) => void;
 }) {
   const state = route.state;
+  const [activeTab, setActiveTab] = useState<"jobs" | "route">(() =>
+    state === "NONE" || route.stops.length === 0 ? "jobs" : "route",
+  );
   const title =
     state === "COMPLETED"
       ? "All stops done"
@@ -526,21 +532,27 @@ export function RouteOverview({
 
   return (
     <main className="rf-app dv-overview">
-      <header className="rf-overview-head">
-        <Chip
-          label={status[state]}
-          color={
-            state === "IN_PROGRESS"
-              ? "info"
-              : state === "COMPLETED" || state === "CLOSED"
-                ? "success"
-                : state === "PAUSED"
-                  ? "warning"
-                  : "default"
-          }
-          size="small"
-          sx={{ fontWeight: 700, borderRadius: 999 }}
-        />
+      <header className="rf-overview-head rf-driver-appbar">
+        <div className="rf-appbar-brand">
+          <div className="rf-driver-status">
+            <span className="rf-status-dot is-online" aria-hidden="true" />
+            <span className="rf-driver-name">Oern Driver</span>
+          </div>
+          <Chip
+            label={status[state]}
+            color={
+              state === "IN_PROGRESS"
+                ? "info"
+                : state === "COMPLETED" || state === "CLOSED"
+                  ? "success"
+                  : state === "PAUSED"
+                    ? "warning"
+                    : "default"
+            }
+            size="small"
+            sx={{ fontWeight: 700, borderRadius: 999 }}
+          />
+        </div>
         <IconButton
           onClick={onMenu}
           aria-label="Shift tools"
@@ -549,154 +561,196 @@ export function RouteOverview({
           <Icon name="menu" size={20} />
         </IconButton>
       </header>
-      <h1>{title}</h1>
-      <p className="rf-muted rf-subtitle">
-        {dayLabel}
-        {vehicle
-          ? ` · ${vehicle.registration_number} · ${vehicle.vehicle_type.replace("_", "-")}`
-          : ""}
-      </p>
-      {notices}
-      {error}
 
-      {state === "NONE" && emptyState ? (
-        emptyState
-      ) : state === "NONE" ? (
-        <section className="rf-empty">
-          <span className="rf-result-mark is-neutral">
-            <Icon name="truck" size={26} />
-          </span>
-          <h2>No route assigned yet</h2>
-          <p>
-            When operations assigns you a route it appears here with its parcels
-            and stops. You don’t need to refresh.
-          </p>
-        </section>
-      ) : (
-        <>
-          {state !== "CLOSED" && state !== "COMPLETED" && (
-            <MetricGrid route={route} metrics={metrics} />
-          )}
-          {state === "ASSIGNED" && (
-            <Notice tone="info" icon="bell">
-              <strong>
-                Operations assigned you {route.parcels.length}{" "}
-                {route.parcels.length === 1 ? "parcel" : "parcels"} for{" "}
-                {route.stops.length}{" "}
-                {route.stops.length === 1 ? "stop" : "stops"}.
-              </strong>{" "}
-              This route is already yours. Acknowledge it so dispatch knows
-              you’ve seen it.
-            </Notice>
-          )}
-          {state === "READY" && route.toCollect.length > 0 && (
-            <Notice tone="info" icon="box">
-              <strong>
-                {route.toCollect.length}{" "}
-                {route.toCollect.length === 1 ? "parcel" : "parcels"} to collect
-                from customers on the way.
-              </strong>{" "}
-              {route.onBoard.length === 0
-                ? "Nothing to load at the depot, so you can set off empty."
-                : "Check your depot load, then collect the rest at the stops."}
-            </Notice>
-          )}
-          {state === "PAUSED" && route.current && (
-            <Notice tone="warning" icon="history">
-              <strong>Paused at stop {route.current.number}.</strong> Customers
-              still see their parcels as on the way. Resume when you’re back on
-              the road.
-            </Notice>
-          )}
-          {state === "CLOSED" && (
-            <Notice tone="success" icon="check">
-              Closed{closedAt ? ` at ${formatTime(closedAt)}` : ""}
-              {declaredCod != null
-                ? ` · ${currency.format(declaredCod)} declared for hand-in`
-                : ""}
-              . See you next shift.
-            </Notice>
-          )}
-          {map && state !== "MANIFEST_VERIFICATION" && (
-            <div className="rf-preview-map">{map}</div>
-          )}
-          {state === "MANIFEST_VERIFICATION" && (
-            <LoadCheck
-              route={route}
-              busy={busy === "load"}
-              online={online}
-              onConfirm={onLoad}
-              onReportMissing={onReportMissing}
-            />
-          )}
-          {state === "COMPLETED" && (
-            <RouteClose
-              route={route}
-              busy={busy === "close"}
-              online={online}
-              error={null}
-              sessionSaved={sessionSaved}
-              onClose={onCloseRoute}
-            />
-          )}
-          {showList && (
-            <section aria-labelledby="dv-stops-title">
-              <div className="dv-section-head">
-                <h2 id="dv-stops-title">
-                  {state === "COMPLETED" || state === "CLOSED"
-                    ? "Stops today"
-                    : route.stops.some((stop) => stop.kind === "pickup")
-                      ? "Stop order"
-                      : "Delivery order"}
-                </h2>
-                <span className="dv-count">
-                  {route.stops.length} stops · {route.parcels.length} parcels
-                </span>
-              </div>
-              <ol className="dv-stop-list">
-                {route.stops.map((stop) => (
-                  <StopRow key={stop.key} stop={stop} />
-                ))}
-              </ol>
-            </section>
-          )}
-        </>
+      {(jobBoard || emptyState) && (
+        <nav className="rf-view-tabs" aria-label="Driver view">
+          <button
+            type="button"
+            className={`rf-view-tab${activeTab === "jobs" ? " is-active" : ""}`}
+            onClick={() => setActiveTab("jobs")}
+            aria-selected={activeTab === "jobs"}
+          >
+            <Icon name="package" size={16} />
+            <span>Job Board</span>
+            <span className="rf-tab-badge">Open</span>
+          </button>
+          <button
+            type="button"
+            className={`rf-view-tab${activeTab === "route" ? " is-active" : ""}`}
+            onClick={() => setActiveTab("route")}
+            aria-selected={activeTab === "route"}
+          >
+            <Icon name="truck" size={16} />
+            <span>My Route</span>
+            {route.stops.length > 0 && (
+              <span className="rf-tab-badge">{route.stops.length}</span>
+            )}
+          </button>
+        </nav>
       )}
 
-      {(state === "ASSIGNED" || state === "READY" || state === "PAUSED") && (
-        <div className="rf-dock">
-          {state === "READY" ? (
-            <SwipeConfirm
-              label={`Start route · ${route.stops.length} stops`}
-              hint="Swipe to start route"
-              disabled={busy != null || !online}
-              onConfirm={onStart}
-            />
+      {activeTab === "jobs" ? (
+        jobBoard ?? emptyState
+      ) : (
+        <>
+          <h1>{title}</h1>
+          <p className="rf-muted rf-subtitle">
+            {dayLabel}
+            {vehicle
+              ? ` · ${vehicle.registration_number} · ${vehicle.vehicle_type.replace("_", "-")}`
+              : ""}
+          </p>
+          {notices}
+          {error}
+
+          {state === "NONE" ? (
+            <section className="rf-empty">
+              <span className="rf-result-mark is-neutral">
+                <Icon name="truck" size={26} />
+              </span>
+              <h2>No route assigned yet</h2>
+              <p>
+                When operations assigns you a route it appears here with its parcels
+                and stops. You can also pick up tasks on the Job Board.
+              </p>
+              {(jobBoard || emptyState) && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => setActiveTab("jobs")}
+                  sx={{ mt: 1, borderRadius: 999 }}
+                >
+                  Browse Job Board
+                </Button>
+              )}
+            </section>
           ) : (
-            <Button
-              fullWidth
-              variant="contained"
-              color="primary"
-              size="large"
-              disabled={busy != null || !online}
-              onClick={state === "ASSIGNED" ? onAcknowledge : onResume}
-              endIcon={
-                busy == null && online ? (
-                  <Icon name="arrow-right" size={18} />
-                ) : undefined
-              }
-              sx={{ minHeight: 52, borderRadius: 999 }}
-            >
-              {busy
-                ? "Saving…"
-                : !online
-                  ? "Waiting for connection"
-                  : state === "ASSIGNED"
-                    ? "Acknowledge route"
-                    : `Resume at stop ${route.current?.number ?? ""}`}
-            </Button>
+            <>
+              {state !== "CLOSED" && state !== "COMPLETED" && (
+                <MetricGrid route={route} metrics={metrics} />
+              )}
+              {state === "ASSIGNED" && (
+                <Notice tone="info" icon="bell">
+                  <strong>
+                    Operations assigned you {route.parcels.length}{" "}
+                    {route.parcels.length === 1 ? "parcel" : "parcels"} for{" "}
+                    {route.stops.length}{" "}
+                    {route.stops.length === 1 ? "stop" : "stops"}.
+                  </strong>{" "}
+                  This route is already yours. Acknowledge it so dispatch knows
+                  you’ve seen it.
+                </Notice>
+              )}
+              {state === "READY" && route.toCollect.length > 0 && (
+                <Notice tone="info" icon="box">
+                  <strong>
+                    {route.toCollect.length}{" "}
+                    {route.toCollect.length === 1 ? "parcel" : "parcels"} to collect
+                    from customers on the way.
+                  </strong>{" "}
+                  {route.onBoard.length === 0
+                    ? "Nothing to load at the depot, so you can set off empty."
+                    : "Check your depot load, then collect the rest at the stops."}
+                </Notice>
+              )}
+              {state === "PAUSED" && route.current && (
+                <Notice tone="warning" icon="history">
+                  <strong>Paused at stop {route.current.number}.</strong> Customers
+                    still see their parcels as on the way. Resume when you’re back on
+                  the road.
+                </Notice>
+              )}
+              {state === "CLOSED" && (
+                <Notice tone="success" icon="check">
+                  Closed{closedAt ? ` at ${formatTime(closedAt)}` : ""}
+                  {declaredCod != null
+                    ? ` · ${currency.format(declaredCod)} declared for hand-in`
+                    : ""}
+                  . See you next shift.
+                </Notice>
+              )}
+              {map && state !== "MANIFEST_VERIFICATION" && (
+                <div className="rf-preview-map">{map}</div>
+              )}
+              {state === "MANIFEST_VERIFICATION" && (
+                <LoadCheck
+                  route={route}
+                  busy={busy === "load"}
+                  online={online}
+                  onConfirm={onLoad}
+                  onReportMissing={onReportMissing}
+                />
+              )}
+              {state === "COMPLETED" && (
+                <RouteClose
+                  route={route}
+                  busy={busy === "close"}
+                  online={online}
+                  error={null}
+                  sessionSaved={sessionSaved}
+                  onClose={onCloseRoute}
+                />
+              )}
+              {showList && (
+                <section aria-labelledby="dv-stops-title">
+                  <div className="dv-section-head">
+                    <h2 id="dv-stops-title">
+                      {state === "COMPLETED" || state === "CLOSED"
+                        ? "Stops today"
+                        : route.stops.some((stop) => stop.kind === "pickup")
+                          ? "Stop order"
+                          : "Delivery order"}
+                    </h2>
+                    <span className="dv-count">
+                      {route.stops.length} stops · {route.parcels.length} parcels
+                    </span>
+                  </div>
+                  <ol className="dv-stop-list">
+                    {route.stops.map((stop) => (
+                      <StopRow key={stop.key} stop={stop} />
+                    ))}
+                  </ol>
+                </section>
+              )}
+            </>
           )}
-        </div>
+
+          {(state === "ASSIGNED" || state === "READY" || state === "PAUSED") && (
+            <div className="rf-dock">
+              {state === "READY" ? (
+                <SwipeConfirm
+                  label={`Start route · ${route.stops.length} stops`}
+                  hint="Swipe to start route"
+                  disabled={busy != null || !online}
+                  onConfirm={onStart}
+                />
+              ) : (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  disabled={busy != null || !online}
+                  onClick={state === "ASSIGNED" ? onAcknowledge : onResume}
+                  endIcon={
+                    busy == null && online ? (
+                      <Icon name="arrow-right" size={18} />
+                    ) : undefined
+                  }
+                  sx={{ minHeight: 52, borderRadius: 999 }}
+                >
+                  {busy
+                    ? "Saving…"
+                    : !online
+                      ? "Waiting for connection"
+                      : state === "ASSIGNED"
+                        ? "Acknowledge route"
+                        : `Resume at stop ${route.current?.number ?? ""}`}
+                </Button>
+              )}
+            </div>
+          )}
+        </>
       )}
     </main>
   );

@@ -78,6 +78,7 @@ import {
   findNearestFuelStation,
 } from "@/lib/delivery/energy-routing";
 import { currency } from "@/lib/delivery/format";
+import { type DeliveryJob, createOrdersForJob } from "@/lib/delivery/jobs";
 import { formatDriveMinutes, speedLimitAt } from "@/lib/delivery/mapbox";
 import { watchRiderLocations } from "@/lib/delivery/rider-location";
 import {
@@ -850,6 +851,38 @@ export function RiderApp() {
       await saveSession("closed", { declaredCod: declared });
     });
 
+  const onJobStarted = useCallback(
+    async (job: DeliveryJob) => {
+      const nowTs = Date.now();
+      const currentDriver =
+        driverId ?? (isPreview ? PREVIEW_DRIVER_ID : "driver-live");
+      const generated = createOrdersForJob(job, currentDriver, nowTs);
+
+      updateData((prev) => ({
+        ...prev,
+        orders: [
+          ...prev.orders.filter((o) => o.driver_id !== currentDriver),
+          ...generated.orders,
+        ],
+        routeStops: [
+          ...prev.routeStops.filter(
+            (s) => !generated.orders.some((o) => o.id === s.order_id),
+          ),
+          ...generated.routeStops,
+        ],
+      }));
+
+      await saveSession("in_progress");
+      setAcknowledged(null);
+      setFlash(`Started ${job.area_label ?? job.label}! Heading to stop 1.`);
+
+      if (!isPreview && live.canUseLiveData) {
+        void live.refresh();
+      }
+    },
+    [driverId, isPreview, live, saveSession, updateData, setFlash],
+  );
+
   const markArrived = (target: DeliveryStop) => {
     setArrived((keys) => [...new Set([...keys, target.key])]);
     if (!isPreview && live.canUseLiveData)
@@ -888,7 +921,17 @@ export function RiderApp() {
       // Request ids are saved before sending so a retry repeats, not duplicates.
       const requestIds = { ...draft.requestIds };
       for (const order of target.open) requestIds[order.id] ??= newRequestId();
-      const current = { ...draft, requestIds };
+      const current = {
+        ...draft,
+        requestIds,
+        codMode: draft.codMode ?? "full",
+        codAmount: draft.codAmount || String(target.codDue),
+        verified:
+          draft.verified.length > 0
+            ? draft.verified
+            : target.open.map((o) => o.id),
+        receivedBy: draft.receivedBy.trim() || target.recipient,
+      };
       setDrafts((previous) => ({ ...previous, [target.key]: current }));
       const allocation =
         current.codMode === "different"
@@ -1672,13 +1715,11 @@ export function RiderApp() {
             {route.state === "PAUSED" && revisionNotice}
           </>
         }
-        emptyState={
-          isPreview || !live.canUseLiveData || !driverId ? undefined : (
-            <RiderJobBoard
-              vehicles={data.vehicles}
-              onStarted={() => void live.refresh()}
-            />
-          )
+        jobBoard={
+          <RiderJobBoard
+            vehicles={data.vehicles}
+            onStarted={(job) => void onJobStarted(job)}
+          />
         }
         online={online}
         busy={busy}

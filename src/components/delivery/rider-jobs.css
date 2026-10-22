@@ -315,3 +315,92 @@
     transform: translateY(0);
   }
 }
+
+/* ---------- Driver App Bar & View Tabs ---------- */
+
+.rf-driver-appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.rf-appbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rf-driver-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #172b4d);
+}
+
+.rf-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.rf-view-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  background: var(--color-surface-subtle, #f1f5f9);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 14px;
+  margin-block: 8px 16px;
+}
+
+.rf-view-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-text-secondary, #64748b);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rf-view-tab:hover {
+  color: var(--color-text-primary, #172b4d);
+}
+
+.rf-view-tab.is-active {
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-primary, #172b4d);
+  box-shadow: 0 2px 6px -1px rgba(15, 23, 42, 0.08);
+}
+
+.rf-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--color-surface-subtle, #e2e8f0);
+  color: var(--color-text-secondary, #475569);
+}
+
+.rf-view-tab.is-active .rf-tab-badge {
+  background: #ffedd5;
+  color: #c2410c;
+}

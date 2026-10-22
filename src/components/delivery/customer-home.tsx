@@ -340,6 +340,128 @@ const PickupRow = memo(function PickupRow() {
   );
 });
 
+/** Quick actions at the top of Home in 3 columns: Request pickup, Track parcel, Help & support. */
+const QuickActions = memo(function QuickActions({
+  onOpenHelp,
+}: {
+  onOpenHelp: () => void;
+}) {
+  return (
+    <Box
+      component="nav"
+      aria-label="Quick actions"
+      sx={{
+        px: 2,
+        mt: 1.5,
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 1.25,
+      }}
+    >
+      <ListItemButton
+        component={Link}
+        href="/pickup"
+        sx={{
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          p: 1.5,
+          borderRadius: "16px",
+          bgcolor: "grey.100",
+          gap: 1,
+          minHeight: 96,
+        }}
+      >
+        <Box
+          component="img"
+          src="/icons/pickup.svg"
+          alt=""
+          sx={{ display: "block", width: 44, height: 44, flex: "none" }}
+        />
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 700,
+            fontSize: 13,
+            lineHeight: 1.2,
+            color: "text.primary",
+          }}
+        >
+          Request pickup
+        </Typography>
+      </ListItemButton>
+
+      <ListItemButton
+        component={Link}
+        href="/track"
+        sx={{
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          p: 1.5,
+          borderRadius: "16px",
+          bgcolor: "grey.100",
+          gap: 1,
+          minHeight: 96,
+        }}
+      >
+        <Box
+          component="img"
+          src="/icons/track-parcel.svg"
+          alt=""
+          sx={{ display: "block", width: 44, height: 44, flex: "none" }}
+        />
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 700,
+            fontSize: 13,
+            lineHeight: 1.2,
+            color: "text.primary",
+          }}
+        >
+          Track parcel
+        </Typography>
+      </ListItemButton>
+
+      <ListItemButton
+        onClick={onOpenHelp}
+        sx={{
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          p: 1.5,
+          borderRadius: "16px",
+          bgcolor: "grey.100",
+          gap: 1,
+          minHeight: 96,
+        }}
+      >
+        <Box
+          component="img"
+          src="/icons/get-help.svg"
+          alt=""
+          sx={{ display: "block", width: 44, height: 44, flex: "none" }}
+        />
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 700,
+            fontSize: 13,
+            lineHeight: 1.2,
+            color: "text.primary",
+          }}
+        >
+          Help & support
+        </Typography>
+      </ListItemButton>
+    </Box>
+  );
+});
+
 const MoreShortcuts = memo(function MoreShortcuts({
   onOpenHelp,
 }: {
@@ -681,13 +803,45 @@ export function CustomerHome({
 
   return (
     <>
-      {!hasLive && <PickupHero />}
+      <QuickActions onOpenHelp={onOpenHelp} />
+
+      {isAuthenticated && historyOrders.length > 0 && (
+        <Box sx={{ px: 2, mt: 2 }}>
+          <ListItemButton
+            component={Link}
+            href={ordersHref({ tab: "history" })}
+            sx={{
+              gap: 1.5,
+              minHeight: 72,
+              px: 1.5,
+              borderRadius: "16px",
+              bgcolor: "grey.100",
+            }}
+          >
+            <Box
+              component="img"
+              src="/icons/delivery-history.svg"
+              alt=""
+              sx={{ display: "block", width: 48, height: 48, flex: "none" }}
+            />
+            <ListItemText
+              primary="Delivery history"
+              secondary={`${historyOrders.length} finished ${historyOrders.length === 1 ? "delivery" : "deliveries"}`}
+              slotProps={{
+                primary: { sx: { fontWeight: 700, fontSize: 14 } },
+              }}
+              sx={{ m: 0 }}
+            />
+            <ChevronRight color="disabled" />
+          </ListItemButton>
+        </Box>
+      )}
 
       <Box
         component="section"
         id="active-deliveries"
         aria-labelledby="active-deliveries-title"
-        sx={{ mt: hasLive ? 1 : 3, scrollMarginTop: 72 }}
+        sx={{ mt: 2.5, scrollMarginTop: 72 }}
       >
         <Box
           sx={{
@@ -699,19 +853,14 @@ export function CustomerHome({
             width: "100%",
           }}
         >
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <Typography
-              id="active-deliveries-title"
-              variant="h6"
-              component="h2"
-              sx={{ fontWeight: 750 }}
-            >
-              Today&apos;s deliveries
-            </Typography>
-            {isAuthenticated && today.length > 0 && (
-              <Chip size="small" label={today.length} sx={toneSx("info")} />
-            )}
-          </Stack>
+          <Typography
+            id="active-deliveries-title"
+            variant="h6"
+            component="h2"
+            sx={{ fontWeight: 750 }}
+          >
+            Today&apos;s deliveries
+          </Typography>
           {isAuthenticated && orders.length > 0 && (
             <Button
               component={Link}
@@ -778,38 +927,6 @@ export function CustomerHome({
           </Box>
         )}
       </Box>
-
-      {isAuthenticated && historyOrders.length > 0 && (
-        <Box sx={{ px: 2, mt: 1.5 }}>
-          <ListItemButton
-            component={Link}
-            href={ordersHref({ tab: "history" })}
-            sx={{
-              gap: 1.5,
-              minHeight: 72,
-              px: 1.5,
-              borderRadius: "16px",
-              bgcolor: "grey.100",
-            }}
-          >
-            <Box
-              component="img"
-              src="/icons/delivery-history.svg"
-              alt=""
-              sx={{ display: "block", width: 48, height: 48, flex: "none" }}
-            />
-            <ListItemText
-              primary="Delivery history"
-              secondary={`${historyOrders.length} finished ${historyOrders.length === 1 ? "delivery" : "deliveries"}`}
-              slotProps={{
-                primary: { sx: { fontWeight: 700, fontSize: 14 } },
-              }}
-              sx={{ m: 0 }}
-            />
-            <ChevronRight color="disabled" />
-          </ListItemButton>
-        </Box>
-      )}
     </>
   );
 }

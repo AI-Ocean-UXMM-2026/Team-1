@@ -148,3 +148,32 @@ test("formatJobReproductionLabel tags labels for driver board clarity", () => {
     "⚡ Urgent · 2nd Call · Job 3",
   );
 });
+
+test("SAMPLE_OPEN_JOBS populates rich Yangon delivery tasks for drivers", async () => {
+  const { SAMPLE_OPEN_JOBS, createOrdersForJob } = await import(
+    "../src/lib/delivery/jobs.ts"
+  );
+  assert.ok(SAMPLE_OPEN_JOBS.length >= 8);
+  for (const job of SAMPLE_OPEN_JOBS) {
+    assert.equal(job.status, "open");
+    assert.ok(job.order_count >= 1);
+    assert.ok(job.total_weight_kg > 0);
+    assert.ok(job.center_latitude != null);
+    assert.ok(job.center_longitude != null);
+  }
+
+  const sampleJob = SAMPLE_OPEN_JOBS[0];
+  const { orders, routeStops } = createOrdersForJob(
+    sampleJob,
+    "driver-test-1",
+    1700000000000,
+  );
+  assert.equal(orders.length, sampleJob.order_count);
+  assert.equal(routeStops.length, sampleJob.order_count);
+  assert.equal(orders[0].driver_id, "driver-test-1");
+  assert.equal(orders[0].status, "in_transit");
+  assert.equal(routeStops[0].sequence_number, 1);
+  assert.equal(routeStops[routeStops.length - 1].sequence_number, sampleJob.order_count);
+  const totalWeight = orders.reduce((sum, o) => sum + (o.parcel_weight_kg ?? 0), 0);
+  assert.ok(Math.abs(totalWeight - sampleJob.total_weight_kg) < 1.0);
+});

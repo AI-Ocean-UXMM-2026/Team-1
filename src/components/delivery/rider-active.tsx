@@ -647,52 +647,54 @@ export function ActiveDelivery({
             )}
 
             {error}
-            <div className="dv-sheet-actions">
-              {arrived ? (
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  onClick={onStartHandover}
-                  endIcon={<Icon name="arrow-right" size={18} />}
-                  sx={{ minHeight: 56, borderRadius: 999 }}
-                >
-                  {pickup ? "Start pickup" : "Start handover"}
-                </Button>
-              ) : confirmFar && far ? (
-                <div className="dv-confirm" role="alert">
-                  <span>
-                    You’re {formatDistance(distanceKm)} away. Arrived anyway?
-                  </span>
+            {(arrived || confirmFar || expanded || pickup) && (
+              <div className="dv-sheet-actions">
+                {arrived ? (
                   <Button
-                    variant="text"
-                    color="inherit"
-                    onClick={() => setConfirmFar(false)}
-                    sx={{ minHeight: 48, borderRadius: 999 }}
-                  >
-                    Not yet
-                  </Button>
-                  <Button
+                    fullWidth
                     variant="contained"
                     color="primary"
-                    onClick={() => {
-                      setConfirmFar(false);
-                      onArrived();
-                    }}
-                    sx={{ minHeight: 48, borderRadius: 999 }}
+                    size="large"
+                    onClick={onStartHandover}
+                    endIcon={<Icon name="arrow-right" size={18} />}
+                    sx={{ minHeight: 56, borderRadius: 999 }}
                   >
-                    Yes, I’m here
+                    {pickup ? "Start pickup" : "Start handover"}
                   </Button>
-                </div>
-              ) : (
-                <SwipeConfirm
-                  label="I’ve arrived"
-                  hint="Swipe to confirm arrival"
-                  onConfirm={() => (far ? setConfirmFar(true) : onArrived())}
-                />
-              )}
-            </div>
+                ) : confirmFar && far ? (
+                  <div className="dv-confirm" role="alert">
+                    <span>
+                      You’re {formatDistance(distanceKm)} away. Arrived anyway?
+                    </span>
+                    <Button
+                      variant="text"
+                      color="inherit"
+                      onClick={() => setConfirmFar(false)}
+                      sx={{ minHeight: 48, borderRadius: 999 }}
+                    >
+                      Not yet
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={() => {
+                        setConfirmFar(false);
+                        onArrived();
+                      }}
+                      sx={{ minHeight: 48, borderRadius: 999 }}
+                    >
+                      Yes, I’m here
+                    </Button>
+                  </div>
+                ) : (
+                  <SwipeConfirm
+                    label="I’ve arrived"
+                    hint="Swipe to confirm arrival"
+                    onConfirm={() => (far ? setConfirmFar(true) : onArrived())}
+                  />
+                )}
+              </div>
+            )}
           </>
         )}
       </section>

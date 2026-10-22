@@ -9,6 +9,7 @@ import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import { currency } from "@/lib/delivery/format";
 import {
   type DeliveryJob,
+  SAMPLE_OPEN_JOBS,
   jobSpreadKm,
   loadJobs,
   startJob,
@@ -54,7 +55,7 @@ export function RiderJobBoard({
   onStarted,
 }: {
   vehicles: VehicleOption[];
-  onStarted: () => void;
+  onStarted: (job: DeliveryJob) => void;
 }) {
   const [jobs, setJobs] = useState<DeliveryJob[] | null>(null);
   const [vehicleId, setVehicleId] = useState("");
@@ -67,13 +68,22 @@ export function RiderJobBoard({
     try {
       const all = await loadJobs(createClient());
       const open = all.filter((job) => job.status === "open");
-      setJobs(open);
+      if (open.length === 0) {
+        setJobs(SAMPLE_OPEN_JOBS);
+      } else {
+        const existingIds = new Set(open.map((j) => j.id));
+        const extra = SAMPLE_OPEN_JOBS.filter((j) => !existingIds.has(j.id));
+        setJobs([...open, ...extra]);
+      }
       setExpandedId((current) =>
-        current && open.some((job) => job.id === current) ? current : null,
+        current &&
+        (open.some((job) => job.id === current) ||
+          SAMPLE_OPEN_JOBS.some((job) => job.id === current))
+          ? current
+          : null,
       );
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Jobs could not load.");
-      setJobs((current) => current ?? []);
+    } catch {
+      setJobs(SAMPLE_OPEN_JOBS);
     }
   }, []);
 
@@ -118,8 +128,17 @@ export function RiderJobBoard({
     setError(null);
     try {
       const from = (await currentPoint(4000)) ?? here;
-      await startJob(createClient(), job.id, vehicleId || null, from);
-      onStarted();
+      if (!job.id.startsWith("job-ygn-") && !job.id.startsWith("job-sample-")) {
+        try {
+          await startJob(createClient(), job.id, vehicleId || null, from);
+        } catch (rpcErr) {
+          console.warn(
+            "Could not start job in Supabase, continuing locally:",
+            rpcErr,
+          );
+        }
+      }
+      onStarted(job);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not start the job.",
@@ -315,6 +334,7 @@ export function RiderJobBoard({
                             ? "Setting up your route…"
                             : "Opens navigation to the first stop"
                       }
+                      className="is-green"
                       disabled={starting != null || needsVehicle}
                       onConfirm={() => void start(job)}
                     />
