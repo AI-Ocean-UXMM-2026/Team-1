@@ -105,6 +105,7 @@ import {
   hasParcelOnBoard,
   resolveTurnSymbol,
 } from "@/lib/delivery/rider-route";
+import { useRoadSpeedCells } from "@/lib/delivery/road-intel/use-road-intel";
 import type {
   DeliveryOrder,
   DeliveryStatus,
@@ -113,7 +114,6 @@ import type {
   WorkspaceData,
 } from "@/lib/delivery/types";
 import { usePermissionRecovery } from "@/lib/delivery/use-permission-recovery";
-import { useRoadSpeedCells } from "@/lib/delivery/road-intel/use-road-intel";
 import { useRoadRoute } from "@/lib/delivery/use-road-route";
 import { useStoredState } from "@/lib/delivery/use-stored-state";
 import { useWorkspace } from "@/lib/delivery/use-workspace";

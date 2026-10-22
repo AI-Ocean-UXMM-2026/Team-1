@@ -22,33 +22,52 @@ test("signed-out ops workspaces ask for sign-in instead of showing forms (O-05)"
   }
 });
 
-test("dispatch opens on an order that still needs a rider (O-04)", async ({
+test("manager confirms a pending order for the rider job board (O-04)", async ({
   page,
   context,
 }) => {
-  await signInAs(context, "manager", {
-    delivery_orders: [
-      makeOrder({
-        id: "order-1",
-        tracking_code: "OR-3001",
-        status: "in_transit",
-      }),
-      makeOrder({ id: "order-2", tracking_code: "OR-3002", status: "pending" }),
-    ],
-    delivery_assignments: [
-      {
-        id: "a1",
-        order_id: "order-1",
-        driver_id: "driver-1",
-        vehicle_id: null,
-        route_id: null,
-        assigned_at: minutesAgo(20),
-        ended_at: null,
+  const backend = await signInAs(
+    context,
+    "manager",
+    {
+      delivery_orders: [
+        makeOrder({
+          id: "order-1",
+          tracking_code: "OR-3001",
+          status: "in_transit",
+        }),
+        makeOrder({
+          id: "order-2",
+          tracking_code: "OR-3002",
+          status: "pending",
+        }),
+      ],
+      delivery_assignments: [
+        {
+          id: "a1",
+          order_id: "order-1",
+          driver_id: "driver-1",
+          vehicle_id: null,
+          route_id: null,
+          assigned_at: minutesAgo(20),
+          ended_at: null,
+        },
+      ],
+    },
+    {
+      rpc: {
+        confirm_orders: () => ({ confirmed: 1, jobs: 1, orders: 1 }),
       },
-    ],
-  });
+    },
+  );
   await page.goto("/manager/order");
-  await expect(page.getByText("Suggested riders")).toBeVisible();
+  await expect(page.getByText("Check and confirm")).toBeVisible();
+  await page.getByRole("button", { name: "Confirm order" }).click();
+  await expect(page.getByText(/posted to the driver job board/i)).toBeVisible();
+  expect(
+    backend.mutations.find((mutation) => mutation.table === "confirm_orders")
+      ?.body,
+  ).toMatchObject({ p_order_ids: ["order-2"] });
 });
 
 test("manager overview prioritises stale GPS and unsettled cash across widths", async ({
@@ -272,7 +291,7 @@ test("manager can group cash by rider and batch settle shift", async ({
   page,
   context,
 }) => {
-  const backend = await signInAs(context, "manager", {
+  await signInAs(context, "manager", {
     delivery_orders: [
       makeOrder({
         id: "order-c1",
@@ -343,7 +362,9 @@ test("manager can group cash by rider and batch settle shift", async ({
   await expect(
     riderCard.getByRole("heading", { name: "Aung Kyaw" }),
   ).toBeVisible();
-  await expect(riderCard.locator(".cod-metric-val").first()).toContainText("80,000");
+  await expect(riderCard.locator(".cod-metric-val").first()).toContainText(
+    "80,000",
+  );
 
   const settleBtn = riderCard.getByRole("button", { name: /Settle shift/ });
   await expect(settleBtn).toBeVisible();
@@ -355,7 +376,7 @@ test("manager can group cash by rider and batch settle shift", async ({
   await expect(page.getByText("Shift settled")).toBeVisible();
 });
 
-test("dispatch can show every rider, not only the top three (O-03)", async ({
+test("pending orders explain automated driver assignment (O-03)", async ({
   page,
   context,
 }) => {
@@ -393,10 +414,10 @@ test("dispatch can show every rider, not only the top three (O-03)", async ({
     })),
   });
   await page.goto("/manager/order");
-  const cards = page.locator(".recommendation-card");
-  await expect(cards).toHaveCount(3);
-  await page.getByRole("button", { name: "Show all 5 riders" }).click();
-  await expect(cards).toHaveCount(5);
+  await expect(
+    page.getByText(/riders are not assigned by hand/i),
+  ).toBeVisible();
+  await expect(page.locator(".recommendation-card")).toHaveCount(0);
 });
 
 test("manager orders queue supports search and filtering", async ({
@@ -443,11 +464,11 @@ test("manager orders queue supports search and filtering", async ({
   await expect(rows).toHaveCount(2);
 });
 
-test("reassigning an active parcel prompts confirmation via ModalPanel", async ({
+test("an active parcel identifies the rider without manual reassignment", async ({
   page,
   context,
 }) => {
-  const backend = await signInAs(context, "manager", {
+  await signInAs(context, "manager", {
     delivery_orders: [
       makeOrder({
         id: "order-r1",
@@ -470,8 +491,18 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
     ],
     profiles: [
       { id: "user-1", full_name: "Manager", phone: null, role: "manager" },
-      { id: "driver-old", full_name: "Old Driver", phone: null, role: "driver" },
-      { id: "driver-new", full_name: "New Driver", phone: null, role: "driver" },
+      {
+        id: "driver-old",
+        full_name: "Old Driver",
+        phone: null,
+        role: "driver",
+      },
+      {
+        id: "driver-new",
+        full_name: "New Driver",
+        phone: null,
+        role: "driver",
+      },
     ],
     driver_profiles: [
       { user_id: "driver-old", availability: "on_delivery" },
@@ -496,23 +527,10 @@ test("reassigning an active parcel prompts confirmation via ModalPanel", async (
   });
   await page.goto("/manager/order");
 
-  const reassignBtn = page
-    .locator(".recommendation-card")
-    .filter({ hasText: "New Driver" })
-    .getByRole("button", { name: "Reassign", exact: true });
-  await expect(reassignBtn).toBeVisible();
-  await reassignBtn.click();
-
-  const modal = page.getByRole("dialog");
-  await expect(modal).toBeVisible();
-  await expect(modal.getByRole("heading", { name: "Confirm driver reassignment" })).toBeVisible();
-  await expect(modal.getByText("New Driver")).toBeVisible();
-
-  await modal.getByRole("button", { name: "Confirm reassignment" }).click();
-  await expect(modal).toHaveCount(0);
-  expect(
-    backend.mutations.find((m) => m.table === "rpc")?.body,
-  ).toMatchObject({ target_driver_id: "driver-new" });
+  await expect(page.getByText("Rider assigned").first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Reassign", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("mobile bottom nav includes More drawer with full manager operations", async ({
@@ -531,11 +549,15 @@ test("mobile bottom nav includes More drawer with full manager operations", asyn
 
   const menu = page.getByRole("dialog");
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole("heading", { name: "Operations menu" })).toBeVisible();
+  await expect(
+    menu.getByRole("heading", { name: "Operations menu" }),
+  ).toBeVisible();
   await expect(menu.getByRole("link", { name: /Team roster/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /Plan routes/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /Job board/ })).toBeVisible();
-  await expect(menu.getByRole("link", { name: /Fleet insights/ })).toBeVisible();
+  await expect(
+    menu.getByRole("link", { name: /Fleet insights/ }),
+  ).toBeVisible();
 });
 
 test("manager profile consolidates team riders and fleet vehicles with direct tab navigation", async ({

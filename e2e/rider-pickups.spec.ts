@@ -44,7 +44,7 @@ test("a mixed pickup and delivery route runs from the depot load check to a fail
   await expect(rows.nth(2)).toContainText("Sample customer 1");
   await expect(rows.nth(0)).toContainText("Window");
 
-  await page.getByRole("button", { name: /start route · 10 stops/i }).click();
+  await swipeToConfirm(page, /start route · 10 stops/i);
 
   // The first stop is a pickup, not a delivery.
   const sheet = page.getByRole("region", { name: "Stop 1 of 10" });
@@ -93,7 +93,7 @@ test("the pickup problem button opens the pickup form, not the delivery exceptio
   await page.goto("/rider/route?preview=mixed");
   await page.getByRole("button", { name: "Tick all" }).click();
   await page.getByRole("button", { name: /confirm 2 parcels loaded/i }).click();
-  await page.getByRole("button", { name: /start route/i }).click();
+  await swipeToConfirm(page, /start route/i);
   await page
     .getByRole("button", { name: "Show stop details and full route" })
     .click();
@@ -112,7 +112,7 @@ test("the pickup form needs a reason, and a description for 'something else'", a
   await page.goto("/rider/route?preview=mixed");
   await page.getByRole("button", { name: "Tick all" }).click();
   await page.getByRole("button", { name: /confirm 2 parcels loaded/i }).click();
-  await page.getByRole("button", { name: /start route/i }).click();
+  await swipeToConfirm(page, /start route/i);
   await arrive(page);
   await page.getByRole("button", { name: "Start pickup" }).click();
   await page

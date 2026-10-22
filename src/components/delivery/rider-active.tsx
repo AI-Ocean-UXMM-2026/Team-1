@@ -25,15 +25,14 @@ import type {
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/delivery/icons";
-import { StopMark, StopRow } from "@/components/delivery/rider-overview";
-import { CodTag } from "@/components/delivery/rider-tools";
+import { StopRow } from "@/components/delivery/rider-overview";
 import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import {
   type DeliveryStop,
   type DriverRoute,
   stopParcels,
 } from "@/lib/delivery/driver-route";
-import { currency, formatTime } from "@/lib/delivery/format";
+import { formatTime } from "@/lib/delivery/format";
 import {
   formatDistance,
   resolveTurnSymbol,
@@ -640,54 +639,52 @@ export function ActiveDelivery({
             )}
 
             {error}
-            {(arrived || confirmFar || expanded) && (
-              <div className="dv-sheet-actions">
-                {arrived ? (
+            <div className="dv-sheet-actions">
+              {arrived ? (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  onClick={onStartHandover}
+                  endIcon={<Icon name="arrow-right" size={18} />}
+                  sx={{ minHeight: 56, borderRadius: 999 }}
+                >
+                  {pickup ? "Start pickup" : "Start handover"}
+                </Button>
+              ) : confirmFar && far ? (
+                <div className="dv-confirm" role="alert">
+                  <span>
+                    You’re {formatDistance(distanceKm)} away. Arrived anyway?
+                  </span>
                   <Button
-                    fullWidth
+                    variant="text"
+                    color="inherit"
+                    onClick={() => setConfirmFar(false)}
+                    sx={{ minHeight: 48, borderRadius: 999 }}
+                  >
+                    Not yet
+                  </Button>
+                  <Button
                     variant="contained"
                     color="primary"
-                    size="large"
-                    onClick={onStartHandover}
-                    endIcon={<Icon name="arrow-right" size={18} />}
-                    sx={{ minHeight: 56, borderRadius: 999 }}
+                    onClick={() => {
+                      setConfirmFar(false);
+                      onArrived();
+                    }}
+                    sx={{ minHeight: 48, borderRadius: 999 }}
                   >
-                    {pickup ? "Start pickup" : "Start handover"}
+                    Yes, I’m here
                   </Button>
-                ) : confirmFar && far ? (
-                  <div className="dv-confirm" role="alert">
-                    <span>
-                      You’re {formatDistance(distanceKm)} away. Arrived anyway?
-                    </span>
-                    <Button
-                      variant="text"
-                      color="inherit"
-                      onClick={() => setConfirmFar(false)}
-                      sx={{ minHeight: 48, borderRadius: 999 }}
-                    >
-                      Not yet
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={() => {
-                        setConfirmFar(false);
-                        onArrived();
-                      }}
-                      sx={{ minHeight: 48, borderRadius: 999 }}
-                    >
-                      Yes, I’m here
-                    </Button>
-                  </div>
-                ) : (
-                  <SwipeConfirm
-                    label="I’ve arrived"
-                    hint="Swipe to confirm arrival"
-                    onConfirm={() => (far ? setConfirmFar(true) : onArrived())}
-                  />
-                )}
-              </div>
-            )}
+                </div>
+              ) : (
+                <SwipeConfirm
+                  label="I’ve arrived"
+                  hint="Swipe to confirm arrival"
+                  onConfirm={() => (far ? setConfirmFar(true) : onArrived())}
+                />
+              )}
+            </div>
           </>
         )}
       </section>
