@@ -9,11 +9,11 @@ import { SwipeConfirm } from "@/components/delivery/swipe-confirm";
 import { currency } from "@/lib/delivery/format";
 import {
   type DeliveryJob,
-  claimJob,
   isSampleJob,
   SAMPLE_OPEN_JOBS,
   jobSpreadKm,
   loadJobs,
+  startJob,
 } from "@/lib/delivery/jobs";
 import {
   distanceKm,
@@ -160,7 +160,7 @@ export function RiderJobBoard({
     try {
       // Sample jobs live on this phone only; real ones are claimed on the server.
       if (!isSampleJob(job))
-        await claimJob(createClient(), job.id, selectedVehicleId || null);
+        await startJob(createClient(), job.id, selectedVehicleId || null, here);
       onTaken(job);
     } catch (cause) {
       setError(
