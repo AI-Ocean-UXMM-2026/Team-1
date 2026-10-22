@@ -99,7 +99,7 @@ The customer app is a mobile-first shell: edge-to-edge on phones, a centered 480
 - **Pickup:** three steps — Addresses (`/pickup`), Parcel and contacts (`/pickup/details`), Review and request (`/pickup/review`). The map screens read and write the same stored draft, so addresses, pins and contacts survive navigation, sign-in and failed requests. One primary action per step, inline validation on blur or attempt, numeric/phone keyboards, optional details behind a disclosure. The requested time is written into the parcel description in the form the database turns into a stored pickup window; the app describes it as a request and never promises a time the data does not hold. Success shows the tracking code and a "View order" action.
 - **Notifications:** one compact chronological list, newest first, with unread markers.
 - **Help:** attached to the selected parcel; when none is selected an order picker comes first.
-- **Profile:** initials avatar, name and phone, then grouped rows (Delivery history, Notifications with unread badge, Help and support) and a separate Sign out row that asks for confirmation and reports failure. No control appears without working behavior behind it.
+- **Profile:** initials avatar, name and phone, then grouped rows (Delivery history, Notifications with unread badge, Help and support) and a separate centered Sign out button that asks for confirmation and reports failure. Rows use the app's own illustrations (`public/icons`). No control appears without working behavior behind it.
 - **Sign-in and sign-up** return the customer to the task they started (`?next=`, same-origin paths only).
 
 ### Driver
