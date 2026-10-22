@@ -1,6 +1,8 @@
 import type { DeliveryOrder, DeliveryStatus } from "@/lib/delivery/types";
 
 export const LIVE_LOCATION_MAX_AGE_MS = 60_000;
+/** Past live but not yet worrying: a rider between pings, not a lost connection. */
+export const RECENT_LOCATION_MAX_AGE_MS = 180_000;
 
 export function hasCollectedParcel(status: DeliveryStatus) {
   return status === "picked_up" || status === "in_transit";
@@ -33,4 +35,14 @@ export function parcelLocationState(
     age <= LIVE_LOCATION_MAX_AGE_MS
     ? ("live" as const)
     : ("stale" as const);
+}
+
+/** True when the last point is past "live" but recent enough that the rider is just between pings. */
+export function isRecentLocation(
+  order: Pick<DeliveryOrder, "status" | "latest_location"> | null,
+  now: number,
+) {
+  if (parcelLocationState(order, now) !== "stale") return false;
+  const age = now - Date.parse(order?.latest_location?.recorded_at ?? "");
+  return Number.isFinite(age) && age <= RECENT_LOCATION_MAX_AGE_MS;
 }

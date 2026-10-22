@@ -40,7 +40,7 @@ export type RiderNavMapProps = {
   interactive?: boolean;
   /**
    * Navigation mode: the camera follows the rider, tilted, with the map turned
-   * so their heading points up (like Google Maps once a trip starts).
+   * so their heading points up once a trip starts.
    */
   follow?: boolean;
   label: string;
@@ -60,7 +60,7 @@ export function RiderNavMap(props: RiderNavMapProps) {
     >
       <Icon name="location" size={28} />
       <strong>Map isn’t set up yet</strong>
-      <span>Use Directions to navigate. Everything else works as usual.</span>
+      <span>Check the address below or call the recipient.</span>
       <small>Operations: add NEXT_PUBLIC_MAPBOX_TOKEN.</small>
     </div>
   );

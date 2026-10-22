@@ -12,6 +12,7 @@ import {
 import {
   canShowParcelLocation,
   parcelLocationState,
+  isRecentLocation,
 } from "@/lib/delivery/location-state";
 import { hasMapbox } from "@/lib/delivery/mapbox";
 import type { DeliveryOrder } from "@/lib/delivery/types";
@@ -253,7 +254,9 @@ function OsmLocationMap({
                   : liveRiderCount
                     ? "Live GPS"
                     : trackedOrders.length
-                      ? "Last known location"
+                      ? isRecentLocation(order, now)
+                        ? "Refreshing"
+                        : "Last known location"
                       : "Location pending"}
           </div>
         </div>

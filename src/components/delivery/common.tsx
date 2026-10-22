@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { type ReactNode, useEffect, useEffectEvent, useState } from "react";
 
 import { Icon, type IconName } from "@/components/delivery/icons";
-import { Mascot } from "@/components/delivery/mascot";
+import { Loader } from "@/components/delivery/loader";
 import type { DeliveryStatus, WorkspaceProfile } from "@/lib/delivery/types";
 import { STATUS_LABELS } from "@/lib/delivery/types";
 
@@ -19,11 +20,23 @@ const iconByStatus: Record<DeliveryStatus, IconName> = {
   cancelled: "close",
 };
 
-/** Plain product name; Oern has no logo mark yet, so none is drawn. */
+export function BrandMark({ size = 32 }: { size?: number }) {
+  return (
+    <Image
+      src="/brand/oern-character.png"
+      alt=""
+      width={size}
+      height={size}
+      className="brand-mark"
+    />
+  );
+}
+
 export function Brand({ href = "/" }: { href?: string }) {
   return (
     <Link href={href} className="brand-lockup" aria-label="Oern home">
-      Oern
+      <BrandMark />
+      <span>Oern</span>
     </Link>
   );
 }
@@ -192,8 +205,7 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 export function LoadingBlock({ title }: { title: string }) {
   return (
     <div className="loading-screen">
-      <Mascot size={96} />
-      <p>{title}</p>
+      <Loader label={title} />
     </div>
   );
 }
@@ -203,6 +215,7 @@ export type MobileNavItem = {
   label: string;
   href: string;
   icon: IconName;
+  onClick?: () => void;
 };
 
 export function MobileNav({
@@ -244,6 +257,19 @@ export function MobileNav({
             <span>{item.label}</span>
           </>
         );
+        if (item.onClick) {
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`mobile-nav-btn ${active ? "is-active" : ""}`}
+              onClick={item.onClick}
+              aria-current={active ? "page" : undefined}
+            >
+              {content}
+            </button>
+          );
+        }
         return item.href.startsWith("/") ? (
           <Link
             key={item.id}

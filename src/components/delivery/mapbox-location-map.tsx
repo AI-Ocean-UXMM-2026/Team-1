@@ -23,6 +23,7 @@ import {
 import {
   canShowParcelLocation,
   parcelLocationState,
+  isRecentLocation,
 } from "@/lib/delivery/location-state";
 import type { MapPoint } from "@/lib/delivery/map-projection";
 import { formatDriveMinutes } from "@/lib/delivery/mapbox";
@@ -284,7 +285,9 @@ export function MapboxLocationMap({
                   : liveRiderCount
                     ? "Live GPS"
                     : trackedOrders.length
-                      ? "Last known location"
+                      ? isRecentLocation(order, now)
+                        ? "Refreshing"
+                        : "Last known location"
                       : "Location pending"}
           </div>
         </div>

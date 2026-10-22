@@ -57,6 +57,77 @@ export function compassDirection(bearing: number) {
   return COMPASS[Math.round((((bearing % 360) + 360) % 360) / 45) % 8];
 }
 
+export type TurnSymbol =
+  | "straight"
+  | "turn-right"
+  | "turn-left"
+  | "slight-right"
+  | "slight-left"
+  | "sharp-right"
+  | "sharp-left"
+  | "u-turn"
+  | "roundabout"
+  | "fork-right"
+  | "fork-left"
+  | "merge"
+  | "arrive"
+  | "location";
+
+export function resolveTurnSymbol(
+  instruction?: string | null,
+  modifier?: string | null,
+  type?: string | null,
+): TurnSymbol {
+  const mod = modifier?.toLowerCase().trim();
+  const t = type?.toLowerCase().trim();
+
+  // 1. Explicit Mapbox modifier
+  if (mod === "right") return "turn-right";
+  if (mod === "left") return "turn-left";
+  if (mod === "slight right") return "slight-right";
+  if (mod === "slight left") return "slight-left";
+  if (mod === "sharp right") return "sharp-right";
+  if (mod === "sharp left") return "sharp-left";
+  if (mod === "uturn") return "u-turn";
+  if (mod === "straight") return "straight";
+
+  // 2. Explicit Mapbox maneuver type
+  if (t === "arrive") return "arrive";
+  if (t === "roundabout" || t === "rotary" || t === "roundabout turn")
+    return "roundabout";
+  if (t === "merge") return "merge";
+  if (t === "fork") return mod?.includes("left") ? "fork-left" : "fork-right";
+  if (t === "depart" || t === "continue") return "straight";
+
+  // 3. Fallback: Parse instruction text
+  if (!instruction) return "straight";
+  const text = instruction.toLowerCase();
+  if (/\bu-?turn\b/.test(text)) return "u-turn";
+  if (/\bsharp right\b/.test(text)) return "sharp-right";
+  if (/\bsharp left\b/.test(text)) return "sharp-left";
+  if (/\bslight right\b|\bbear right\b|\bkeep right\b/.test(text))
+    return "slight-right";
+  if (/\bslight left\b|\bbear left\b|\bkeep left\b/.test(text))
+    return "slight-left";
+  if (/\bturn right\b|\bright onto\b|\btake the right\b/.test(text))
+    return "turn-right";
+  if (/\bturn left\b|\bleft onto\b|\btake the left\b/.test(text))
+    return "turn-left";
+  if (/\broundabout\b|\brotary\b|\btraffic circle\b/.test(text))
+    return "roundabout";
+  if (/\bfork\b.*\bleft\b/.test(text)) return "fork-left";
+  if (/\bfork\b.*\bright\b/.test(text)) return "fork-right";
+  if (/\bmerge\b/.test(text)) return "merge";
+  if (
+    /\barrive\b|\bdestination\b|\bat stop\b|\byou’re at the stop\b|\byou're at the stop\b/.test(
+      text,
+    )
+  )
+    return "arrive";
+
+  return "straight";
+}
+
 export function formatDistance(km: number | null) {
   if (km == null || !Number.isFinite(km)) return "—";
   if (km < 1) return `${Math.max(10, Math.round((km * 1000) / 10) * 10)} m`;
@@ -185,7 +256,7 @@ export function summariseRoute(
   events: StatusEvent[],
 ): RouteSummary {
   const delivered = route.closedToday.filter((o) => o.status === "delivered");
-  const codOrders = [...route.active, ...route.closedToday].filter(
+  const codOrders = [...route.active, ...delivered].filter(
     (order) => order.cod_amount > 0,
   );
   const collected = codOrders.filter(

@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const port = 3100;
+const port = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 const phone = { isMobile: true, hasTouch: true, deviceScaleFactor: 1 };
 
 export default defineConfig({
@@ -19,6 +19,7 @@ export default defineConfig({
       // answered by e2e/support/supabase-mock.ts.
       NEXT_PUBLIC_SUPABASE_URL: "https://oern-e2e.invalid",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_e2e",
+      NEXT_DIST_DIR: ".next-e2e",
     },
   },
   projects: [

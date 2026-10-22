@@ -6,21 +6,15 @@ import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import ChevronRight from "@mui/icons-material/ChevronRight";
 import Close from "@mui/icons-material/Close";
 import ContentPasteOutlined from "@mui/icons-material/ContentPasteOutlined";
-import ExpandMore from "@mui/icons-material/ExpandMore";
 import HistoryToggleOff from "@mui/icons-material/HistoryToggleOff";
 import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
 import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
 import NavigationOutlined from "@mui/icons-material/NavigationOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
-import PersonOutlined from "@mui/icons-material/PersonOutlined";
-import PhoneOutlined from "@mui/icons-material/PhoneOutlined";
 import QrCodeScannerOutlined from "@mui/icons-material/QrCodeScannerOutlined";
 import Search from "@mui/icons-material/Search";
 import TrackChangesOutlined from "@mui/icons-material/TrackChangesOutlined";
 import WarningAmber from "@mui/icons-material/WarningAmber";
-import Accordion from "@mui/material/Accordion";
-import AccordionDetails from "@mui/material/AccordionDetails";
-import AccordionSummary from "@mui/material/AccordionSummary";
 import Alert from "@mui/material/Alert";
 import AppBar from "@mui/material/AppBar";
 import Avatar from "@mui/material/Avatar";
@@ -41,24 +35,25 @@ import OutlinedInput from "@mui/material/OutlinedInput";
 import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import SwipeableDrawer from "@mui/material/SwipeableDrawer";
+import { alpha } from "@mui/material/styles";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
+import { visuallyHidden } from "@mui/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type FormEvent,
+  memo,
   type ReactElement,
   type ReactNode,
   useEffect,
-  useEffectEvent,
-  useRef,
+  useId,
   useState,
 } from "react";
+import { Loader } from "@/components/delivery/loader";
 
 import {
   buildTodayItems,
-  type CustomerNotification,
   codDue,
   describeDelay,
   normaliseCode,
@@ -75,45 +70,18 @@ import {
   nextCustomerAction,
   timeUntil,
 } from "@/lib/delivery/format";
-import { createSupportCase } from "@/lib/delivery/operations-actions";
-import type {
-  DeliveryOrder,
-  DeliveryStatus,
-  StatusEvent,
-} from "@/lib/delivery/types";
-import { STATUS_LABELS } from "@/lib/delivery/types";
-import { createClient } from "@/lib/supabase/client";
+import type { DeliveryOrder, StatusEvent } from "@/lib/delivery/types";
 
 /* ----------------------------------------------------------------- shared */
 
-export type Tone = "error" | "warning" | "info" | "success" | "neutral";
+import {
+  StatusChip,
+  statusTone,
+  type Tone,
+  toneSx,
+} from "@/components/delivery/customer-ui-utils";
 
-export function toneSx(tone: Tone) {
-  return tone === "neutral"
-    ? { bgcolor: "grey.100", color: "text.secondary" }
-    : { bgcolor: `${tone}.light`, color: `${tone}.dark` };
-}
-
-const statusTone: Record<DeliveryStatus, Tone> = {
-  pending: "neutral",
-  assigned: "warning",
-  accepted: "warning",
-  picked_up: "info",
-  in_transit: "info",
-  delivered: "success",
-  failed: "error",
-  cancelled: "error",
-};
-
-export function StatusChip({ status }: { status: DeliveryStatus }) {
-  return (
-    <Chip
-      size="small"
-      label={STATUS_LABELS[status]}
-      sx={{ ...toneSx(statusTone[status]), height: 28 }}
-    />
-  );
-}
+export { StatusChip, statusTone, toneSx, type Tone };
 
 const pageGutter = { px: 2 } as const;
 
@@ -125,7 +93,7 @@ const pageGutter = { px: 2 } as const;
  * back button instead of the bell. Sign-in lives in each page body, next to
  * what it unlocks, so the header never repeats it.
  */
-export function CustomerHeader({
+export const CustomerHeader = memo(function CustomerHeader({
   title,
   subtitle,
   isAuthenticated,
@@ -210,7 +178,7 @@ export function CustomerHeader({
       </Toolbar>
     </AppBar>
   );
-}
+});
 
 export function DemoChip({ onDismiss }: { onDismiss: () => void }) {
   return (
@@ -324,8 +292,8 @@ function ShortcutRow({
   );
 }
 
-/** Home's primary action: one full-width card, the whole surface opens /pickup. */
-function PickupHero() {
+/** Home's primary action: the whole surface opens /pickup. */
+const PickupHero = memo(function PickupHero() {
   return (
     <Card
       elevation={0}
@@ -333,9 +301,15 @@ function PickupHero() {
         mx: 2,
         mt: 1,
         borderRadius: "24px",
-        bgcolor: "#FFF7ED",
+        bgcolor: (theme) =>
+          theme.palette.mode === "dark"
+            ? alpha(theme.palette.primary.main, 0.16)
+            : alpha(theme.palette.primary.main, 0.08),
         border: 1,
-        borderColor: "#FED7AA",
+        borderColor: (theme) =>
+          theme.palette.mode === "dark"
+            ? alpha(theme.palette.primary.main, 0.32)
+            : alpha(theme.palette.primary.main, 0.2),
       }}
     >
       <CardActionArea component={Link} href="/pickup" sx={{ p: 2.5 }}>
@@ -352,40 +326,64 @@ function PickupHero() {
               variant="body2"
               sx={{ color: "text.secondary", mt: 0.75 }}
             >
-              A rider collects your parcel from your door, anywhere in Yangon.
+              Book a rider to collect your parcel in Yangon.
             </Typography>
-            <Box
-              component="span"
-              sx={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 0.75,
-                mt: 2,
-                minHeight: 44,
-                px: 2.25,
-                borderRadius: "999px",
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-                typography: "body2",
-                fontWeight: 700,
-              }}
-            >
-              Request pickup <ArrowForward fontSize="small" />
-            </Box>
           </Box>
           <Box
             component="img"
             src="/icons/pickup.svg"
             alt=""
-            sx={{ display: "block", width: 88, height: 88, flex: "none" }}
+            sx={{
+              display: "block",
+              width: { xs: 72, sm: 88 },
+              height: { xs: 72, sm: 88 },
+              flex: "none",
+            }}
           />
         </Stack>
       </CardActionArea>
     </Card>
   );
-}
+});
 
-function MoreShortcuts({ onOpenHelp }: { onOpenHelp: () => void }) {
+/** Once a parcel is on the way, booking another is a quiet row under it. */
+const PickupRow = memo(function PickupRow() {
+  return (
+    <Box sx={{ px: 2, mt: 3 }}>
+      <ListItemButton
+        component={Link}
+        href="/pickup"
+        sx={{
+          gap: 1.5,
+          minHeight: 64,
+          px: 1.5,
+          borderRadius: "16px",
+          bgcolor: "grey.100",
+        }}
+      >
+        <Box
+          component="img"
+          src="/icons/pickup.svg"
+          alt=""
+          sx={{ display: "block", width: 40, height: 40, flex: "none" }}
+        />
+        <ListItemText
+          primary="Request a pickup"
+          secondary="Book a rider to collect a parcel in Yangon."
+          slotProps={{ primary: { sx: { fontWeight: 700, fontSize: 14 } } }}
+          sx={{ m: 0 }}
+        />
+        <ChevronRight color="disabled" />
+      </ListItemButton>
+    </Box>
+  );
+});
+
+const MoreShortcuts = memo(function MoreShortcuts({
+  onOpenHelp,
+}: {
+  onOpenHelp: () => void;
+}) {
   return (
     <Box
       component="nav"
@@ -398,22 +396,28 @@ function MoreShortcuts({ onOpenHelp }: { onOpenHelp: () => void }) {
         overflow: "hidden",
       }}
     >
-      <ShortcutRow
-        component={Link}
-        href="/track"
-        illustration="/icons/track-parcel.svg"
-        title="Track a parcel"
-        detail="Enter a tracking code or scan it."
-      />
-      <ShortcutRow
-        onClick={onOpenHelp}
-        illustration="/icons/get-help.svg"
-        title="Help and support"
-        detail="Delivery questions and issues."
-      />
+      <List disablePadding>
+        <ListItem disablePadding>
+          <ShortcutRow
+            component={Link}
+            href="/track"
+            illustration="/icons/track-parcel.svg"
+            title="Track a parcel"
+            detail="Enter a tracking code or scan it."
+          />
+        </ListItem>
+        <ListItem disablePadding>
+          <ShortcutRow
+            onClick={onOpenHelp}
+            illustration="/icons/get-help.svg"
+            title="Help and support"
+            detail="Delivery questions and issues."
+          />
+        </ListItem>
+      </List>
     </Box>
   );
-}
+});
 
 function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
   const copy = heroCopy(order, now);
@@ -501,10 +505,10 @@ function NextParcelCard({ order, now }: { order: DeliveryOrder; now: number }) {
             mt: 2,
             height: 6,
             borderRadius: "999px",
-            bgcolor: "rgb(255 255 255 / 0.2)",
+            bgcolor: (theme) => alpha(theme.palette.common.white, 0.2),
             "& .MuiLinearProgress-bar": {
               borderRadius: "999px",
-              bgcolor: "var(--color-brand-orange)",
+              bgcolor: "primary.light",
             },
           }}
         />
@@ -630,72 +634,83 @@ function TrackingField({
   placeholder: string;
   ariaLabel: string;
 }) {
+  const inputId = useId();
   return (
-    <OutlinedInput
-      fullWidth
-      value={value}
-      placeholder={placeholder}
-      onChange={(event) => onChange(event.target.value)}
-      inputProps={{
-        "aria-label": ariaLabel,
-        autoCapitalize: "characters",
-        autoComplete: "off",
-        spellCheck: false,
-        style: { fontSize: 16, fontWeight: 560 },
-      }}
-      startAdornment={
-        <InputAdornment position="start">
-          <Search />
-        </InputAdornment>
-      }
-      endAdornment={
-        <InputAdornment position="end" sx={{ gap: 0.25 }}>
-          {value && onClear && (
-            <IconButton size="small" aria-label="Clear" onClick={onClear}>
-              <Close fontSize="small" />
-            </IconButton>
-          )}
-          {!value && onPaste && (
-            <IconButton
-              size="small"
-              aria-label="Paste tracking number"
-              onClick={onPaste}
+    <>
+      <Box component="label" htmlFor={inputId} sx={visuallyHidden}>
+        {ariaLabel}
+      </Box>
+      <OutlinedInput
+        id={inputId}
+        fullWidth
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        inputProps={{
+          "aria-label": ariaLabel,
+          autoCapitalize: "characters",
+          autoComplete: "off",
+          spellCheck: false,
+          style: { fontSize: 16, fontWeight: 560 },
+        }}
+        startAdornment={
+          <InputAdornment position="start">
+            <Search />
+          </InputAdornment>
+        }
+        endAdornment={
+          <InputAdornment position="end" sx={{ gap: 0.25 }}>
+            {value && onClear && (
+              <IconButton
+                aria-label="Clear"
+                onClick={onClear}
+                sx={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            )}
+            {!value && onPaste && (
+              <IconButton
+                aria-label="Paste tracking code"
+                onClick={onPaste}
+                sx={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+              >
+                <ContentPasteOutlined fontSize="small" />
+              </IconButton>
+            )}
+            {!value && onScan && (
+              <IconButton
+                aria-label="Scan tracking code"
+                onClick={onScan}
+                sx={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+              >
+                <QrCodeScannerOutlined fontSize="small" />
+              </IconButton>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{
+                px: 2,
+                height: 44,
+                minHeight: 44,
+                minWidth: 0,
+                ml: 0.5,
+                flex: "none",
+                borderRadius: "999px",
+              }}
             >
-              <ContentPasteOutlined fontSize="small" />
-            </IconButton>
-          )}
-          {!value && onScan && (
-            <IconButton
-              size="small"
-              aria-label="Scan parcel code"
-              onClick={onScan}
-            >
-              <QrCodeScannerOutlined fontSize="small" />
-            </IconButton>
-          )}
-          <Button
-            type="submit"
-            variant="contained"
-            sx={{
-              px: 2,
-              height: 40,
-              minHeight: 40,
-              minWidth: 0,
-              ml: 0.5,
-              flex: "none",
-              borderRadius: "999px",
-            }}
-          >
-            Track
-          </Button>
-        </InputAdornment>
-      }
-      sx={{
-        bgcolor: "background.paper",
-        pr: 0.5,
-        pl: 1.5,
-      }}
-    />
+              Track
+            </Button>
+          </InputAdornment>
+        }
+        sx={{
+          bgcolor: "background.paper",
+          pr: 0.5,
+          pl: 1.5,
+        }}
+      />
+    </>
   );
 }
 
@@ -754,7 +769,7 @@ export function TrackingLookup({
           onPaste={() => void paste()}
           onScan={onOpenScan}
           placeholder="Tracking code"
-          ariaLabel="Tracking number"
+          ariaLabel="Tracking code"
         />
       </Box>
       {!code && recent.length > 0 && (
@@ -762,7 +777,7 @@ export function TrackingLookup({
           direction="row"
           spacing={1}
           role="group"
-          aria-label="Recent tracking numbers"
+          aria-label="Recent tracking codes"
           sx={{
             mt: 1.25,
             overflowX: "auto",
@@ -829,8 +844,18 @@ export function CustomerHome({
   onOpenCod: () => void;
   onOpenHelp: () => void;
 }) {
-  const next = pickNextParcel(orders);
-  const today = buildTodayItems(orders, statusEvents, now);
+  const activeOrders = orders.filter((order) =>
+    ["pending", "assigned", "accepted", "picked_up", "in_transit"].includes(
+      order.status,
+    ),
+  );
+  const historyOrders = orders
+    .filter((order) =>
+      ["delivered", "failed", "cancelled"].includes(order.status),
+    )
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const next = pickNextParcel(activeOrders);
+  const today = buildTodayItems(activeOrders, statusEvents, now);
   const rest = today.filter((item) => item.order.id !== next?.id);
   const codOrders = codDue(orders);
   const codCount = codOrders.length;
@@ -839,36 +864,20 @@ export function CustomerHome({
   const showCodChip =
     codCount > 1 || (codCount === 1 && codOrders[0]?.id !== next?.id);
 
-  const activeCount = orders.filter((order) =>
-    ["pending", "assigned", "accepted", "picked_up", "in_transit"].includes(
-      order.status,
-    ),
-  ).length;
-  const latest = [...orders].sort((x, y) =>
-    y.created_at.localeCompare(x.created_at),
-  )[0];
+  const activeCount = activeOrders.length;
+
+  // A parcel on the way leads the page; booking another waits underneath.
+  const hasLive = isAuthenticated && next != null;
 
   return (
     <>
-      <PickupHero />
-
-      {isAuthenticated && showCodChip && (
-        <Box sx={{ px: 2, mt: 1.5 }}>
-          <Chip
-            clickable
-            onClick={onOpenCod}
-            icon={<PaymentsOutlined />}
-            label={`${codCount} COD ${codCount === 1 ? "payment" : "payments"} due`}
-            sx={{ ...toneSx("warning"), height: 36, borderRadius: "999px" }}
-          />
-        </Box>
-      )}
+      {!hasLive && <PickupHero />}
 
       <Box
         component="section"
         id="active-deliveries"
         aria-labelledby="active-deliveries-title"
-        sx={{ mt: 3, scrollMarginTop: 72 }}
+        sx={{ mt: hasLive ? 1 : 3, scrollMarginTop: 72 }}
       >
         <Stack
           direction="row"
@@ -881,7 +890,7 @@ export function CustomerHome({
             component="h2"
             sx={{ fontWeight: 750 }}
           >
-            Active deliveries
+            Your deliveries
           </Typography>
           {isAuthenticated && activeCount > 0 && (
             <Chip size="small" label={activeCount} sx={toneSx("info")} />
@@ -922,37 +931,6 @@ export function CustomerHome({
               </List>
             )}
           </>
-        ) : latest ? (
-          <Box sx={{ px: 2, mt: 1 }}>
-            <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-              Nothing on the way right now. Your latest delivery:
-            </Typography>
-            <ListItemButton
-              component={Link}
-              href={`/track?order=${encodeURIComponent(latest.id)}`}
-              sx={{
-                gap: 1.5,
-                minHeight: 64,
-                px: 1.5,
-                borderRadius: "16px",
-                bgcolor: "grey.100",
-              }}
-            >
-              <ListItemText
-                sx={{ m: 0, minWidth: 0 }}
-                primary={latest.delivery_address}
-                secondary={`${latest.tracking_code} · ${formatDateTime(latest.created_at)}`}
-                slotProps={{
-                  primary: {
-                    noWrap: true,
-                    sx: { fontWeight: 700, fontSize: 14 },
-                  },
-                  secondary: { noWrap: true, sx: { fontSize: 12 } },
-                }}
-              />
-              <StatusChip status={latest.status} />
-            </ListItemButton>
-          </Box>
         ) : (
           <Box sx={{ px: 2, mt: 1 }}>
             <ListItemButton
@@ -986,6 +964,82 @@ export function CustomerHome({
         )}
       </Box>
 
+      {isAuthenticated && historyOrders.length > 0 && (
+        <Box
+          component="section"
+          aria-labelledby="delivery-history-title"
+          sx={{ mt: 2 }}
+        >
+          <Stack
+            direction="row"
+            sx={{ alignItems: "center", px: 2, minHeight: 40 }}
+          >
+            <Typography
+              id="delivery-history-title"
+              variant="h6"
+              component="h2"
+              sx={{ fontWeight: 750 }}
+            >
+              History
+            </Typography>
+            <Button
+              component={Link}
+              href="/orders"
+              color="secondary"
+              endIcon={<ArrowForward />}
+              sx={{ ml: "auto", minHeight: 40, fontWeight: 700 }}
+            >
+              See all
+            </Button>
+          </Stack>
+          <List disablePadding sx={{ px: 2, display: "grid", gap: 1 }}>
+            {historyOrders.slice(0, 3).map((order) => (
+              <ListItem key={order.id} disablePadding>
+                <ListItemButton
+                  component={Link}
+                  href={`/track?order=${encodeURIComponent(order.id)}`}
+                  sx={{
+                    gap: 1.5,
+                    minHeight: 64,
+                    px: 1.5,
+                    borderRadius: "16px",
+                    bgcolor: "grey.100",
+                  }}
+                >
+                  <ListItemText
+                    sx={{ m: 0, minWidth: 0 }}
+                    primary={order.delivery_address}
+                    secondary={`${order.tracking_code} · ${formatDateTime(order.created_at)}`}
+                    slotProps={{
+                      primary: {
+                        noWrap: true,
+                        sx: { fontWeight: 700, fontSize: 14 },
+                      },
+                      secondary: { noWrap: true, sx: { fontSize: 12 } },
+                    }}
+                  />
+                  <StatusChip status={order.status} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      )}
+
+      {isAuthenticated && showCodChip && (
+        <Box sx={{ px: 2, mt: 2 }}>
+          <Chip
+            clickable
+            onClick={onOpenCod}
+            icon={<PaymentsOutlined />}
+            label={`${codCount} COD ${codCount === 1 ? "payment" : "payments"} due`}
+            sx={{ ...toneSx("warning"), height: 36, borderRadius: "999px" }}
+          />
+        </Box>
+      )}
+
+      {hasLive && <PickupRow />}
+
       <MoreShortcuts onOpenHelp={onOpenHelp} />
     </>
   );
@@ -993,970 +1047,31 @@ export function CustomerHome({
 
 /* ----------------------------------------------------------------- sheets */
 
-function Sheet({
-  open,
-  onClose,
-  titleId,
-  title,
-  children,
-  dock,
-}: {
-  open: boolean;
-  onClose: () => void;
-  titleId: string;
-  title: string;
-  children: ReactNode;
-  dock?: ReactNode;
-}) {
-  return (
-    <SwipeableDrawer
-      anchor="bottom"
-      open={open}
-      onClose={onClose}
-      onOpen={() => undefined}
-      disableSwipeToOpen
-      disableDiscovery
-      slotProps={{
-        paper: {
-          "aria-labelledby": titleId,
-          sx: {
-            maxWidth: 430,
-            mx: "auto",
-            maxHeight: "88dvh",
-            borderRadius: "28px 28px 0 0",
-            overscrollBehavior: "contain",
-          },
-        },
-      }}
-    >
-      <Box
-        sx={{
-          position: "sticky",
-          top: 0,
-          zIndex: 1,
-          bgcolor: "background.paper",
-          px: 2,
-          pt: 1,
-        }}
-      >
-        <Box
-          sx={{
-            width: 40,
-            height: 5,
-            mx: "auto",
-            borderRadius: "999px",
-            bgcolor: "text.secondary",
-            opacity: 0.4,
-          }}
-        />
-        <Stack
-          direction="row"
-          sx={{
-            alignItems: "center",
-            justifyContent: "space-between",
-            py: 0.5,
-          }}
-        >
-          <Typography
-            id={titleId}
-            variant="h6"
-            component="h2"
-            sx={{ fontWeight: 750 }}
-          >
-            {title}
-          </Typography>
-          <IconButton
-            onClick={onClose}
-            aria-label="Close"
-            sx={{ bgcolor: "grey.100" }}
-          >
-            <Close />
-          </IconButton>
-        </Stack>
-      </Box>
-      <Box
-        sx={{
-          px: 2,
-          pb: dock ? 0 : "calc(20px + env(safe-area-inset-bottom))",
-        }}
-      >
-        {children}
-      </Box>
-      {dock && (
-        <Box
-          sx={{
-            position: "sticky",
-            bottom: 0,
-            px: 2,
-            pt: 1.5,
-            pb: "calc(16px + env(safe-area-inset-bottom))",
-            background:
-              "linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 28%)",
-          }}
-        >
-          {dock}
-        </Box>
-      )}
-    </SwipeableDrawer>
-  );
-}
-
-const notifyIcon: Record<CustomerNotification["kind"], ReactNode> = {
-  missed: <WarningAmber />,
-  cod_due: <PaymentsOutlined />,
-  delivered: <CheckCircleOutlined />,
-  assigned: <PersonOutlined />,
-  arriving: <LocalShippingOutlined />,
-  out_for_delivery: <LocalShippingOutlined />,
-  collected: <LocalShippingOutlined />,
-};
-
-const notifyLabel: Record<CustomerNotification["kind"], string> = {
-  missed: "Delivery issue",
-  cod_due: "Payment",
-  delivered: "Delivered",
-  assigned: "Rider assigned",
-  arriving: "Arriving",
-  out_for_delivery: "On the way",
-  collected: "Collected",
-};
-
-function NotificationRow({
-  item,
-  unread,
-  onOpen,
-}: {
-  item: CustomerNotification;
-  unread: boolean;
-  onOpen: (id: string) => void;
-}) {
-  const high = item.priority === "high";
-  return (
-    <ListItem disablePadding>
-      <ListItemButton
-        component={Link}
-        href={`/track?order=${encodeURIComponent(item.orderId)}`}
-        onClick={() => onOpen(item.id)}
-        alignItems="flex-start"
-        sx={{
-          gap: 1.5,
-          px: 1.5,
-          py: 1.5,
-          borderRadius: "16px",
-          bgcolor: unread ? "background.paper" : "grey.100",
-          boxShadow: unread ? 1 : 0,
-        }}
-      >
-        <Badge
-          variant="dot"
-          color="error"
-          invisible={!unread}
-          overlap="circular"
-          sx={{ flex: "none" }}
-        >
-          <Avatar
-            sx={{
-              ...toneSx(high ? "warning" : "neutral"),
-              width: 40,
-              height: 40,
-            }}
-          >
-            {notifyIcon[item.kind]}
-          </Avatar>
-        </Badge>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Stack
-            direction="row"
-            spacing={0.75}
-            sx={{ alignItems: "center", flexWrap: "wrap" }}
-          >
-            <Chip
-              size="small"
-              label={notifyLabel[item.kind]}
-              sx={{
-                ...toneSx(high ? "warning" : "neutral"),
-                height: 22,
-                fontWeight: 650,
-              }}
-            />
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", ml: "auto !important" }}
-            >
-              {formatTime(item.at)}
-            </Typography>
-          </Stack>
-          <Typography
-            variant="body2"
-            sx={{ fontWeight: unread ? 750 : 650, mt: 0.75 }}
-          >
-            {item.title}
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{ color: "text.secondary", mt: 0.25 }}
-          >
-            {item.body}
-          </Typography>
-        </Box>
-      </ListItemButton>
-    </ListItem>
-  );
-}
-
-type NotificationFilter = "all" | "unread" | "important";
-
-/** Full-page notification inbox with unread and category badges. */
-export function NotificationsPage({
-  notifications,
-  isUnread,
-  isAuthenticated,
-  now,
-  onOpen,
-  onSignIn,
-}: {
-  notifications: CustomerNotification[];
-  isUnread: (item: CustomerNotification) => boolean;
-  isAuthenticated: boolean;
-  now: number;
-  onOpen: (id: string) => void;
-  onSignIn: () => void;
-}) {
-  const [filter, setFilter] = useState<NotificationFilter>("all");
-  const unreadCount = notifications.filter(isUnread).length;
-  const importantCount = notifications.filter(
-    (item) => item.priority === "high",
-  ).length;
-  const visible = notifications.filter((item) =>
-    filter === "unread"
-      ? isUnread(item)
-      : filter === "important"
-        ? item.priority === "high"
-        : true,
-  );
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const groups = [
-    {
-      id: "today",
-      title: "Today",
-      items: visible.filter(
-        (item) => Date.parse(item.at) >= startOfToday.getTime(),
-      ),
-    },
-    {
-      id: "earlier",
-      title: "Earlier",
-      items: visible.filter(
-        (item) => Date.parse(item.at) < startOfToday.getTime(),
-      ),
-    },
-  ].filter((group) => group.items.length > 0);
-
-  if (!isAuthenticated)
-    return (
-      <Stack
-        spacing={1.5}
-        sx={{ alignItems: "center", px: 2, py: 6, textAlign: "center" }}
-      >
-        <Box
-          component="img"
-          src="/icons/notifications.svg"
-          alt=""
-          sx={{ display: "block", width: 96, height: 96 }}
-        />
-        <Typography variant="h6" component="h2" sx={{ fontWeight: 750 }}>
-          Sign in for delivery updates
-        </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          Arrivals, payments and delivery issues show up here.
-        </Typography>
-        <Button
-          variant="contained"
-          color="secondary"
-          onClick={onSignIn}
-          sx={{ minHeight: 44 }}
-        >
-          Sign in
-        </Button>
-      </Stack>
-    );
-
-  const filters: { id: NotificationFilter; label: string; count: number }[] = [
-    { id: "all", label: "All", count: 0 },
-    { id: "unread", label: "Unread", count: unreadCount },
-    { id: "important", label: "Important", count: importantCount },
-  ];
-
-  return (
-    <Box sx={{ px: 2, pb: 3 }}>
-      <Stack
-        direction="row"
-        spacing={1}
-        role="group"
-        aria-label="Filter notifications"
-        sx={{ mt: 0.5 }}
-      >
-        {filters.map((item) => {
-          const selected = filter === item.id;
-          return (
-            <Chip
-              key={item.id}
-              clickable
-              onClick={() => setFilter(item.id)}
-              aria-pressed={selected}
-              label={
-                <Stack
-                  direction="row"
-                  spacing={0.75}
-                  sx={{ alignItems: "center" }}
-                >
-                  <span>{item.label}</span>
-                  {item.count > 0 && (
-                    <Box
-                      component="span"
-                      sx={{
-                        minWidth: 20,
-                        height: 20,
-                        px: 0.5,
-                        borderRadius: "999px",
-                        display: "inline-grid",
-                        placeItems: "center",
-                        typography: "caption",
-                        fontWeight: 750,
-                        bgcolor: selected ? "background.paper" : "error.main",
-                        color: selected
-                          ? "secondary.main"
-                          : "error.contrastText",
-                      }}
-                    >
-                      {item.count > 9 ? "9+" : item.count}
-                    </Box>
-                  )}
-                </Stack>
-              }
-              sx={{
-                height: 40,
-                borderRadius: "999px",
-                fontWeight: 650,
-                bgcolor: selected ? "secondary.main" : "grey.100",
-                color: selected ? "secondary.contrastText" : "text.primary",
-                "&:hover": {
-                  bgcolor: selected ? "secondary.main" : "grey.200",
-                },
-              }}
-            />
-          );
-        })}
-      </Stack>
-
-      {groups.length === 0 ? (
-        <Stack
-          spacing={1}
-          sx={{ alignItems: "center", py: 6, textAlign: "center" }}
-        >
-          <Box
-            component="img"
-            src="/icons/notifications.svg"
-            alt=""
-            sx={{ display: "block", width: 96, height: 96 }}
-          />
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {notifications.length === 0
-              ? "You’re all caught up. Delivery updates will appear here."
-              : filter === "unread"
-                ? "No unread notifications."
-                : "Nothing needs your attention."}
-          </Typography>
-        </Stack>
-      ) : (
-        groups.map((group) => (
-          <Box
-            component="section"
-            key={group.id}
-            aria-labelledby={`notifications-${group.id}`}
-            sx={{ mt: 2.5 }}
-          >
-            <Typography
-              id={`notifications-${group.id}`}
-              variant="subtitle2"
-              component="h2"
-              sx={{ color: "text.secondary", fontWeight: 700, mb: 1 }}
-            >
-              {group.title}
-            </Typography>
-            <List
-              disablePadding
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr)",
-                gap: 1,
-              }}
-            >
-              {group.items.map((item) => (
-                <NotificationRow
-                  key={item.id}
-                  item={item}
-                  unread={isUnread(item)}
-                  onOpen={onOpen}
-                />
-              ))}
-            </List>
-          </Box>
-        ))
-      )}
-    </Box>
-  );
-}
-
-const faqs = [
-  {
-    q: "Why can’t I see my rider’s location?",
-    a: "Live location starts after your rider collects the parcel. If the signal drops, the map shows the last known point.",
-  },
-  {
-    q: "What if I miss the delivery?",
-    a: "The parcel is marked “Delivery issue” and you’ll see it under Notifications. Open the parcel for the latest status.",
-  },
-  {
-    q: "How does cash on delivery work?",
-    a: "Have the exact amount ready. Your rider records the payment when they hand over the parcel.",
-  },
-];
-
-const HELP_TOPICS = [
-  "Late or missing parcel",
-  "Wrong address or landmark",
-  "Damaged parcel",
-  "Cash on delivery",
-  "Something else",
-] as const;
-
-/**
- * One place for help: quick fixes first (call the rider, check status), then
- * a request that reaches the support team's case queue with the parcel
- * attached, so nobody has to retype the tracking code.
- */
-export function HelpSheet({
-  open,
-  order,
-  requesterId,
-  showStatusLink = true,
-  onSignIn,
-  onClose,
-}: {
-  open: boolean;
-  order: DeliveryOrder | null;
-  /** Signed-in customer's id; requests need an account to follow up on. */
-  requesterId: string | null;
-  /** Off on the parcel's own Track page, where the status is already shown. */
-  showStatusLink?: boolean;
-  onSignIn: () => void;
-  onClose: () => void;
-}) {
-  const [topic, setTopic] = useState<(typeof HELP_TOPICS)[number] | null>(null);
-  const [details, setDetails] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(
-    "idle",
-  );
-  const [error, setError] = useState<string | null>(null);
-  const realOrder = order && !order.id.startsWith("demo-") ? order : null;
-  const canCall =
-    !!order?.driver_phone &&
-    !!order.driver_id &&
-    !["delivered", "failed", "cancelled"].includes(order.status);
-
-  function close() {
-    if (state === "sent") {
-      setTopic(null);
-      setDetails("");
-      setState("idle");
-    }
-    setError(null);
-    onClose();
-  }
-
-  async function send(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!requesterId || !topic || !details.trim()) return;
-    setState("sending");
-    setError(null);
-    try {
-      await createSupportCase(createClient(), {
-        requesterId,
-        orderId: realOrder?.id,
-        subject: realOrder ? `${topic} · ${realOrder.tracking_code}` : topic,
-        description: details,
-        priority: topic === "Late or missing parcel" ? "high" : "normal",
-      });
-      setState("sent");
-    } catch (cause) {
-      setState("error");
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "We couldn’t send your request. Try again.",
-      );
-    }
-  }
-
-  const rowSx = {
-    minHeight: 60,
-    gap: 1.5,
-    border: 1,
-    borderColor: "divider",
-    borderRadius: "16px",
-  } as const;
-
-  return (
-    <Sheet open={open} onClose={close} titleId="help-title" title="Get help">
-      {order && (
-        <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
-          About parcel <strong>{order.tracking_code}</strong>
-        </Typography>
-      )}
-      {(canCall || (order && showStatusLink)) && (
-        <List
-          disablePadding
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr)",
-            gap: 1,
-            mb: 2,
-          }}
-        >
-          {canCall && order?.driver_phone && (
-            <ListItem disablePadding>
-              <ListItemButton
-                component="a"
-                href={`tel:${order.driver_phone}`}
-                sx={rowSx}
-              >
-                <PhoneOutlined />
-                <ListItemText
-                  primary="Call your rider"
-                  secondary={order.driver_name ?? "Assigned rider"}
-                  slotProps={{ primary: { sx: { fontWeight: 700 } } }}
-                />
-              </ListItemButton>
-            </ListItem>
-          )}
-          {order && showStatusLink && (
-            <ListItem disablePadding>
-              <ListItemButton
-                component={Link}
-                href={`/track?order=${encodeURIComponent(order.id)}`}
-                onClick={close}
-                sx={rowSx}
-              >
-                <TrackChangesOutlined />
-                <ListItemText
-                  primary="Check the latest status"
-                  secondary="Timeline, estimate and rider location"
-                  slotProps={{ primary: { sx: { fontWeight: 700 } } }}
-                />
-              </ListItemButton>
-            </ListItem>
-          )}
-        </List>
-      )}
-
-      {state === "sent" ? (
-        <Alert
-          severity="success"
-          icon={<CheckCircleOutlined />}
-          sx={{ borderRadius: "12px" }}
-        >
-          Request sent. Our support team will follow up on your account
-          {realOrder ? ` about ${realOrder.tracking_code}` : ""}.
-        </Alert>
-      ) : (
-        <Box component="form" onSubmit={send}>
-          <Typography
-            variant="subtitle1"
-            component="h3"
-            sx={{ fontWeight: 750 }}
-          >
-            Contact support
-          </Typography>
-          <Stack
-            direction="row"
-            role="radiogroup"
-            aria-label="What’s the problem?"
-            sx={{ flexWrap: "wrap", gap: 1, mt: 1 }}
-          >
-            {HELP_TOPICS.map((item) => {
-              const selected = topic === item;
-              return (
-                <Chip
-                  key={item}
-                  role="radio"
-                  aria-checked={selected}
-                  clickable
-                  label={item}
-                  onClick={() => setTopic(item)}
-                  icon={selected ? <CheckCircleOutlined /> : undefined}
-                  sx={{
-                    height: 40,
-                    borderRadius: "999px",
-                    fontWeight: 650,
-                    bgcolor: selected ? "secondary.main" : "grey.100",
-                    color: selected ? "secondary.contrastText" : "text.primary",
-                    "& .MuiChip-icon": { color: "inherit" },
-                    "&:hover": {
-                      bgcolor: selected ? "secondary.main" : "grey.200",
-                    },
-                  }}
-                />
-              );
-            })}
-          </Stack>
-          <OutlinedInput
-            fullWidth
-            multiline
-            minRows={3}
-            value={details}
-            onChange={(event) => setDetails(event.target.value)}
-            placeholder="What happened? Add anything the rider or support should know."
-            inputProps={{
-              "aria-label": "Describe the problem",
-              maxLength: 1000,
-            }}
-            sx={{ mt: 1.5, bgcolor: "background.paper" }}
-          />
-          {error && (
-            <Alert severity="error" sx={{ mt: 1.5, borderRadius: "12px" }}>
-              {error}
-            </Alert>
-          )}
-          {requesterId ? (
-            <Button
-              fullWidth
-              type="submit"
-              variant="contained"
-              size="large"
-              disabled={!topic || !details.trim() || state === "sending"}
-              sx={{ mt: 1.5, minHeight: 52 }}
-            >
-              {state === "sending" ? "Sending…" : "Send to support"}
-            </Button>
-          ) : (
-            <Button
-              fullWidth
-              variant="contained"
-              color="secondary"
-              size="large"
-              onClick={onSignIn}
-              sx={{ mt: 1.5, minHeight: 52 }}
-            >
-              Sign in to contact support
-            </Button>
-          )}
-        </Box>
-      )}
-
-      <Box sx={{ mt: 2.5, borderTop: 1, borderColor: "divider" }}>
-        {faqs.map((faq) => (
-          <Accordion
-            key={faq.q}
-            disableGutters
-            square
-            elevation={0}
-            sx={{
-              borderBottom: 1,
-              borderColor: "divider",
-              "&::before": { display: "none" },
-            }}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMore />}
-              sx={{ minHeight: 48, px: 0 }}
-            >
-              <Typography sx={{ fontWeight: 600 }}>{faq.q}</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ px: 0, pt: 0 }}>
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                {faq.a}
-              </Typography>
-            </AccordionDetails>
-          </Accordion>
-        ))}
-      </Box>
-    </Sheet>
-  );
-}
-
-/* ------------------------------------------------------------ track search */
-
-/* ------------------------------------------------------------- scan sheet */
-
-type BarcodeDetectorLike = {
-  detect(source: CanvasImageSource): Promise<{ rawValue: string }[]>;
-};
-type BarcodeDetectorCtor = new (options?: {
-  formats?: string[];
-}) => BarcodeDetectorLike;
-
-/** Pulls a tracking number out of a scanned QR code or barcode. */
-export function codeFromScan(raw: string) {
-  const value = raw.trim();
-  try {
-    const url = new URL(value);
-    return (
-      url.searchParams.get("code") ??
-      url.pathname.split("/").filter(Boolean).at(-1) ??
-      value
-    );
-  } catch {
-    return value;
-  }
-}
-
-function ScanView({ onDetected }: { onDetected: (code: string) => void }) {
-  const video = useRef<HTMLVideoElement>(null);
-  const handleDetected = useEffectEvent(onDetected);
-  const [status, setStatus] = useState<
-    "starting" | "scanning" | "blocked" | "unsupported"
-  >("starting");
-
-  useEffect(() => {
-    const Detector = (
-      window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }
-    ).BarcodeDetector;
-    if (!Detector || !navigator.mediaDevices?.getUserMedia) {
-      setStatus("unsupported");
-      return;
-    }
-    let stream: MediaStream | null = null;
-    let timer = 0;
-    let cancelled = false;
-    let finished = false;
-    const detector = new Detector({
-      formats: ["qr_code", "code_128", "code_39", "ean_13", "data_matrix"],
-    });
-
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "environment" } })
-      .then(async (media) => {
-        if (cancelled) {
-          for (const track of media.getTracks()) track.stop();
-          return;
-        }
-        stream = media;
-        const element = video.current;
-        if (!element) return;
-        element.srcObject = media;
-        await element.play();
-        setStatus("scanning");
-        timer = window.setInterval(async () => {
-          try {
-            const found = await detector.detect(element);
-            const value = found[0]?.rawValue;
-            if (value && !finished) {
-              finished = true;
-              handleDetected(codeFromScan(value));
-            }
-          } catch {
-            // A frame can fail to decode; the next one usually works.
-          }
-        }, 350);
-      })
-      .catch(() => setStatus("blocked"));
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-      if (stream) for (const track of stream.getTracks()) track.stop();
-    };
-  }, []);
-
-  if (status === "unsupported" || status === "blocked")
-    return (
-      <Alert severity="info" icon={false} sx={{ borderRadius: "12px", mb: 2 }}>
-        {status === "blocked"
-          ? "Camera access was blocked. Allow it in your browser settings, or type the tracking number instead."
-          : "This browser can’t scan codes. Type or paste the tracking number instead."}
-      </Alert>
-    );
-
-  return (
-    <Box sx={{ pb: "calc(20px + env(safe-area-inset-bottom))" }}>
-      <Box
-        sx={{
-          position: "relative",
-          overflow: "hidden",
-          borderRadius: "20px",
-          bgcolor: "secondary.main",
-          aspectRatio: "4 / 3",
-        }}
-      >
-        <video
-          ref={video}
-          muted
-          playsInline
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-        <Box
-          sx={{
-            position: "absolute",
-            inset: "18% 14%",
-            border: "3px solid #fff",
-            borderRadius: "16px",
-            boxShadow: "0 0 0 999px rgb(23 43 77 / 0.35)",
-          }}
-        />
-      </Box>
-      <Typography
-        variant="body2"
-        sx={{ mt: 1.5, textAlign: "center", color: "text.secondary" }}
-      >
-        {status === "starting"
-          ? "Starting camera…"
-          : "Point the camera at the parcel’s QR code or barcode."}
-      </Typography>
-    </Box>
-  );
-}
-
-export function ScanSheet({
-  open,
-  onClose,
-  onDetected,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onDetected: (code: string) => void;
-}) {
-  // The camera stays off until the person asks for it.
-  const [cameraOn, setCameraOn] = useState(false);
-
-  function close() {
-    setCameraOn(false);
-    onClose();
-  }
-
-  return (
-    <Sheet open={open} onClose={close} titleId="scan-title" title="Scan parcel">
-      {cameraOn ? (
-        <ScanView onDetected={onDetected} />
-      ) : (
-        <Stack
-          spacing={1.5}
-          sx={{ pb: "calc(20px + env(safe-area-inset-bottom))" }}
-        >
-          <Typography sx={{ color: "text.secondary" }}>
-            Your camera is off. Turn it on only when you want to scan a parcel’s
-            QR code or barcode.
-          </Typography>
-          <Button
-            fullWidth
-            variant="contained"
-            size="large"
-            startIcon={<QrCodeScannerOutlined />}
-            onClick={() => setCameraOn(true)}
-            sx={{ minHeight: 52 }}
-          >
-            Turn on camera to scan
-          </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            color="inherit"
-            onClick={close}
-            sx={{ minHeight: 48 }}
-          >
-            Type the number instead
-          </Button>
-        </Stack>
-      )}
-    </Sheet>
-  );
-}
-
-/* --------------------------------------------------------------- cod sheet */
-
-export function CodSheet({
-  open,
-  orders,
-  onClose,
-}: {
-  open: boolean;
-  orders: DeliveryOrder[];
-  onClose: () => void;
-}) {
-  const total = orders.reduce((sum, order) => sum + order.cod_amount, 0);
-  return (
-    <Sheet open={open} onClose={onClose} titleId="cod-title" title="COD due">
-      {orders.length === 0 ? (
-        <Typography sx={{ pb: 2, color: "text.secondary" }}>
-          No cash payments are due right now.
-        </Typography>
-      ) : (
-        <>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              mb: 1.5,
-              borderRadius: "16px",
-              bgcolor: "warning.light",
-            }}
-          >
-            <Typography variant="body2" sx={{ color: "warning.dark" }}>
-              Total payable on delivery
-            </Typography>
-            <Typography
-              variant="h5"
-              sx={{ fontWeight: 750, color: "warning.dark" }}
-            >
-              {currency.format(total)}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "warning.dark" }}>
-              Pay your rider when each parcel arrives.
-            </Typography>
-          </Paper>
-          <List
-            disablePadding
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr)",
-              gap: 1,
-              pb: "calc(20px + env(safe-area-inset-bottom))",
-            }}
-          >
-            {orders.map((order) => (
-              <ListItem disablePadding key={order.id}>
-                <ListItemButton
-                  component={Link}
-                  href={`/track?order=${encodeURIComponent(order.id)}`}
-                  onClick={onClose}
-                  sx={{
-                    gap: 1.5,
-                    minHeight: 64,
-                    border: 1,
-                    borderColor: "divider",
-                    borderRadius: "16px",
-                  }}
-                >
-                  <ListItemText
-                    primary={order.tracking_code}
-                    secondary={currency.format(order.cod_amount)}
-                    slotProps={{
-                      primary: { sx: { fontWeight: 700, fontSize: 14 } },
-                      secondary: { sx: { fontSize: 13 } },
-                    }}
-                    sx={{ m: 0 }}
-                  />
-                  <StatusChip status={order.status} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        </>
-      )}
-    </Sheet>
-  );
-}
+export { CodSheet, type CodSheetProps } from "@/components/delivery/cod-sheet";
+export {
+  CustomerSheet,
+  type CustomerSheetProps,
+  Sheet,
+} from "@/components/delivery/customer-sheet";
+export {
+  faqs,
+  HELP_TOPICS,
+  HelpSheet,
+  type HelpSheetProps,
+  type HelpTopic,
+} from "@/components/delivery/help-sheet";
+export {
+  type NotificationFilter,
+  NotificationRow,
+  NotificationsPage,
+  type NotificationsPageProps,
+} from "@/components/delivery/notifications-page";
+export {
+  codeFromScan,
+  ScanSheet,
+  type ScanSheetProps,
+  ScanView,
+} from "@/components/delivery/scan-sheet";
 
 /* ------------------------------------------------------------- track extras */
 
@@ -2024,7 +1139,9 @@ export function ParcelSwitcher({
 export function HomeSkeleton() {
   return (
     <Box aria-busy="true" sx={pageGutter}>
-      <span className="sr-only">Loading your deliveries…</span>
+      <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+        <Loader label="Loading your deliveries…" />
+      </Box>
       <Skeleton
         variant="rounded"
         height={188}

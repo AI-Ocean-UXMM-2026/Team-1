@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "biome check",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "traffic:editor": "node scripts/traffic-editor.mjs",
     "format": "biome format --write",
     "playground:classifier": "bun playground/backend.js",
     "test:e2e": "playwright test"
@@ -48,5 +49,8 @@
   "trustedDependencies": [
     "sharp",
     "unrs-resolver"
-  ]
+  ],
+  "patchedDependencies": {
+    "@mui/material@9.5.0": "patches/@mui%2Fmaterial@9.5.0.patch"
+  }
 }

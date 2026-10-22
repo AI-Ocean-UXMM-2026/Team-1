@@ -103,6 +103,12 @@ Maps use Mapbox GL for road routes and drive times. Add a public Mapbox token to
 NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_public_token
 ```
 
+Route planning (`POST /api/dispatch/plan`) calls the Mapbox Matrix API from the server. Prefer a server-only token so it is not exposed to browsers; if it is unset the public token is used, and with neither the planner falls back to labelled straight-line estimates:
+
+```bash
+MAPBOX_SERVER_TOKEN=your_mapbox_server_token
+```
+
 ## Supabase
 
 The app connects to Supabase through browser and server clients. Copy the following variables into the root `.env.local` file and use the project-specific values from the Supabase dashboard:

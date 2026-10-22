@@ -13,7 +13,8 @@ as $$
   with target as (
     select o.*
     from public.delivery_orders o
-    where o.tracking_code = lower(regexp_replace(coalesce(code, ''), '[^A-Za-z0-9]', '', 'g'))
+    where lower(regexp_replace(o.tracking_code, '[^A-Za-z0-9]', '', 'g')) = lower(regexp_replace(coalesce(code, ''), '[^A-Za-z0-9]', '', 'g'))
+       or (coalesce(code, '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and o.id = code::uuid)
     limit 1
   ),
   assignment as (

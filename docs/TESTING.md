@@ -132,9 +132,10 @@ The seed requires one manager profile, two customer profiles, and at least one d
 
 1. Sign in as a customer at `/`.
 2. Sign in as a manager at `/manager` in another browser profile.
-3. Create an order for the customer with pickup and destination map pins.
-4. Confirm the order appears for the customer without exposing another customer's orders.
-5. Review the recommended rider and vehicle, then save the assignment.
+3. Open `/pickup` as the customer and submit pickup, destination, recipient, parcel, and COD details.
+4. Confirm the real tracking code appears and the order is `pending`.
+5. Confirm the order appears in the manager dashboard as unassigned without exposing another customer's orders.
+6. Review the recommended rider and vehicle, then save the assignment.
 
 ### Rider tracking and ETA
 

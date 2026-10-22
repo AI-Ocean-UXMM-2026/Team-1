@@ -6,7 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 
-import { Mascot } from "@/components/delivery/mascot";
+import { BrandMark } from "@/components/delivery/common";
 
 export function WelcomeScreen() {
   const router = useRouter();
@@ -14,6 +14,8 @@ export function WelcomeScreen() {
   return (
     <Box
       sx={{
+        position: "relative",
+        overflow: "hidden",
         minHeight: "100dvh",
         display: "flex",
         flexDirection: "column",
@@ -32,9 +34,44 @@ export function WelcomeScreen() {
           alignItems: "center",
           justifyContent: "center",
           textAlign: "center",
+          position: "relative",
+          zIndex: 1,
         }}
       >
-        <Mascot size={240} />
+        <Box className="welcome-route-art" aria-hidden="true">
+          <svg viewBox="0 0 360 180" role="presentation">
+            <path
+              className="welcome-route-road"
+              d="M22 144C78 48 126 156 178 91S268 34 338 54"
+            />
+            <path
+              className="welcome-route-line"
+              d="M22 144C78 48 126 156 178 91S268 34 338 54"
+            />
+            <circle className="welcome-route-pulse" cx="338" cy="54" r="12" />
+            <circle
+              className="welcome-route-pulse welcome-route-pulse-delay"
+              cx="338"
+              cy="54"
+              r="12"
+            />
+            <circle className="welcome-route-pickup" cx="22" cy="144" r="10" />
+            <circle
+              className="welcome-route-destination"
+              cx="338"
+              cy="54"
+              r="10"
+            />
+            <circle className="welcome-route-rider" cx="178" cy="91" r="7">
+              <animateMotion
+                dur="5s"
+                repeatCount="indefinite"
+                path="M-156 53 C-100 -43 -52 65 0 0 S90 -57 160 -37"
+              />
+            </circle>
+          </svg>
+        </Box>
+        <BrandMark size={200} />
         <Typography
           component="h1"
           sx={{
@@ -59,7 +96,7 @@ export function WelcomeScreen() {
           variant="contained"
           color="primary"
           size="large"
-          onClick={() => router.push("/home")}
+          onClick={() => router.push("/signup")}
           sx={{ minHeight: 56 }}
         >
           Get started
@@ -68,7 +105,7 @@ export function WelcomeScreen() {
           variant="outlined"
           color="secondary"
           size="large"
-          onClick={() => router.push("/home?signin=1")}
+          onClick={() => router.push("/signin")}
           sx={{ minHeight: 56, borderWidth: 1.5 }}
         >
           I already have an account
@@ -79,7 +116,8 @@ export function WelcomeScreen() {
           variant="caption"
           sx={{ textAlign: "center", color: "text.secondary", pt: 0.5 }}
         >
-          Rider or Oern staff? Sign in with your team account above.
+          Riders and Oern staff: use “I already have an account” with your team
+          login.
         </Typography>
       </Stack>
     </Box>

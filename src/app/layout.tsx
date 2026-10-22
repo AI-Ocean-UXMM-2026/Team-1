@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "./loader.css";
 import "./globals-late.css";
 import "./form-fields.css";
 import "./audit-fixes.css";
@@ -17,6 +18,7 @@ const inter = localFont({
   ],
   variable: "--font-inter",
   display: "swap",
+  preload: false,
 });
 const notoSansMyanmar = localFont({
   src: [
@@ -35,12 +37,14 @@ const notoSansMyanmar = localFont({
   ],
   variable: "--font-myanmar",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
   title: "Oern — Delivery, in full view",
   description:
     "Follow your parcel from rider pickup to arrival with live location, delivery updates, and clear handoffs.",
+  icons: { icon: "/brand/oern-logo.png", apple: "/brand/oern-logo.png" },
 };
 
 export const viewport: Viewport = {

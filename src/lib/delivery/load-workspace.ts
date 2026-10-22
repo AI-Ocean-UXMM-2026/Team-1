@@ -297,7 +297,9 @@ export async function loadWorkspace(
     const vehicleId = assignment?.vehicle_id ?? null;
     const driver = driverId ? profileById.get(driverId) : null;
     const vehicle = vehicleId ? vehicleById.get(vehicleId) : null;
-    const customer = profileById.get(order.customer_id);
+    const customer = order.customer_id
+      ? profileById.get(order.customer_id)
+      : null;
 
     return {
       id: order.id,
@@ -305,6 +307,7 @@ export async function loadWorkspace(
       customer_id: order.customer_id,
       customer_name:
         customer?.full_name ||
+        order.pickup_contact_name ||
         (requestedRole === "customer" ? "Your delivery" : "Customer"),
       status: order.status as DeliveryStatus,
       pickup_address: order.pickup_address,

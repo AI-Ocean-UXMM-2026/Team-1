@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@mui/material/Button";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -15,10 +16,15 @@ import {
   HomeSkeleton,
   NotificationsPage,
   ParcelSwitcher,
-  ScanSheet,
   TrackingLookup,
   TrackLookupNotice,
 } from "@/components/delivery/customer-home";
+
+const ScanSheet = dynamic(
+  () => import("@/components/delivery/scan-sheet").then((mod) => mod.ScanSheet),
+  { ssr: false },
+);
+
 import {
   CustomerBottomNav,
   EmptyState,
@@ -43,6 +49,7 @@ import {
 import { prioritiseOrders } from "@/lib/delivery/format";
 import {
   hasCollectedParcel,
+  isRecentLocation,
   parcelLocationState,
 } from "@/lib/delivery/location-state";
 import {
@@ -73,7 +80,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   const [lookupMiss, setLookupMiss] = useState<string | null>(null);
   const [publicHit, setPublicHit] = useState<PublicTracking | null>(null);
   const urlHandled = useRef(false);
-  const [orderFilter, setOrderFilter] = useState<OrderFilter>("all");
+  const [orderFilter, setOrderFilter] = useState<OrderFilter>("active");
   const orders = useMemo(
     () => prioritiseOrders(workspace.data.orders),
     [workspace.data.orders],
@@ -249,9 +256,10 @@ export function CustomerApp({ view }: { view: CustomerView }) {
 
   useEffect(() => {
     setNow(Date.now());
+    if (view !== "home" && view !== "track") return;
     const timer = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [view]);
 
   const locationState = parcelLocationState(selectedOrder, now);
   const showsDemo = workspace.isDemo && !publicHit;
@@ -262,7 +270,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       : locationState === "closed"
         ? "Location sharing has ended"
         : locationState === "stale"
-          ? "Showing the last known location"
+          ? isRecentLocation(selectedOrder, now)
+            ? "Your rider’s latest location"
+            : "Showing the last known location"
           : selectedOrder && hasCollectedParcel(selectedOrder.status)
             ? "Waiting for the rider’s first location"
             : "Live location starts at pickup";
@@ -273,7 +283,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       : locationState === "closed"
         ? "Your delivery’s final status remains available below."
         : locationState === "stale"
-          ? "A fresh GPS point has not arrived yet. The rider may have lost connection."
+          ? isRecentLocation(selectedOrder, now)
+            ? "The map refreshes on its own every few seconds."
+            : "No new GPS point for a few minutes. The rider may have lost connection."
           : selectedOrder && hasCollectedParcel(selectedOrder.status)
             ? "Your parcel is collected. The map will update when your rider shares a GPS point."
             : "Your rider’s location becomes available after they receive the parcel.";
