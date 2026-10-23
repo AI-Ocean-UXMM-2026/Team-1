@@ -28,6 +28,7 @@ import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { useRouter } from "next/navigation";
 import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -37,7 +38,6 @@ import {
   useRef,
   useState,
 } from "react";
-
 import { toneSx } from "@/components/delivery/customer-home";
 import { LocationMap } from "@/components/delivery/location-map";
 import { PaymentLogo } from "@/components/delivery/payment-logos";
@@ -267,6 +267,7 @@ function PayBalanceOnline({
   onPaid?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
   const [method, setMethod] = useState<"mmqr" | "cash">("mmqr");
   const [code, setCode] = useState("");
   const [usePoints, setUsePoints] = useState(false);
@@ -474,22 +475,38 @@ function PayBalanceOnline({
         value={method}
         onChange={(event) => setMethod(event.target.value as "mmqr" | "cash")}
       >
-        <FormControlLabel
-          value="mmqr"
-          control={<Radio />}
-          sx={{ alignItems: "flex-start", m: 0, minHeight: 48 }}
-          label={
-            <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
-              <PaymentLogo method="mmqr" size={32} />
-              <Box>
-                <Typography sx={{ fontWeight: 700 }}>MMQR</Typography>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  Any bank or wallet app: {MMQR_APPS.join(", ")}
-                </Typography>
-              </Box>
+        <Box sx={{ mb: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() =>
+              router.push(
+                `/track/qr?code=${encodeURIComponent(order.tracking_code)}&amount=${order.cod_amount}`,
+              )
+            }
+            sx={{
+              textTransform: "none",
+              borderColor: "#cbd5e1",
+              color: "#172b4d",
+              minHeight: 48,
+              width: "100%",
+              justifyContent: "flex-start",
+              gap: 1.5,
+              backgroundColor: "transparent",
+              "&:hover": {
+                backgroundColor: "#f1f5f9",
+                borderColor: "#94a3b8",
+              },
+            }}
+          >
+            <PaymentLogo method="mmqr" size={32} />
+            <Box sx={{ textAlign: "left" }}>
+              <Typography sx={{ fontWeight: 700 }}>Pay with MMQR</Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                Any bank or wallet app: {MMQR_APPS.join(", ")}
+              </Typography>
             </Box>
-          }
-        />
+          </Button>
+        </Box>
         <FormControlLabel
           value="cash"
           control={<Radio />}
@@ -506,6 +523,30 @@ function PayBalanceOnline({
           }
         />
       </RadioGroup>
+      <Button
+        variant="outlined"
+        onClick={() =>
+          router.push(
+            `/track/qr?code=${encodeURIComponent(order.tracking_code)}&amount=${order.cod_amount}`,
+          )
+        }
+        sx={{
+          textTransform: "none",
+          borderColor: "#cbd5e1",
+          color: "#172b4d",
+          minHeight: 48,
+          justifyContent: "flex-start",
+          gap: 1.5,
+          backgroundColor: "transparent",
+          "&:hover": {
+            backgroundColor: "#f1f5f9",
+            borderColor: "#94a3b8",
+          },
+        }}
+      >
+        <PaymentLogo method="mmqr" size={24} />
+        Open QR page
+      </Button>
       {method === "mmqr" ? (
         <>
           <Box

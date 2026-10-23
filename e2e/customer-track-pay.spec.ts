@@ -45,8 +45,7 @@ test("a pay link opens MMQR with CTZPay inside it, and cash as the other option"
   await openPayment(page);
 
   await expect(page.getByText(/How would you like to pay/)).toBeVisible();
-  const mmqr = page.getByRole("radio", { name: /MMQR/ });
-  await expect(mmqr).toBeChecked();
+  await expect(page.getByRole("button", { name: /Pay with MMQR/ })).toBeVisible();
   await expect(page.getByText(/CTZPay, KBZPay/)).toBeVisible();
   await expect(
     page.getByText(/CTZPay or any participating bank and wallet app/),
