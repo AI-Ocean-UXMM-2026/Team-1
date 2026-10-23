@@ -17,6 +17,8 @@ import {
   generateMMQRQRCode,
   type MMQRQRCode,
 } from "@/lib/delivery/mmqr-sdk";
+import { sandboxPayOrder } from "@/lib/delivery/actions";
+import { createClient } from "@/lib/supabase/client";
 
 export default function TrackQrPage() {
   const params = useSearchParams();
@@ -65,10 +67,18 @@ export default function TrackQrPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Wait 2s after QR finishes loading, then redirect and set as confirmed
+  // Wait 2s after QR finishes loading, then set as paid and redirect
   useEffect(() => {
     if (!qrLoading && qr) {
-      const t = setTimeout(() => {
+      const t = setTimeout(async () => {
+        try {
+          // Mark payment as paid in sandbox
+          const supabase = createClient();
+          await sandboxPayOrder(supabase, code, "mmqr");
+        } catch (err) {
+          console.error("Failed to mark order as paid:", err);
+        }
+        
         setSuccess(true);
         // Redirect back after confirmation
         setTimeout(() => {
@@ -77,7 +87,7 @@ export default function TrackQrPage() {
       }, 2000);
       return () => clearTimeout(t);
     }
-  }, [qrLoading, qr, router]);
+  }, [qrLoading, qr, router, code]);
 
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
@@ -149,20 +159,16 @@ export default function TrackQrPage() {
         </IconButton>
       </Box>
 
-      {/* MMQR Icon - centered above title */}
+      {/* MMQR Logo - centered above title */}
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          width: 64,
-          height: 64,
-          borderRadius: "50%",
-          backgroundColor: "#dbeafe",
-          color: "#2563eb",
+          mb: 2,
         }}
       >
-        <QrCodeScannerOutlined sx={{ fontSize: 36 }} />
+        <PaymentLogo method="mmqr" size={64} />
       </Box>
 
       <Typography variant="h6" sx={{ fontWeight: 750 }}>

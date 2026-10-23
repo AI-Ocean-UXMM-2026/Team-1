@@ -466,64 +466,11 @@ function PayBalanceOnline({
           )}
         </>
       )}
-      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
         How would you like to pay {amount}?
       </Typography>
-      <Box sx={{ mb: 1 }}>
-        <Button
-          variant="text"
-          onClick={() =>
-            router.push(
-              `/track/qr?code=${encodeURIComponent(order.tracking_code)}&amount=${order.cod_amount}`,
-            )
-          }
-          sx={{
-            textTransform: "none",
-            color: "#172b4d",
-            minHeight: 48,
-            width: "100%",
-            justifyContent: "flex-start",
-            gap: 1.5,
-            backgroundColor: "transparent",
-            padding: 0,
-            "&:hover": {
-              backgroundColor: "transparent",
-              color: "#0f172a",
-            },
-          }}
-        >
-          <PaymentLogo method="mmqr" size={32} />
-          <Box sx={{ textAlign: "left" }}>
-            <Typography sx={{ fontWeight: 700 }}>Pay with MMQR</Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              Any bank or wallet app: {MMQR_APPS.join(", ")}
-            </Typography>
-          </Box>
-        </Button>
-      </Box>
-      <RadioGroup
-        aria-label="Payment option"
-        value={method}
-        onChange={(event) => setMethod(event.target.value as "mmqr" | "cash")}
-      >
-        <FormControlLabel
-          value="cash"
-          control={<Radio />}
-          sx={{ alignItems: "flex-start", m: 0, minHeight: 48 }}
-          label={
-            <Box>
-              <Typography sx={{ fontWeight: 700 }}>
-                Cash to the rider
-              </Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Have exact cash ready on arrival
-              </Typography>
-            </Box>
-          }
-        />
-      </RadioGroup>
       <Button
-        variant="outlined"
+        variant="contained"
         onClick={() =>
           router.push(
             `/track/qr?code=${encodeURIComponent(order.tracking_code)}&amount=${order.cod_amount}`,
@@ -531,32 +478,21 @@ function PayBalanceOnline({
         }
         sx={{
           textTransform: "none",
-          borderColor: "#cbd5e1",
-          color: "#172b4d",
-          minHeight: 48,
+          color: "#ffffff",
+          minHeight: 56,
+          width: "100%",
           justifyContent: "flex-start",
           gap: 1.5,
-          backgroundColor: "transparent",
+          backgroundColor: "#c2410c",
+          padding: "12px 16px",
+          marginBottom: 2,
           "&:hover": {
-            backgroundColor: "#f1f5f9",
-            borderColor: "#94a3b8",
+            backgroundColor: "#9a3412",
           },
         }}
       >
-        <PaymentLogo method="mmqr" size={24} />
-        Open QR page
-      </Button>
-      <Typography variant="body2">
-        Pay {amount} to the rider when the parcel arrives.
-      </Typography>
-      <Button
-        variant="outlined"
-        color="secondary"
-        onClick={() => void share()}
-        startIcon={copied ? <CheckRounded /> : <IosShare />}
-        sx={{ minHeight: 48 }}
-      >
-        {copied ? "Link copied" : "Share pay link"}
+        <PaymentLogo method="mmqr" size={32} />
+        <Typography sx={{ fontWeight: 700, color: "#ffffff" }}>Pay with MMQR</Typography>
       </Button>
     </Box>
   );
