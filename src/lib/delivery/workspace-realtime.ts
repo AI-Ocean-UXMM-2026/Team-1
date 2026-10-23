@@ -19,7 +19,10 @@ type OrderUpdate = Pick<
   | "traffic_delay_minutes"
   | "eta_confidence"
   | "eta_updated_at"
->;
+> &
+  Partial<Pick<DeliveryOrder, "cod_amount" | "parcel_description">> & {
+    notes?: string | null;
+  };
 
 export function mergeLocation(
   data: WorkspaceData,
@@ -51,6 +54,15 @@ export function mergeOrderUpdate(
             ...order,
             status: row.status,
             cod_status: row.cod_status,
+            // A payment recorded online cuts the balance and rewrites the order
+            // text; riders and customers must see both the moment it happens.
+            ...(typeof row.cod_amount === "number"
+              ? { cod_amount: Number(row.cod_amount) }
+              : {}),
+            ...(row.parcel_description !== undefined
+              ? { parcel_description: row.parcel_description }
+              : {}),
+            ...(row.notes !== undefined ? { notes: row.notes } : {}),
             estimated_delivery_at: row.estimated_delivery_at,
             route_progress_percent: row.route_progress_percent,
             traffic_delay_minutes: row.traffic_delay_minutes,

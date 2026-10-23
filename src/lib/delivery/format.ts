@@ -92,6 +92,31 @@ export function prioritiseOrders(orders: DeliveryOrder[]) {
   return [...orders].sort((a, b) => rank[a.status] - rank[b.status]);
 }
 
+/**
+ * The delivery address as it should read on screen. A blank or whitespace-only
+ * value would otherwise leave a gap where the destination belongs, so every
+ * customer surface shows an explicit fallback instead of nothing.
+ */
+export function deliveryAddressLabel(
+  order: Pick<
+    DeliveryOrder,
+    "delivery_address" | "recipient_name" | "tracking_code"
+  >,
+) {
+  const address = order.delivery_address?.trim();
+  if (address) return address;
+  const recipient = order.recipient_name?.trim();
+  if (recipient) return `Address not provided · for ${recipient}`;
+  return "Address not provided yet";
+}
+
+/** True when the order carries a usable destination address. */
+export function hasDeliveryAddress(
+  order: Pick<DeliveryOrder, "delivery_address">,
+) {
+  return Boolean(order.delivery_address?.trim());
+}
+
 /** Database enums ("in_progress", "high") as interface labels ("In progress"). */
 export function sentenceCase(value: string) {
   const text = value.replaceAll("_", " ").trim();

@@ -12,7 +12,8 @@ export type ManagerNavId =
   | "jobs"
   | "vehicles"
   | "cod"
-  | "business";
+  | "business"
+  | "coupons";
 
 type NavItem = {
   id: ManagerNavId;
@@ -95,6 +96,12 @@ export function ManagerSidebar({
           label: "Business",
           href: "/manager/business",
           icon: "store",
+        },
+        {
+          id: "coupons",
+          label: "Coupons",
+          href: "/manager/coupons",
+          icon: "coin",
         },
       ],
     },

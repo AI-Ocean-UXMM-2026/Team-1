@@ -5,6 +5,8 @@ import ArrowForward from "@mui/icons-material/ArrowForward";
 import ChevronRight from "@mui/icons-material/ChevronRight";
 import Close from "@mui/icons-material/Close";
 import ContentPasteOutlined from "@mui/icons-material/ContentPasteOutlined";
+import LocationOnOutlined from "@mui/icons-material/LocationOnOutlined";
+import NotificationsNoneRounded from "@mui/icons-material/NotificationsNoneRounded";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import QrCodeScannerOutlined from "@mui/icons-material/QrCodeScannerOutlined";
 import Search from "@mui/icons-material/Search";
@@ -42,20 +44,28 @@ import {
   useId,
   useState,
 } from "react";
+import { PointsChip } from "@/components/delivery/points-chip";
 
 import {
   buildTodayItems,
   normaliseCode,
-  ordersHref,
   readRecentCodes,
   splitOrders,
   type TodayItem,
 } from "@/lib/delivery/customer-home";
-import { currency } from "@/lib/delivery/format";
+import {
+  currency,
+  deliveryAddressLabel,
+  formatTime,
+  timeUntil,
+} from "@/lib/delivery/format";
+import { isPaidInFull } from "@/lib/delivery/payment-methods";
 import type { DeliveryOrder, StatusEvent } from "@/lib/delivery/types";
+import { STATUS_LABELS } from "@/lib/delivery/types";
 
 /* ----------------------------------------------------------------- shared */
 
+import { journeyIndex } from "@/components/delivery/customer-pages";
 import {
   StatusChip,
   statusTone,
@@ -100,7 +110,11 @@ export const CustomerHeader = memo(function CustomerHeader({
       position="sticky"
       color="inherit"
       elevation={0}
-      sx={{ bgcolor: "background.default", pt: "env(safe-area-inset-top)" }}
+      sx={{
+        bgcolor: "background.default",
+        pt: "calc(env(safe-area-inset-top) + 10px)",
+        pb: "10px",
+      }}
     >
       <Toolbar
         disableGutters
@@ -145,15 +159,29 @@ export const CustomerHeader = memo(function CustomerHeader({
                   ? `Notifications, ${unreadCount} unread`
                   : "Notifications"
               }
-              sx={{ width: 48, height: 48 }}
+              sx={{ width: 48, height: 48, color: "text.primary" }}
             >
-              <Badge badgeContent={unreadCount} color="error" max={9}>
-                <Box
-                  component="img"
-                  src="/icons/notifications.svg"
-                  alt=""
-                  sx={{ display: "block", width: 32, height: 32 }}
-                />
+              <Badge
+                badgeContent={unreadCount}
+                color="error"
+                max={99}
+                overlap="circular"
+                slotProps={{
+                  badge: {
+                    sx: {
+                      height: 16,
+                      minWidth: 16,
+                      px: 0.5,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      border: "2px solid",
+                      borderColor: "background.default",
+                    },
+                  },
+                }}
+              >
+                <NotificationsNoneRounded sx={{ fontSize: 24 }} />
               </Badge>
             </IconButton>
           ) : null)}
@@ -298,9 +326,13 @@ const _PickupRow = memo(function PickupRow() {
   );
 });
 
-/** Quick actions at the top of Home: the three things a customer does most. */
+/**
+ * Quick actions at the top of Home. Deliberately short: booking a pickup is
+ * the Pickup tab's job, so repeating it here would be a second door to the
+ * same room. Each action keeps its illustrated icon, at a size that reads as
+ * a shortcut rather than a destination card.
+ */
 const QUICK_ACTIONS = [
-  { label: "Request pickup", icon: "/icons/pickup.svg", href: "/pickup" },
   { label: "Track parcel", icon: "/icons/track-parcel.svg", href: "/track" },
   { label: "Help & support", icon: "/icons/get-help.svg", href: null },
 ] as const;
@@ -316,10 +348,10 @@ const QuickActions = memo(function QuickActions({
       aria-label="Quick actions"
       sx={{
         px: 2,
-        mt: 1.5,
+        mt: 1,
         display: "grid",
-        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-        gap: 1.25,
+        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+        gap: 1,
       }}
     >
       {QUICK_ACTIONS.map((action) => (
@@ -329,18 +361,15 @@ const QuickActions = memo(function QuickActions({
             ? { component: Link, href: action.href }
             : { onClick: onOpenHelp })}
           sx={{
-            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "flex-start",
-            textAlign: "center",
-            px: 1,
-            py: 2,
-            borderRadius: "16px",
+            px: 1.5,
+            py: 1,
+            borderRadius: "12px",
             border: 1,
             borderColor: "divider",
             bgcolor: "background.paper",
-            gap: 1,
-            minHeight: 112,
+            gap: 1.25,
+            minHeight: 64,
             "&:active": { bgcolor: "grey.100" },
           }}
         >
@@ -350,17 +379,17 @@ const QuickActions = memo(function QuickActions({
             alt=""
             sx={{
               display: "block",
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               flex: "none",
             }}
           />
           <Typography
             component="span"
             sx={{
-              fontWeight: 600,
-              fontSize: 15,
-              lineHeight: 1.25,
+              fontWeight: 650,
+              fontSize: 14,
+              lineHeight: 1.3,
               color: "text.primary",
               overflowWrap: "anywhere",
             }}
@@ -413,59 +442,340 @@ const _MoreShortcuts = memo(function MoreShortcuts({
   );
 });
 
-function TodayRow({ item }: { item: TodayItem }) {
-  const missed = item.state === "missed";
-  const hasCodDue =
-    item.order.cod_amount > 0 &&
-    item.order.cod_status === "pending" &&
-    item.state !== "delivered" &&
-    item.state !== "missed";
+/** COD stays its own signal: a chip beside the status, never inside it. */
+function CodChip({ amount }: { amount: number }) {
   return (
-    <ListItem disablePadding>
-      <ListItemButton
-        component={Link}
-        href={`/track?order=${encodeURIComponent(item.order.id)}`}
-        sx={{
-          display: "grid",
-          gap: 0.5,
-          minHeight: 64,
-          px: 2,
-          py: 1.5,
-          borderRadius: "16px",
-          border: missed ? 1 : 0,
-          borderColor: "error.main",
-          bgcolor: missed ? "error.light" : "grey.100",
-        }}
-      >
-        <ListItemText
-          sx={{ m: 0, minWidth: 0 }}
-          primary={item.order.tracking_code}
-          secondary={item.order.delivery_address}
-          slotProps={{
-            primary: {
-              noWrap: true,
-              sx: { fontWeight: 700, fontSize: 14, letterSpacing: "0.01em" },
-            },
-            secondary: { noWrap: true, sx: { fontSize: 12 } },
+    <Chip
+      size="small"
+      icon={<PaymentsOutlined sx={{ fontSize: 14 }} />}
+      label={`COD ${currency.format(amount)}`}
+      sx={{
+        ...toneSx("warning"),
+        height: 26,
+        fontWeight: 700,
+        fontSize: 11,
+        "& .MuiChip-icon": { color: "inherit", fontSize: 14 },
+      }}
+    />
+  );
+}
+
+function codDue(order: DeliveryOrder) {
+  return (
+    !isPaidInFull(order) &&
+    order.cod_amount > 0 &&
+    order.cod_status === "pending" &&
+    order.status !== "delivered" &&
+    order.status !== "failed" &&
+    order.status !== "cancelled"
+  );
+}
+
+/**
+ * The ETA line. With a live rider position it reads "Arriving in 12 min ·
+ * 3.4 km away"; without one it falls back to the stored estimate, and never
+ * leads with a missed deadline — a stale "was due" says nothing useful.
+ */
+function EtaLine({ item, now }: { item: TodayItem; now: number }) {
+  const status = item.order.status;
+  const isLive = status === "in_transit" || status === "picked_up";
+  const eta = item.etaAt ? Date.parse(item.etaAt) : null;
+  const hasEta = eta !== null && !Number.isNaN(eta);
+  const until = hasEta ? timeUntil(item.etaAt, now) : null;
+  const pastEstimate = until === "Running late";
+
+  let text: string;
+  let detail: string | null = null;
+  let tone: "live" | "plain" | "pending" = isLive ? "live" : "plain";
+
+  if (item.live) {
+    text = item.live.minutes <= 1 ? "Arriving now" : `Arriving in ${until}`;
+    const km = item.live.distanceKm;
+    detail =
+      km < 1
+        ? `${Math.round(km * 10) * 100} m away`
+        : `${km.toFixed(1)} km away`;
+  } else if (pastEstimate || (item.state === "delayed" && !hasEta)) {
+    // Estimate has lapsed and there is no fresh rider position to replace it.
+    text = "ETA updating";
+    tone = "pending";
+    detail = isLive ? "Waiting for rider location" : "Rider not on the way yet";
+  } else if (hasEta) {
+    text = until === "Arriving now" ? "Arriving now" : `Arriving in ${until}`;
+    detail = `By ${formatTime(item.etaAt)}`;
+  } else {
+    text = isLive
+      ? "On the way · Arriving today"
+      : status === "assigned"
+        ? "Rider assigned · Preparing for pickup"
+        : "Expected today";
+  }
+
+  return (
+    <Stack
+      direction="row"
+      sx={{ alignItems: "center", flexWrap: "wrap", minWidth: 0, gap: 0.75 }}
+    >
+      {tone === "pending" && (
+        <Box
+          aria-hidden="true"
+          sx={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            bgcolor: "#d97706",
+            flexShrink: 0,
           }}
         />
-        {hasCodDue && (
-          <Chip
-            size="small"
-            icon={<PaymentsOutlined sx={{ fontSize: 14 }} />}
-            label={`COD ${currency.format(item.order.cod_amount)}`}
+      )}
+      <Typography
+        component="span"
+        sx={{
+          fontSize: 14,
+          lineHeight: "20px",
+          fontWeight: 700,
+          color: tone === "live" ? "info.dark" : "text.primary",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {text}
+      </Typography>
+      {detail && (
+        <Typography
+          component="span"
+          sx={{
+            fontSize: 13,
+            lineHeight: "18px",
+            color: "text.secondary",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          · {detail}
+        </Typography>
+      )}
+    </Stack>
+  );
+}
+
+/**
+ * Where the parcel is in the four-step journey. Deliberately unlabelled and
+ * thin: the status chip names the step, the rail shows how far along it is.
+ */
+function ProgressRail({ status }: { status: DeliveryOrder["status"] }) {
+  const at = journeyIndex(status);
+  return (
+    <Box
+      role="img"
+      aria-label={`Delivery progress: step ${at + 1} of 4`}
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: 0.5,
+      }}
+    >
+      {[0, 1, 2, 3].map((step) => (
+        <Box
+          key={step}
+          sx={{
+            height: 4,
+            borderRadius: "999px",
+            bgcolor:
+              step < at
+                ? "secondary.main"
+                : step === at
+                  ? "info.main"
+                  : "grey.200",
+          }}
+        />
+      ))}
+    </Box>
+  );
+}
+
+function TrackAction({ isLive = false }: { isLive?: boolean }) {
+  return (
+    <Box
+      aria-hidden="true"
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 0.5,
+        height: 34,
+        px: 1.75,
+        borderRadius: "999px",
+        bgcolor: isLive ? "info.main" : "secondary.main",
+        color: "#ffffff",
+        fontSize: 13,
+        fontWeight: 700,
+        lineHeight: 1,
+        letterSpacing: "0.01em",
+        flexShrink: 0,
+        boxShadow: isLive ? "0 1px 3px rgba(37, 99, 235, 0.25)" : "none",
+        transition: "all 0.15s ease",
+        "&:hover": {
+          bgcolor: isLive ? "info.dark" : "secondary.dark",
+        },
+      }}
+    >
+      <span>{isLive ? "Track live" : "Track order"}</span>
+      <ArrowForward sx={{ fontSize: 14, color: "inherit" }} />
+    </Box>
+  );
+}
+
+/**
+ * DeliveryCard: Displays an active parcel on Home.
+ * Hierarchy:
+ * 1. Destination and status (where it's going, what phase it's in)
+ * 2. ETA context and journey progress rail
+ * 3. Clear thumb-friendly action CTA (Track live / Track order) with supporting Order ID and COD
+ */
+function DeliveryCard({ item, now }: { item: TodayItem; now: number }) {
+  const order = item.order;
+  const isLive = order.status === "in_transit" || order.status === "picked_up";
+  const rawAddress = order.delivery_address?.trim() || "";
+  const recipient = order.recipient_name?.trim() || "";
+  const fallbackLabel = deliveryAddressLabel(order);
+
+  let destination = fallbackLabel;
+  if (rawAddress.length <= 2 && recipient) {
+    destination = `${recipient} (${rawAddress})`;
+  } else if (rawAddress) {
+    destination = rawAddress;
+  }
+
+  return (
+    <ListItemButton
+      component={Link}
+      href={`/track?order=${encodeURIComponent(order.id)}`}
+      aria-label={`Track delivery to ${destination}: ${STATUS_LABELS[order.status]}, order ${order.tracking_code}`}
+      sx={{
+        display: "grid",
+        // ListItemButton sets justify-content: flex-start, which shrinks an
+        // auto grid track to its content; pin one full-width column instead.
+        gridTemplateColumns: "minmax(0, 1fr)",
+        justifyContent: "stretch",
+        gap: 1.5,
+        p: 2,
+        borderRadius: "16px",
+        border: 1,
+        borderColor: "divider",
+        bgcolor: "background.paper",
+        alignItems: "stretch",
+        transition:
+          "border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease",
+        "&:hover": {
+          borderColor: "grey.400",
+          boxShadow: "0 4px 14px rgba(23, 43, 77, 0.08)",
+        },
+      }}
+    >
+      {/* 1. Primary: Where it is going & its status */}
+      {/* gap, not spacing: the chip drops under the title on narrow phones
+          and a spacing margin would indent it once it wraps. */}
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 1,
+          minWidth: 0,
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: "flex-start", minWidth: 0, flex: "1 1 140px" }}
+        >
+          <LocationOnOutlined
             sx={{
-              ...toneSx("warning"),
-              justifySelf: "start",
-              height: 28,
-              fontWeight: 700,
-              fontSize: 11,
-              "& .MuiChip-icon": { color: "inherit", fontSize: 14 },
+              fontSize: 19,
+              color: isLive ? "info.main" : "secondary.main",
+              mt: "1px",
+              flexShrink: 0,
             }}
           />
-        )}
-      </ListItemButton>
-    </ListItem>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              component="p"
+              sx={{
+                fontSize: 16,
+                lineHeight: "22px",
+                fontWeight: 750,
+                color: "text.primary",
+                overflowWrap: "anywhere",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {destination}
+            </Typography>
+            {recipient && rawAddress.length > 2 && (
+              <Typography
+                component="p"
+                sx={{
+                  fontSize: 12,
+                  color: "text.secondary",
+                  mt: 0.25,
+                }}
+              >
+                For {recipient}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+        <Box sx={{ flexShrink: 0 }}>
+          <StatusChip status={order.status} />
+        </Box>
+      </Stack>
+
+      {/* 2. Middle: ETA context & visual progress */}
+      <Box sx={{ display: "grid", gap: 1 }}>
+        <EtaLine item={item} now={now} />
+        <ProgressRail status={order.status} />
+      </Box>
+
+      {/* 3. Supporting details & Action affordance */}
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderTop: 1,
+          borderColor: "divider",
+          pt: 1.25,
+          mt: 0.25,
+        }}
+      >
+        <Stack
+          direction="row"
+          sx={{
+            alignItems: "center",
+            minWidth: 0,
+            flexWrap: "wrap",
+            gap: 0.75,
+          }}
+        >
+          <Typography
+            component="span"
+            sx={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "text.secondary",
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: "0.02em",
+            }}
+          >
+            #{order.tracking_code}
+          </Typography>
+          {codDue(order) && <CodChip amount={order.cod_amount} />}
+        </Stack>
+
+        <TrackAction isLive={isLive} />
+      </Stack>
+    </ListItemButton>
   );
 }
 
@@ -657,11 +967,11 @@ function SignedOutPrompt({ onSignIn }: { onSignIn: () => void }) {
   return (
     <Paper
       elevation={0}
-      sx={{ mx: 2, mt: 1.5, borderRadius: "16px", bgcolor: "grey.100" }}
+      sx={{ mx: 2, mt: 1.5, borderRadius: "12px", bgcolor: "grey.100" }}
     >
       <ListItemButton
         onClick={onSignIn}
-        sx={{ gap: 1.5, minHeight: 64, borderRadius: "16px" }}
+        sx={{ gap: 1.5, minHeight: 64, borderRadius: "12px" }}
       >
         <Avatar sx={{ ...toneSx("info"), width: 40, height: 40 }}>
           <TrackChangesOutlined />
@@ -696,58 +1006,24 @@ export function CustomerHome({
   onOpenCod: () => void;
   onOpenHelp: () => void;
 }) {
-  const { active: activeOrders, history: historyOrders } = splitOrders(
-    orders,
-    statusEvents,
-  );
+  const { active: activeOrders } = splitOrders(orders, statusEvents);
   const today = buildTodayItems(activeOrders, statusEvents, now);
   const activeCount = activeOrders.length;
 
-  // Keep booking secondary while any delivery is still active, even if its
-  // scheduled day is later than today.
-  const _hasLive = isAuthenticated && activeCount > 0;
-
   return (
     <>
-      <QuickActions onOpenHelp={onOpenHelp} />
-
-      {isAuthenticated && historyOrders.length > 0 && (
-        <Box sx={{ px: 2, mt: 2 }}>
-          <ListItemButton
-            component={Link}
-            href={ordersHref({ tab: "history" })}
-            sx={{
-              gap: 1.5,
-              minHeight: 72,
-              px: 1.5,
-              borderRadius: "16px",
-              bgcolor: "grey.100",
-            }}
-          >
-            <Box
-              component="img"
-              src="/icons/delivery-history.svg"
-              alt=""
-              sx={{ display: "block", width: 48, height: 48, flex: "none" }}
-            />
-            <ListItemText
-              primary="Delivery history"
-              secondary={`${historyOrders.length} finished ${historyOrders.length === 1 ? "delivery" : "deliveries"}`}
-              slotProps={{
-                primary: { sx: { fontWeight: 700, fontSize: 14 } },
-              }}
-              sx={{ m: 0 }}
-            />
-            <ChevronRight color="disabled" />
-          </ListItemButton>
+      {isAuthenticated && (
+        <Box sx={{ px: 2, pt: 1 }}>
+          <PointsChip enabled />
         </Box>
       )}
+      <QuickActions onOpenHelp={onOpenHelp} />
 
       <Box
         component="section"
         id="active-deliveries"
         aria-labelledby="active-deliveries-title"
-        sx={{ mt: 2.5, scrollMarginTop: 72 }}
+        sx={{ mt: 3, scrollMarginTop: 72 }}
       >
         <Box
           sx={{
@@ -783,21 +1059,24 @@ export function CustomerHome({
         {!isAuthenticated ? (
           <SignedOutPrompt onSignIn={onSignIn} />
         ) : today.length > 0 ? (
-          <List
-            disablePadding
+          <Box
+            component="ul"
             aria-label="Today's deliveries"
             sx={{
+              listStyle: "none",
               px: 2,
-              mt: 1,
+              mt: 1.5,
+              m: 0,
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr)",
-              gap: 1,
+              gap: 1.5,
             }}
           >
             {today.map((item) => (
-              <TodayRow key={item.order.id} item={item} />
+              <Box component="li" key={item.order.id}>
+                <DeliveryCard item={item} now={now} />
+              </Box>
             ))}
-          </List>
+          </Box>
         ) : (
           <Box sx={{ px: 2, mt: 1 }}>
             <ListItemButton
@@ -807,7 +1086,7 @@ export function CustomerHome({
                 gap: 1.5,
                 minHeight: 72,
                 px: 1.5,
-                borderRadius: "16px",
+                borderRadius: "12px",
                 bgcolor: "grey.100",
               }}
             >
@@ -935,14 +1214,20 @@ export function HomeSkeleton() {
       role="status"
       sx={pageGutter}
     >
+      {/* Mirrors the real page: two compact shortcuts, then the next delivery. */}
+      <Box
+        sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mt: 1 }}
+      >
+        <Skeleton variant="rounded" height={64} sx={{ borderRadius: "12px" }} />
+        <Skeleton variant="rounded" height={64} sx={{ borderRadius: "12px" }} />
+      </Box>
+      <Skeleton variant="rounded" height={40} sx={{ mt: 3, mb: 1 }} />
+      <Skeleton variant="rounded" height={156} sx={{ borderRadius: "16px" }} />
       <Skeleton
         variant="rounded"
-        height={188}
-        sx={{ mt: 1, borderRadius: "20px" }}
+        height={156}
+        sx={{ mt: 1.5, borderRadius: "16px" }}
       />
-      <Skeleton variant="rounded" height={64} sx={{ mt: 3, mb: 1 }} />
-      <Skeleton variant="rounded" height={64} />
-      <Skeleton variant="rounded" height={64} sx={{ mt: 1 }} />
     </Box>
   );
 }

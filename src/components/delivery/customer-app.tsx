@@ -36,12 +36,11 @@ import { OrdersPage } from "@/components/delivery/customer-orders";
 import {
   CustomerBottomNav,
   EmptyState,
-  TrackDetail,
 } from "@/components/delivery/customer-pages";
 import { ProfilePage } from "@/components/delivery/customer-profile";
-import { CustomerProviderTracking } from "@/components/delivery/customer-provider-tracking";
 import { ConfirmSheet } from "@/components/delivery/customer-sheet";
 import { Icon } from "@/components/delivery/icons";
+import { TrackDetail } from "@/components/delivery/track-detail";
 import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import {
   buildNotifications,
@@ -94,8 +93,13 @@ function UrlSelection({
     if (!ready || !key || applied.current === key) return;
     applied.current = key;
     const requested = params.get("order");
-    if (requested && orders.some((order) => order.id === requested))
-      onOrder(requested);
+    if (requested) {
+      if (orders.some((order) => order.id === requested)) {
+        onOrder(requested);
+      } else {
+        onCode(requested);
+      }
+    }
     const code = params.get("code");
     if (code) onCode(code);
   }, [ready, key, params, orders, onOrder, onCode]);
@@ -113,6 +117,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   const [demoDismissed, setDemoDismissed] = useState(false);
   const [lookupMiss, setLookupMiss] = useState<string | null>(null);
   const [publicHit, setPublicHit] = useState<PublicTracking | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -226,10 +231,40 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   }, []);
 
   /**
+   * Keep the selected parcel in the URL so a refresh, a back gesture or a
+   * shared link lands on the same record. replaceState avoids a router
+   * navigation that would re-run UrlSelection.
+   */
+  function syncTrackUrl(next: { order?: string; code?: string } | null) {
+    if (typeof window === "undefined") return;
+    if (window.location.pathname !== "/track") return;
+    const params = new URLSearchParams();
+    if (next?.order) params.set("order", next.order);
+    if (next?.code) params.set("code", next.code);
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
+    );
+  }
+
+  const fetchPublicTracking = useCallback(async (code: string) => {
+    try {
+      const { data, error } = await createClient().rpc("track_delivery", {
+        code,
+      });
+      return error ? null : fromTrackingPayload(data);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  /**
    * Your own parcels match locally; any other code is looked up by its exact
    * value, so tracking works without an account.
    */
-  async function lookupCode(value: string, linked = false) {
+  async function lookupCode(value: string, linked = false, keepUrl = false) {
     const code = value.trim();
     if (!normaliseCode(code)) return;
     const hits = matchOrders(realOrders, code);
@@ -243,26 +278,84 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       setLookupMiss(null);
       if (linked) setLinkedOrder(true);
       rememberTrackingCode(hit.tracking_code);
+      if (!keepUrl) syncTrackUrl({ order: hit.id });
       return;
     }
-    try {
-      const { data, error } = await createClient().rpc("track_delivery", {
-        code,
-      });
-      const found = error ? null : fromTrackingPayload(data);
-      if (found) {
-        setPublicHit(found);
-        setSelectedId(found.order.id);
-        setLookupMiss(null);
-        if (linked) setLinkedOrder(true);
-        rememberTrackingCode(found.order.tracking_code);
-        return;
-      }
-    } catch {
-      // Treated as not found below.
+    const found = await fetchPublicTracking(code);
+    if (found) {
+      setPublicHit(found);
+      setSelectedId(found.order.id);
+      setLookupMiss(null);
+      if (linked) setLinkedOrder(true);
+      rememberTrackingCode(found.order.tracking_code);
+      if (!keepUrl) syncTrackUrl({ code: found.order.tracking_code });
+      return;
     }
     setLookupMiss(code);
+    if (!keepUrl) syncTrackUrl(null);
   }
+
+  /** Back out of a parcel to the lookup, and drop its URL state. */
+  function clearSelection() {
+    setSelectedId("");
+    setPublicHit(null);
+    setLookupMiss(null);
+    setLinkedOrder(false);
+    syncTrackUrl(null);
+  }
+
+  /**
+   * One refresh control for every tracking path: re-read the public record,
+   * or re-sync the signed-in workspace. The selected parcel stays put.
+   */
+  async function refreshTracking() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      if (publicHit) {
+        const found = await fetchPublicTracking(publicHit.order.tracking_code);
+        if (found) setPublicHit(found);
+      } else if (workspace.isAuthenticated) {
+        await workspace.refresh(true);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  // Guests have no Realtime subscription, so a public parcel keeps itself
+  // current while its tab is visible. Both paths stop at a terminal status.
+  useEffect(() => {
+    const code = publicHit?.order.tracking_code;
+    const status = publicHit?.order.status;
+    if (!code || !status || isTerminalStatus(status)) return;
+    let cancelled = false;
+    let inFlight = false;
+    const tick = async () => {
+      if (cancelled || inFlight) return;
+      if (document.visibilityState !== "visible" || !navigator.onLine) return;
+      inFlight = true;
+      const found = await fetchPublicTracking(code);
+      inFlight = false;
+      if (!cancelled && found) setPublicHit(found);
+    };
+    const interval = window.setInterval(() => void tick(), 20_000);
+    const wake = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
+    };
+  }, [
+    fetchPublicTracking,
+    publicHit?.order.status,
+    publicHit?.order.tracking_code,
+  ]);
 
   function dismissDemo() {
     setDemoDismissed(true);
@@ -293,7 +386,8 @@ export function CustomerApp({ view }: { view: CustomerView }) {
   const goBack = useBackNavigation(
     view === "track" && linkedOrder ? "/orders" : "/home",
   );
-  const trackDetailOnly = view === "track" && linkedOrder && !!selectedOrder;
+  const trackDetailOnly =
+    view === "track" && (linkedOrder || Boolean(selectedId)) && !!selectedOrder;
   const isRootTab = view === "home" || view === "orders" || view === "profile";
   // Help follows the parcel on screen. Elsewhere it only assumes a parcel
   // when there is exactly one in progress; otherwise the sheet asks which.
@@ -350,7 +444,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
     );
 
   return (
-    <main className="customer-app">
+    <main
+      className={`customer-app ${view === "track" && selectedOrder ? "is-track-mode" : ""}`}
+    >
       <Suspense fallback={null}>
         <UrlSelection
           ready={!workspace.isLoading}
@@ -359,7 +455,7 @@ export function CustomerApp({ view }: { view: CustomerView }) {
             setSelectedId(id);
             setLinkedOrder(true);
           }}
-          onCode={(code) => void lookupCode(code, true)}
+          onCode={(code) => void lookupCode(code, true, true)}
         />
       </Suspense>
       <CustomerHeader
@@ -367,7 +463,13 @@ export function CustomerApp({ view }: { view: CustomerView }) {
         subtitle={header.subtitle}
         isAuthenticated={workspace.isAuthenticated}
         unreadCount={unreadCount}
-        onBack={isRootTab ? undefined : goBack}
+        onBack={
+          isRootTab
+            ? undefined
+            : view === "track" && !linkedOrder && selectedOrder
+              ? clearSelection
+              : goBack
+        }
         showBell={view === "home" || view === "orders"}
         action={
           view === "notifications" && unreadCount > 0 ? (
@@ -420,7 +522,12 @@ export function CustomerApp({ view }: { view: CustomerView }) {
                 <ParcelSwitcher
                   orders={orders}
                   selectedId={selectedOrder?.id ?? ""}
-                  onSelect={(order) => setSelectedId(order.id)}
+                  onSelect={(order) => {
+                    setPublicHit(null);
+                    setSelectedId(order.id);
+                    setLinkedOrder(false);
+                    syncTrackUrl({ order: order.id });
+                  }}
                 />
               )}
             </>
@@ -433,6 +540,9 @@ export function CustomerApp({ view }: { view: CustomerView }) {
                 isDemo={showsDemo}
                 now={now}
                 onOpenHelp={() => setSheet("help")}
+                onRefresh={showsDemo ? undefined : () => void refreshTracking()}
+                refreshing={refreshing}
+                onTrackAnother={clearSelection}
               />
             ) : (
               <EmptyState
@@ -449,17 +559,14 @@ export function CustomerApp({ view }: { view: CustomerView }) {
       )}
 
       {view === "orders" && (
-        <>
-          <Suspense fallback={<HomeSkeleton />}>
-            <OrdersPage
-              orders={orders}
-              events={workspace.data.statusEvents}
-              isAuthenticated={workspace.isAuthenticated}
-              onSignIn={() => setAuthOpen(true)}
-            />
-          </Suspense>
-          <CustomerProviderTracking />
-        </>
+        <Suspense fallback={<HomeSkeleton />}>
+          <OrdersPage
+            orders={orders}
+            events={workspace.data.statusEvents}
+            isAuthenticated={workspace.isAuthenticated}
+            onSignIn={() => setAuthOpen(true)}
+          />
+        </Suspense>
       )}
 
       {view === "profile" && (

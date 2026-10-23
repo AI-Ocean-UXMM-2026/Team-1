@@ -351,6 +351,46 @@
   min-height: 48px;
 }
 
+/* The phone "More" menu is a bottom sheet, so it carries the sheet's padding
+   and keeps its last action clear of the home indicator. */
+.operations-menu-modal {
+  width: min(100%, 480px);
+  max-height: min(88dvh, 760px);
+  margin: 0 auto;
+  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--color-border);
+  border-bottom: 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--color-surface);
+  box-shadow: 0 -12px 40px rgb(15 23 42 / 18%);
+  animation: dialog-in 0.2s ease-out;
+}
+.mobile-more-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mobile-more-header h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 26px;
+}
+.operations-menu-modal .modal-close-btn {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+}
+.operations-menu-modal .mobile-more-menu {
+  padding-top: 4px;
+}
+
 /* Interactive KPI Cells */
 .dash-kpi-link {
   text-decoration: none;
@@ -563,9 +603,16 @@
 /* Customer app canvas: edge to edge on phones, one centred column above 480px. */
 :root {
   --customer-canvas: 480px;
+  --customer-nav-height: 80px;
 }
 .customer-app {
   width: min(100%, var(--customer-canvas));
+}
+/* Phone primary actions are 52–56px tall (DESIGN.md), above the 48px floor. */
+.pickup-app .MuiButton-sizeLarge.MuiButton-root {
+  min-height: 52px;
+  font-size: 16px;
+  font-weight: 600;
 }
 .customer-loading {
   width: min(100%, var(--customer-canvas));
@@ -1129,16 +1176,28 @@ button.mapbox-marker:focus-visible {
   align-items: center;
   gap: 8px;
   padding: 7px 14px;
-  border-radius: 8px;
-  background: var(--color-warning-surface);
-  backdrop-filter: blur(6px);
-  border: 1px solid var(--color-warning-border);
-  color: var(--color-warning-text);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid #e2e8f0;
+  color: #172b4d;
   font-size: 12px;
   font-weight: 500;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-warning) 15%, transparent);
+  box-shadow: 0 4px 14px rgba(23, 43, 77, 0.1);
   max-width: 90%;
   pointer-events: none;
+}
+
+.track-viewport .map-flood-warning-banner {
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  transform: none;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgb(23 43 77 / 0.12);
+  z-index: 15;
 }
 
 .map-flood-legend {

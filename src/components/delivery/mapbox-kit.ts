@@ -56,22 +56,26 @@ export function useMapboxMap(
     let cancelled = false;
     loadMapbox().then((gl) => {
       if (cancelled || !container.current) return;
-      map = new gl.Map({
-        container: container.current,
-        style: mapStyle(),
-        center: lngLat(YANGON),
-        zoom: 14,
-        interactive,
-        attributionControl: true,
-      });
-      const created = map;
-      // The container often settles after the map is created (full-screen
-      // layouts, sheets); without this the canvas keeps its first size.
-      observer = new ResizeObserver(() => created.resize());
-      observer.observe(container.current);
-      created.on("load", () => {
-        if (!cancelled) setState({ map: created, gl });
-      });
+      try {
+        map = new gl.Map({
+          container: container.current,
+          style: mapStyle(),
+          center: lngLat(YANGON),
+          zoom: 14,
+          interactive,
+          attributionControl: true,
+        });
+        const created = map;
+        // The container often settles after the map is created (full-screen
+        // layouts, sheets); without this the canvas keeps its first size.
+        observer = new ResizeObserver(() => created.resize());
+        observer.observe(container.current);
+        created.on("load", () => {
+          if (!cancelled) setState({ map: created, gl });
+        });
+      } catch (err) {
+        console.warn("Mapbox initialization failed:", err);
+      }
     });
     return () => {
       cancelled = true;
@@ -90,6 +94,7 @@ export function fitToPoints(
   points: MapPoint[],
   padding: { x: number; top: number; bottom: number },
   maxZoom: number,
+  offset?: [number, number],
 ) {
   if (!points.length) return;
   if (points.length === 1) {
@@ -97,6 +102,7 @@ export function fitToPoints(
       center: lngLat(points[0]),
       zoom: Math.min(maxZoom, 16),
       duration: 600,
+      ...(offset ? { offset } : {}),
     });
     return;
   }

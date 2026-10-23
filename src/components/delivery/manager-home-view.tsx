@@ -11,10 +11,7 @@ import {
   managerExceptions,
 } from "@/lib/delivery/dashboard";
 import { currency, formatTime } from "@/lib/delivery/format";
-import {
-  orderPaymentMethod,
-  paymentBadge,
-} from "@/lib/delivery/payment-methods";
+import { orderPaymentBadge } from "@/lib/delivery/payment-methods";
 import type { DeliveryOrder, VehicleOption } from "@/lib/delivery/types";
 import type { useWorkspace } from "@/lib/delivery/use-workspace";
 
@@ -294,9 +291,7 @@ function RecentDeliveries({ orders }: { orders: DeliveryOrder[] }) {
                   <td>
                     <StatusBadge status={order.status} />
                   </td>
-                  <td className="mh-nowrap">
-                    {paymentBadge(orderPaymentMethod(order))}
-                  </td>
+                  <td className="mh-nowrap">{orderPaymentBadge(order)}</td>
                   <td>
                     {order.driver_name || (
                       <span className="mh-muted">Unassigned</span>

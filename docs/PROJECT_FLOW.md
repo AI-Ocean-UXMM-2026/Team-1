@@ -1,5 +1,8 @@
 # Understand the project and delivery flow
 
+> [!NOTE]
+> For the comprehensive documentation suite, refer to the [**Documentation Hub**](README.md), [System Architecture](ARCHITECTURE.md), [Database Schema & RLS](DATABASE_SCHEMA.md), [API Reference](API_REFERENCE.md), [Role Operations Manual](OPERATIONS_MANUAL.md), and [COD & Payments Guide](FINANCIAL_COD.md).
+
 Oern is a door-to-door delivery platform with separate customer, rider, management, seller, and support workspaces. Customer tracking remains the central product flow: live parcel location becomes available after the rider receives the parcel and continues until the delivery closes. Estimated time of arrival (ETA), Global Positioning System (GPS) updates, and cash on delivery (COD) share this delivery lifecycle.
 
 ## Interface map

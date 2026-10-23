@@ -10,7 +10,7 @@ test("a short light prepaid parcel pays only the base fee", () => {
   const fee = estimateDeliveryFee({
     distanceKm: 1.5,
     weightKg: 1,
-    method: "mmqr",
+    method: "ctzpay",
   });
   assert.deepEqual(
     fee.lines.map((line) => line.id),
@@ -41,7 +41,7 @@ test("distance, weight and urgent are added as separate lines", () => {
 test("cash on delivery adds a handling fee that prepaid does not", () => {
   const input = { distanceKm: 1, weightKg: 1 };
   const cod = estimateDeliveryFee({ ...input, method: "cod" });
-  const prepaid = estimateDeliveryFee({ ...input, method: "mmqr" });
+  const prepaid = estimateDeliveryFee({ ...input, method: "ctzpay" });
   assert.equal(cod.total - prepaid.total, FEE_RULES.codHandling);
 });
 

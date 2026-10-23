@@ -27,6 +27,7 @@ export type IconName =
   | "history"
   | "location"
   | "menu"
+  | "minus"
   | "more"
   | "navigation"
   | "list"
@@ -34,6 +35,7 @@ export type IconName =
   | "package"
   | "phone"
   | "plus"
+  | "qr"
   | "refresh"
   | "search"
   | "settings"
@@ -45,7 +47,8 @@ export type IconName =
   | "truck"
   | "user"
   | "users"
-  | "warning";
+  | "warning"
+  | "wallet";
 
 const pathByName: Record<IconName, ReactNode> = {
   "arrow-down": <path d="M12 5v14m-7-7 7 7 7-7" />,
@@ -81,6 +84,21 @@ const pathByName: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M15.5 8.5h-5a2 2 0 0 0 0 4h3a2 2 0 0 1 0 4h-5M12 6.5v11" />
+    </>
+  ),
+  qr: (
+    <>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <path d="M14 14h3v3h-3zM20 14v.01M14 20h3M20 17v4" />
+    </>
+  ),
+  wallet: (
+    <>
+      <path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4H5.5A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" />
+      <path d="M3 6.5A2.5 2.5 0 0 0 5.5 9h13A1.5 1.5 0 0 1 20 10.5V11" />
+      <path d="M21 11h-4a2 2 0 0 0 0 4h4v-4Z" />
     </>
   ),
   compass: (
@@ -149,6 +167,7 @@ const pathByName: Record<IconName, ReactNode> = {
     </>
   ),
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+  minus: <path d="M5 12h14" />,
   message: (
     <path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 3V6a1 1 0 0 1 1-1Z" />
   ),

@@ -20,6 +20,7 @@ import { ManagerCreateOrder } from "@/components/delivery/manager-create-order";
 import { useRoadNoteAnalysis } from "@/lib/delivery/road-intel/use-road-intel";
 import "@/components/delivery/manager-create-order.css";
 import { ManagerBusiness } from "@/components/delivery/manager-business";
+import { ManagerCoupons } from "@/components/delivery/manager-coupons";
 import { ManagerHomeView } from "@/components/delivery/manager-home-view";
 import { ManagerOrderView } from "@/components/delivery/manager-order-view";
 import { ManagerSidebar } from "@/components/delivery/manager-sidebar";
@@ -72,7 +73,8 @@ const _managerMobileNav = managerNavItems;
 export type ManagerView =
   | (typeof managerNavItems)[number]["id"]
   | "create"
-  | "business";
+  | "business"
+  | "coupons";
 
 type OrderFilter = "all" | "unassigned" | "moving" | "cod";
 
@@ -535,6 +537,10 @@ export function ManagerDashboard({
       description:
         "Settlement, saved pickup locations, fee rules and payment preferences.",
     },
+    coupons: {
+      title: "Coupons",
+      description: "Delivery-fee discounts and how customers use them.",
+    },
     create: {
       title: "Create order",
       description:
@@ -728,6 +734,12 @@ export function ManagerDashboard({
           {!signedOut && view === "business" && (
             <ManagerBusiness
               orders={orders}
+              live={workspace.canUseLiveData && !workspace.isDemo}
+            />
+          )}
+
+          {!signedOut && view === "coupons" && (
+            <ManagerCoupons
               live={workspace.canUseLiveData && !workspace.isDemo}
             />
           )}
@@ -1350,6 +1362,17 @@ export function ManagerDashboard({
                 <small>
                   Energy reserves, service due &amp; operating costs
                 </small>
+              </div>
+            </Link>
+            <Link
+              href="/manager/coupons"
+              className="mobile-more-item"
+              onClick={() => setMoreOpen(false)}
+            >
+              <Icon name="coin" size={20} />
+              <div>
+                <strong>Coupons</strong>
+                <small>Fee discounts and how they are used</small>
               </div>
             </Link>
             <a

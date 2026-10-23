@@ -4,6 +4,10 @@ import type {
   StatusEvent,
 } from "@/lib/delivery/types";
 
+import { haversineKilometers } from "./intelligence.ts";
+import { isRecentLocation, parcelLocationState } from "./location-state.ts";
+import { isPaidInFull } from "./payment-methods.ts";
+
 // Type-only imports keep this module runnable by the node test runner.
 /** A parcel the customer is still waiting on, including a fresh pickup request. */
 export const ACTIVE_STATUSES: readonly DeliveryStatus[] = [
@@ -140,13 +144,63 @@ export type TodayState =
   | "scheduled"
   | "delivered";
 
+/** An arrival estimate worked out from where the rider is right now. */
+export type LiveEta = {
+  minutes: number;
+  etaAt: string;
+  /** Straight-line distance from the rider to the drop-off. */
+  distanceKm: number;
+};
+
 export type TodayItem = {
   order: DeliveryOrder;
   state: TodayState;
-  /** Only set when the ETA system has provided an estimate. */
+  /** Live estimate when available, else the stored estimate. */
   etaAt: string | null;
+  /** Set only when the rider's position is fresh enough to trust. */
+  live: LiveEta | null;
   delayMinutes: number;
 };
+
+/** Straight-line distance understates a real route in a city grid. */
+const ROAD_DETOUR_FACTOR = 1.35;
+const CITY_SPEED_KMH = 22;
+
+/**
+ * Time left from the rider's last GPS point to the drop-off, plus any known
+ * traffic delay. Null when the parcel isn't collected, the drop-off has no
+ * coordinates, or the rider has gone quiet (the stored estimate takes over).
+ */
+export function liveEta(order: DeliveryOrder, now: number): LiveEta | null {
+  const at = order.latest_location;
+  if (
+    !at ||
+    order.delivery_latitude == null ||
+    order.delivery_longitude == null
+  )
+    return null;
+  if (order.status !== "picked_up" && order.status !== "in_transit")
+    return null;
+  if (
+    parcelLocationState(order, now) !== "live" &&
+    !isRecentLocation(order, now)
+  )
+    return null;
+  const distanceKm = haversineKilometers(at, {
+    latitude: order.delivery_latitude,
+    longitude: order.delivery_longitude,
+  });
+  const drive = ((distanceKm * ROAD_DETOUR_FACTOR) / CITY_SPEED_KMH) * 60;
+  const minutes = Math.max(
+    1,
+    Math.ceil(drive + (order.traffic_delay_minutes ?? 0)),
+  );
+  return {
+    minutes,
+    etaAt: new Date(now + minutes * MINUTE).toISOString(),
+    distanceKm,
+  };
+}
 
 const todayRank: Record<TodayState, number> = {
   missed: 0,
@@ -188,8 +242,16 @@ export function buildTodayItems(
     const dueToday = Boolean(eta) && etaDay !== "" && etaDay <= today;
     if (!isOutForDelivery(order.status) && !dueToday) continue;
 
-    const delay = describeDelay(order, now);
-    const etaMs = eta ? Date.parse(eta) : null;
+    const live = liveEta(order, now);
+    // A moving rider with a fresh position outranks a stale stored estimate:
+    // only call it delayed when traffic itself is the problem.
+    const delay = live
+      ? {
+          isDelayed: (order.traffic_delay_minutes ?? 0) >= 10,
+          minutes: order.traffic_delay_minutes ?? 0,
+        }
+      : describeDelay(order, now);
+    const etaMs = live ? Date.parse(live.etaAt) : eta ? Date.parse(eta) : null;
     const state: TodayState = delay.isDelayed
       ? "delayed"
       : order.status === "in_transit" &&
@@ -202,7 +264,8 @@ export function buildTodayItems(
     items.push({
       order,
       state,
-      etaAt: eta,
+      etaAt: live?.etaAt ?? eta,
+      live,
       delayMinutes: delay.isDelayed ? delay.minutes : 0,
     });
   }
@@ -465,6 +528,7 @@ export function codDue(orders: DeliveryOrder[]) {
   return orders
     .filter(
       (order) =>
+        !isPaidInFull(order) &&
         order.cod_amount > 0 &&
         order.cod_status === "pending" &&
         rank[order.status] !== undefined,

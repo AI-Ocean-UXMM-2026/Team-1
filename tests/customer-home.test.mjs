@@ -6,6 +6,7 @@ import {
   codDue,
   contextualActions,
   homeSummary,
+  liveEta,
   matchOrders,
   orderMatchesQuery,
   ordersHref,
@@ -308,4 +309,45 @@ test("order search matches code, address and recipient", () => {
   assert.equal(orderMatchesQuery(item, "inya"), true);
   assert.equal(orderMatchesQuery(item, "thazin"), true);
   assert.equal(orderMatchesQuery(item, "kamayut"), false);
+});
+
+const near = {
+  delivery_latitude: 16.8409,
+  delivery_longitude: 96.1735,
+  latest_location: {
+    latitude: 16.8509,
+    longitude: 96.1735,
+    accuracy_meters: 10,
+    recorded_at: new Date(now - 10_000).toISOString(),
+  },
+};
+
+test("liveEta works out arrival from the rider's position", () => {
+  const eta = liveEta(order(near), now);
+  assert.ok(eta);
+  assert.ok(eta.distanceKm > 1 && eta.distanceKm < 1.3);
+  assert.ok(eta.minutes >= 4 && eta.minutes <= 6);
+  assert.equal(eta.etaAt, new Date(now + eta.minutes * 60_000).toISOString());
+});
+
+test("liveEta is null without a fresh position or drop-off point", () => {
+  assert.equal(liveEta(order(), now), null);
+  assert.equal(liveEta(order({ ...near, delivery_latitude: null }), now), null);
+  assert.equal(liveEta(order({ ...near, status: "assigned" }), now), null);
+  const stale = {
+    ...near.latest_location,
+    recorded_at: new Date(now - 20 * 60_000).toISOString(),
+  };
+  assert.equal(liveEta(order({ ...near, latest_location: stale }), now), null);
+});
+
+test("a live position replaces a lapsed stored estimate", () => {
+  const [item] = buildTodayItems(
+    [order({ ...near, estimated_delivery_at: at(-90) })],
+    [],
+    now,
+  );
+  assert.equal(item.state, "arriving");
+  assert.equal(item.etaAt, item.live.etaAt);
+  assert.equal(item.delayMinutes, 0);
 });

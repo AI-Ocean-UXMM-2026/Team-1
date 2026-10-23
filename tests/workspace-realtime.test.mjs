@@ -166,3 +166,47 @@ test("cleanup rejects queued data and refresh callbacks from the previous accoun
   assert.equal(app.refreshed(), 0);
   assert.equal(app.removed(), true);
 });
+
+test("a payment recorded online reaches the rider's order at once", () => {
+  const live = harness("driver", {
+    ...initialData(),
+    orders: [
+      {
+        id: "o1",
+        status: "in_transit",
+        cod_status: "pending",
+        cod_amount: 8300,
+        parcel_description: "Docs · Payment: cash on delivery",
+        latest_location: null,
+      },
+    ],
+  });
+  live.handlers.get("delivery_orders").callback({
+    eventType: "UPDATE",
+    new: {
+      id: "o1",
+      status: "in_transit",
+      cod_status: "pending",
+      cod_amount: 3300,
+      parcel_description: "Docs · Payment: prepaid MMQR 5000 MMK",
+    },
+  });
+  const [order] = live.data().orders;
+  assert.equal(order.cod_amount, 3300);
+  assert.equal(
+    order.parcel_description,
+    "Docs · Payment: prepaid MMQR 5000 MMK",
+  );
+});
+
+test("an update that omits the balance leaves it alone", () => {
+  const live = harness("driver", {
+    ...initialData(),
+    orders: [{ id: "o1", status: "in_transit", cod_amount: 8300 }],
+  });
+  live.handlers.get("delivery_orders").callback({
+    eventType: "UPDATE",
+    new: { id: "o1", status: "in_transit", cod_status: "pending" },
+  });
+  assert.equal(live.data().orders[0].cod_amount, 8300);
+});

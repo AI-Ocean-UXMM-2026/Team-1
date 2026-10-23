@@ -18,7 +18,7 @@ export const FEE_RULES = {
 } as const;
 
 export type FeeLine = {
-  id: "base" | "distance" | "weight" | "urgent" | "cod";
+  id: "base" | "distance" | "weight" | "urgent" | "cod" | "discount";
   label: string;
   amount: number;
 };

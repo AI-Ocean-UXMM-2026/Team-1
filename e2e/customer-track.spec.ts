@@ -64,6 +64,7 @@ test("a live parcel leads with the map, then the summary", async ({
   expect(mapBox && summaryBox && mapBox.y < summaryBox.y).toBe(true);
 
   // Details are behind labelled sections, closed until asked for.
+  await region.getByRole("button", { name: "View delivery details" }).click();
   const route = region.getByRole("button", { name: "Route and addresses" });
   await expect(route).toHaveAttribute("aria-expanded", "false");
   await route.click();
@@ -142,7 +143,10 @@ test("a delivered parcel with unpaid COD opens its payment details", async ({
   await page.goto("/track?order=order-1");
   const region = page.getByRole("region", { name: "Selected delivery" });
   await expect(region.getByText(/^Delivered /)).toBeVisible();
-  await expect(region.getByText(/MMK\s?68,000/)).toBeVisible();
+  // The amount is on the summary chip; the state sits in its own section.
+  await expect(region.getByText(/MMK\s?68,000/).first()).toBeVisible();
+  await region.getByRole("button", { name: "View delivery details" }).click();
+  await region.getByRole("button", { name: "Cash on delivery" }).click();
   await expect(region.getByText("Still due")).toBeVisible();
 });
 
@@ -284,4 +288,37 @@ test("Notifications is one timeline, newest first, with unread dots", async ({
   ).toHaveCount(0);
   await items.first().click();
   await expect(page).toHaveURL(/\/track\?order=order-1/);
+});
+
+test("an active parcel with COD offers to pay the balance online", async ({
+  page,
+  context,
+}) => {
+  await signInAs(context, "customer", {
+    profiles: [me, rider],
+    delivery_orders: [
+      makeOrder({
+        customer_id: "user-1",
+        status: "in_transit",
+        estimated_delivery_at: minutesFromNow(15),
+        cod_amount: 3300,
+        cod_status: "pending",
+      }),
+    ],
+    delivery_assignments: [assign("order-1")],
+    latest_delivery_locations: [here(minutesAgo(0))],
+  });
+  // A shared pay link opens the cash on delivery section.
+  await page.goto("/track?order=order-1&pay=1");
+  const region = page.getByRole("region", { name: "Selected delivery" });
+  await region.getByRole("button", { name: "View delivery details" }).click();
+  const cod = region.getByRole("button", { name: "Cash on delivery" });
+  await expect(cod).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    region.getByText(/Pay MMK\s?3,300 online instead/),
+  ).toBeVisible();
+  await expect(region.getByText("OR-9001").first()).toBeVisible();
+  await expect(
+    region.getByRole("button", { name: "Share pay link" }),
+  ).toBeVisible();
 });

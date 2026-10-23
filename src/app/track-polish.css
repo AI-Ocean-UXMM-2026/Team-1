@@ -1,0 +1,257 @@
+/* Customer tracking: calmer map overlays and a clearer state read. */
+
+/* The flood caution keeps its two complete lines: the delay risk leads,
+   the corridor name follows and may ellipsize on the narrowest phones. */
+.customer-app .track-viewport .map-flood-warning-banner {
+  top: 8px;
+  left: 12px;
+  right: 12px;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid #e2e8f0;
+  color: #172b4d;
+  box-shadow: 0 4px 14px rgba(23, 43, 77, 0.1);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.customer-app .track-viewport .map-flood-warning-banner > svg {
+  flex: none;
+  margin-top: 1px;
+  color: #d97706;
+}
+
+.customer-app .track-viewport .map-flood-warning-copy {
+  display: block;
+  min-width: 0;
+}
+
+.customer-app .track-viewport .map-flood-warning-copy strong {
+  display: block;
+  color: #172b4d;
+  font-weight: 700;
+}
+
+.customer-app .track-viewport .map-flood-warning-detail {
+  display: block;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+/* Map controls float in the clear strip between the header and the sheet.
+   A horizontal row stays clear of the flood caution at every height. */
+.customer-app .track-map-controls {
+  position: absolute;
+  right: 12px;
+  z-index: 18;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.customer-app .track-map-control {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--color-hairline, #e2e8f0);
+  border-radius: 50%;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-dispatch-navy, #172b4d);
+  box-shadow: var(--rf-shadow-float, 0 6px 18px -6px rgb(23 43 77 / 0.28));
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+.customer-app .track-map-control:hover {
+  background: var(--color-surface-subtle, #f1f5f9);
+}
+
+.customer-app .track-map-control:active {
+  transform: scale(0.96);
+}
+
+.customer-app .track-map-control:focus-visible {
+  outline: 3px solid var(--color-info, #2563eb);
+  outline-offset: 2px;
+}
+
+/* An honest note when the delivery never got a map pin of its own. */
+.customer-app .track-map-note {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  z-index: 18;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-hairline, #e2e8f0);
+  border-radius: 999px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-control-slate, #64748b);
+  box-shadow: var(--rf-shadow-float, 0 6px 18px -6px rgb(23 43 77 / 0.28));
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.customer-app .track-map-note.has-banner {
+  top: 76px;
+}
+
+/* A hairline between the pinned summary and the scrolling details, plus a
+   soft top edge so the body reads as being under the summary. */
+.customer-app .track-peek {
+  flex: none;
+  border-bottom: 1px solid var(--color-hairline, #e2e8f0);
+}
+
+.customer-app .track-sheet-body {
+  box-shadow: inset 0 8px 12px -12px rgb(23 43 77 / 0.35);
+}
+
+/* Freshness dot on the summary strip. */
+.customer-app .track-freshness-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.customer-app .track-spin {
+  animation: track-spin 900ms linear infinite;
+}
+
+@keyframes track-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-app .track-spin {
+    animation: none;
+  }
+
+  .customer-app .track-map-control {
+    transition: none;
+  }
+}
+
+/* Room above the journey rail so status, progress and rider read as groups. */
+.customer-app .track-bottom-sheet ol[aria-label="Delivery journey"] {
+  padding-top: 4px;
+}
+
+/* The leg the parcel is travelling loads toward its node: a Live Blue sweep
+   over a washed-out track, so "On the way" reads as movement rather than a
+   snapshot. The node it moves toward carries the matching live pulse. */
+.customer-app .track-rail-loading {
+  background: var(--color-info-border, #bfdbfe);
+}
+
+.customer-app .track-rail-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgb(37 99 235 / 0) 0%,
+    var(--color-info, #2563eb) 50%,
+    rgb(37 99 235 / 0) 100%
+  );
+  animation: track-rail-sweep 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes track-rail-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes track-node-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(37 99 235 / 0.1);
+  }
+}
+
+.customer-app .track-rail-here {
+  animation: track-node-pulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* The rider line names the stage only where the rail cannot. */
+.customer-app .track-rider-stage {
+  display: none;
+}
+
+/* Short phones trade the journey rail for a map that can show the rider and
+   the drop-off pin. The rider line names the stage instead, and drops the
+   vehicle so the stage and the GPS age both survive the narrower column. */
+@media (max-height: 700px) {
+  .customer-app .track-peek ol[aria-label="Delivery journey"] {
+    display: none;
+  }
+
+  .customer-app .track-rider-stage {
+    display: inline;
+  }
+
+  .customer-app .track-rider-vehicle {
+    display: none;
+  }
+
+  /* The stage and the GPS age are both facts, so the line wraps on the
+     narrowest phones instead of ellipsizing one of them away. */
+  .customer-app .track-rider-caption {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+}
+
+/* Motion is never the only status cue: the filled node and its label still
+   say where the parcel is. */
+@media (prefers-reduced-motion: reduce) {
+  .customer-app .track-rail-loading::after {
+    display: none;
+  }
+
+  .customer-app .track-rail-here {
+    animation: none;
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 0.18);
+  }
+}
+
+/* Sheet text selection and focus follow the palette. */
+.customer-app .track-bottom-sheet ::selection {
+  background: var(--color-info-surface, #dbeafe);
+  color: var(--color-dispatch-navy, #172b4d);
+}
+
+.customer-app .track-bottom-sheet a:focus-visible,
+.customer-app .track-bottom-sheet button:focus-visible {
+  outline: 2px solid var(--color-info, #2563eb);
+  outline-offset: 2px;
+}

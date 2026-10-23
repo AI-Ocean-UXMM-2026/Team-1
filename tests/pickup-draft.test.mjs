@@ -8,6 +8,7 @@ import {
   isMyanmarPhone,
   parseCod,
   sanitizeDraft,
+  scheduleLabel,
   validateAddresses,
   validateDetails,
   yangonHour,
@@ -59,6 +60,8 @@ test("describeParcel states the window in the form the database parses", () => {
     parcelKind: "Documents",
   };
   assert.match(describeParcel(draft), /Pickup today, afternoon/);
+  assert.equal(scheduleLabel("Today", "Afternoon"), "Today, 12–5 pm");
+  assert.equal(scheduleLabel("Tomorrow", "Morning"), "Tomorrow, 8 am–12 pm");
 });
 
 test("COD is whole kyat; blank means none", () => {

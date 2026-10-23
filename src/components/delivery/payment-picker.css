@@ -16,32 +16,12 @@
   font-weight: 700;
 }
 
-.pay-away {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid #d5dbdb;
-  border-radius: 12px;
-  background: #f9fafa;
-  cursor: pointer;
-}
-
-.pay-away input {
-  width: 20px;
-  height: 20px;
-  margin-top: 2px;
-  accent-color: #0972d3;
-}
-
-.pay-away span,
 .pay-option-copy {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.pay-away small,
 .pay-option-copy small,
 .pay-fee-meta,
 .pay-stub small {
@@ -118,8 +98,9 @@
 }
 
 .pay-logo-mmqr {
-  background: #0b2a4a;
-  color: #fff;
+  background: #e8f1fb;
+  color: #0b4f8a;
+  border: 1px solid #9cc3ea;
 }
 
 .pay-logo-ctzpay {
@@ -128,9 +109,143 @@
   border: 1px solid #f4b183;
 }
 
+.pay-logo.pay-logo-art {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #d5dbdb;
+}
+
+.pay-logo-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .pay-logo-cod {
   background: #eaf7ec;
   color: #037f0c;
+}
+
+.pay-now {
+  display: grid;
+  gap: 8px;
+}
+
+.pay-now label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pay-now-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #8d99a8;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.pay-now-input:focus-within {
+  border-color: #0972d3;
+  outline: 2px solid #0972d3;
+  outline-offset: -1px;
+}
+
+.pay-now-input span {
+  color: #5f6b7a;
+  font-weight: 700;
+}
+
+.pay-now-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-now-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pay-now-shortcuts button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #d5dbdb;
+  border-radius: 20px;
+  background: #fff;
+  color: #16191f;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pay-now-shortcuts button[aria-pressed="true"] {
+  border-color: #0972d3;
+  background: #f1faff;
+  color: #0b4f8a;
+}
+
+.pay-now-split {
+  color: #16191f;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.pay-after {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #d5dbdb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.pay-after h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.pay-after-primary,
+.pay-after-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pay-after-primary {
+  border: 0;
+  background: #0972d3;
+  color: #fff;
+}
+
+.pay-after-secondary {
+  border: 1px solid #8d99a8;
+  background: #fff;
+  color: #16191f;
+}
+
+.pay-after-note {
+  margin: 0;
+  color: #5f6b7a;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .pay-note {
@@ -215,17 +330,25 @@
   gap: 2px;
 }
 
+.pay-stub:has(.pay-steps) {
+  align-items: flex-start;
+}
+
+.pay-steps {
+  list-style: decimal;
+  margin: 4px 0;
+  padding-left: 20px;
+  color: #16191f;
+  font-size: 14px;
+  line-height: 20px;
+}
+
 /* Staff forms style every label as a column; keep the cards in a row. */
-.pay-picker .pay-option,
-.pay-picker .pay-away {
+.pay-picker .pay-option {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 12px;
-}
-
-.pay-picker .pay-away {
-  align-items: flex-start;
 }
 
 .pay-picker .pay-option input[type="radio"] {
@@ -236,4 +359,133 @@
   min-height: 0;
   margin: 0;
   opacity: 0;
+}
+
+.rewards-control {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #d5dbdb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.rewards-control h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.rewards-form {
+  display: grid;
+  gap: 6px;
+}
+
+.rewards-form label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rewards-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 6px 0 14px;
+  border: 1px solid #8d99a8;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.rewards-input:focus-within {
+  border-color: #0972d3;
+  outline: 2px solid #0972d3;
+  outline-offset: -1px;
+}
+
+.rewards-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rewards-input button,
+.rewards-applied button {
+  min-height: 40px;
+  min-width: 64px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #172b4d;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+}
+
+.rewards-input button:disabled {
+  background: #e2e8f0;
+  color: #5f6b7a;
+}
+
+.rewards-applied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--color-success-surface, #dcfce7);
+  color: var(--color-success-text, #166534);
+}
+
+.rewards-applied span {
+  display: grid;
+}
+
+.rewards-applied button {
+  background: transparent;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.rewards-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+.rewards-points {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 48px;
+}
+
+.rewards-points input {
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  accent-color: #c2410c;
+}
+
+.rewards-points span {
+  display: grid;
+  gap: 2px;
+}
+
+.rewards-points small {
+  color: #5f6b7a;
+  font-size: 13px;
+}
+
+.pay-fee dl > div.pay-fee-discount dd,
+.pay-fee dl > div.pay-fee-discount dt {
+  color: var(--color-success-text, #166534);
+  font-weight: 600;
 }

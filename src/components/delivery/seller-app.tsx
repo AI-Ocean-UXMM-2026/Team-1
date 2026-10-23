@@ -208,7 +208,7 @@ export function SellerApp() {
       <div className="operations-shell" id="seller-overview">
         <PageHeader
           title="Deliveries"
-          description="Request Oern deliveries and follow orders from other carriers in one queue."
+          description="Request Oern deliveries and follow orders from connected channels in one queue."
         />
 
         {workspace.isDemo && (

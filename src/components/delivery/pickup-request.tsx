@@ -29,24 +29,35 @@ import { CustomerBottomNav } from "@/components/delivery/customer-pages";
 import { Loader } from "@/components/delivery/loader";
 import {
   FeeBreakdown,
+  PayAfterRequest,
+  PayerChoice,
   PaymentMethodPicker,
-  PrepaidStub,
+  PayNowField,
+  RewardsControl,
 } from "@/components/delivery/payment-picker";
 import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import { usePickupDraft } from "@/components/delivery/use-pickup-draft";
-import { createCustomerPickupOrder } from "@/lib/delivery/actions";
+import {
+  type PickupRewards,
+  usePickupRewards,
+} from "@/components/delivery/use-pickup-rewards";
+import {
+  createCustomerPickupOrder,
+  redeemOrderRewards,
+} from "@/lib/delivery/actions";
 import {
   estimateDeliveryFee,
+  type FeeEstimate,
   PARCEL_WEIGHT_KG,
   roadDistanceKm,
 } from "@/lib/delivery/delivery-fee";
 import { currency } from "@/lib/delivery/format";
 import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
 import {
-  defaultPaymentMethod,
-  isAwayFromHome,
+  isPrepaid,
   type PaymentMethod,
-  paymentNote,
+  paymentMethodInfo,
+  planPickupPayment,
 } from "@/lib/delivery/payment-methods";
 import {
   availableWindows,
@@ -58,21 +69,36 @@ import {
   parcelSizes,
   parseCod,
   pickupDays,
+  scheduleLabel,
   validateAddresses,
   validateDetails,
 } from "@/lib/delivery/pickup-draft";
 import { signInHref } from "@/lib/delivery/return-to";
+import { normalizeCouponCode, withRewards } from "@/lib/delivery/rewards";
 import { usePermissionRecovery } from "@/lib/delivery/use-permission-recovery";
 import { createClient } from "@/lib/supabase/client";
 
-export type PickupStep = "route" | "details" | "review";
+export type PickupStep = "route" | "details" | "payment" | "review";
 type GpsState = "idle" | "locating" | "ready" | "denied" | "unavailable";
 
 const STEPS: { id: PickupStep; title: string; href: string }[] = [
-  { id: "route", title: "Addresses", href: "/pickup" },
+  { id: "route", title: "Pickup and delivery", href: "/pickup" },
   { id: "details", title: "Parcel and contacts", href: "/pickup/details" },
+  { id: "payment", title: "Payment", href: "/pickup/payment" },
   { id: "review", title: "Review and request", href: "/pickup/review" },
 ];
+
+/** The step-1 form; the fixed Next button submits it by id. */
+const ADDRESSES_FORM_ID = "pickup-addresses-form";
+
+/** DESIGN.md: the chosen segment is Dispatch Navy, not MUI's grey fill. */
+const selectedSegmentSx = {
+  "& .MuiToggleButton-root.Mui-selected": {
+    bgcolor: "secondary.main",
+    color: "secondary.contrastText",
+    "&:hover": { bgcolor: "secondary.main" },
+  },
+};
 
 /** Plain-language reasons a request can fail, never a raw database message. */
 export function friendlyPickupError(cause: unknown) {
@@ -217,51 +243,70 @@ function PickupShell({
         sx={{
           px: 2,
           pt: 1,
+          // Clear the fixed action, and the tab bar when this step is a tab root.
           pb: tabBar
-            ? "calc(96px + 24px + env(safe-area-inset-bottom))"
-            : "calc(104px + env(safe-area-inset-bottom))",
+            ? "calc(var(--customer-nav-height, 80px) + 81px + 24px + env(safe-area-inset-bottom))"
+            : "calc(120px + env(safe-area-inset-bottom))",
           display: "grid",
           gap: 2,
         }}
       >
         {children}
-        {tabBar && <Box>{action}</Box>}
       </Box>
-      {!tabBar && (
-        <Box
-          sx={{
-            position: "fixed",
-            left: "50%",
-            transform: "translateX(-50%)",
-            bottom: 0,
-            width: "min(100%, var(--customer-canvas, 480px))",
-            px: 2,
-            pt: 1.5,
-            pb: "calc(16px + env(safe-area-inset-bottom))",
-            bgcolor: "background.default",
-            borderTop: "1px solid",
-            borderColor: "divider",
-            zIndex: (theme) => theme.zIndex.appBar,
-          }}
-        >
-          {action}
-        </Box>
-      )}
+      <Box
+        className="pickup-action"
+        sx={{
+          position: "fixed",
+          left: "50%",
+          transform: "translateX(-50%)",
+          // Above the tab bar on the first step, at the bottom on the rest.
+          bottom: tabBar
+            ? "calc(var(--customer-nav-height, 80px) + env(safe-area-inset-bottom))"
+            : 0,
+          width: "min(100%, var(--customer-canvas, 480px))",
+          px: 2,
+          pt: 1.5,
+          pb: tabBar ? 2 : "calc(16px + env(safe-area-inset-bottom))",
+          bgcolor: "background.default",
+          borderTop: "1px solid",
+          borderColor: "divider",
+          zIndex: (theme) => theme.zIndex.appBar,
+        }}
+      >
+        {action}
+      </Box>
       {tabBar && <CustomerBottomNav activeId="pickup" />}
     </main>
   );
 }
 
-function PinChip({ label, onDelete }: { label: string; onDelete: () => void }) {
+function PinChip({
+  label,
+  removeLabel,
+  onDelete,
+}: {
+  label: string;
+  removeLabel: string;
+  onDelete: () => void;
+}) {
   return (
     <Chip
       icon={<CheckCircleOutlined />}
       label={label}
       onDelete={onDelete}
-      deleteIcon={<Close titleAccess="Remove pin" />}
-      color="success"
+      deleteIcon={<Close titleAccess={removeLabel} />}
       variant="outlined"
-      sx={{ mt: 1 }}
+      sx={{
+        mt: 1,
+        bgcolor: "grey.100",
+        color: "text.primary",
+        borderColor: "transparent",
+        "& .MuiChip-icon": { color: "text.primary" },
+        "& .MuiChip-deleteIcon": {
+          color: "text.secondary",
+          "&:hover": { color: "text.primary" },
+        },
+      }}
     />
   );
 }
@@ -331,130 +376,144 @@ function AddressesStep({
       tabBar
       action={
         <Button
+          type="submit"
+          form={ADDRESSES_FORM_ID}
           fullWidth
           variant="contained"
           size="large"
-          onClick={submit}
-          sx={{ minHeight: 52 }}
         >
           Next: parcel and contacts
         </Button>
       }
     >
-      <Field
-        id="pickup-address"
-        label="Pickup address"
-        error={show("pickup") ? errors.pickupAddress : undefined}
+      <Box
+        component="form"
+        id={ADDRESSES_FORM_ID}
+        aria-label="Where to collect and deliver"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+        sx={{ display: "grid", gap: 2 }}
       >
-        <TextInput
+        <Field
           id="pickup-address"
-          value={draft.pickupAddress}
-          onChange={(value) => update({ pickupAddress: value })}
-          onBlur={() => setTouched((t) => ({ ...t, pickup: true }))}
-          placeholder="House, street, township"
-          autoComplete="street-address"
-          maxLength={300}
+          label="Pickup address"
           error={show("pickup") ? errors.pickupAddress : undefined}
-        />
-      </Field>
-      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
-        {hasMapbox && (
-          <Button
-            variant="outlined"
-            color="secondary"
-            startIcon={<MapOutlined />}
-            onClick={() => router.push("/pickup/map")}
-            sx={{ minHeight: 48 }}
-          >
-            Choose on map
-          </Button>
-        )}
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={locate}
-          disabled={gps === "locating"}
-          startIcon={
-            gps === "locating" ? (
-              <Loader compact label="Finding your location…" />
-            ) : (
-              <MyLocationOutlined fontSize="small" />
-            )
-          }
-          sx={{ minHeight: 48 }}
         >
-          {gps === "locating" ? "Finding you…" : "Use my location"}
-        </Button>
-      </Stack>
-      {draft.pickupPoint && (
-        <Box sx={{ mt: -1 }}>
-          <PinChip
-            label="Pickup pin set"
-            onDelete={() => update({ pickupPoint: null })}
+          <TextInput
+            id="pickup-address"
+            value={draft.pickupAddress}
+            onChange={(value) => update({ pickupAddress: value })}
+            onBlur={() => setTouched((t) => ({ ...t, pickup: true }))}
+            placeholder="e.g. 42 Pyay Road, Kamayut"
+            autoComplete="street-address"
+            maxLength={300}
+            error={show("pickup") ? errors.pickupAddress : undefined}
           />
-        </Box>
-      )}
-      {gps === "denied" && (
-        <Alert
-          severity="warning"
-          sx={{ borderRadius: "12px" }}
-          action={
+        </Field>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
+          {hasMapbox && (
             <Button
-              color="inherit"
-              size="small"
-              startIcon={<RefreshOutlined />}
-              onClick={locate}
+              variant="outlined"
+              color="secondary"
+              startIcon={<MapOutlined />}
+              onClick={() => router.push("/pickup/map")}
+              sx={{ minHeight: 48 }}
             >
-              Try again
+              Pickup on map
             </Button>
-          }
-        >
-          Location is blocked for this site. Allow it in your browser settings,
-          or type the address above.
-        </Alert>
-      )}
-      {gps === "unavailable" && (
-        <Alert severity="info" sx={{ borderRadius: "12px" }}>
-          GPS isn’t available right now. Type the pickup address above.
-        </Alert>
-      )}
-
-      <Field
-        id="delivery-address"
-        label="Deliver to"
-        error={show("delivery") ? errors.deliveryAddress : undefined}
-      >
-        <TextInput
-          id="delivery-address"
-          value={draft.deliveryAddress}
-          onChange={(value) => update({ deliveryAddress: value })}
-          onBlur={() => setTouched((t) => ({ ...t, delivery: true }))}
-          placeholder="Recipient’s address and township"
-          maxLength={300}
-          error={show("delivery") ? errors.deliveryAddress : undefined}
-        />
-      </Field>
-      {hasMapbox && (
-        <Box sx={{ mt: -1 }}>
+          )}
           <Button
             variant="outlined"
             color="secondary"
-            startIcon={<MapOutlined />}
-            onClick={() => router.push("/pickup/map/delivery")}
+            onClick={locate}
+            disabled={gps === "locating"}
+            startIcon={
+              gps === "locating" ? (
+                <Loader compact label="Finding your location…" />
+              ) : (
+                <MyLocationOutlined fontSize="small" />
+              )
+            }
             sx={{ minHeight: 48 }}
           >
-            Choose on map
+            {gps === "locating" ? "Finding you…" : "Use my location"}
           </Button>
-          {draft.deliveryPoint && (
-            <Box>
-              <PinChip
-                label="Delivery pin set"
-                onDelete={() => update({ deliveryPoint: null })}
-              />
-            </Box>
-          )}
-        </Box>
-      )}
+        </Stack>
+        {draft.pickupPoint && (
+          <Box sx={{ mt: -1 }}>
+            <PinChip
+              label="Pickup pin set"
+              removeLabel="Remove pickup pin"
+              onDelete={() => update({ pickupPoint: null })}
+            />
+          </Box>
+        )}
+        {gps === "denied" && (
+          <Alert
+            severity="warning"
+            sx={{ borderRadius: "12px" }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                startIcon={<RefreshOutlined />}
+                onClick={locate}
+              >
+                Try again
+              </Button>
+            }
+          >
+            Location is blocked for this site. Allow it in your browser
+            settings, or type the address above.
+          </Alert>
+        )}
+        {gps === "unavailable" && (
+          <Alert severity="info" sx={{ borderRadius: "12px" }}>
+            GPS isn’t available right now. Type the pickup address above.
+          </Alert>
+        )}
+
+        <Field
+          id="delivery-address"
+          label="Delivery address"
+          error={show("delivery") ? errors.deliveryAddress : undefined}
+        >
+          <TextInput
+            id="delivery-address"
+            value={draft.deliveryAddress}
+            onChange={(value) => update({ deliveryAddress: value })}
+            onBlur={() => setTouched((t) => ({ ...t, delivery: true }))}
+            placeholder="e.g. 12 Baho Road, Sanchaung"
+            maxLength={300}
+            error={show("delivery") ? errors.deliveryAddress : undefined}
+          />
+        </Field>
+        {hasMapbox && (
+          <Box sx={{ mt: -1 }}>
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<MapOutlined />}
+              onClick={() => router.push("/pickup/map/delivery")}
+              sx={{ minHeight: 48 }}
+            >
+              Delivery on map
+            </Button>
+            {draft.deliveryPoint && (
+              <Box>
+                <PinChip
+                  label="Delivery pin set"
+                  removeLabel="Remove delivery pin"
+                  onDelete={() => update({ deliveryPoint: null })}
+                />
+              </Box>
+            )}
+          </Box>
+        )}
+      </Box>
     </PickupShell>
   );
 }
@@ -499,7 +558,7 @@ function DetailsStep({
           onClick={submit}
           sx={{ minHeight: 52 }}
         >
-          Next: review
+          Next: payment
         </Button>
       }
     >
@@ -557,7 +616,7 @@ function DetailsStep({
             });
           }}
           aria-label="Pickup day"
-          sx={{ mb: 1 }}
+          sx={{ mb: 1, ...selectedSegmentSx }}
         >
           {pickupDays.map((day) => (
             <ToggleButton key={day} value={day} sx={{ minHeight: 48 }}>
@@ -571,6 +630,7 @@ function DetailsStep({
           value={draft.window}
           onChange={(_, value) => value && update({ window: value })}
           aria-label="Pickup window"
+          sx={selectedSegmentSx}
         >
           {windows.map((window) => (
             <ToggleButton
@@ -589,8 +649,8 @@ function DetailsStep({
           variant="caption"
           sx={{ display: "block", mt: 0.75, color: "text.secondary" }}
         >
-          This is the time you’d like the rider to collect. We confirm it once a
-          rider is assigned.
+          Times are Yangon time. We confirm your requested window once a rider
+          is assigned.
         </Typography>
         {errors.window && (
           <Typography
@@ -725,6 +785,7 @@ function DetailsStep({
               value={draft.parcelSize}
               onChange={(_, value) => value && update({ parcelSize: value })}
               aria-label="Parcel size"
+              sx={selectedSegmentSx}
             >
               {parcelSizes.map((size) => (
                 <ToggleButton
@@ -797,7 +858,25 @@ function DetailsStep({
           </Field>
         </AccordionDetails>
       </Accordion>
+      <DeliveryFeeHint draft={draft} />
     </PickupShell>
+  );
+}
+
+/** The fee is known from the two pins, so say so before the review step. */
+function DeliveryFeeHint({ draft }: { draft: PickupDraft }) {
+  const estimate = draftEstimate(draft);
+  if (!estimate) return null;
+  return (
+    <Typography
+      variant="body2"
+      sx={{ color: "text.secondary" }}
+      aria-live="polite"
+    >
+      Delivery fee about <strong>{currency.format(estimate.total)}</strong> for{" "}
+      {estimate.distanceKm.toFixed(1)} km. You’ll choose who pays on the next
+      step.
+    </Typography>
   );
 }
 
@@ -841,19 +920,142 @@ function SummaryRow({
   );
 }
 
-/** The method the customer chose, else the default for where they are. */
+/** The method the customer chose, else cash on delivery by default. */
 function resolvePayment(draft: PickupDraft): PaymentMethod {
+  if (draft.payer === "other") return "cod";
+  return draft.paymentMethod ?? "cod";
+}
+
+function draftEstimate(draft: PickupDraft) {
+  const distanceKm = roadDistanceKm(draft.pickupPoint, draft.deliveryPoint);
+  return distanceKm === null
+    ? null
+    : estimateDeliveryFee({
+        distanceKm,
+        weightKg: PARCEL_WEIGHT_KG[draft.parcelSize],
+        method: resolvePayment(draft),
+      });
+}
+
+/**
+ * What the order is sent with: the delivery fee plus goods are owed at the
+ * door until payment is recorded. Paying online now happens on the next
+ * screen, once the tracking code exists to use as the reference.
+ */
+function resolveSplit(draft: PickupDraft, fee: number) {
+  return planPickupPayment({
+    fee,
+    goods: parseCod(draft.codAmount) ?? 0,
+    method: draft.paymentMethod ?? "cod",
+    payer: draft.payer,
+    payNow: draft.payNow,
+  });
+}
+
+/** One line for the review step: who pays, how, and what is left for the door. */
+function paymentSummary(
+  draft: PickupDraft,
+  split: ReturnType<typeof resolveSplit>,
+) {
+  if (draft.payer === "other")
+    return `Someone else pays · ${currency.format(split.owed)} at the door or online with a pay link`;
+  if (split.payOnline <= 0)
+    return `Cash at the door · ${currency.format(split.owed)}`;
+  const label = paymentMethodInfo(split.method).label;
+  const rest = split.owed - split.payOnline;
+  return rest > 0
+    ? `${currency.format(split.payOnline)} with ${label} now · ${currency.format(rest)} cash at the door`
+    : `${currency.format(split.payOnline)} with ${label} now`;
+}
+
+function PaymentStep({
+  draft,
+  update,
+  estimate,
+  rewards,
+  onBack,
+  next,
+}: {
+  draft: PickupDraft;
+  update: (patch: Partial<PickupDraft>) => void;
+  estimate: FeeEstimate | null;
+  rewards: PickupRewards;
+  onBack: () => void;
+  next: () => void;
+}) {
+  const cod = parseCod(draft.codAmount) ?? 0;
+  const method = resolvePayment(draft);
+  const split = resolveSplit(draft, estimate?.total ?? 0);
+  const payingNow = draft.payer === "me" && isPrepaid(method);
   return (
-    draft.paymentMethod ??
-    defaultPaymentMethod({
-      awayFromHome: isAwayFromHome({ declaredAway: draft.awayFromHome }),
-    })
+    <PickupShell
+      step="payment"
+      onBack={onBack}
+      action={
+        <Button
+          fullWidth
+          variant="contained"
+          size="large"
+          onClick={next}
+          sx={{ minHeight: 52 }}
+        >
+          Next: review
+        </Button>
+      }
+    >
+      <FeeBreakdown
+        estimate={estimate}
+        method={method}
+        itemCash={cod}
+        paidNow={split.payOnline}
+      />
+      {estimate && (
+        <RewardsControl
+          id="pickup-coupon"
+          appliedCode={normalizeCouponCode(draft.couponCode)}
+          status={rewards.couponStatus}
+          balance={rewards.balance}
+          usePoints={draft.usePoints}
+          pointsUsed={rewards.applied.pointsUsed}
+          pointsDiscount={rewards.applied.pointsDiscount}
+          onApply={(code) => update({ couponCode: normalizeCouponCode(code) })}
+          onRemove={() => update({ couponCode: "" })}
+          onUsePointsChange={(usePoints) => update({ usePoints })}
+        />
+      )}
+      <PayerChoice
+        name="pickup-payer"
+        value={draft.payer}
+        onChange={(payer) => update({ payer })}
+      />
+      {draft.payer === "other" ? (
+        <p className="pay-note">
+          They can pay the rider {currency.format(split.owed)} in cash at the
+          door, or online with a pay link you’ll get once the request is sent.
+        </p>
+      ) : (
+        <PaymentMethodPicker
+          name="pickup-payment"
+          value={draft.paymentMethod ?? "cod"}
+          onChange={(next) => update({ paymentMethod: next })}
+        />
+      )}
+      {estimate && payingNow && (
+        <PayNowField
+          id="pickup-pay-now"
+          total={split.owed}
+          fee={estimate.total}
+          value={draft.payNow}
+          onChange={(next) => update({ payNow: next })}
+        />
+      )}
+    </PickupShell>
   );
 }
 
 function ReviewStep({
   draft,
-  update,
+  estimate,
   submit,
   state,
   error,
@@ -861,7 +1063,7 @@ function ReviewStep({
   onBack,
 }: {
   draft: PickupDraft;
-  update: (patch: Partial<PickupDraft>) => void;
+  estimate: FeeEstimate | null;
   onBack: () => void;
   submit: () => void;
   state: "editing" | "sending";
@@ -869,16 +1071,7 @@ function ReviewStep({
   signedIn: boolean | null;
 }) {
   const cod = parseCod(draft.codAmount) ?? 0;
-  const method = resolvePayment(draft);
-  const distanceKm = roadDistanceKm(draft.pickupPoint, draft.deliveryPoint);
-  const estimate =
-    distanceKm === null
-      ? null
-      : estimateDeliveryFee({
-          distanceKm,
-          weightKg: PARCEL_WEIGHT_KG[draft.parcelSize],
-          method,
-        });
+  const split = resolveSplit(draft, estimate?.total ?? 0);
   return (
     <PickupShell
       step="review"
@@ -898,9 +1091,8 @@ function ReviewStep({
             fullWidth
             variant="contained"
             size="large"
-            disabled={state === "sending" || signedIn === null}
+            disabled={state === "sending"}
             onClick={submit}
-            sx={{ minHeight: 52 }}
           >
             {state === "sending"
               ? "Sending…"
@@ -924,7 +1116,7 @@ function ReviewStep({
           href="/pickup"
         />
         <SummaryRow
-          label="Deliver to"
+          label="Delivery address"
           value={draft.deliveryAddress}
           href="/pickup"
         />
@@ -943,30 +1135,32 @@ function ReviewStep({
         />
         <SummaryRow
           label="Requested pickup"
-          value={`${draft.day}, ${draft.window.toLowerCase()}`}
+          value={scheduleLabel(draft.day, draft.window)}
           href="/pickup/details"
         />
         <SummaryRow
-          label="Cash on delivery"
+          label="Goods to collect"
           value={cod > 0 ? currency.format(cod) : "None"}
           href="/pickup/details"
         />
       </Box>
-      <PaymentMethodPicker
-        name="pickup-payment"
-        value={method}
-        onChange={(next) => update({ paymentMethod: next })}
-        awayFromHome={draft.awayFromHome}
-        onAwayChange={(away) => update({ awayFromHome: away })}
+      <SummaryRow
+        label="Delivery fee"
+        value={estimate ? currency.format(estimate.total) : "Not calculated"}
+        href="/pickup/payment"
       />
-      <FeeBreakdown estimate={estimate} method={method} itemCash={cod} />
-      <PrepaidStub method={method} amount={estimate?.total ?? 0} />
+      <SummaryRow
+        label="Payment"
+        value={paymentSummary(draft, split)}
+        href="/pickup/payment"
+      />
     </PickupShell>
   );
 }
 
 /**
- * Request a pickup in three steps: addresses, parcel and contacts, review.
+ * Request a pickup in four steps: addresses, parcel and contacts, payment,
+ * review.
  * The draft lives in storage, so the map screens, a sign-in or a reload never
  * cost the customer what they typed.
  */
@@ -980,8 +1174,28 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
     id: string;
     code: string;
     summary: string;
+    /** Everything still owed, and how much of it the sender will pay online. */
+    balance: number;
+    payOnline: number;
+    method: PaymentMethod;
+    /** Set when the order went through but a coupon or points did not apply. */
+    notice: string | null;
   } | null>(null);
   const inFlight = useRef(false);
+  const grossEstimate = draftEstimate(draft);
+  const rewards = usePickupRewards(
+    draft,
+    grossEstimate?.total ?? null,
+    step === "payment" || step === "review",
+  );
+  const estimate = grossEstimate
+    ? withRewards(
+        grossEstimate,
+        rewards.applied,
+        normalizeCouponCode(draft.couponCode),
+      )
+    : null;
+  const successHeading = useRef<HTMLHeadingElement | null>(null);
 
   const index = STEPS.findIndex((item) => item.id === step);
   const previous = STEPS[index - 1]?.href ?? "/home";
@@ -996,7 +1210,10 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
     if (!hydrated || state === "sent") return;
     if (step !== "route" && Object.keys(addressErrors).length > 0)
       router.replace("/pickup");
-    else if (step === "review" && Object.keys(detailErrors).length > 0)
+    else if (
+      (step === "payment" || step === "review") &&
+      Object.keys(detailErrors).length > 0
+    )
       router.replace("/pickup/details");
   }, [hydrated, state, step, addressErrors, detailErrors, router]);
 
@@ -1010,6 +1227,11 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
       live = false;
     };
   }, [step]);
+
+  // The success view replaces the form in place, so move focus to its heading.
+  useEffect(() => {
+    if (state === "sent") successHeading.current?.focus();
+  }, [state]);
 
   async function submit() {
     if (inFlight.current) return;
@@ -1029,6 +1251,8 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
         router.push(signInHref("/pickup/review"));
         return;
       }
+      const grossFee = grossEstimate?.total ?? 0;
+      const split = resolveSplit(draft, estimate?.total ?? 0);
       const result = await createCustomerPickupOrder(supabase, {
         pickupAddress: draft.pickupAddress.trim(),
         pickupLatitude: draft.pickupPoint?.latitude,
@@ -1041,13 +1265,37 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
         recipientPhone: draft.recipientPhone.trim(),
         // The window is written in the form the database turns into a stored
         // pickup window, so it is a real request rather than a promise.
-        parcelDescription: `${describeParcel(draft)} · ${paymentNote(resolvePayment(draft))}`,
-        codAmount: parseCod(draft.codAmount) ?? 0,
+        parcelDescription: `${describeParcel(draft)} · ${split.note}`,
+        // Sent at the full fee; the discount is applied to the order next.
+        codAmount: resolveSplit(draft, grossFee).codAmount,
       });
+      let notice: string | null = null;
+      let redeemed = rewards.applied.discount <= 0;
+      if (!redeemed)
+        try {
+          await redeemOrderRewards(supabase, {
+            orderId: result.id,
+            fee: grossFee,
+            couponCode:
+              rewards.couponStatus.state === "valid"
+                ? normalizeCouponCode(draft.couponCode)
+                : undefined,
+            points: rewards.applied.pointsUsed,
+          });
+          redeemed = true;
+        } catch {
+          notice =
+            "Your request is in, but the coupon or points could not be applied. The full amount is due; contact support to fix it.";
+        }
+      const owed = redeemed ? split.owed : resolveSplit(draft, grossFee).owed;
       setSent({
         id: result.id,
         code: result.tracking_code,
-        summary: `${draft.day}, ${draft.window.toLowerCase()}`,
+        summary: scheduleLabel(draft.day, draft.window),
+        balance: owed,
+        payOnline: redeemed ? split.payOnline : 0,
+        method: split.method,
+        notice,
       });
       setState("sent");
       reset();
@@ -1071,20 +1319,32 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
         />
         <Stack spacing={1.5} sx={{ px: 2, pt: 3, pb: 6 }}>
           <CheckCircleOutlined sx={{ fontSize: 40, color: "success.main" }} />
-          <Typography variant="h5" component="h2" sx={{ fontWeight: 750 }}>
+          <Typography
+            ref={successHeading}
+            tabIndex={-1}
+            variant="h5"
+            component="h2"
+            sx={{ fontWeight: 750 }}
+          >
             Your tracking code is {sent.code}
           </Typography>
           <Typography sx={{ color: "text.secondary" }}>
-            We’ve received your request for a pickup{" "}
-            {sent.summary.toLowerCase()}. A rider is assigned next; follow the
-            order to see when.
+            We’ve received your request for pickup {sent.summary.toLowerCase()}.
+            We’ll assign a rider next; follow the order to see when.
           </Typography>
+          {sent.notice && <Alert severity="warning">{sent.notice}</Alert>}
+          <PayAfterRequest
+            code={sent.code}
+            balance={sent.balance}
+            payOnline={sent.payOnline}
+            method={sent.method}
+          />
           <Button
             component={Link}
             href={`/track?order=${encodeURIComponent(sent.id)}`}
             variant="contained"
             size="large"
-            sx={{ minHeight: 52, mt: 1 }}
+            sx={{ mt: 1 }}
           >
             View order
           </Button>
@@ -1094,7 +1354,6 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
             variant="outlined"
             color="secondary"
             size="large"
-            sx={{ minHeight: 52 }}
           >
             Back to home
           </Button>
@@ -1116,13 +1375,22 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
         draft={draft}
         update={update}
         errors={detailErrors}
+        next={() => router.push("/pickup/payment")}
+        onBack={goBack}
+      />
+    ) : step === "payment" ? (
+      <PaymentStep
+        draft={draft}
+        update={update}
+        estimate={estimate}
+        rewards={rewards}
         next={() => router.push("/pickup/review")}
         onBack={goBack}
       />
     ) : (
       <ReviewStep
         draft={draft}
-        update={update}
+        estimate={estimate}
         submit={() => void submit()}
         state={state === "sending" ? "sending" : "editing"}
         error={error}

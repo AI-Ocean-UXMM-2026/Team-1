@@ -7,10 +7,14 @@ import { Icon } from "@/components/delivery/icons";
 import {
   FeeBreakdown,
   PaymentMethodPicker,
+  PayNowField,
+  RewardsControl,
 } from "@/components/delivery/payment-picker";
 import {
   createManualDeliveryOrder,
   type ManualOrderItem,
+  redeemManualOrderCoupon,
+  validateCoupon,
 } from "@/lib/delivery/actions";
 import {
   loadBusinessProfile,
@@ -22,7 +26,13 @@ import {
   isPrepaid,
   type PaymentMethod,
   paymentNote,
+  splitPayment,
 } from "@/lib/delivery/payment-methods";
+import {
+  applyServerRewards,
+  normalizeCouponCode,
+  withRewards,
+} from "@/lib/delivery/rewards";
 import { createClient } from "@/lib/supabase/client";
 
 type DraftItem = ManualOrderItem & { id: number };
@@ -38,13 +48,21 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
   const [items, setItems] = useState<DraftItem[]>(() => [firstItem()]);
   const [codAmount, setCodAmount] = useState<number | string>(0);
   const [method, setMethod] = useState<PaymentMethod>("cod");
+  const [payNow, setPayNow] = useState("");
   const [distanceKm, setDistanceKm] = useState<number | string>(3);
   const [urgent, setUrgent] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponResult, setCouponResult] = useState<{
+    key: string;
+    discount: number;
+    reason: string | null;
+  } | null>(null);
   const [locations, setLocations] = useState<PickupLocation[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const nextItemId = useRef(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [couponNotice, setCouponNotice] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedOrder | null>(null);
   const successHeading = useRef<HTMLHeadingElement>(null);
   const senderField = useRef<HTMLInputElement>(null);
@@ -92,6 +110,70 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
     }
   }, [created]);
 
+  const grossEstimate = estimateDeliveryFee({
+    distanceKm: Number(distanceKm) || 0,
+    weightKg: 1,
+    method,
+    urgent,
+  });
+  const couponKey = `${couponCode}:${grossEstimate.total}`;
+
+  useEffect(() => {
+    if (!couponCode || !canCreate) return;
+    let live = true;
+    void validateCoupon(createClient(), couponCode, grossEstimate.total)
+      .then((check) => {
+        if (live)
+          setCouponResult({
+            key: couponKey,
+            discount: check.couponId ? check.discount : 0,
+            reason: check.couponId
+              ? null
+              : (check.reason ?? "This coupon cannot be used."),
+          });
+      })
+      .catch(() => {
+        if (live)
+          setCouponResult({
+            key: couponKey,
+            discount: 0,
+            reason: "We could not check this coupon. Try again.",
+          });
+      });
+    return () => {
+      live = false;
+    };
+  }, [couponCode, couponKey, canCreate, grossEstimate.total]);
+
+  const couponStatus = !couponCode
+    ? ({ state: "none" } as const)
+    : couponResult?.key !== couponKey
+      ? ({ state: "checking" } as const)
+      : couponResult.reason
+        ? ({ state: "invalid", reason: couponResult.reason } as const)
+        : ({ state: "valid", discount: couponResult.discount } as const);
+  const applied = applyServerRewards(grossEstimate.total, {
+    couponDiscount: couponStatus.state === "valid" ? couponStatus.discount : 0,
+  });
+  const estimate = withRewards(grossEstimate, applied, couponCode);
+  const goods = Number(codAmount) || 0;
+
+  /**
+   * A prepaid method can pay any part of the fee plus goods; the rest is the
+   * cash the rider collects. Paying nothing now is plain cash on delivery.
+   */
+  function resolveSplit(fee = estimate.total) {
+    const owed = fee + goods;
+    const { paid, cashDue } = splitPayment(
+      owed,
+      payNow.trim() === "" ? owed : Number(payNow),
+    );
+    if (!isPrepaid(method) || paid === 0)
+      return { owed, paid: 0, codAmount: goods, note: paymentNote("cod") };
+    return { owed, paid, codAmount: cashDue, note: paymentNote(method, paid) };
+  }
+  const split = resolveSplit();
+
   function updateItem(id: number, change: Partial<ManualOrderItem>) {
     setItems((previous) =>
       previous.map((item) => (item.id === id ? { ...item, ...change } : item)),
@@ -106,6 +188,7 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
       return;
     }
     const form = new FormData(event.currentTarget);
+    const split = resolveSplit();
     setSaving(true);
     setError(null);
     try {
@@ -117,11 +200,24 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
         receiverPhone: String(form.get("receiverPhone") || ""),
         deliveryAddress: String(form.get("deliveryAddress") || ""),
         items,
-        codAmount: isPrepaid(method) ? 0 : Number(form.get("codAmount") || 0),
-        notes: [String(form.get("notes") || "").trim(), paymentNote(method)]
+        // Sent at the full fee; the coupon is applied to the order next.
+        codAmount: resolveSplit(grossEstimate.total).codAmount,
+        notes: [String(form.get("notes") || "").trim(), split.note]
           .filter(Boolean)
           .join(" · "),
       });
+      if (applied.couponDiscount > 0)
+        try {
+          await redeemManualOrderCoupon(createClient(), {
+            orderId: result.id,
+            fee: grossEstimate.total,
+            couponCode,
+          });
+        } catch {
+          setCouponNotice(
+            "The order was created, but the coupon could not be applied. Update its cash amount by hand.",
+          );
+        }
       setCreated(result);
     } catch (cause) {
       setError(
@@ -149,6 +245,7 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
         >
           Order created
         </h2>
+        {couponNotice && <p role="alert">{couponNotice}</p>}
         <p id="manual-order-created-instructions">
           Share this tracking ID with the sender or receiver.
         </p>
@@ -184,6 +281,8 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
               setError(null);
               setCodAmount(0);
               setItems([firstItem()]);
+              setCouponCode("");
+              setCouponNotice(null);
             }}
           >
             Create another order
@@ -431,39 +530,37 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
             Confirm what the rider should collect and any special instructions.
           </small>
         </legend>
-        {isPrepaid(method) ? (
-          <p className="pay-note">
-            Prepaid in the app: the rider collects no cash for this order.
-          </p>
-        ) : (
-          <div className="manual-cod-row">
-            <label>
-              Cash to collect (MMK)
-              <input
-                name="codAmount"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="100"
-                value={codAmount}
-                onChange={(e) => setCodAmount(e.target.value)}
-                aria-describedby="cod-amount-help"
-              />
-              <small id="cod-amount-help" className="manual-order-field-help">
-                Enter 0 if the rider should not collect cash on delivery.
-              </small>
-            </label>
-            {itemsTotal > 0 && (
-              <button
-                type="button"
-                className="button button-small button-outline manual-cod-match"
-                onClick={() => setCodAmount(itemsTotal)}
-              >
-                Match items total ({currency.format(itemsTotal)})
-              </button>
-            )}
-          </div>
-        )}
+        <div className="manual-cod-row">
+          <label>
+            {isPrepaid(method)
+              ? "Goods to collect (MMK)"
+              : "Cash to collect (MMK)"}
+            <input
+              name="codAmount"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              step="100"
+              value={codAmount}
+              onChange={(e) => setCodAmount(e.target.value)}
+              aria-describedby="cod-amount-help"
+            />
+            <small id="cod-amount-help" className="manual-order-field-help">
+              {isPrepaid(method)
+                ? "Goods money from the receiver. Counts toward what can be paid now."
+                : "Enter 0 if the rider should not collect cash on delivery."}
+            </small>
+          </label>
+          {itemsTotal > 0 && (
+            <button
+              type="button"
+              className="button button-small button-outline manual-cod-match"
+              onClick={() => setCodAmount(itemsTotal)}
+            >
+              Match items total ({currency.format(itemsTotal)})
+            </button>
+          )}
+        </div>
         <label>
           Rider instructions (optional)
           <textarea
@@ -477,7 +574,7 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
         <legend>
           <span>Payment and delivery fee</span>
           <small>
-            Prepaid orders are paid in the app, so the rider collects no fee.
+            Pay any part in the app now; the rest is cash on delivery.
           </small>
         </legend>
         <PaymentMethodPicker
@@ -485,6 +582,15 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
           value={method}
           onChange={setMethod}
         />
+        {isPrepaid(method) && split.owed > 0 && (
+          <PayNowField
+            id="manual-pay-now"
+            total={split.owed}
+            fee={estimate.total}
+            value={payNow}
+            onChange={setPayNow}
+          />
+        )}
         <div className="manual-cod-row">
           <label>
             Distance (km)
@@ -506,15 +612,24 @@ export function ManagerCreateOrder({ canCreate }: { canCreate: boolean }) {
             Urgent delivery
           </label>
         </div>
+        <RewardsControl
+          id="manual-coupon"
+          showPoints={false}
+          appliedCode={couponCode}
+          status={couponStatus}
+          balance={0}
+          usePoints={false}
+          pointsUsed={0}
+          pointsDiscount={0}
+          onApply={(code) => setCouponCode(normalizeCouponCode(code))}
+          onRemove={() => setCouponCode("")}
+          onUsePointsChange={() => undefined}
+        />
         <FeeBreakdown
-          estimate={estimateDeliveryFee({
-            distanceKm: Number(distanceKm) || 0,
-            weightKg: 1,
-            method,
-            urgent,
-          })}
+          estimate={estimate}
           method={method}
-          itemCash={isPrepaid(method) ? 0 : Number(codAmount) || 0}
+          itemCash={goods}
+          paidNow={split.paid}
         />
       </fieldset>
       <div className="manual-order-outcome">

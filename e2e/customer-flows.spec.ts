@@ -62,11 +62,15 @@ test("a failed delivery explains itself in the timeline (H-05)", async ({
     ],
   });
   await page.goto("/track?order=order-1");
-  const timeline = page.getByRole("region", { name: "Progress" });
-  await expect(timeline.getByText("Delivery issue")).toBeVisible();
-  await expect(timeline.getByText(/Recipient unavailable/)).toBeVisible();
-  await expect(timeline.getByText("Not reached").first()).toBeVisible();
-  await expect(timeline.getByText("Up next")).toHaveCount(0);
+  const detail = page.getByRole("region", { name: "Selected delivery" });
+  // The stop reason leads the opened details, before the timeline.
+  await expect(detail.getByText(/Recipient unavailable/).first()).toBeVisible();
+  await detail.getByRole("button", { name: "View delivery details" }).click();
+  await expect(detail.getByText("Delivery issue").first()).toBeVisible();
+  const updates = detail.getByRole("button", { name: "Delivery updates" });
+  await updates.click();
+  await expect(detail.getByText("Not reached").first()).toBeVisible();
+  await expect(detail.getByText("Up next")).toHaveCount(0);
 });
 
 test("Help sends a support case with the order attached (H-03)", async ({
@@ -151,15 +155,26 @@ test("home leads with the parcel on the way, and the tab bar has one current tab
     ],
   });
   await page.goto("/home");
-  const live = page.getByRole("link", { name: /track live/i });
-  const pickup = page.getByRole("link", { name: /request a pickup/i });
+  // The live parcel is the headline card, above the shortcut row, and carries
+  // its status, ETA and tracking action without opening anything else.
+  const live = page.getByRole("list", { name: "Today's deliveries" });
   await expect(live).toBeVisible();
+  await expect(live.getByText("On the way")).toBeVisible();
+  await expect(live.getByText(/arriving in \d+ min/i)).toBeVisible();
+  await expect(live.getByText("Track")).toBeVisible();
   const liveY = (await live.boundingBox())?.y ?? 0;
-  const pickupY = (await pickup.boundingBox())?.y ?? 0;
-  expect(liveY).toBeLessThan(pickupY);
+  const shortcutsY =
+    (
+      await page
+        .getByRole("navigation", { name: "Quick actions" })
+        .boundingBox()
+    )?.y ?? 0;
+  expect(liveY).toBeGreaterThan(shortcutsY);
 
+  // Pickup is a bottom-tab destination, not a second card on Home.
   const nav = page.getByRole("navigation", { name: "Customer app" });
   await expect(nav.getByRole("link")).toHaveCount(4);
+  await expect(nav.getByRole("link", { name: "Pickup" })).toBeVisible();
   await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
   await expect(nav.getByRole("link", { name: "Home" })).toHaveAttribute(
     "aria-current",

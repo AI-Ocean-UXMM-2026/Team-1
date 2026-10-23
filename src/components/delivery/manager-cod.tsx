@@ -14,10 +14,7 @@ import {
   summariseCodLedger,
 } from "@/lib/delivery/cod-ledger";
 import { currency } from "@/lib/delivery/format";
-import {
-  orderPaymentMethod,
-  paymentBadge,
-} from "@/lib/delivery/payment-methods";
+import { orderPaymentBadge } from "@/lib/delivery/payment-methods";
 import type { DeliveryOrder } from "@/lib/delivery/types";
 import { createClient } from "@/lib/supabase/client";
 
@@ -428,7 +425,7 @@ export function CodLedgerView({
                 <div className="cod-ledger-main">
                   <strong>{row.order.tracking_code}</strong>
                   <span className="cod-pay-method">
-                    {paymentBadge(orderPaymentMethod(row.order))}
+                    {orderPaymentBadge(row.order)}
                   </span>
                   <span>
                     {row.order.driver_name ?? "Unassigned"} ·{" "}

@@ -242,8 +242,92 @@ export type Database = {
           },
         ];
       };
+      coupons: {
+        Row: {
+          active: boolean;
+          code: string;
+          created_at: string;
+          created_by: string | null;
+          ends_at: string | null;
+          id: string;
+          kind: string;
+          max_discount: number | null;
+          max_redemptions: number | null;
+          min_fee: number;
+          per_customer_limit: number | null;
+          starts_at: string | null;
+          value: number;
+        };
+        Insert: {
+          active?: boolean;
+          code: string;
+          created_at?: string;
+          created_by?: string | null;
+          ends_at?: string | null;
+          id?: string;
+          kind: string;
+          max_discount?: number | null;
+          max_redemptions?: number | null;
+          min_fee?: number;
+          per_customer_limit?: number | null;
+          starts_at?: string | null;
+          value?: number;
+        };
+        Update: {
+          active?: boolean;
+          code?: string;
+          ends_at?: string | null;
+          kind?: string;
+          max_discount?: number | null;
+          max_redemptions?: number | null;
+          min_fee?: number;
+          per_customer_limit?: number | null;
+          starts_at?: string | null;
+          value?: number;
+        };
+        Relationships: [];
+      };
+      coupon_redemptions: {
+        Row: {
+          amount: number;
+          coupon_id: string;
+          created_at: string;
+          customer_id: string | null;
+          id: string;
+          order_id: string;
+        };
+        Insert: {
+          amount: number;
+          coupon_id: string;
+          customer_id?: string | null;
+          order_id: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      loyalty_ledger: {
+        Row: {
+          created_at: string;
+          customer_id: string;
+          delta: number;
+          id: string;
+          order_id: string | null;
+          reason: string;
+        };
+        Insert: {
+          customer_id: string;
+          delta: number;
+          order_id?: string | null;
+          reason: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       delivery_orders: {
         Row: {
+          coupon_id: string | null;
+          discount_amount: number;
+          points_redeemed: number;
           cod_amount: number;
           cod_status: string;
           created_at: string;
@@ -2415,6 +2499,13 @@ export type Database = {
       };
     };
     Views: {
+      loyalty_balances: {
+        Row: {
+          customer_id: string | null;
+          balance: number | null;
+        };
+        Relationships: [];
+      };
       latest_delivery_locations: {
         Row: {
           id: number | null;
@@ -2492,6 +2583,27 @@ export type Database = {
           cod_reason?: string | null;
         };
         Returns: Json;
+      };
+      validate_coupon: {
+        Args: { p_code: string; p_fee: number };
+        Returns: {
+          coupon_id: string | null;
+          discount: number;
+          reason: string | null;
+        }[];
+      };
+      redeem_manual_order_coupon: {
+        Args: { p_order_id: string; p_fee: number; p_coupon_code: string };
+        Returns: { discount: number; cod_amount: number }[];
+      };
+      redeem_order_rewards: {
+        Args: {
+          p_order_id: string;
+          p_fee: number;
+          p_coupon_code?: string | null;
+          p_points?: number;
+        };
+        Returns: { discount: number; cod_amount: number }[];
       };
       create_customer_pickup_order: {
         Args: {

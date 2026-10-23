@@ -1,6 +1,10 @@
 "use client";
 
-import { createTheme, ThemeProvider } from "@mui/material/styles";
+import {
+  createTheme,
+  type ThemeOptions,
+  ThemeProvider,
+} from "@mui/material/styles";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import type { ReactNode } from "react";
 
@@ -23,7 +27,7 @@ const lightPalette = {
   grey: { 100: "#f1f5f9", 200: "#e2e8f0" },
 };
 
-const themeOptions = {
+const themeOptions: ThemeOptions = {
   shape: { borderRadius: 12 },
   typography: {
     fontFamily: "inherit",
@@ -52,6 +56,18 @@ const themeOptions = {
     MuiButton: {
       defaultProps: { disableElevation: true, disableFocusRipple: true },
       styleOverrides: { root: { minHeight: 48, borderRadius: 999 } },
+    },
+    // MUI's default tab transition animates padding-top along with color.
+    // Padding is a layout property, so every tab tap reflows the whole bar,
+    // and the label is always visible so the padding never actually changes.
+    MuiBottomNavigationAction: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          transition: theme.transitions.create("color", {
+            duration: theme.transitions.duration.shorter,
+          }),
+        }),
+      },
     },
     MuiIconButton: {
       defaultProps: { disableFocusRipple: true },
@@ -83,6 +99,12 @@ const themeOptions = {
           borderRadius: 12,
           background: "var(--color-surface, #ffffff)",
           fontSize: 16,
+          // DESIGN.md: fields carry a 3px Live Blue outline with a 2px offset on
+          // keyboard focus, in addition to the 2px Live Blue border below.
+          "&:has(input:focus-visible), &:has(textarea:focus-visible)": {
+            outline: "3px solid var(--color-info, #2563eb)",
+            outlineOffset: 2,
+          },
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
             borderColor: "var(--color-info, #2563eb)",
             borderWidth: 2,
@@ -95,6 +117,13 @@ const themeOptions = {
         // The field box is 52px tall, so the input itself must fill it or the
         // tappable area shrinks to the text line.
         input: {
+          // DESIGN.md: placeholders use Control Slate at full opacity, and the
+          // caret is Kiln Orange. MUI's default is the text color at 42%.
+          caretColor: "var(--color-brand-orange-action, #c2410c)",
+          "&::placeholder": {
+            color: "var(--color-border-control, #64748b)",
+            opacity: 1,
+          },
           "&:not(textarea)": {
             boxSizing: "border-box",
             height: 52,

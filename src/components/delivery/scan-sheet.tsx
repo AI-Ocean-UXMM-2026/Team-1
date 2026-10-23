@@ -191,7 +191,7 @@ export function ScanView({
     );
 
   return (
-    <Box sx={{ pb: "calc(20px + env(safe-area-inset-bottom))" }}>
+    <Box>
       <Box
         sx={{
           position: "relative",
@@ -252,10 +252,7 @@ export function ScanSheet({ open, onClose, onDetected }: ScanSheetProps) {
       {cameraOn ? (
         <ScanView onDetected={onDetected} />
       ) : (
-        <Stack
-          spacing={1.5}
-          sx={{ pb: "calc(20px + env(safe-area-inset-bottom))" }}
-        >
+        <Stack spacing={1.5}>
           <Typography sx={{ color: "text.secondary" }}>
             Your camera is off. Turn it on only when you want to scan a parcel’s
             QR code or barcode.

@@ -2,6 +2,7 @@
 
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import ChevronRight from "@mui/icons-material/ChevronRight";
+import ConfirmationNumberOutlined from "@mui/icons-material/ConfirmationNumberOutlined";
 import HistoryToggleOff from "@mui/icons-material/HistoryToggleOff";
 import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
 import NotificationsNone from "@mui/icons-material/NotificationsNone";
@@ -290,6 +291,14 @@ export function ProfilePage({
                 ? `${historyCount} finished ${historyCount === 1 ? "delivery" : "deliveries"}`
                 : "Delivered and past parcels"
             }
+          />
+        )}
+        {isAuthenticated && (
+          <AccountRow
+            href="/profile/rewards"
+            icon={<ConfirmationNumberOutlined sx={{ fontSize: 22 }} />}
+            title="Coupons and points"
+            detail="Balance, history and coupons"
           />
         )}
         {isAuthenticated ? (

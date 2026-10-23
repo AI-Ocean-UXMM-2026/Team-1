@@ -2,6 +2,7 @@
 
 import type { Marker as MapboxMarker, MapLayerMouseEvent } from "mapbox-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FloodWarningBanner } from "@/components/delivery/flood-warning-banner";
 import { Icon } from "@/components/delivery/icons";
 import type { LocationMapProps } from "@/components/delivery/location-map";
 import {
@@ -60,6 +61,7 @@ function riderMarker(
   palette: Palette,
   trackingCode: string,
   driverName?: string | null,
+  showCodeLabel = true,
 ) {
   const el = svgMarker(
     `<circle class="rider-pulse" r="20" fill="${palette.route}" fill-opacity="0.35"/><circle r="${selected ? 18 : 16}" fill="${palette.route}" stroke="${palette.driverCasing}" stroke-width="3"/><path fill="#FFFFFF" d="M-7-3h9l3 4h2v5h-2a2.4 2.4 0 0 1-4.8 0h-4.4a2.4 2.4 0 0 1-4.8 0H-11V0h4l2-3Z"/>`,
@@ -69,7 +71,9 @@ function riderMarker(
     `Rider: ${driverName || "Assigned rider"} (${trackingCode})`,
   );
   el.classList.add("mapbox-rider-marker");
-  el.append(labelElement(trackingCode));
+  // The customer header already carries the code; a second copy only
+  // collides with the drop-off pin on a phone-sized map.
+  if (showCodeLabel) el.append(labelElement(trackingCode));
   return el;
 }
 
@@ -118,13 +122,13 @@ function destinationMarker(palette: Palette, label: string | null) {
   return element;
 }
 
-function pickupMarker(palette: Palette) {
+function pickupMarker(palette: Palette, showLabel = true) {
   const element = svgMarker(
     `<circle r="7" fill="#ffffff" stroke="${palette.origin}" stroke-width="3"/>`,
     16,
     "-8 -8 16 16",
   );
-  element.append(labelElement("PICKUP"));
+  if (showLabel) element.append(labelElement("PICKUP"));
   return element;
 }
 
@@ -145,6 +149,8 @@ export function MapboxLocationMap({
   floodZones: propFloodZones,
   liveFlood: propLiveFlood,
   initialShowFlood = true,
+  sheetInset = 0,
+  showControls = true,
 }: LocationMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapState = useMapboxMap(container, true);
@@ -302,17 +308,54 @@ export function MapboxLocationMap({
     };
   }, [map]);
 
+  // Fit once per parcel and sheet size, not on every 15s freshness tick —
+  // otherwise an automatic refit would silently undo a manual zoom.
+  const lastFitKey = useRef("");
+  const fitKey = useMemo(
+    () =>
+      `${fitPoints
+        .map(
+          (point) =>
+            `${point.latitude.toFixed(4)},${point.longitude.toFixed(4)}`,
+        )
+        .join("|")}@${Math.round(sheetInset)}`,
+    [fitPoints, sheetInset],
+  );
+
+  // With one pin and a sheet over the map, centre the pin in the strip that
+  // is still visible instead of the hidden middle of the full-bleed map.
+  const fitOffset: [number, number] | undefined =
+    mode === "customer" && fitPoints.length === 1
+      ? [0, -Math.round(sheetInset / 2)]
+      : undefined;
+
+  useEffect(() => {
+    if (!map || !fitPoints.length) return;
+    if (order?.id) lastFitKey.current = "";
+    setMoved(false);
+  }, [map, order?.id, fitPoints.length]);
+
   useEffect(() => {
     if (!map || moved || !fitPoints.length) return;
+    if (lastFitKey.current === fitKey) return;
+    lastFitKey.current = fitKey;
     fitToPoints(
       map,
       fitPoints,
-      { x: 56, top: 92, bottom: 92 },
+      {
+        x: mode === "customer" ? 68 : 56,
+        top: 92,
+        bottom: mode === "customer" ? Math.max(92, sheetInset + 80) : 92,
+      },
       mode === "customer" ? 14 : 15,
+      fitOffset,
     );
-  }, [map, moved, fitPoints, mode]);
+  }, [map, moved, fitPoints, fitKey, fitOffset, mode, sheetInset]);
 
   useEffect(() => {
+    // The customer map frames the whole ride; only manager mode flies to one
+    // rider, where that rider is the focus of a fleet view.
+    if (mode === "customer") return;
     if (!map || !selectedRow || flownTo.current === order?.id) return;
     flownTo.current = order?.id ?? null;
     map.easeTo({
@@ -320,7 +363,7 @@ export function MapboxLocationMap({
       zoom: Math.max(map.getZoom(), 13.5),
       duration: 800,
     });
-  }, [map, order?.id, selectedRow]);
+  }, [map, mode, order?.id, selectedRow]);
 
   // Draw or update flood polygon layers in Mapbox
   useEffect(() => {
@@ -415,6 +458,7 @@ export function MapboxLocationMap({
         palette,
         row.order.tracking_code,
         row.order.driver_name,
+        mode !== "customer",
       );
       rider.title = `${row.order.driver_name || "Rider"} · ${row.order.tracking_code}`;
       rider.addEventListener("click", () => {
@@ -426,15 +470,27 @@ export function MapboxLocationMap({
       place(rider, row.rider, "center");
       if (row.destination)
         place(
-          destinationMarker(palette, selected ? "DROP-OFF" : null),
+          destinationMarker(
+            palette,
+            selected && mode !== "customer" ? "DROP-OFF" : null,
+          ),
           row.destination,
           "bottom",
         );
     }
     if (order && pickupPoint && !livePoint)
-      place(pickupMarker(palette), pickupPoint, "center");
+      // A lone pickup pin needs its label; a labelled pair is clutter.
+      place(
+        pickupMarker(palette, mode !== "customer" || !destinationPoint),
+        pickupPoint,
+        "center",
+      );
     if (destinationPoint && !markerRows.length)
-      place(destinationMarker(palette, "DROP-OFF"), destinationPoint, "bottom");
+      place(
+        destinationMarker(palette, mode === "customer" ? null : "DROP-OFF"),
+        destinationPoint,
+        "bottom",
+      );
 
     if (roadReports?.length) {
       for (const report of roadReports) {
@@ -470,6 +526,7 @@ export function MapboxLocationMap({
     destinationPoint,
     onSelectOrder,
     roadReports,
+    mode,
   ]);
 
   const routeCoords: Coordinate[] = useMemo(() => {
@@ -545,8 +602,13 @@ export function MapboxLocationMap({
     fitToPoints(
       map,
       fitPoints,
-      { x: 56, top: 92, bottom: 92 },
+      {
+        x: mode === "customer" ? 68 : 56,
+        top: 92,
+        bottom: mode === "customer" ? Math.max(92, sheetInset + 80) : 92,
+      },
       mode === "customer" ? 14 : 15,
+      fitOffset,
     );
   };
 
@@ -682,15 +744,55 @@ export function MapboxLocationMap({
           </div>
         )}
 
-        {routeFloodRisk?.hasFloodRisk && (
-          <div className="map-flood-warning-banner" role="alert">
-            <Icon name="warning" size={15} />
-            <span>
-              <strong>Monsoon Caution:</strong> {routeFloodRisk.warningMessage}
-              {routeFloodRisk.suggestedSlowdownPercent > 0 &&
-                ` (+${routeFloodRisk.suggestedSlowdownPercent}% delay risk)`}
-            </span>
+        {mode === "customer" && showControls && map && (
+          <div
+            className="track-map-controls"
+            style={{ bottom: sheetInset + 16 }}
+          >
+            <button
+              type="button"
+              className="track-map-control"
+              onClick={() => map.zoomIn({ duration: 220 })}
+              aria-label="Zoom in"
+              title="Zoom in"
+            >
+              <Icon name="plus" size={20} />
+            </button>
+            <button
+              type="button"
+              className="track-map-control"
+              onClick={() => map.zoomOut({ duration: 220 })}
+              aria-label="Zoom out"
+              title="Zoom out"
+            >
+              <Icon name="minus" size={20} />
+            </button>
+            <button
+              type="button"
+              className="track-map-control"
+              onClick={handleRecenter}
+              aria-label="Fit rider and drop-off on the map"
+              title="Fit route"
+            >
+              <Icon name="navigation" size={18} />
+            </button>
           </div>
+        )}
+
+        {mode === "customer" &&
+          order &&
+          canShowParcelLocation(order.status) &&
+          !destinationPoint && (
+            <div
+              className={`track-map-note ${routeFloodRisk?.hasFloodRisk ? "has-banner" : ""}`}
+            >
+              <Icon name="location" size={14} />
+              <span>Drop-off pin not shared</span>
+            </div>
+          )}
+
+        {routeFloodRisk?.hasFloodRisk && (
+          <FloodWarningBanner risk={routeFloodRisk} />
         )}
 
         {/* Flood Legend for Manager Map */}
@@ -920,29 +1022,33 @@ export function MapboxLocationMap({
           </div>
         )}
 
-        <div className="map-location-chip">
-          <span className="map-location-icon">
-            <Icon name="location" size={15} />
-          </span>
-          <span>
-            {mode === "manager" && trackedOrders.length
-              ? `${trackedOrders.length} riders visible · Yangon`
-              : order?.status === "in_transit"
-                ? "Yangon · en route"
-                : order?.status === "picked_up"
-                  ? "Yangon · parcel collected"
-                  : "Yangon, Myanmar"}
-          </span>
-        </div>
-        <div className="map-updated-chip">
-          {trackedOrders.length || livePoint ? (
-            <Icon name="track" size={14} />
-          ) : (
-            <Icon name="history" size={14} />
-          )}
-          {locationText}
-          {road ? ` · ${formatDriveMinutes(road.durationMin)} by road` : ""}
-        </div>
+        {!compact && (
+          <>
+            <div className="map-location-chip">
+              <span className="map-location-icon">
+                <Icon name="location" size={15} />
+              </span>
+              <span>
+                {mode === "manager" && trackedOrders.length
+                  ? `${trackedOrders.length} riders visible · Yangon`
+                  : order?.status === "in_transit"
+                    ? "Yangon · en route"
+                    : order?.status === "picked_up"
+                      ? "Yangon · parcel collected"
+                      : "Yangon, Myanmar"}
+              </span>
+            </div>
+            <div className="map-updated-chip">
+              {trackedOrders.length || livePoint ? (
+                <Icon name="track" size={14} />
+              ) : (
+                <Icon name="history" size={14} />
+              )}
+              {locationText}
+              {road ? ` · ${formatDriveMinutes(road.durationMin)} by road` : ""}
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

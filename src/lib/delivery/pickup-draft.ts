@@ -1,14 +1,18 @@
 import type { MapPoint } from "@/lib/delivery/map-projection";
-import { isPaymentMethod, type PaymentMethod } from "./payment-methods.ts";
+import {
+  isPaymentMethod,
+  type Payer,
+  type PaymentMethod,
+} from "./payment-methods.ts";
 
 export const PICKUP_DRAFT_KEY = "oern.pickup-draft.v1";
 
 export const pickupDays = ["Today", "Tomorrow"] as const;
 /** `startHour`/`endHour` are Yangon local time and match the database's windows. */
 export const pickupWindows = [
-  { value: "Morning", hours: "8–12", startHour: 8, endHour: 12 },
-  { value: "Afternoon", hours: "12–5", startHour: 12, endHour: 17 },
-  { value: "Evening", hours: "5–8", startHour: 17, endHour: 20 },
+  { value: "Morning", hours: "8 am–12 pm", startHour: 8, endHour: 12 },
+  { value: "Afternoon", hours: "12–5 pm", startHour: 12, endHour: 17 },
+  { value: "Evening", hours: "5–8 pm", startHour: 17, endHour: 20 },
 ] as const;
 export const parcelKinds = [
   "Documents",
@@ -90,6 +94,14 @@ export type PickupDraft = {
   codAmount: string;
   /** Set once the customer picks; until then the default follows awayFromHome. */
   paymentMethod: PaymentMethod | null;
+  /** Prepaid only: the amount to pay now, as typed. Empty means all of it. */
+  payNow: string;
+  /** Who pays the delivery: the sender or someone else (usually the receiver). */
+  payer: Payer;
+  /** Coupon code as typed; checked against the database before it counts. */
+  couponCode: string;
+  /** Spend loyalty points on the fee, as many as the rules allow. */
+  usePoints: boolean;
   awayFromHome: boolean;
   notes: string;
   day: PickupDay;
@@ -114,6 +126,12 @@ export function availableWindows(
   if (day === "Tomorrow") return [...pickupWindows];
   const hour = yangonHour(now);
   return pickupWindows.filter((window) => window.endHour > hour);
+}
+
+/** The chosen window in the words a customer reads: "Today, 12–5 pm". */
+export function scheduleLabel(day: PickupDay, window: PickupWindow) {
+  const hours = pickupWindows.find((item) => item.value === window)?.hours;
+  return hours ? `${day}, ${hours}` : day;
 }
 
 /** The next window a rider can still make; tomorrow morning once today is over. */
@@ -147,6 +165,10 @@ export function emptyDraft(
     parcelDetails: "",
     codAmount: "",
     paymentMethod: null,
+    payNow: "",
+    payer: "me",
+    couponCode: "",
+    usePoints: false,
     awayFromHome: false,
     notes: "",
     ...schedule,
@@ -193,6 +215,10 @@ export function sanitizeDraft(raw: unknown, fresh: PickupDraft): PickupDraft {
     parcelDetails: text(r.parcelDetails, 300),
     codAmount: text(r.codAmount, 12),
     paymentMethod: isPaymentMethod(r.paymentMethod) ? r.paymentMethod : null,
+    payNow: text(r.payNow, 12),
+    payer: r.payer === "other" ? "other" : "me",
+    couponCode: text(r.couponCode, 24),
+    usePoints: r.usePoints === true,
     awayFromHome: r.awayFromHome === true,
     notes: text(r.notes, 300),
     day,
@@ -285,7 +311,7 @@ export type PickupErrors = Partial<
 export function validateAddresses(draft: PickupDraft): PickupErrors {
   const errors: PickupErrors = {};
   if (!draft.pickupAddress.trim())
-    errors.pickupAddress = "Add the pickup address or choose it on the map.";
+    errors.pickupAddress = "Add the pickup address.";
   if (!draft.deliveryAddress.trim())
     errors.deliveryAddress = "Add the delivery address.";
   return errors;

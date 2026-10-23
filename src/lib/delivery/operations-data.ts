@@ -136,27 +136,6 @@ export function demoOperationsData(): OperationsData {
         created_at: today,
         updated_at: today,
       },
-      {
-        id: "demo-external-2",
-        integration_id: null,
-        seller_id: null,
-        customer_id: "demo-customer",
-        local_order_id: null,
-        provider_name: "Other carrier",
-        external_order_reference: "MP-7781",
-        tracking_code: "MP-7781-YGN",
-        status: "accepted",
-        tracking_url: null,
-        origin_label: "Mandalay hub",
-        destination_label: "Sanchaung, Yangon",
-        estimated_delivery_at: new Date(
-          now.getTime() + 30 * 3_600_000,
-        ).toISOString(),
-        latest_event_at: today,
-        metadata: {},
-        created_at: today,
-        updated_at: today,
-      },
     ],
     supportCases: [
       {

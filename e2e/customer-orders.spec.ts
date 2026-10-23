@@ -166,7 +166,7 @@ test("a delivery that finishes moves from Active to History while the app is ope
   ).toContainText("OR-1001");
 });
 
-test("finished deliveries are off Home and reachable from Delivery history", async ({
+test("finished deliveries stay off Home and live in Orders history", async ({
   page,
   context,
 }) => {
@@ -175,8 +175,14 @@ test("finished deliveries are off Home and reachable from Delivery history", asy
   await expect(page.getByText("OR-1001").first()).toBeVisible();
   await expect(page.getByText("OR-1002")).toHaveCount(0);
   await expect(page.getByText("OR-1003")).toHaveCount(0);
-  await page.getByRole("link", { name: /Delivery history/ }).click();
-  await expect(page).toHaveURL(/\/orders\?tab=history/);
+  // Home no longer spends a block on history; Orders owns it behind the tab.
+  await page
+    .getByRole("navigation", { name: "Customer app" })
+    .getByRole("link", { name: "Orders" })
+    .click();
+  await page.getByRole("tab", { name: /History/ }).click();
+  await expect(page).toHaveURL(/tab=history/);
+  await expect(page.getByText("OR-1003").first()).toBeVisible();
 });
 
 test("Profile shows the account and asks before signing out", async ({

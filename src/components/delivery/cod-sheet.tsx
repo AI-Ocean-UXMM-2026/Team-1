@@ -42,9 +42,16 @@ export function CodSheet({ open, orders, onClose }: CodSheetProps) {
             <Typography variant="body2" sx={{ color: "warning.dark" }}>
               Total payable on delivery
             </Typography>
+            {/* The amount is a figure, not a section: keeping it out of the
+                heading outline leaves "COD due" as the sheet's only heading. */}
             <Typography
+              component="p"
               variant="h5"
-              sx={{ fontWeight: 750, color: "warning.dark" }}
+              sx={{
+                fontWeight: 750,
+                color: "warning.dark",
+                fontVariantNumeric: "tabular-nums",
+              }}
             >
               {currency.format(total)}
             </Typography>
@@ -58,7 +65,6 @@ export function CodSheet({ open, orders, onClose }: CodSheetProps) {
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr)",
               gap: 1,
-              pb: "calc(20px + env(safe-area-inset-bottom))",
             }}
           >
             {orders.map((order) => (
@@ -80,7 +86,12 @@ export function CodSheet({ open, orders, onClose }: CodSheetProps) {
                     secondary={currency.format(order.cod_amount)}
                     slotProps={{
                       primary: { sx: { fontWeight: 700, fontSize: 14 } },
-                      secondary: { sx: { fontSize: 13 } },
+                      secondary: {
+                        sx: {
+                          fontSize: 13,
+                          fontVariantNumeric: "tabular-nums",
+                        },
+                      },
                     }}
                     sx={{ m: 0 }}
                   />

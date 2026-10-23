@@ -33,6 +33,8 @@ import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
 
 import { LocationMap } from "@/components/delivery/location-map";
+import { ProofPhoto } from "@/components/delivery/manager-proof-photo";
+import { RecordOnlinePayment } from "@/components/delivery/record-online-payment";
 import {
   codPending,
   isMovingOrder,
@@ -41,6 +43,10 @@ import {
 import { assessEnergyRoute } from "@/lib/delivery/energy-routing";
 import { currency, formatTime, sentenceCase } from "@/lib/delivery/format";
 import { confirmOrders } from "@/lib/delivery/jobs";
+import {
+  isPaidInFull,
+  orderPaymentBadge,
+} from "@/lib/delivery/payment-methods";
 import type {
   DeliveryOrder,
   DeliveryStatus,
@@ -48,8 +54,9 @@ import type {
 } from "@/lib/delivery/types";
 import { useJobBoard } from "@/lib/delivery/use-job-board";
 import type { useWorkspace } from "@/lib/delivery/use-workspace";
-import { ProofPhoto } from "@/components/delivery/manager-proof-photo";
 import { createClient } from "@/lib/supabase/client";
+import "./record-online-payment.css";
+import { recordRemoteCodPayment } from "@/lib/delivery/actions";
 import "./manager-order-view.css";
 
 type Workspace = ReturnType<typeof useWorkspace>;
@@ -214,6 +221,57 @@ export function ManagerOrderView({
           cause instanceof Error
             ? cause.message
             : "Could not confirm delivery.",
+      });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function handleOnlinePayment(
+    order: DeliveryOrder,
+    amount: number,
+    method: "mmqr" | "ctzpay",
+  ) {
+    setSavingId(order.id);
+    setNotice(null);
+    try {
+      if (!workspace.isDemo && !order.id.startsWith("demo-")) {
+        if (!workspace.canUseLiveData || !workspace.profile)
+          throw new Error("Manager access required to record payments.");
+      }
+      const next = await recordRemoteCodPayment(
+        createClient(),
+        order,
+        amount,
+        method,
+      );
+      workspace.updateData((previous) => ({
+        ...previous,
+        orders: previous.orders.map((o) =>
+          o.id === order.id
+            ? {
+                ...o,
+                cod_amount: next.cod_amount,
+                cod_status: next.cod_status,
+                parcel_description: next.parcel_description,
+                notes: next.notes,
+              }
+            : o,
+        ),
+      }));
+      setNotice({
+        tone: "success",
+        text:
+          next.cod_amount === 0
+            ? `Delivery ${order.tracking_code} is paid. The rider collects no cash.`
+            : `Recorded ${currency.format(next.paid)}. The rider collects ${currency.format(next.cod_amount)}.`,
+      });
+      if (!workspace.isDemo) void workspace.refresh(true);
+    } catch (cause) {
+      setNotice({
+        tone: "error",
+        text:
+          cause instanceof Error ? cause.message : "Could not record payment.",
       });
     } finally {
       setSavingId(null);
@@ -1552,7 +1610,7 @@ export function ManagerOrderView({
                     >
                       {selectedOrder.cod_amount > 0
                         ? currency.format(selectedOrder.cod_amount)
-                        : "Prepaid (No COD)"}
+                        : "Paid (no cash to collect)"}
                     </Typography>
                     <Typography
                       variant="caption"
@@ -1562,7 +1620,7 @@ export function ManagerOrderView({
                         mt: 0.5,
                       }}
                     >
-                      Status: {sentenceCase(selectedOrder.cod_status)}
+                      Status: {orderPaymentBadge(selectedOrder)}
                     </Typography>
                   </Paper>
 
@@ -1626,6 +1684,22 @@ export function ManagerOrderView({
                     </Typography>
                   </Paper>
                 </Box>
+
+                {selectedOrder.cod_amount > 0 &&
+                  !isPaidInFull(selectedOrder) &&
+                  selectedOrder.cod_status === "pending" &&
+                  selectedOrder.status !== "delivered" &&
+                  selectedOrder.status !== "failed" &&
+                  selectedOrder.status !== "cancelled" && (
+                    <RecordOnlinePayment
+                      key={`${selectedOrder.id}-${selectedOrder.cod_amount}`}
+                      balance={selectedOrder.cod_amount}
+                      saving={savingId === selectedOrder.id}
+                      onRecord={(amount, method) =>
+                        void handleOnlinePayment(selectedOrder, amount, method)
+                      }
+                    />
+                  )}
 
                 {/* Energy & Traffic Route Assessment (if available) */}
                 {assessment && assessment.distanceKm != null && (

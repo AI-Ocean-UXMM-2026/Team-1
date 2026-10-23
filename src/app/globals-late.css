@@ -59,6 +59,19 @@
 .operations-app {
   padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
+
+/* Seller and support top bars sit under the status bar on installed phones. */
+.workspace-header {
+  display: flex;
+  align-items: center;
+  height: auto;
+  min-height: calc(72px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+.workspace-header-inner {
+  height: auto;
+}
+
 .rider-tool-nav {
   width: min(calc(100% - 32px), 1060px);
   margin: 12px auto 0;

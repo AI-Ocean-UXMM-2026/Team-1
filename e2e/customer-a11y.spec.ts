@@ -69,6 +69,7 @@ const screens: {
   { name: "notifications", path: "/notifications", ready: /notifications/i },
   { name: "pickup addresses", path: "/pickup", ready: "Pickup address" },
   { name: "pickup details", path: "/pickup/details", ready: "Recipient name" },
+  { name: "pickup payment", path: "/pickup/payment", ready: "Who pays?" },
   {
     name: "pickup review",
     path: "/pickup/review",
@@ -96,9 +97,20 @@ for (const screen of screens) {
         page.getByRole("button", { name: screen.enabled }),
       ).toBeEnabled();
     // Colours mid-transition (a button enabling) would measure as low contrast.
+    // Live markers and the tracking rail pulse forever, and an animation that
+    // repeats without end never finishes, so only finite ones are awaited.
     await page.waitForLoadState("networkidle");
     await page.evaluate(() =>
-      Promise.allSettled(document.getAnimations().map((a) => a.finished)),
+      Promise.allSettled(
+        document
+          .getAnimations()
+          .filter(
+            (animation) =>
+              animation.effect?.getComputedTiming().iterations !==
+              Number.POSITIVE_INFINITY,
+          )
+          .map((animation) => animation.finished),
+      ),
     );
     const results = await new AxeBuilder({ page: page as never })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])

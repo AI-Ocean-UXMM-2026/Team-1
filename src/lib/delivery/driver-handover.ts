@@ -1,10 +1,13 @@
 import type { DeliveryStop } from "@/lib/delivery/driver-route";
 import type { DeliveryOrder } from "@/lib/delivery/types";
-import { isPrepaid, orderPaymentMethod } from "./payment-methods.ts";
+import { isPaidInFull } from "./payment-methods.ts";
 
-/** Cash the rider collects at the door; prepaid orders owe none. */
+/**
+ * Cash the rider collects at the door. Paid in full owes none; after a part
+ * payment, cod_amount already holds only the balance.
+ */
 export function codDue(order: DeliveryOrder) {
-  if (isPrepaid(orderPaymentMethod(order))) return 0;
+  if (isPaidInFull(order)) return 0;
   return order.cod_amount > 0 && order.cod_status === "pending"
     ? order.cod_amount
     : 0;

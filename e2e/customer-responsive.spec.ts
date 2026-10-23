@@ -60,6 +60,7 @@ const paths = [
   "/notifications",
   "/pickup",
   "/pickup/details",
+  "/pickup/payment",
   "/pickup/review",
 ];
 
@@ -159,6 +160,7 @@ test("the tab bar shows on the four tab roots and hides on focused screens", asy
     "/track?order=order-1",
     "/notifications",
     "/pickup/details",
+    "/pickup/payment",
     "/pickup/review",
   ]) {
     await page.goto(path);

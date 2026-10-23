@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isLocalOrderId, isUuid } from "@/lib/delivery/ids";
+import { applyRemotePayment } from "@/lib/delivery/payment-methods";
 import type {
+  DeliveryOrder,
   DeliveryStatus,
   RiderRequest,
   RiderRequestCategory,
@@ -90,6 +92,42 @@ export async function collectCod(
     status: "collected",
   });
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Records a COD balance the customer paid online (MMQR or CTZPay) once staff
+ * have seen the money arrive. The balance drops, so the rider's cash due
+ * shrinks with it, and the order text carries the amount paid. Only the
+ * balance the caller read may be changed: a concurrent change fails the update.
+ */
+export async function recordRemoteCodPayment(
+  supabase: DeliveryActionClient,
+  order: DeliveryOrder,
+  amount: number,
+  method: "mmqr" | "ctzpay",
+) {
+  if (!Number.isFinite(amount) || amount <= 0)
+    throw new Error("Enter the amount received, above 0.");
+  if (amount > order.cod_amount)
+    throw new Error("That is more than the balance still due.");
+  const next = applyRemotePayment(order, amount, method);
+  if (isLocalOrderId(order.id)) return next;
+  const { data, error } = await supabase
+    .from("delivery_orders")
+    .update({
+      cod_amount: next.cod_amount,
+      cod_status: next.cod_status,
+      parcel_description: next.parcel_description,
+      notes: next.notes,
+    })
+    .eq("id", order.id)
+    .eq("cod_amount", order.cod_amount)
+    .eq("cod_status", "pending")
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length)
+    throw new Error("The balance changed. Refresh the order and try again.");
+  return next;
 }
 
 export async function createDelivery(
@@ -217,6 +255,169 @@ export async function createCustomerPickupOrder(
     .single();
   if (error) throw new Error(error.message);
   return data;
+}
+
+/** What a coupon code would take off a fee, or why it cannot be used. */
+export async function validateCoupon(
+  supabase: DeliveryActionClient,
+  code: string,
+  fee: number,
+) {
+  const { data, error } = await supabase
+    .rpc("validate_coupon", { p_code: code, p_fee: fee })
+    .single();
+  if (error) throw new Error(error.message);
+  return {
+    couponId: data.coupon_id,
+    discount: data.discount,
+    reason: data.reason,
+  };
+}
+
+export async function fetchPointsBalance(
+  supabase: DeliveryActionClient,
+  customerId: string,
+) {
+  const { data, error } = await supabase
+    .from("loyalty_balances")
+    .select("balance")
+    .eq("customer_id", customerId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.balance ?? 0;
+}
+
+export async function fetchLoyaltyLedger(
+  supabase: DeliveryActionClient,
+  customerId: string,
+) {
+  const { data, error } = await supabase
+    .from("loyalty_ledger")
+    .select("id, delta, reason, order_id, created_at")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Coupons the customer may still try today; the database hides the rest. */
+export async function fetchAvailableCoupons(supabase: DeliveryActionClient) {
+  const { data, error } = await supabase
+    .from("coupons")
+    .select(
+      "id, code, kind, value, min_fee, max_discount, starts_at, ends_at, max_redemptions, per_customer_limit",
+    )
+    .order("ends_at", { ascending: true, nullsFirst: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export type CouponInput = {
+  code: string;
+  kind: "percent" | "fixed" | "free_delivery";
+  value: number;
+  minFee: number;
+  maxDiscount: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  maxRedemptions: number | null;
+  perCustomerLimit: number | null;
+};
+
+/** Every coupon with how often it was used; managers only. */
+export async function fetchCouponAdmin(supabase: DeliveryActionClient) {
+  const [coupons, redemptions] = await Promise.all([
+    supabase
+      .from("coupons")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    supabase.from("coupon_redemptions").select("coupon_id, amount"),
+  ]);
+  if (coupons.error) throw new Error(coupons.error.message);
+  if (redemptions.error) throw new Error(redemptions.error.message);
+  const used = new Map<string, { count: number; amount: number }>();
+  for (const row of redemptions.data ?? []) {
+    const entry = used.get(row.coupon_id) ?? { count: 0, amount: 0 };
+    entry.count += 1;
+    entry.amount += row.amount;
+    used.set(row.coupon_id, entry);
+  }
+  return (coupons.data ?? []).map((coupon) => ({
+    ...coupon,
+    redemptions: used.get(coupon.id)?.count ?? 0,
+    discounted: used.get(coupon.id)?.amount ?? 0,
+  }));
+}
+
+export async function saveCoupon(
+  supabase: DeliveryActionClient,
+  input: CouponInput,
+  id?: string,
+) {
+  const row = {
+    code: input.code,
+    kind: input.kind,
+    value: input.kind === "free_delivery" ? 0 : input.value,
+    min_fee: input.minFee,
+    max_discount: input.maxDiscount,
+    starts_at: input.startsAt,
+    ends_at: input.endsAt,
+    max_redemptions: input.maxRedemptions,
+    per_customer_limit: input.perCustomerLimit,
+  };
+  const { error } = id
+    ? await supabase.from("coupons").update(row).eq("id", id)
+    : await supabase.from("coupons").insert(row);
+  if (error)
+    throw new Error(
+      error.code === "23505" ? "That code already exists." : error.message,
+    );
+}
+
+export async function setCouponActive(
+  supabase: DeliveryActionClient,
+  id: string,
+  active: boolean,
+) {
+  const { error } = await supabase
+    .from("coupons")
+    .update({ active })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** Manager: applies a coupon to a manual order that was just created. */
+export async function redeemManualOrderCoupon(
+  supabase: DeliveryActionClient,
+  input: { orderId: string; fee: number; couponCode: string },
+) {
+  const { data, error } = await supabase
+    .rpc("redeem_manual_order_coupon", {
+      p_order_id: input.orderId,
+      p_fee: input.fee,
+      p_coupon_code: input.couponCode,
+    })
+    .single();
+  if (error) throw new Error(error.message);
+  return { discount: data.discount, codAmount: data.cod_amount };
+}
+
+/** Applies a coupon and/or points to an order the customer just created. */
+export async function redeemOrderRewards(
+  supabase: DeliveryActionClient,
+  input: { orderId: string; fee: number; couponCode?: string; points?: number },
+) {
+  const { data, error } = await supabase
+    .rpc("redeem_order_rewards", {
+      p_order_id: input.orderId,
+      p_fee: input.fee,
+      p_coupon_code: input.couponCode?.trim() || null,
+      p_points: input.points ?? 0,
+    })
+    .single();
+  if (error) throw new Error(error.message);
+  return { discount: data.discount, codAmount: data.cod_amount };
 }
 
 export async function assignDelivery(

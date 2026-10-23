@@ -17,7 +17,11 @@ import {
   type NextAction,
 } from "@/lib/delivery/driver-route";
 import { currency } from "@/lib/delivery/format";
-import { isPrepaid, orderPaymentMethod } from "@/lib/delivery/payment-methods";
+import {
+  isPaidInFull,
+  orderPrepaidAmount,
+  stripPaymentNote,
+} from "@/lib/delivery/payment-methods";
 import type { DeliveryOrder } from "@/lib/delivery/types";
 
 function ParcelLine({
@@ -27,16 +31,17 @@ function ParcelLine({
   order: DeliveryOrder;
   showCod?: boolean;
 }) {
+  const paidOnline = orderPrepaidAmount(order);
   return (
     <span className="dv-parcel-copy">
       <strong>{order.tracking_code}</strong>
       <small>
-        {order.parcel_description ?? "No description"}
+        {stripPaymentNote(order.parcel_description) || "No description"}
         {order.parcel_weight_kg ? ` · ${order.parcel_weight_kg} kg` : ""}
-        {showCod && isPrepaid(orderPaymentMethod(order))
-          ? " · Prepaid, no cash to collect"
+        {showCod && isPaidInFull(order)
+          ? " · Paid online, no cash to collect"
           : showCod && order.cod_amount > 0 && order.cod_status === "pending"
-            ? ` · COD ${currency.format(order.cod_amount)}`
+            ? `${paidOnline ? ` · Paid ${currency.format(paidOnline)} online` : ""} · COD ${currency.format(order.cod_amount)}`
             : ""}
       </small>
     </span>

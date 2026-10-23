@@ -1,0 +1,36 @@
+.record-online {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--color-border, #d5dbdb);
+  border-radius: 12px;
+  background: var(--color-surface, #fff);
+}
+
+.record-online small {
+  color: var(--color-text-secondary, #5f6b7a);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.record-online-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.record-online-row select,
+.record-online-row input {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #8d99a8;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+}
+
+.record-online-row input {
+  flex: 1;
+  min-width: 0;
+}

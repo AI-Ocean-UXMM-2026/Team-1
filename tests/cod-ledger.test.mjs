@@ -95,7 +95,7 @@ test("summary totals settle, wait and flag exceptions", () => {
 test("prepaid orders are left out of the ledger and owe no rider cash", () => {
   const rows = buildCodLedger(
     [
-      order("p", "in_transit", 5000, { payment_method: "mmqr" }),
+      order("p", "in_transit", 5000, { payment_method: "ctzpay" }),
       order("q", "in_transit", 5000),
     ],
     [],
@@ -104,5 +104,24 @@ test("prepaid orders are left out of the ledger and owe no rider cash", () => {
   assert.deepEqual(
     rows.map((row) => row.order.id),
     ["q"],
+  );
+});
+
+test("a part-paid order keeps its balance in the ledger as cash", () => {
+  const rows = buildCodLedger(
+    [
+      order("part", "in_transit", 3300, {
+        notes: "Payment: prepaid MMQR 5000 MMK",
+      }),
+      order("full", "in_transit", 0, {
+        notes: "Payment: prepaid MMQR 8300 MMK",
+      }),
+    ],
+    [],
+    [],
+  );
+  assert.deepEqual(
+    rows.map((row) => [row.order.id, row.expected]),
+    [["part", 3300]],
   );
 });

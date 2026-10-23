@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
 
-import { isPrepaid, orderPaymentMethod } from "./payment-methods.ts";
+import { isPaidInFull, type PaymentMethod } from "./payment-methods.ts";
 
 export type CodOrder = {
   id: string;
@@ -12,7 +12,7 @@ export type CodOrder = {
   driver_id?: string | null;
   driver_name: string | null;
   customer_name: string;
-  payment_method?: "mmqr" | "ctzpay" | "cod" | null;
+  payment_method?: PaymentMethod | null;
   parcel_description?: string | null;
 };
 export type CodPayment = {
@@ -61,8 +61,9 @@ export function buildCodLedger(
   const rows: CodRow[] = [];
   for (const order of orders) {
     if (order.cod_amount <= 0) continue;
-    // Prepaid orders were settled in the app; the rider holds no cash for them.
-    if (isPrepaid(orderPaymentMethod(order))) continue;
+    // Paid in full in the app; the rider holds no cash. A part payment keeps
+    // its balance here as ordinary cash.
+    if (isPaidInFull(order)) continue;
     if (order.status === "failed" || order.status === "cancelled") continue;
     const payment = paymentByOrder.get(order.id);
     const report = reportByOrder.get(order.id);

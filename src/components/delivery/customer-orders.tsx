@@ -27,7 +27,18 @@ import {
   parseOrdersQuery,
   splitOrders,
 } from "@/lib/delivery/customer-home";
-import { currency, formatDateTime } from "@/lib/delivery/format";
+import {
+  currency,
+  deliveryAddressLabel,
+  formatDateTime,
+} from "@/lib/delivery/format";
+import {
+  isPaidInFull,
+  orderPaymentMethod,
+  orderPaymentStatus,
+  orderPrepaidAmount,
+  paymentMethodInfo,
+} from "@/lib/delivery/payment-methods";
 import type { DeliveryOrder, StatusEvent } from "@/lib/delivery/types";
 
 const OUTCOMES: { id: HistoryOutcome; label: string }[] = [
@@ -37,18 +48,31 @@ const OUTCOMES: { id: HistoryOutcome; label: string }[] = [
   { id: "cancelled", label: "Cancelled" },
 ];
 
-/** COD is its own state: never folded into, or hidden by, the delivery status. */
+/**
+ * Payment is its own state: never folded into, or hidden by, the delivery
+ * status. A part payment in the app leaves only the balance as COD.
+ */
 export function codSummary(order: DeliveryOrder) {
+  const method = paymentMethodInfo(orderPaymentMethod(order)).label;
+  if (isPaidInFull(order))
+    return { text: `Paid · ${method}`, tone: "ok" as const };
   if (order.cod_amount <= 0) return null;
   const amount = currency.format(order.cod_amount);
-  const paid =
-    order.cod_status === "collected" || order.cod_status === "settled";
-  if (paid) return { text: `COD paid · ${amount}`, tone: "ok" as const };
+  const prepaid = orderPrepaidAmount(order);
+  const part = prepaid ? `Paid ${currency.format(prepaid)} · ` : "";
+  if (orderPaymentStatus(order) === "paid")
+    return { text: `Paid · ${amount} in cash`, tone: "ok" as const };
   if (order.status === "delivered")
-    return { text: `COD still due · ${amount}`, tone: "warn" as const };
+    return { text: `${part}COD still due · ${amount}`, tone: "warn" as const };
   if (order.status === "failed" || order.status === "cancelled")
-    return { text: `COD not collected · ${amount}`, tone: "muted" as const };
-  return { text: `COD due on arrival · ${amount}`, tone: "warn" as const };
+    return {
+      text: `${part}COD not collected · ${amount}`,
+      tone: "muted" as const,
+    };
+  return {
+    text: `${part}COD due on arrival · ${amount}`,
+    tone: "warn" as const,
+  };
 }
 
 const OrderRow = memo(function OrderRow({
@@ -76,7 +100,7 @@ const OrderRow = memo(function OrderRow({
           minHeight: 72,
           px: 2,
           py: 1.75,
-          borderRadius: "16px",
+          borderRadius: "12px",
           bgcolor: "background.paper",
           border: 1,
           borderColor: "divider",
@@ -136,7 +160,7 @@ const OrderRow = memo(function OrderRow({
             variant="body2"
             sx={{ mt: 1.25, fontWeight: 600, overflowWrap: "anywhere" }}
           >
-            To {order.delivery_address}
+            To {deliveryAddressLabel(order)}
           </Typography>
           <Typography
             variant="caption"

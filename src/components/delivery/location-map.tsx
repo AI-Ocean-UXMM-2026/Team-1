@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
+import { FloodWarningBanner } from "@/components/delivery/flood-warning-banner";
 import { Icon } from "@/components/delivery/icons";
 import { MapboxLocationMap } from "@/components/delivery/mapbox-location-map";
 import {
@@ -78,9 +78,26 @@ export type LocationMapProps = {
   floodZones?: FloodZone[];
   liveFlood?: LiveFloodConditions | null;
   initialShowFlood?: boolean;
+  /** Height of the sheet over the map; keeps fitted pins clear of it. */
+  sheetInset?: number;
+  /** Hide map controls when the map is mostly covered by the sheet. */
+  showControls?: boolean;
 };
 
-/** Mapbox when a token is configured; the OSM tile map otherwise. */
+function hasWebGLContext(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const canvas = document.createElement("canvas");
+    return Boolean(
+      window.WebGLRenderingContext &&
+        (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Mapbox when a token is configured and WebGL is available; the OSM tile map otherwise. */
 export function LocationMap({
   onSelectOrder,
   roadReports,
@@ -90,7 +107,13 @@ export function LocationMap({
   initialShowFlood,
   ...props
 }: LocationMapProps) {
-  return hasMapbox ? (
+  const [canMapbox, setCanMapbox] = useState(false);
+
+  useEffect(() => {
+    setCanMapbox(hasMapbox && hasWebGLContext());
+  }, []);
+
+  return canMapbox ? (
     <MapboxLocationMap
       {...props}
       onSelectOrder={onSelectOrder}
@@ -478,14 +501,7 @@ function OsmLocationMap({
         )}
 
         {routeFloodRisk?.hasFloodRisk && (
-          <div className="map-flood-warning-banner" role="alert">
-            <Icon name="warning" size={15} />
-            <span>
-              <strong>Monsoon Caution:</strong> {routeFloodRisk.warningMessage}
-              {routeFloodRisk.suggestedSlowdownPercent > 0 &&
-                ` (+${routeFloodRisk.suggestedSlowdownPercent}% delay risk)`}
-            </span>
-          </div>
+          <FloodWarningBanner risk={routeFloodRisk} />
         )}
 
         {size.width > 0 && size.height > 0 && (
@@ -664,20 +680,30 @@ function OsmLocationMap({
                       )}
                       <circle
                         r="13"
-                        fill={isSevere ? "var(--color-error-surface)" : "var(--color-info-surface)"}
-                        stroke={isSevere ? "var(--color-error)" : "var(--color-info)"}
+                        fill={
+                          isSevere
+                            ? "var(--color-error-surface)"
+                            : "var(--color-info-surface)"
+                        }
+                        stroke={
+                          isSevere ? "var(--color-error)" : "var(--color-info)"
+                        }
                         strokeWidth="1.8"
                       />
                       <path
                         d="M-5 1 C-3 -1 -1 3 1 1 C3 -1 5 3 7 1"
-                        stroke={isSevere ? "var(--color-error)" : "var(--color-info)"}
+                        stroke={
+                          isSevere ? "var(--color-error)" : "var(--color-info)"
+                        }
                         strokeWidth="1.8"
                         fill="none"
                         strokeLinecap="round"
                       />
                       <path
                         d="M-5 -2 C-3 -4 -1 0 1 -2 C3 -4 5 0 7 -2"
-                        stroke={isSevere ? "var(--color-error)" : "var(--color-info)"}
+                        stroke={
+                          isSevere ? "var(--color-error)" : "var(--color-info)"
+                        }
                         strokeWidth="1.8"
                         fill="none"
                         strokeLinecap="round"
@@ -710,15 +736,28 @@ function OsmLocationMap({
                   >
                     <circle
                       r="12"
-                      fill={isSevere ? "var(--color-error-surface)" : "var(--color-warning-surface)"}
-                      stroke={isSevere ? "var(--color-error)" : "var(--color-warning)"}
+                      fill={
+                        isSevere
+                          ? "var(--color-error-surface)"
+                          : "var(--color-warning-surface)"
+                      }
+                      stroke={
+                        isSevere ? "var(--color-error)" : "var(--color-warning)"
+                      }
                       strokeWidth="1.5"
                     />
                     <path
                       d="M0 -6 L6 5 L-6 5 Z"
-                      fill={isSevere ? "var(--color-error)" : "var(--color-warning)"}
+                      fill={
+                        isSevere ? "var(--color-error)" : "var(--color-warning)"
+                      }
                     />
-                    <circle cx="0" cy="3" r="0.8" fill="var(--color-surface, #ffffff)" />
+                    <circle
+                      cx="0"
+                      cy="3"
+                      r="0.8"
+                      fill="var(--color-surface, #ffffff)"
+                    />
                     <text className="map-marker-label" x="14" y="4">
                       {report.category}
                     </text>
@@ -943,28 +982,32 @@ function OsmLocationMap({
           </div>
         )}
 
-        <div className="map-location-chip">
-          <span className="map-location-icon">
-            <Icon name="location" size={15} />
-          </span>
-          <span>
-            {mode === "manager" && trackedOrders.length
-              ? `${trackedOrders.length} riders visible · Yangon`
-              : order?.status === "in_transit"
-                ? "Yangon · en route"
-                : order?.status === "picked_up"
-                  ? "Yangon · parcel collected"
-                  : "Yangon, Myanmar"}
-          </span>
-        </div>
-        <div className="map-updated-chip">
-          {trackedOrders.length || livePoint ? (
-            <Icon name="track" size={14} />
-          ) : (
-            <Icon name="history" size={14} />
-          )}
-          {locationText}
-        </div>
+        {!compact && (
+          <>
+            <div className="map-location-chip">
+              <span className="map-location-icon">
+                <Icon name="location" size={15} />
+              </span>
+              <span>
+                {mode === "manager" && trackedOrders.length
+                  ? `${trackedOrders.length} riders visible · Yangon`
+                  : order?.status === "in_transit"
+                    ? "Yangon · en route"
+                    : order?.status === "picked_up"
+                      ? "Yangon · parcel collected"
+                      : "Yangon, Myanmar"}
+              </span>
+            </div>
+            <div className="map-updated-chip">
+              {trackedOrders.length || livePoint ? (
+                <Icon name="track" size={14} />
+              ) : (
+                <Icon name="history" size={14} />
+              )}
+              {locationText}
+            </div>
+          </>
+        )}
         <div className="map-attribution">
           <a
             href="https://www.openstreetmap.org/copyright"

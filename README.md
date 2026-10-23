@@ -72,8 +72,17 @@ Learned route preferences, delivery cost analysis, vehicle maintenance history, 
 
 ## Documentation
 
-- [Project and product flow](docs/PROJECT_FLOW.md) explains role workspaces, the delivery lifecycle, live tracking, intelligence, integrations, architecture, and the contribution flow.
-- [Testing guide](docs/TESTING.md) covers setup, automated checks, database assertions, test accounts, manual role-by-role verification, and Realtime troubleshooting.
+The full technical and operational documentation is indexed in [**`docs/README.md`**](docs/README.md):
+
+- [Documentation Hub](docs/README.md) — Master navigation for all system specifications and guides.
+- [Application Features Catalog](PROJECT_APP.md) — Comprehensive inventory of every screen, interface, tool, and capability in the application.
+- [System Architecture](docs/ARCHITECTURE.md) — Next.js 16, Supabase Realtime, Mapbox GIS, Multi-Truck VRP Optimizer, and AI Road Intelligence.
+- [Database Schema & Security](docs/DATABASE_SCHEMA.md) — PostgreSQL tables, constraints, stored procedures (RPCs), and Row-Level Security (RLS) matrix.
+- [API & Engine Reference](docs/API_REFERENCE.md) — REST endpoints (`/api/dispatch/plan`, `/api/road-intel/analyze`), RPC definitions, and integration contracts.
+- [Role Operations Manual](docs/OPERATIONS_MANUAL.md) — Comprehensive user guides for Customers, Drivers/Riders, Managers, Sellers, and Support Agents.
+- [Cash on Delivery (COD) & Payments](docs/FINANCIAL_COD.md) — Myanmar mobile wallets, doorstep cash liability, discrepancy logging, and depot remittance settlement.
+- [Project and product flow](docs/PROJECT_FLOW.md) — Role workspaces, delivery lifecycle state machine, job board clustering, and known boundaries.
+- [Testing guide](docs/TESTING.md) — Automated checks, database assertions, synthetic test accounts, role verification, and Realtime debugging.
 
 ## Development
 

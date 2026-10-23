@@ -42,6 +42,14 @@ function latest(order: DeliveryOrder, events: StatusEvent[]) {
   );
 }
 
+/** "12 min", "2 hr", "6 hr 51 min" — long silences read as time, not minutes. */
+export function formatAge(minutes: number) {
+  if (minutes < 60) return `${Math.max(1, Math.round(minutes))} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round(minutes % 60);
+  return rest ? `${hours} hr ${rest} min` : `${hours} hr`;
+}
+
 /**
  * Everything the tracking screen says about a parcel, decided in one place so
  * stale GPS, a missing location, a delay and a failure each get their own
@@ -126,15 +134,6 @@ export function describeTracking(
   const estimate = order.estimated_delivery_at
     ? formatDateTime(order.estimated_delivery_at)
     : null;
-  const detail = overdue
-    ? `Was estimated around ${estimate}. Your rider is still on the way.`
-    : estimate
-      ? `Estimated around ${estimate}${
-          order.traffic_delay_minutes > 0
-            ? ` · traffic adds about ${order.traffic_delay_minutes} min`
-            : ""
-        }`
-      : "An arrival estimate is being worked out.";
 
   const state = parcelLocationState(order, now);
   const minutes = order.latest_location
@@ -145,6 +144,21 @@ export function describeTracking(
         ),
       )
     : 0;
+  // A late parcel whose rider went quiet must not claim the rider is still
+  // moving: say what the last data actually shows.
+  const offline = state === "stale" && !isRecentLocation(order, now);
+  const detail = overdue
+    ? offline
+      ? `Was estimated around ${estimate}.`
+      : `Was estimated around ${estimate}. Your rider is still on the way.`
+    : estimate
+      ? `Estimated around ${estimate}${
+          order.traffic_delay_minutes > 0
+            ? ` · traffic adds about ${order.traffic_delay_minutes} min`
+            : ""
+        }`
+      : "An arrival estimate is being worked out.";
+
   const location: LocationNotice =
     state === "live"
       ? {
@@ -163,8 +177,10 @@ export function describeTracking(
         : state === "stale"
           ? {
               kind: "stale",
-              title: `No new location for ${minutes} min`,
-              body: "Showing the last known position. Your rider may have lost connection; call them if you’re worried.",
+              title: `No new location for ${formatAge(minutes)}`,
+              body: `Last seen ${formatDateTime(
+                order.latest_location?.recorded_at ?? null,
+              )}. Your rider may have lost connection.`,
               tone: "warning",
             }
           : {

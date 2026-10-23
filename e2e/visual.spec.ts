@@ -242,6 +242,11 @@ test("customer pickup, three steps", async ({ page, context }) => {
   await page.goto("/pickup/details");
   await expect(page.getByLabel("Recipient name")).toHaveValue("Daw Hnin");
   await shoot(page, "customer-pickup-details", false);
+  await page.goto("/pickup/payment");
+  await expect(
+    page.getByRole("button", { name: /next: review/i }),
+  ).toBeVisible();
+  await shoot(page, "customer-pickup-payment", false);
   await page.goto("/pickup/review");
   await expect(
     page.getByRole("button", { name: "Request pickup" }),

@@ -30,7 +30,7 @@ export const DEMO_ORDERS: DeliveryOrder[] = [
     recipient_phone: "+95 9 421 555 018",
     parcel_description: "Documents · small envelope",
     parcel_weight_kg: 0.4,
-    payment_method: "mmqr",
+    payment_method: "ctzpay",
     cod_amount: 68_000,
     cod_status: "pending",
     estimated_delivery_at: fromNow(18),
