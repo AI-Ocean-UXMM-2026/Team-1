@@ -98,18 +98,15 @@ export const Root = () => {
         defaultProps={{}}
       />
 
-      {/* OERN Hackathon Demo - 84-second product walkthrough */}
+      {/* OERN Hackathon Demo - 78-second UI-only walkthrough */}
       <Composition
-        id="HackathonDemo-Oern-84s"
+        id="HackathonDemo-Oern-UI"
         component={HackathonDemo_Oern_Enhanced}
-        durationInFrames={2520}
+        durationInFrames={2340}
         fps={30}
         width={1920}
         height={1080}
-        defaultProps={{
-          productName: 'OERN',
-          tagline: 'Real-time visibility from rider handoff to delivery.',
-        }}
+        defaultProps={{}}
       />
     </>
   );

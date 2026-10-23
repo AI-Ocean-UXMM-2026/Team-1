@@ -48,5 +48,10 @@ test-results/
 playwright-report/
 .next-e2e
 .next-profile/
+output/playwright/
+.playwright-cli/
+
+# remotion
+remotion-demo/build/
 *-darwin.png
 */node_modules

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
   ActionToast,
@@ -84,12 +84,18 @@ export function ComplaintsApp() {
       }
     | null
   >(null);
-
-  useEffect(() => {
-    void selectedId;
-    setResolution("");
-    setClassificationResult(null);
-  }, [selectedId]);
+  const [classificationHistory, setClassificationHistory] = useState<
+    Array<{
+      id: string;
+      complaintId: string;
+      subject: string;
+      category: string;
+      priority: string;
+      confidence: number | null;
+      mode: string;
+      timestamp: Date;
+    }>
+  >([]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const filteredComplaints = useMemo(
@@ -112,6 +118,51 @@ export function ComplaintsApp() {
     filteredComplaints.find((item) => item.id === selectedId) ??
     filteredComplaints[0] ??
     null;
+
+  // Create the classify function before using it in useEffect
+  const classifySelectedComplaint = useCallback(async (complaint?: SupportCase) => {
+    const target = complaint || selectedComplaint;
+    if (!target) return;
+    setClassifying(true);
+    try {
+      const result = await classifyComplaint(target.description);
+      setClassificationResult({
+        priority: result.priority,
+        category: result.category,
+        confidence: result.categoryConfidence,
+        mode: result.mode,
+      });
+      // Add to history
+      setClassificationHistory((prev) => [
+        {
+          id: Date.now().toString(),
+          complaintId: target.id,
+          subject: target.subject,
+          category: result.category,
+          priority: result.priority,
+          confidence: result.categoryConfidence,
+          mode: result.mode,
+          timestamp: new Date(),
+        },
+        ...prev.slice(0, 9), // Keep last 10
+      ]);
+    } catch (cause) {
+      // Silently fail for auto-classification
+      console.warn("Auto-classification failed:", cause);
+    } finally {
+      setClassifying(false);
+    }
+  }, [selectedComplaint]);
+
+  useEffect(() => {
+    void selectedId;
+    setResolution("");
+    setClassificationResult(null);
+    // Auto-classify the selected complaint
+    if (selectedComplaint) {
+      void classifySelectedComplaint(selectedComplaint);
+    }
+  }, [selectedComplaint, classifySelectedComplaint]);
 
   const selectedOrder = selectedComplaint?.order_id
     ? (workspace.data.orders.find(
@@ -154,32 +205,6 @@ export function ComplaintsApp() {
   const complaintClosed =
     selectedComplaint?.status === "resolved" ||
     selectedComplaint?.status === "closed";
-
-  async function classifySelectedComplaint() {
-    if (!selectedComplaint) return;
-    setClassifying(true);
-    setNotice(null);
-    try {
-      const result = await classifyComplaint(selectedComplaint.description);
-      setClassificationResult({
-        priority: result.priority,
-        category: result.category,
-        confidence: result.categoryConfidence,
-        mode: result.mode,
-      });
-      setNotice(
-        `Classified as ${result.priority} priority (${result.mode} mode)`,
-      );
-    } catch (cause) {
-      setNotice(
-        cause instanceof Error
-          ? cause.message
-          : "Could not classify the complaint.",
-      );
-    } finally {
-      setClassifying(false);
-    }
-  }
 
   async function saveComplaint(status: "in_progress" | "resolved") {
     if (!selectedComplaint) return;
@@ -446,11 +471,15 @@ export function ComplaintsApp() {
                             type="button"
                             className="button button-outline"
                             disabled={classifying}
-                            onClick={() => void classifySelectedComplaint()}
+                            onClick={async () => {
+                              setNotice(null);
+                              await classifySelectedComplaint(selectedComplaint || undefined);
+                              setNotice(`Re-classified with Jev`);
+                            }}
                           >
                             {classifying
                               ? "Classifying..."
-                              : "Classify with Jev"}
+                              : "Re-classify with Jev"}
                           </button>
                           {!assignedToMe && (
                             <button
@@ -487,6 +516,53 @@ export function ComplaintsApp() {
                     <p>Select a complaint to see delivery context.</p>
                   </div>
                 )}
+              </aside>
+
+              {/* Classification History Sidebar */}
+              <aside className="complaints-sidebar">
+                <div className="complaints-sidebar-header">
+                  <h3>
+                    <Icon name="history" size={14} />
+                    Classification History
+                  </h3>
+                </div>
+                <div className="complaints-sidebar-content">
+                  {classificationHistory.length === 0 ? (
+                    <div className="complaints-history-empty">
+                      Classifications will appear here
+                    </div>
+                  ) : (
+                    <div>
+                      {classificationHistory.map((item) => (
+                        <div
+                          key={item.id}
+                          className="complaints-history-item"
+                          title={item.subject}
+                        >
+                          <div className="complaints-history-item-header">
+                            <span className="complaints-history-item-subject">
+                              {item.subject}
+                            </span>
+                          </div>
+                          <span className="complaints-history-item-category">
+                            {item.category}
+                          </span>
+                          <div className="complaints-history-item-meta">
+                            <span>{item.priority}</span>
+                            {item.confidence !== null && (
+                              <span>
+                                {(item.confidence * 100).toFixed(0)}%
+                              </span>
+                            )}
+                            <span style={{ fontSize: "10px" }}>
+                              {item.mode === "jev" ? "AI" : "Pattern"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </aside>
             </section>
           </>
