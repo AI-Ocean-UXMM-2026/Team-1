@@ -37,12 +37,6 @@ import {
   unqueueOrders,
 } from "@/lib/delivery/jobs";
 import "./manager-jobs.css";
-import {
-  isSampleOrder,
-  SAMPLE_QUEUE_ENTRIES,
-  SAMPLE_REQUEST_ORDERS,
-  SAMPLE_TASK_JOBS,
-} from "@/lib/delivery/sample-automation";
 import { useWorkspace } from "@/lib/delivery/use-workspace";
 import { createClient } from "@/lib/supabase/client";
 
@@ -140,21 +134,11 @@ export function ManagerJobsApp() {
   }, [live, reload]);
 
   const queuedIds = useMemo(
-    () =>
-      new Set([
-        ...queue.map((entry) => entry.order_id),
-        ...SAMPLE_QUEUE_ENTRIES.map((entry) => entry.order_id),
-      ]),
+    () => new Set(queue.map((entry) => entry.order_id)),
     [queue],
   );
   const orderById = useMemo(
-    () =>
-      new Map(
-        [...workspace.data.orders, ...SAMPLE_REQUEST_ORDERS].map((order) => [
-          order.id,
-          order,
-        ]),
-      ),
+    () => new Map(workspace.data.orders.map((order) => [order.id, order])),
     [workspace.data.orders],
   );
   // Live requests drive the bulk actions; sample rows are display-only.
@@ -165,24 +149,12 @@ export function ManagerJobsApp() {
       ),
     [workspace.data.orders, queuedIds],
   );
-  const requests = useMemo(
-    () => [
-      ...liveRequests,
-      ...SAMPLE_REQUEST_ORDERS.filter((order) => !queuedIds.has(order.id)),
-    ],
-    [liveRequests, queuedIds],
-  );
-  const waiting = [
-    ...queue.filter((entry) => !entry.job_id),
-    ...SAMPLE_QUEUE_ENTRIES,
-  ];
+  const requests = useMemo(() => liveRequests, [liveRequests]);
+  const waiting = queue.filter((entry) => !entry.job_id);
   const floodZones = useMemo(() => getYangonFloodZones(), []);
   // Demo mode has no jobs table behind it, so show the sample tasks instead.
   const tasks = useMemo(
-    () => [
-      ...(workspace.isDemo ? SAMPLE_OPEN_JOBS : jobs),
-      ...SAMPLE_TASK_JOBS,
-    ],
+    () => (workspace.isDemo ? SAMPLE_OPEN_JOBS : jobs),
     [workspace.isDemo, jobs],
   );
   const activeTaskCount = tasks.filter((job) =>
@@ -371,7 +343,7 @@ export function ManagerJobsApp() {
                           <button
                             type="button"
                             className="button button-outline"
-                            disabled={!live || busy || isSampleOrder(order.id)}
+                            disabled={!live || busy}
                             aria-label={`Queue ${order.tracking_code}`}
                             onClick={() => void queueOrders([order.id])}
                           >
@@ -380,7 +352,7 @@ export function ManagerJobsApp() {
                           <button
                             type="button"
                             className="button button-dark"
-                            disabled={!live || busy || isSampleOrder(order.id)}
+                            disabled={!live || busy}
                             aria-label={`Post ${order.tracking_code} now`}
                             onClick={() => void accept([order.id])}
                           >
@@ -429,9 +401,7 @@ export function ManagerJobsApp() {
                           <button
                             type="button"
                             className="button button-outline"
-                            disabled={
-                              !live || busy || isSampleOrder(entry.order_id)
-                            }
+                            disabled={!live || busy}
                             aria-label={`Move ${code} back to requests`}
                             onClick={() => void remove(entry.order_id)}
                           >
