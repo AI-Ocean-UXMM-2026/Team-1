@@ -9,7 +9,11 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { currency } from "@/lib/delivery/format";
-import { generateMMQRQRCode, type MMQRQRCode } from "@/lib/delivery/mmqr-sdk";
+import {
+  downloadQRCode,
+  generateMMQRQRCode,
+  type MMQRQRCode,
+} from "@/lib/delivery/mmqr-sdk";
 
 export default function TrackQrPage() {
   const params = useSearchParams();
@@ -93,21 +97,18 @@ export default function TrackQrPage() {
               style={{ width: "100%", height: "auto", display: "block" }}
             />
           </Box>
-          <Button
-            variant="text"
-            onClick={() => {
-              if (qr) {
-                const link = document.createElement("a");
-                link.href = qr.dataUrl;
-                link.download = `mmqr-${code}.png`;
-                link.click();
-              }
-            }}
-            sx={{ textTransform: "none" }}
-          >
-            Save QR code
-          </Button>
         </Stack>
+      )}
+
+      {qr && (
+        <Button
+          size="small"
+          variant="text"
+          onClick={() => downloadQRCode(qr, `mmqr-${code}.png`)}
+          sx={{ textTransform: "none", mt: "auto" }}
+        >
+          Save QR
+        </Button>
       )}
     </Box>
   );
