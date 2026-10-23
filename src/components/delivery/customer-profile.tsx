@@ -31,8 +31,8 @@ export function initialsOf(name: string | null | undefined) {
 }
 
 /**
- * Who is signed in. The block is the one navy surface in the app, so the
- * account reads as identity rather than as another settings row.
+ * Who is signed in. A flat identity row: a navy initials avatar beside the
+ * name and phone, so the account reads as identity rather than as a card.
  */
 function IdentityHero({
   name,
@@ -46,13 +46,9 @@ function IdentityHero({
   return (
     <Box
       sx={{
-        borderRadius: "20px",
-        bgcolor: "secondary.main",
-        color: "secondary.contrastText",
-        p: 2,
         display: "flex",
         alignItems: "center",
-        gap: 1.5,
+        gap: 2,
       }}
     >
       <Box
@@ -61,8 +57,9 @@ function IdentityHero({
           width: 56,
           height: 56,
           flex: "none",
-          borderRadius: "16px",
-          bgcolor: "rgba(255, 255, 255, 0.14)",
+          borderRadius: "50%",
+          bgcolor: "secondary.main",
+          color: "secondary.contrastText",
           display: "grid",
           placeItems: "center",
           fontSize: 20,
@@ -84,7 +81,7 @@ function IdentityHero({
             fontWeight: 750,
             fontSize: 20,
             lineHeight: "26px",
-            color: "#ffffff",
+            color: "text.primary",
             overflowWrap: "anywhere",
           }}
         >
@@ -97,7 +94,7 @@ function IdentityHero({
             mt: 0.25,
             fontSize: 14,
             lineHeight: "20px",
-            color: "rgba(255, 255, 255, 0.82)",
+            color: "text.secondary",
             overflowWrap: "anywhere",
           }}
         >
@@ -177,7 +174,7 @@ function AccountRow({
               size="small"
               label={`${unread} unread`}
               sx={{
-                ...toneSx("info"),
+                ...toneSx("error"),
                 height: 22,
                 fontSize: 12,
                 fontWeight: 700,
