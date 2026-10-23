@@ -45,7 +45,9 @@ test("a pay link opens MMQR with CTZPay inside it, and cash as the other option"
   await openPayment(page);
 
   await expect(page.getByText(/How would you like to pay/)).toBeVisible();
-  await expect(page.getByRole("button", { name: /Pay with MMQR/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Pay with MMQR/ }),
+  ).toBeVisible();
   await expect(page.getByText(/CTZPay, KBZPay/)).toBeVisible();
 
   await page.getByRole("radio", { name: /Cash to the rider/ }).check();
@@ -131,4 +133,3 @@ test("a parcel the rider already collected no longer offers rewards", async ({
   await expect(page.getByText(/How would you like to pay/)).toBeVisible();
   await expect(page.getByLabel("Coupon code")).toHaveCount(0);
 });
-
