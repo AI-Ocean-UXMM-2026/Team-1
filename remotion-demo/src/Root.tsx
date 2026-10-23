@@ -7,6 +7,7 @@ import { Demo4GridAnimation } from './compositions/Demo4_GridAnimation';
 import { Demo5Parametrized, parametrizationSchema } from './compositions/Demo5_Parametrized';
 import { DemoShowcase } from './compositions/Demo_Showcase';
 import { HackathonDemo_Oern } from './compositions/HackathonDemo_Oern';
+import { HackathonDemo_Oern_Enhanced } from './compositions/HackathonDemo_Oern_Enhanced';
 
 export const Root = () => {
   return (
@@ -91,6 +92,17 @@ export const Root = () => {
         id="HackathonDemo_Oern"
         component={HackathonDemo_Oern}
         durationInFrames={2100}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={{}}
+      />
+
+      {/* OERN Hackathon Demo ENHANCED - 90 seconds with text & captions */}
+      <Composition
+        id="HackathonDemo_Oern_Enhanced"
+        component={HackathonDemo_Oern_Enhanced}
+        durationInFrames={2730}
         fps={30}
         width={1280}
         height={720}

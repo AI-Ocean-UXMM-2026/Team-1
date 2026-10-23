@@ -8,6 +8,7 @@ export type ManagerNavId =
   | "order"
   | "track"
   | "create"
+  | "complaints"
   | "profile"
   | "jobs"
   | "vehicles"
@@ -61,6 +62,12 @@ export function ManagerSidebar({
           label: "Create order",
           href: "/manager/order/create",
           icon: "plus",
+        },
+        {
+          id: "complaints",
+          label: "Customer Complaints",
+          href: "/complaints",
+          icon: "help",
         },
       ],
     },
