@@ -99,6 +99,8 @@ Full docs indexed in [docs/README.md](docs/README.md): architecture, database sc
 
 - https://oern-app.vercel.app/
 
+Requires to use VPN some internet  since it uses Supabase.
+
 ```
 (Rider)
 Email: rider.testing@oern.example

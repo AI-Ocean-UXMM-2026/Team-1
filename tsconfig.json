@@ -43,6 +43,7 @@
   ],
   "exclude": [
     "node_modules",
+    "remotion-demo",
     "e2e",
     "playwright.config.ts",
     "**/*.test.ts",

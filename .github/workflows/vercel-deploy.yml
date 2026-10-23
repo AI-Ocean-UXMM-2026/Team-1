@@ -29,7 +29,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.PROJECT_ID }}
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
-            vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+            vercel deploy --prod --force --yes --token="$VERCEL_TOKEN"
           else
-            vercel deploy --yes --token="$VERCEL_TOKEN"
+            vercel deploy --force --yes --token="$VERCEL_TOKEN"
           fi
