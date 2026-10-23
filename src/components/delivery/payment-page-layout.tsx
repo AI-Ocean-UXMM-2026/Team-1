@@ -354,10 +354,10 @@ export function PaymentPageLayout({
       <Modal
         open={showCouponModal}
         onClose={handleCloseCouponModal}
-        components={{
-          Backdrop: Backdrop,
+        slots={{
+          backdrop: Backdrop,
         }}
-        componentsProps={{
+        slotProps={{
           backdrop: {
             sx: {
               backgroundColor: "rgba(0, 0, 0, 0.5)",

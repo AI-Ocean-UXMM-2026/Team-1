@@ -10,6 +10,13 @@
  * - Uses actual service areas and townships
  */
 
+// Extend ImportMeta type to include Node.js specific properties
+declare global {
+  interface ImportMeta {
+    main?: boolean;
+  }
+}
+
 import { createClient } from "@supabase/supabase-js";
 
 // Real Yangon townships and their approximate centers
@@ -260,7 +267,7 @@ async function seedRealisticData() {
 
     for (let i = 0; i < 15; i++) {
       // Create orders spread over last 30 days
-      const orderDate = new Date(today);
+      let orderDate = new Date(today);
       orderDate.setDate(orderDate.getDate() - randomInt(0, 30));
       orderDate = generateBusinessHourTime(orderDate);
 
