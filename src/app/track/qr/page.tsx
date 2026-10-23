@@ -6,6 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { currency } from "@/lib/delivery/format";
 import { generateMMQRQRCode, type MMQRQRCode } from "@/lib/delivery/mmqr-sdk";
