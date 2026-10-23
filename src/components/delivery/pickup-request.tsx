@@ -2,6 +2,7 @@
 
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import Close from "@mui/icons-material/Close";
+import ConfirmationNumberOutlined from "@mui/icons-material/ConfirmationNumberOutlined";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import MapOutlined from "@mui/icons-material/MapOutlined";
 import MyLocationOutlined from "@mui/icons-material/MyLocationOutlined";
@@ -32,26 +33,20 @@ import {
 
 import { CustomerHeader } from "@/components/delivery/customer-home";
 import { CustomerBottomNav } from "@/components/delivery/customer-pages";
+import { CustomerSheet } from "@/components/delivery/customer-sheet";
 import { Loader } from "@/components/delivery/loader";
 import {
-  FeeBreakdown,
   PayAfterRequest,
   PayerChoice,
-  PayWhenChoice,
-  RewardsControl,
+  PayRouteChoice,
 } from "@/components/delivery/payment-picker";
 import { AddressField } from "@/components/delivery/pickup-address-field";
+import { MMQRPaymentFlow } from "@/components/delivery/mmqr-payment-flow";
 import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import { usePickupDraft } from "@/components/delivery/use-pickup-draft";
 import {
   PickupProgressBar,
   HelpIcon,
-  FieldWithHelp,
-  ErrorRecovery,
-  FeeExplanation,
-  CODExplanation,
-  SandboxModeNotice,
-  NetworkTimeout,
 } from "@/components/delivery/pickup-enhancements";
 import {
   type PickupRewards,
@@ -67,6 +62,7 @@ import {
 import {
   estimateDeliveryFee,
   type FeeEstimate,
+  type FeeZone,
   PARCEL_WEIGHT_KG,
   roadDistanceKm,
   zoneFor,
@@ -254,7 +250,7 @@ function PickupShell({
 }) {
   const index = STEPS.findIndex((item) => item.id === step);
   const stepNumber = (index + 1) as 1 | 2 | 3 | 4;
-  
+
   return (
     <main className="customer-app pickup-app">
       <CustomerHeader
@@ -1011,7 +1007,9 @@ function DetailsStep({
               />
             </Field>
             <Box sx={{ mb: 2 }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}
+              >
                 <Typography
                   component="label"
                   htmlFor="cod-amount"
@@ -1025,27 +1023,27 @@ function DetailsStep({
                   description="The rider collects this amount in cash from the recipient when delivering the package."
                 />
               </Box>
-            <Field
-              id="cod-amount"
-              label=""
-              error={show("codAmount")}
-              hint="Leave blank if the recipient pays nothing on delivery."
-            >
-              <TextInput
+              <Field
                 id="cod-amount"
-                value={draft.codAmount}
-                onChange={(value) => update({ codAmount: value })}
-                onBlur={() => {
-                  touch("codAmount");
-                  update({ codAmount: formatKyat(draft.codAmount) });
-                }}
-                placeholder="0"
-                inputMode="numeric"
-                enterKeyHint="done"
-                maxLength={12}
+                label=""
                 error={show("codAmount")}
-              />
-            </Field>
+                hint="Leave blank if the recipient pays nothing on delivery."
+              >
+                <TextInput
+                  id="cod-amount"
+                  value={draft.codAmount}
+                  onChange={(value) => update({ codAmount: value })}
+                  onBlur={() => {
+                    touch("codAmount");
+                    update({ codAmount: formatKyat(draft.codAmount) });
+                  }}
+                  placeholder="0"
+                  inputMode="numeric"
+                  enterKeyHint="done"
+                  maxLength={12}
+                  error={show("codAmount")}
+                />
+              </Field>
             </Box>
             <Field id="pickup-notes" label="Note for the rider">
               <TextInput
@@ -1117,19 +1115,21 @@ function draftEstimate(draft: PickupDraft, routedKm: number | null = null) {
   // resolved from typed addresses so fee calculation works before pins are dropped.
   const p1 =
     draft.pickupPoint ??
-    (draft.pickupAddress.trim() ? zoneFor({ address: draft.pickupAddress }) : null);
+    (draft.pickupAddress.trim()
+      ? zoneFor({ address: draft.pickupAddress })
+      : null);
   const p2 =
     draft.deliveryPoint ??
     (draft.deliveryAddress.trim()
       ? zoneFor({ address: draft.deliveryAddress })
       : null);
   const point1 =
-    draft.pickupPoint ?? (p1 ? { latitude: p1.lat, longitude: p1.lng } : null);
+    draft.pickupPoint ?? (p1 ? { latitude: (p1 as FeeZone).lat, longitude: (p1 as FeeZone).lng } : null);
   const point2 =
-    draft.deliveryPoint ?? (p2 ? { latitude: p2.lat, longitude: p2.lng } : null);
+    draft.deliveryPoint ??
+    (p2 ? { latitude: (p2 as FeeZone).lat, longitude: (p2 as FeeZone).lng } : null);
 
-  const distanceKm =
-    routedKm ?? roadDistanceKm(point1, point2);
+  const distanceKm = routedKm ?? roadDistanceKm(point1, point2);
   return distanceKm === null
     ? null
     : estimateDeliveryFee({
@@ -1195,6 +1195,150 @@ function paymentSummary(
   return `${currency.format(split.owed)} with ${label}`;
 }
 
+function PickupCouponSheet({
+  open,
+  onClose,
+  appliedCode,
+  status,
+  onApply,
+  onRemove,
+}: {
+  open: boolean;
+  onClose: () => void;
+  appliedCode: string;
+  status: PickupRewards["couponStatus"];
+  onApply: (code: string) => void;
+  onRemove: () => void;
+}) {
+  const [typed, setTyped] = useState(appliedCode);
+
+  useEffect(() => {
+    if (open) {
+      setTyped(appliedCode);
+    }
+  }, [open, appliedCode]);
+
+  useEffect(() => {
+    if (open && status.state === "valid") {
+      onClose();
+    }
+  }, [open, status.state, onClose]);
+
+  const valid = status.state === "valid";
+
+  return (
+    <CustomerSheet
+      open={open}
+      onClose={onClose}
+      titleId="pickup-coupon-sheet-title"
+      title="Coupons"
+    >
+      <Box sx={{ pt: 1, pb: 3, display: "grid", gap: 2.5 }}>
+        {valid && (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              p: 2,
+              borderRadius: "14px",
+              bgcolor: "var(--color-delivered-green-wash, #dcfce7)",
+              color: "var(--color-delivered-green-text, #166534)",
+            }}
+          >
+            <Box>
+              <Typography sx={{ fontWeight: 750, fontSize: 16 }}>
+                Active code: {appliedCode}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "var(--color-delivered-green-text, #166534)",
+                  mt: 0.25,
+                }}
+              >
+                Discount: {currency.format(status.discount)}
+              </Typography>
+            </Box>
+            <Button
+              type="button"
+              variant="text"
+              color="error"
+              onClick={() => {
+                onRemove();
+                setTyped("");
+              }}
+              sx={{ fontWeight: 700 }}
+            >
+              Remove coupon
+            </Button>
+          </Box>
+        )}
+
+        <Box sx={{ display: "grid", gap: 1 }}>
+          <Typography
+            component="label"
+            htmlFor="pickup-coupon"
+            variant="body2"
+            sx={{ fontWeight: 700, color: "text.primary" }}
+          >
+            Coupon code
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            <OutlinedInput
+              id="pickup-coupon"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder="Enter coupon code"
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
+              fullWidth
+              size="small"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (typed.trim()) onApply(typed);
+                }
+              }}
+              inputProps={{
+                "aria-label": "Coupon code",
+                maxLength: 24,
+              }}
+              sx={{
+                bgcolor: "background.paper",
+                borderRadius: "10px",
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+              }}
+            />
+            <Button
+              type="button"
+              variant="contained"
+              disabled={!typed.trim() || status.state === "checking"}
+              onClick={() => onApply(typed)}
+              sx={{ minWidth: 90, borderRadius: "10px", fontWeight: 700 }}
+            >
+              {status.state === "checking" ? "Checking…" : "Apply"}
+            </Button>
+          </Stack>
+
+          {status.state === "invalid" && (
+            <Typography
+              id="pickup-coupon-error"
+              role="alert"
+              variant="body2"
+              sx={{ color: "error.main", mt: 0.5, fontWeight: 600 }}
+            >
+              {status.reason}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+    </CustomerSheet>
+  );
+}
+
 function PaymentStep({
   draft,
   update,
@@ -1213,10 +1357,15 @@ function PaymentStep({
   onBack: () => void;
   next: () => void;
 }) {
+  const [couponOpen, setCouponOpen] = useState(false);
   const cod = parseCod(draft.codAmount) ?? 0;
-  const method = resolvePayment(draft);
   const split = resolveSplit(draft, estimate?.total ?? 0);
   const mine = draft.payer === "me";
+  const normalizedCode = normalizeCouponCode(draft.couponCode);
+  const couponValid = Boolean(
+    normalizedCode && rewards.couponStatus.state === "valid",
+  );
+
   return (
     <PickupShell
       step="payment"
@@ -1233,60 +1382,198 @@ function PaymentStep({
         </Button>
       }
     >
-      <PayerChoice
-        name="pickup-payer"
-        value={draft.payer}
-        onChange={(payer) => update({ payer })}
-        amount={split.owed}
-      />
-      <FeeBreakdown
-        estimate={estimate}
-        method={mine ? method : "cod"}
-        itemCash={cod}
-        flexiblePayment={!mine}
-      />
-      {estimate && (
-        <RewardsControl
-          id="pickup-coupon"
-          appliedCode={normalizeCouponCode(draft.couponCode)}
-          status={rewards.couponStatus}
-          balance={rewards.balance}
-          usePoints={draft.usePoints}
-          pointsUsed={rewards.applied.pointsUsed}
-          pointsDiscount={rewards.applied.pointsDiscount}
-          onApply={(code) => update({ couponCode: normalizeCouponCode(code) })}
-          onRemove={() => update({ couponCode: "" })}
-          onUsePointsChange={(usePoints) => update({ usePoints })}
-        />
-      )}
-      {mine ? (
-        <>
-          {sandbox && estimate && (
-            <PayWhenChoice
-              name="pickup-pay-when"
-              value={draft.payChoice}
-              total={split.owed}
-              onChange={(payChoice) =>
-                update({
-                  payChoice,
-                  paymentMethod: payChoice === "now" ? "mmqr" : "cod",
-                })
-              }
+      {/* Big text center price text without card */}
+      <Box sx={{ textAlign: "center", py: 2.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontWeight: 650,
+            fontSize: 14,
+            mb: 0.5,
+          }}
+        >
+          Total to pay
+        </Typography>
+        <Typography
+          component="div"
+          sx={{
+            fontSize: { xs: 40, sm: 48 },
+            fontWeight: 800,
+            lineHeight: 1.1,
+            color: "text.primary",
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {estimate ? currency.format(split.owed) : "Calculating…"}
+        </Typography>
+        {estimate && estimate.distanceKm > 0 && (
+          <Typography
+            variant="caption"
+            sx={{
+              display: "block",
+              mt: 0.75,
+              color: "text.secondary",
+              fontSize: 13,
+            }}
+          >
+            About {estimate.distanceKm.toFixed(1)} km · Estimate
+          </Typography>
+        )}
+
+        {/* Flat ghost button for coupon */}
+        <Box sx={{ mt: 1.5, display: "flex", justifyContent: "center" }}>
+          {couponValid ? (
+            <Box
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 1,
+                py: 0.75,
+                px: 2,
+                borderRadius: "999px",
+                bgcolor: "var(--color-delivered-green-wash, #dcfce7)",
+                color: "var(--color-delivered-green-text, #166534)",
+              }}
+            >
+              <ConfirmationNumberOutlined sx={{ fontSize: 18 }} />
+              <Typography
+                component="button"
+                type="button"
+                onClick={() => setCouponOpen(true)}
+                sx={{
+                  background: "none",
+                  border: 0,
+                  p: 0,
+                  font: "inherit",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: "inherit",
+                }}
+              >
+                Coupon {normalizedCode} · Saves{" "}
+                {currency.format(rewards.applied.couponDiscount)}
+              </Typography>
+              <Button
+                type="button"
+                size="small"
+                variant="text"
+                color="inherit"
+                onClick={() => update({ couponCode: "" })}
+                sx={{
+                  minWidth: "auto",
+                  p: "2px 6px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textDecoration: "underline",
+                }}
+              >
+                Remove
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              type="button"
+              variant="text"
+              onClick={() => setCouponOpen(true)}
+              startIcon={<ConfirmationNumberOutlined sx={{ fontSize: 20 }} />}
+              sx={{
+                color: "primary.main",
+                fontWeight: 650,
+                fontSize: 14,
+                borderRadius: "999px",
+                px: 2,
+                py: 0.75,
+                textTransform: "none",
+                "&:hover": { bgcolor: "action.hover" },
+              }}
+            >
+              {normalizedCode ? `Coupon: ${normalizedCode}` : "Add coupon code"}
+            </Button>
+          )}
+        </Box>
+      </Box>
+
+      {/* Points toggle if user has points */}
+      {rewards.balance > 0 && (
+        <Box sx={{ mb: 1, px: 0.5 }}>
+          <label
+            className="rewards-points"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 12,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={draft.usePoints}
+              onChange={(e) => update({ usePoints: e.target.checked })}
+              style={{
+                width: 20,
+                height: 20,
+                marginTop: 2,
+                accentColor: "#c2410c",
+              }}
+              aria-label="Use points"
             />
-          )}
-          {!sandbox && (
-            <p className="pay-note">
-              You’ll pay after the request is sent: we send a tracking code you
-              can pay against from Track, or hand cash to the rider.
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="pay-note">
-          They can pay with a pay link you’ll get once the request is sent, or
-          hand cash to the rider.
-        </p>
+            <span>
+              <strong style={{ display: "block", fontSize: 14 }}>
+                Use points
+                {draft.usePoints && rewards.applied.pointsUsed > 0
+                  ? ` · save ${currency.format(rewards.applied.pointsDiscount)}`
+                  : ""}
+              </strong>
+              <small style={{ color: "#64748b", fontSize: 13 }}>
+                {rewards.balance.toLocaleString("en-US")} points · 1 point = 10
+                MMK, up to half the fee
+              </small>
+            </span>
+          </label>
+        </Box>
       )}
+
+      {sandbox && estimate ? (
+        <PayRouteChoice
+          name="pickup-pay-route"
+          value={mine && draft.payChoice === "now" ? "mmqr" : "receiver"}
+          total={split.owed}
+          onChange={(route) =>
+            update(
+              route === "mmqr"
+                ? { payer: "me", payChoice: "now", paymentMethod: "mmqr" }
+                : { payer: "other", payChoice: "later", paymentMethod: "cod" },
+            )
+          }
+        />
+      ) : (
+        <>
+          <PayerChoice
+            name="pickup-payer"
+            value={draft.payer}
+            onChange={(payer) => update({ payer })}
+            amount={split.owed}
+          />
+          <p className="pay-note">
+            {mine
+              ? "You’ll pay after the request is sent: we send a tracking code you can pay against from Track, or hand cash to the rider."
+              : "They can pay with a pay link you’ll get once the request is sent, or hand cash to the rider."}
+          </p>
+        </>
+      )}
+
+      {/* Bottom modal for coupon */}
+      <PickupCouponSheet
+        open={couponOpen}
+        onClose={() => setCouponOpen(false)}
+        appliedCode={normalizedCode}
+        status={rewards.couponStatus}
+        onApply={(code) => update({ couponCode: normalizeCouponCode(code) })}
+        onRemove={() => update({ couponCode: "" })}
+      />
     </PickupShell>
   );
 }
@@ -1344,8 +1631,10 @@ function ReviewStep({
               : signedIn === false
                 ? "Sign in to request pickup"
                 : payNow
-                  ? "Request pickup and continue"
-                  : "Request pickup"}
+                  ? "Pay & Request"
+                  : draft.payer === "other"
+                    ? "Request & pass to receiver"
+                    : "Request pickup"}
           </Button>
         </>
       }
@@ -1437,13 +1726,17 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
     balance: number;
     payOnline: number;
     method: PaymentMethod;
+    passToReceiver: boolean;
     /** Set when the order went through but a coupon or points did not apply. */
     notice: string | null;
   } | null>(null);
   const inFlight = useRef(false);
   // Only the sender can pay as the request goes out; when someone else pays,
   // the order is sent unpaid and they settle it from the pay link.
-  const payNow = sandbox && draft.payer === "me" && draft.payChoice === "now";
+  const payNow =
+    sandbox &&
+    draft.payer === "me" &&
+    (draft.payChoice === "now" || draft.paymentMethod === "mmqr");
 
   // Paying in the app is offered while payments are in sandbox.
   useEffect(() => {
@@ -1587,6 +1880,7 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
         balance: owed,
         payOnline: redeemed ? split.payOnline : 0,
         method: split.method,
+        passToReceiver: draft.payer === "other",
         notice,
       });
       setState("sent");
@@ -1624,14 +1918,29 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
             We’ve received your request for pickup {sent.summary.toLowerCase()}.
             We’ll assign a rider next; follow the order to see when.
           </Typography>
-          {sent.notice && <Alert severity="warning">{sent.notice}</Alert>}
-          <PayAfterRequest
-            orderId={sent.id}
-            code={sent.code}
-            balance={sent.balance}
-            payOnline={sent.payOnline}
-            method={sent.method}
-          />
+           {sent.notice && <Alert severity="warning">{sent.notice}</Alert>}
+           {sent.payOnline > 0 && (
+             <MMQRPaymentFlow
+               amount={sent.payOnline}
+               reference={sent.code}
+               merchantId="oern-merchant"
+               merchantName="Oern"
+               onConfirmed={() =>
+                 router.push(`/track?order=${encodeURIComponent(sent.id)}`)
+               }
+               onCancel={() =>
+                 router.push(`/track?order=${encodeURIComponent(sent.id)}`)
+               }
+             />
+           )}
+           <PayAfterRequest
+             orderId={sent.id}
+             code={sent.code}
+             balance={sent.balance}
+             payOnline={sent.payOnline}
+             method={sent.method}
+             passToReceiver={sent.passToReceiver}
+           />
           <Button
             component={Link}
             href={`/track?order=${encodeURIComponent(sent.id)}`}

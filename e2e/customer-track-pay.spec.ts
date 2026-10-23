@@ -47,9 +47,6 @@ test("a pay link opens MMQR with CTZPay inside it, and cash as the other option"
   await expect(page.getByText(/How would you like to pay/)).toBeVisible();
   await expect(page.getByRole("button", { name: /Pay with MMQR/ })).toBeVisible();
   await expect(page.getByText(/CTZPay, KBZPay/)).toBeVisible();
-  await expect(
-    page.getByText(/CTZPay or any participating bank and wallet app/),
-  ).toBeVisible();
 
   await page.getByRole("radio", { name: /Cash to the rider/ }).check();
   await expect(
@@ -135,82 +132,3 @@ test("a parcel the rider already collected no longer offers rewards", async ({
   await expect(page.getByLabel("Coupon code")).toHaveCount(0);
 });
 
-test("sandbox provider confirmation shows a wait state, then Paid", async ({
-  context,
-  page,
-}) => {
-  const { mutations } = await signInAs(
-    context,
-    "customer",
-    {
-      profiles: [me],
-      delivery_orders: [order()],
-      payment_settings: [{ id: true, sandbox: true }],
-    },
-    {
-      rpc: {
-        sandbox_pay_order: () => ({ paid: 12000, cod_amount: 0 }),
-      },
-    },
-  );
-  await openPayment(page);
-  await page
-    .getByRole("button", { name: "Simulate provider confirmation" })
-    .click();
-  await expect(page.getByText("Waiting for provider…")).toBeVisible();
-  await expect(page.getByText(/Paid · MMK\s?12,000/)).toBeVisible();
-  await expect(page.getByText(/rider sees this right away/)).toBeVisible();
-
-  const call = mutations.find((m) => m.table === "sandbox_pay_order")
-    ?.body as Record<string, unknown>;
-  expect(call).toMatchObject({ p_tracking_code: "OR-9001", p_method: "mmqr" });
-});
-
-test("without sandbox mode the provider connection requirement is explicit", async ({
-  context,
-  page,
-}) => {
-  await signInAs(context, "customer", {
-    profiles: [me],
-    delivery_orders: [order()],
-    payment_settings: [{ id: true, sandbox: false }],
-  });
-  await openPayment(page);
-  await expect(
-    page.getByText(/after a payment provider is connected/),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /Simulate provider confirmation/ }),
-  ).toHaveCount(0);
-});
-
-test("a failed sandbox payment can be retried", async ({ context, page }) => {
-  let attempts = 0;
-  await signInAs(
-    context,
-    "customer",
-    {
-      profiles: [me],
-      delivery_orders: [order()],
-      payment_settings: [{ id: true, sandbox: true }],
-    },
-    {
-      rpc: {
-        sandbox_pay_order: () => {
-          attempts += 1;
-          if (attempts === 1) throw new Error("fetch failed");
-          return { paid: 12000, cod_amount: 0 };
-        },
-      },
-    },
-  );
-  await openPayment(page);
-  await page
-    .getByRole("button", { name: "Simulate provider confirmation" })
-    .click();
-  await expect(page.getByText(/did not go through/)).toBeVisible();
-  await page
-    .getByRole("button", { name: "Simulate provider confirmation" })
-    .click();
-  await expect(page.getByText(/Paid · MMK/)).toBeVisible();
-});

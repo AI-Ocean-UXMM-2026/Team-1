@@ -20,7 +20,6 @@ import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import CircularProgress from "@mui/material/CircularProgress";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -273,7 +272,7 @@ function PayBalanceOnline({
   const [usePoints, setUsePoints] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
-  const [sandbox, setSandbox] = useState(false);
+  const [_sandbox, setSandbox] = useState(false);
   const [payState, setPayState] = useState<
     "idle" | "paying" | "paid" | "error"
   >(() => {
@@ -309,7 +308,7 @@ function PayBalanceOnline({
   }, []);
 
   /** Sandbox only: simulate the confirmation a connected MMQR provider sends. */
-  async function payNow(due = order.cod_amount) {
+  async function _payNow(due = order.cod_amount) {
     if (payState === "paying") return;
     setPayState("paying");
     writePayFlag(order.id, due);
@@ -343,7 +342,7 @@ function PayBalanceOnline({
   const owner = rewards.userId !== null && rewards.userId === order.customer_id;
   const saving = rewards.applied.discount;
   // A previewed discount must be applied before paying, so the amount is right.
-  const discountPending = open && owner && saving > 0;
+  const _discountPending = open && owner && saving > 0;
 
   async function apply() {
     if (applying || fee === null) return;
@@ -470,43 +469,43 @@ function PayBalanceOnline({
       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
         How would you like to pay {amount}?
       </Typography>
+      <Box sx={{ mb: 1 }}>
+        <Button
+          variant="text"
+          onClick={() =>
+            router.push(
+              `/track/qr?code=${encodeURIComponent(order.tracking_code)}&amount=${order.cod_amount}`,
+            )
+          }
+          sx={{
+            textTransform: "none",
+            color: "#172b4d",
+            minHeight: 48,
+            width: "100%",
+            justifyContent: "flex-start",
+            gap: 1.5,
+            backgroundColor: "transparent",
+            padding: 0,
+            "&:hover": {
+              backgroundColor: "transparent",
+              color: "#0f172a",
+            },
+          }}
+        >
+          <PaymentLogo method="mmqr" size={32} />
+          <Box sx={{ textAlign: "left" }}>
+            <Typography sx={{ fontWeight: 700 }}>Pay with MMQR</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Any bank or wallet app: {MMQR_APPS.join(", ")}
+            </Typography>
+          </Box>
+        </Button>
+      </Box>
       <RadioGroup
         aria-label="Payment option"
         value={method}
         onChange={(event) => setMethod(event.target.value as "mmqr" | "cash")}
       >
-        <Box sx={{ mb: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              router.push(
-                `/track/qr?code=${encodeURIComponent(order.tracking_code)}&amount=${order.cod_amount}`,
-              )
-            }
-            sx={{
-              textTransform: "none",
-              borderColor: "#cbd5e1",
-              color: "#172b4d",
-              minHeight: 48,
-              width: "100%",
-              justifyContent: "flex-start",
-              gap: 1.5,
-              backgroundColor: "transparent",
-              "&:hover": {
-                backgroundColor: "#f1f5f9",
-                borderColor: "#94a3b8",
-              },
-            }}
-          >
-            <PaymentLogo method="mmqr" size={32} />
-            <Box sx={{ textAlign: "left" }}>
-              <Typography sx={{ fontWeight: 700 }}>Pay with MMQR</Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Any bank or wallet app: {MMQR_APPS.join(", ")}
-              </Typography>
-            </Box>
-          </Button>
-        </Box>
         <FormControlLabel
           value="cash"
           control={<Radio />}
@@ -547,110 +546,9 @@ function PayBalanceOnline({
         <PaymentLogo method="mmqr" size={24} />
         Open QR page
       </Button>
-      {method === "mmqr" ? (
-        <>
-          <Box
-            aria-label="MMQR payment details"
-            sx={{
-              display: "grid",
-              gap: 1.25,
-              p: 2,
-              borderRadius: "12px",
-              bgcolor: "background.default",
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <PaymentLogo method="mmqr" size={44} />
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 800 }}>
-                  Scan an MMQR to pay
-                </Typography>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  CTZPay or any participating bank and wallet app
-                </Typography>
-              </Box>
-            </Box>
-            <Box
-              component="dl"
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto",
-                gap: 0.75,
-                m: 0,
-                fontSize: 14,
-                "& dt": { color: "text.secondary" },
-                "& dd": {
-                  m: 0,
-                  fontWeight: 750,
-                  fontVariantNumeric: "tabular-nums",
-                  textAlign: "right",
-                },
-              }}
-            >
-              <dt>Amount</dt>
-              <dd>{amount}</dd>
-              <dt>Reference</dt>
-              <dd>{order.tracking_code}</dd>
-            </Box>
-          </Box>
-          <Box
-            component="ol"
-            sx={{ m: 0, pl: 2.5, fontSize: 14, lineHeight: "20px" }}
-          >
-            <li>
-              On another phone, open CTZPay or another MMQR-enabled app and tap
-              Scan.
-            </li>
-            <li>
-              Scan the merchant MMQR supplied by Oern, then check the merchant,
-              amount, and reference before entering your PIN.
-            </li>
-            <li>
-              Return here. The order changes to Paid only after the provider
-              confirms the transaction.
-            </li>
-          </Box>
-          {sandbox ? (
-            <>
-              {!discountPending && (
-                <Button
-                  variant="contained"
-                  onClick={() => void payNow()}
-                  disabled={payState === "paying"}
-                  startIcon={
-                    payState === "paying" ? (
-                      <CircularProgress size={18} color="inherit" />
-                    ) : undefined
-                  }
-                  sx={{ minHeight: 52 }}
-                >
-                  {payState === "paying"
-                    ? "Waiting for provider…"
-                    : "Simulate provider confirmation"}
-                </Button>
-              )}
-              {payState === "error" && (
-                <Typography role="alert" variant="body2" color="error">
-                  The payment did not go through. Try again.
-                </Typography>
-              )}
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Demo mode: no QR is generated and no money is charged. This
-                simulates the provider callback after a successful scan.
-              </Typography>
-            </>
-          ) : (
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              A scannable merchant MMQR appears here after a payment provider is
-              connected. Until then, staff confirm transfers by hand.
-            </Typography>
-          )}
-        </>
-      ) : (
-        <Typography variant="body2">
-          Pay {amount} to the rider when the parcel arrives.
-        </Typography>
-      )}
+      <Typography variant="body2">
+        Pay {amount} to the rider when the parcel arrives.
+      </Typography>
       <Button
         variant="outlined"
         color="secondary"

@@ -65,6 +65,7 @@ test("a valid coupon lowers the fee and is redeemed on the new order", async ({
 }) => {
   const { mutations } = await signInAs(context, "customer", tables(), { rpc });
   await page.goto("/pickup/payment");
+  await page.getByRole("button", { name: /coupon/i }).click();
   await page.getByLabel("Coupon code").fill("welcome");
   await page.getByRole("button", { name: "Apply" }).click();
 
@@ -91,9 +92,12 @@ test("an unusable coupon shows why and changes nothing", async ({
 }) => {
   const { mutations } = await signInAs(context, "customer", tables(), { rpc });
   await page.goto("/pickup/payment");
+  await page.getByRole("button", { name: /coupon/i }).click();
   await page.getByLabel("Coupon code").fill("OLDCODE");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.locator("#pickup-coupon-error")).toHaveText(/expired/i);
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 
   await page.getByRole("button", { name: /next: review/i }).click();
   await page.getByRole("button", { name: "Request pickup" }).click();
@@ -135,6 +139,7 @@ test("the order still goes through when rewards cannot be applied", async ({
     },
   });
   await page.goto("/pickup/payment");
+  await page.getByRole("button", { name: /coupon/i }).click();
   await page.getByLabel("Coupon code").fill("WELCOME");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByText("Coupon WELCOME")).toBeVisible();

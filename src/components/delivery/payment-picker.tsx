@@ -57,6 +57,77 @@ export function PaymentMethodPicker({
   );
 }
 
+/** One decision: pay by MMQR yourself, or pass the payment to the receiver. */
+export function PayRouteChoice({
+  name,
+  value,
+  total,
+  onChange,
+}: {
+  name: string;
+  value: "mmqr" | "receiver";
+  total: number;
+  onChange: (route: "mmqr" | "receiver") => void;
+}) {
+  const options = [
+    {
+      id: "mmqr" as const,
+      title: `Pay ${currency.format(total)} with MMQR`,
+      hint: "Scan the MMQR after the request is created.",
+    },
+    {
+      id: "receiver" as const,
+      title: "Pass to receiver",
+      hint: "Share a pay link, or the receiver pays the rider in cash.",
+    },
+  ];
+  return (
+    <fieldset className="pay-picker">
+      <legend>How will this be paid?</legend>
+      <div className="pay-options" role="radiogroup">
+        {options.map((option) => (
+          <label
+            key={option.id}
+            className={`pay-option${value === option.id ? " is-selected" : ""}`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.id}
+              checked={value === option.id}
+              onChange={() => onChange(option.id)}
+            />
+            {option.id === "mmqr" ? (
+              <PaymentLogo method="mmqr" size={40} />
+            ) : (
+              <span className="pay-route-icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="22"
+                  height="22"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="9" cy="8" r="3.5" />
+                  <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+                  <path d="M17 8h5M19.5 5.5 22 8l-2.5 2.5" />
+                </svg>
+              </span>
+            )}
+            <span className="pay-option-copy">
+              <strong>{option.title}</strong>
+              <small>{option.hint}</small>
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 /** Pay when the request is sent, or pass and settle later from Track. */
 export function PayWhenChoice({
   name,
@@ -268,7 +339,10 @@ export function PayAfterRequest({
   balance,
   payOnline,
   method,
+  passToReceiver = false,
 }: {
+  /** The sender handed payment to the receiver, so sharing leads. */
+  passToReceiver?: boolean;
   /** When given, offers paying right away on the Track screen. */
   orderId?: string;
   code: string;
@@ -300,12 +374,14 @@ export function PayAfterRequest({
   return (
     <section className="pay-after" aria-label="Pay for this delivery">
       <h3>Pay for this delivery</h3>
-      {orderId && (
+      {orderId && !passToReceiver && (
         <Link
           className="pay-after-primary"
           href={`/track?order=${encodeURIComponent(orderId)}&pay=1`}
         >
-          <PaymentLogo method="mmqr" size={32} />
+          <span className="pay-after-logo">
+            <PaymentLogo method="mmqr" size={32} />
+          </span>
           {wantsMmqr
             ? `Continue to MMQR · ${currency.format(payOnline)}`
             : `Pay ${currency.format(balance)} with MMQR`}
@@ -313,11 +389,20 @@ export function PayAfterRequest({
       )}
       <button
         type="button"
-        className="pay-after-secondary"
+        className={passToReceiver ? "pay-after-primary" : "pay-after-secondary"}
         onClick={() => void share()}
       >
         {copied ? "Link copied" : "Share pay link for someone else"}
       </button>
+      {orderId && passToReceiver && (
+        <Link
+          className="pay-after-secondary"
+          href={`/track?order=${encodeURIComponent(orderId)}&pay=1`}
+        >
+          <PaymentLogo method="mmqr" size={28} />
+          Pay it yourself with MMQR
+        </Link>
+      )}
       <p className="pay-after-note">
         {wantsMmqr
           ? `Your request is saved, but it is not paid yet. Scan the MMQR on the next screen. ${atDoor > 0 ? `The rider will collect the remaining ${currency.format(atDoor)} in cash.` : "The rider collects no cash after payment is confirmed."}`

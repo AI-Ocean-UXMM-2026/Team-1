@@ -36,10 +36,10 @@ async function fillDetails(page: Page) {
   await page.getByLabel("Recipient phone").fill("09 421 555 018");
   await page.getByRole("button", { name: /next: payment/i }).click();
   await expect(page).toHaveURL(/\/pickup\/payment$/);
-  await expect(page.getByText("Step 3 of 4")).toBeVisible();
+  await expect(page.getByText("Step 3 of 4").first()).toBeVisible();
   await page.getByRole("button", { name: /next: review/i }).click();
   await expect(page).toHaveURL(/\/pickup\/review$/);
-  await expect(page.getByText("Step 4 of 4")).toBeVisible();
+  await expect(page.getByText("Step 4 of 4").first()).toBeVisible();
 }
 
 test("a signed-in customer requests a pickup in four steps", async ({

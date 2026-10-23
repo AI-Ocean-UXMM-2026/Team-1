@@ -489,3 +489,32 @@
   color: var(--color-success-text, #166534);
   font-weight: 600;
 }
+
+.pay-route-icon {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #eaf7ec;
+  color: #166534;
+}
+
+.pay-after-logo {
+  display: inline-grid;
+  place-items: center;
+  padding: 3px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.pay-after-primary,
+.pay-after-secondary {
+  text-decoration: none;
+  text-align: center;
+}
+
+.pay-after-primary {
+  background: #c2410c;
+}
