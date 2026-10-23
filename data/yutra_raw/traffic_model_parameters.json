@@ -1,0 +1,138 @@
+{
+  "extracted_at": "2026-10-23T16:05:30+06:30",
+  "source": "YUTRA Volume II",
+  "source_page": "2-60",
+  "section": "2.3.8",
+  "survey_year": 2013,
+  "geographic_scope": "Yangon City",
+  "title": "BPR (Bureau of Public Roads) Congestion Model Parameters",
+  "description": "Calibration parameters for travel time estimation under congestion conditions",
+  "bpr_model": {
+    "formula": "t = t₀ × [1 + α × (v/c)^β]",
+    "formula_description": "Travel time equals free-flow time multiplied by congestion factor",
+    "components": {
+      "t": {
+        "name": "Travel time (minutes)",
+        "type": "output",
+        "unit": "minutes",
+        "range": [0.5, 60]
+      },
+      "t0": {
+        "name": "Free-flow travel time (minutes)",
+        "type": "input",
+        "unit": "minutes",
+        "calculation": "distance_km / max_speed_kmh × 60",
+        "range": [0.2, 30]
+      },
+      "v": {
+        "name": "Traffic volume",
+        "type": "input",
+        "unit": "vehicles/hour (PCU equivalent)",
+        "range": [0, 3000],
+        "note": "Must be in PCU units; convert mixed traffic using vehicle_pcu_factors"
+      },
+      "c": {
+        "name": "Road capacity",
+        "type": "input",
+        "unit": "vehicles/hour (PCU equivalent)",
+        "range": [300, 2500],
+        "note": "Design capacity from road classification and lane count"
+      },
+      "alpha": {
+        "name": "Shape parameter",
+        "type": "coefficient",
+        "value": 3.0,
+        "value_data_type": "standardized",
+        "value_confidence": "assumed",
+        "description": "Controls how steeply congestion increases with volume/capacity ratio",
+        "range": [1.5, 5.0],
+        "notes": "Standard BPR value used internationally; YUTRA does not provide local calibration"
+      },
+      "beta": {
+        "name": "Power exponent",
+        "type": "coefficient",
+        "value": 4.0,
+        "value_data_type": "standardized",
+        "value_confidence": "assumed",
+        "description": "Controls the curve shape; higher β = sharper congestion response",
+        "range": [2.0, 6.0],
+        "notes": "Standard BPR exponent; characteristic value for urban traffic"
+      }
+    }
+  },
+  "validation_range": {
+    "v_over_c_ratio": [0.0, 1.2],
+    "notes": "Model is valid for v/c from 0 (free-flow) to 1.2 (oversaturation). Beyond 1.2, behavior is unpredictable (queuing, gridlock)."
+  },
+  "example_calculations": [
+    {
+      "scenario": "Free-flow conditions (light traffic)",
+      "inputs": {
+        "distance_km": 2.0,
+        "max_speed_kmh": 60,
+        "volume_veh_hour": 300,
+        "capacity_veh_hour": 900,
+        "vehicle_mix": "Mostly cars"
+      },
+      "calculations": {
+        "t0": "2.0 / 60 × 60 = 2.0 minutes",
+        "v_over_c": "300 / 900 = 0.333",
+        "congestion_factor": "1 + 3 × (0.333)^4 = 1 + 3 × 0.0123 = 1.037",
+        "travel_time": "2.0 × 1.037 = 2.07 minutes"
+      },
+      "result": "Minimal delay; only 4% increase over free-flow"
+    },
+    {
+      "scenario": "Peak hour congestion",
+      "inputs": {
+        "distance_km": 2.0,
+        "max_speed_kmh": 60,
+        "volume_veh_hour": 800,
+        "capacity_veh_hour": 900,
+        "vehicle_mix": "Mixed traffic with trucks"
+      },
+      "calculations": {
+        "t0": "2.0 / 60 × 60 = 2.0 minutes",
+        "v_over_c": "800 / 900 = 0.889",
+        "congestion_factor": "1 + 3 × (0.889)^4 = 1 + 3 × 0.625 = 2.875",
+        "travel_time": "2.0 × 2.875 = 5.75 minutes"
+      },
+      "result": "Significant delay; 188% increase over free-flow"
+    },
+    {
+      "scenario": "Oversaturation (v > c)",
+      "inputs": {
+        "distance_km": 2.0,
+        "max_speed_kmh": 60,
+        "volume_veh_hour": 1200,
+        "capacity_veh_hour": 900,
+        "vehicle_mix": "Mixed traffic, peak congestion"
+      },
+      "calculations": {
+        "t0": "2.0 / 60 × 60 = 2.0 minutes",
+        "v_over_c": "1200 / 900 = 1.333",
+        "congestion_factor": "1 + 3 × (1.333)^4 = 1 + 3 × 3.160 = 10.48",
+        "travel_time": "2.0 × 10.48 = 20.96 minutes"
+      },
+      "result": "Severe congestion; 950% increase; gridlock conditions"
+    }
+  ],
+  "calibration_notes": {
+    "source": "Standard BPR model (not locally calibrated for Yangon)",
+    "applicability": "Applicable when volume and capacity data are available from traffic surveys",
+    "limitations": [
+      "Does not account for signalized intersection delays (see signal_delay_observations for traffic light timing)",
+      "Assumes continuous flow; does not model queue buildup from stop-start traffic",
+      "Parameters are averages; variation by time-of-day is not captured",
+      "Special events (accidents, protests, festivals) cause unpredictable deviations"
+    ]
+  },
+  "provenance": {
+    "source": "YUTRA Volume II: Yangon Urban Traffic and Road Assessment",
+    "survey_year": 2013,
+    "section": "2.3.8 Congestion Modeling",
+    "page": "2-60",
+    "model_source": "Bureau of Public Roads (USA), standard international traffic engineering reference",
+    "notes": "YUTRA applies standard BPR model with global parameters; does not provide Yangon-specific calibration of α and β"
+  }
+}

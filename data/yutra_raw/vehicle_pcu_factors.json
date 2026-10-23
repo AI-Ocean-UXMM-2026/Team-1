@@ -1,0 +1,72 @@
+{
+  "extracted_at": "2026-10-23T16:05:30+06:30",
+  "source": "YUTRA Volume II",
+  "source_page": "2-35",
+  "table_id": "2.3.6",
+  "survey_year": 2013,
+  "geographic_scope": "Yangon City",
+  "unit": "PCU (Passenger Car Units)",
+  "description": "Vehicle classification and equivalent passenger car unit factors for traffic volume conversion",
+  "pcu_factors": [
+    {
+      "vehicle_type": "Motorcycle / Bicycle",
+      "vehicle_type_burmese": "စက်ဘီး / စိတ်ဆိုင်းရည်",
+      "pcu_factor": 0.5,
+      "data_type": "standardized",
+      "confidence": "verified",
+      "notes": "Small-footprint vehicles; occupy half the space of a car"
+    },
+    {
+      "vehicle_type": "Car / Sedan",
+      "vehicle_type_burmese": "ကား",
+      "pcu_factor": 1.0,
+      "data_type": "standardized",
+      "confidence": "verified",
+      "notes": "Baseline unit; all other vehicles measured relative to cars"
+    },
+    {
+      "vehicle_type": "Van / Pickup Truck",
+      "vehicle_type_burmese": "ကားနံ / အကျီခွင့်",
+      "pcu_factor": 1.5,
+      "data_type": "observed",
+      "confidence": "verified",
+      "notes": "Medium commercial vehicles; 50% wider than cars, observed in 2013 field survey"
+    },
+    {
+      "vehicle_type": "Truck (2-axle, small-medium)",
+      "vehicle_type_burmese": "ထရပ်ကာ (၂-ခြင်း)",
+      "pcu_factor": 2.0,
+      "data_type": "observed",
+      "confidence": "verified",
+      "notes": "Medium trucks; occupy ~2x car space, common in downtown Yangon"
+    },
+    {
+      "vehicle_type": "Truck (3-axle, large)",
+      "vehicle_type_burmese": "ထရပ်ကာ (၃-ခြင်း)",
+      "pcu_factor": 2.5,
+      "data_type": "observed",
+      "confidence": "estimated",
+      "notes": "Large trucks; rarely observed in downtown during survey period"
+    },
+    {
+      "vehicle_type": "Bus (standard)",
+      "vehicle_type_burmese": "ကားအုပ်စုကား",
+      "pcu_factor": 2.2,
+      "data_type": "observed",
+      "confidence": "verified",
+      "notes": "Public transport buses; occupy approximately 2.2x car equivalent space"
+    }
+  ],
+  "provenance": {
+    "source": "YUTRA Volume II: Yangon Urban Traffic and Road Assessment",
+    "survey_year": 2013,
+    "table_id": "2.3.6",
+    "section": "2.3 Traffic Characteristics",
+    "data_type_breakdown": {
+      "standardized": "International standards (motorcycles, cars) apply globally",
+      "observed": "Measured from 2013 field surveys in Yangon"
+    },
+    "application": "Convert mixed traffic volumes to PCU/hour for capacity analysis",
+    "notes": "PCU factors are used in BPR congestion model to standardize vehicle types"
+  }
+}
