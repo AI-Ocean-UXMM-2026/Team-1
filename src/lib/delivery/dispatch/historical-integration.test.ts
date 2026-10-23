@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   HistoricalArcCache,
