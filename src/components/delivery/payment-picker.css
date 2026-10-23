@@ -513,8 +513,16 @@
 .pay-after-secondary {
   text-decoration: none;
   text-align: center;
+  border-radius: 0;
 }
 
 .pay-after-primary {
   background: #c2410c;
+}
+
+/* Ghosted secondary button with zero radius for share link */
+.pay-after-secondary.pay-after-ghosted {
+  border: 1px solid #8d99a8;
+  background: #fff;
+  color: #16191f;
 }

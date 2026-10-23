@@ -1,13 +1,16 @@
 "use client";
 
+import ArrowBack from "@mui/icons-material/ArrowBack";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PaymentLogo } from "@/components/delivery/payment-logos";
 import { currency } from "@/lib/delivery/format";
 import {
   downloadQRCode,
@@ -17,6 +20,7 @@ import {
 
 export default function TrackQrPage() {
   const params = useSearchParams();
+  const router = useRouter();
   const code = params.get("code") ?? "";
   const amount = Number(params.get("amount") ?? 0);
   const [qr, setQr] = useState<MMQRQRCode | null>(null);
@@ -24,6 +28,7 @@ export default function TrackQrPage() {
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState(15 * 60);
   const [success, setSuccess] = useState(false);
+  const [qrLoading, setQrLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +40,13 @@ export default function TrackQrPage() {
           reference: code,
           merchantName: "Oern",
         });
-        if (!cancelled) setQr(result);
+        if (!cancelled) {
+          setQr(result);
+          // Simulate QR loading time
+          setTimeout(() => {
+            if (!cancelled) setQrLoading(false);
+          }, 2000);
+        }
       } catch {
         if (!cancelled) setError("Could not generate the QR code.");
       } finally {
@@ -54,10 +65,19 @@ export default function TrackQrPage() {
     return () => clearInterval(timer);
   }, []);
 
+  // Wait 2s after QR finishes loading, then redirect and set as confirmed
   useEffect(() => {
-    const t = setTimeout(() => setSuccess(true), 2000);
-    return () => clearTimeout(t);
-  }, []);
+    if (!qrLoading && qr) {
+      const t = setTimeout(() => {
+        setSuccess(true);
+        // Redirect back after confirmation
+        setTimeout(() => {
+          router.back();
+        }, 1500);
+      }, 2000);
+      return () => clearTimeout(t);
+    }
+  }, [qrLoading, qr, router]);
 
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
@@ -78,6 +98,18 @@ export default function TrackQrPage() {
           gap: 2,
         }}
       >
+        <Box
+          sx={{
+            width: "100%",
+            maxWidth: 360,
+            display: "flex",
+            justifyContent: "flex-end",
+          }}
+        >
+          <IconButton onClick={() => router.back()} aria-label="Back">
+            <ArrowBack />
+          </IconButton>
+        </Box>
         <Typography
           variant="h6"
           sx={{ fontWeight: 750, color: "success.dark" }}
@@ -104,6 +136,35 @@ export default function TrackQrPage() {
         gap: 3,
       }}
     >
+      <Box
+        sx={{
+          width: "100%",
+          maxWidth: 360,
+          display: "flex",
+          justifyContent: "flex-end",
+        }}
+      >
+        <IconButton onClick={() => router.back()} aria-label="Back">
+          <ArrowBack />
+        </IconButton>
+      </Box>
+
+      {/* MMQR Icon - centered above title */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 64,
+          height: 64,
+          borderRadius: "50%",
+          backgroundColor: "#dbeafe",
+          color: "#2563eb",
+        }}
+      >
+        <QrCodeScannerOutlined sx={{ fontSize: 36 }} />
+      </Box>
+
       <Typography variant="h6" sx={{ fontWeight: 750 }}>
         Scan to pay {currency.format(amount)}
       </Typography>
@@ -129,7 +190,22 @@ export default function TrackQrPage() {
         </Typography>
       )}
 
-      {qr && (
+      {qr && qrLoading && (
+        <Stack
+          spacing={2}
+          sx={{ alignItems: "center", width: "100%", maxWidth: 360 }}
+        >
+          <CircularProgress size={64} sx={{ color: "#2563eb" }} />
+          <Typography
+            variant="body2"
+            sx={{ color: "text.secondary", textAlign: "center" }}
+          >
+            Loading QR code...
+          </Typography>
+        </Stack>
+      )}
+
+      {qr && !qrLoading && (
         <Stack
           spacing={2}
           sx={{ alignItems: "center", width: "100%", maxWidth: 360 }}
@@ -153,7 +229,7 @@ export default function TrackQrPage() {
         </Stack>
       )}
 
-      {qr && (
+      {qr && !qrLoading && (
         <Button
           variant="contained"
           fullWidth

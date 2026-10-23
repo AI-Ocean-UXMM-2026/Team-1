@@ -53,6 +53,7 @@ import {
   usePickupRewards,
 } from "@/components/delivery/use-pickup-rewards";
 import { useRoadDistance } from "@/components/delivery/use-road-distance";
+import { useAutoGeolocate } from "@/components/delivery/useAutoGeolocate";
 import {
   createCustomerPickupOrder,
   fetchPaymentSandbox,
@@ -400,6 +401,12 @@ function AddressesStep({
     pickup: null,
     delivery: null,
   });
+
+  // Auto-geolocate on mount for pickup location (GPS as source of truth)
+  const autoGeo = useAutoGeolocate(
+    !draft.pickupPoint, // Only auto-geolocate if pickup point not already set
+    true, // High accuracy
+  );
   const show = (key: Side) => attempted || touched[key];
   const point = (side: Side) =>
     side === "pickup" ? draft.pickupPoint : draft.deliveryPoint;
@@ -473,6 +480,30 @@ function AddressesStep({
     },
   });
 
+  // Sync auto-geolocate result to pickup location (GPS is source of truth)
+  useEffect(() => {
+    if (autoGeo.state === "ready" && autoGeo.point && !draft.pickupPoint) {
+      // GPS is source of truth - automatically set pickup location
+      const locationName = autoGeo.address || "Your location";
+      setPin("pickup", locationName, autoGeo.point);
+      setGpsFor("pickup", "ready");
+      if (autoGeo.accuracy !== null) {
+        setAccuracy((current) => ({
+          ...current,
+          pickup: autoGeo.accuracy,
+        }));
+      }
+    }
+    // Mirror error state to GPS state for consistency
+    if (autoGeo.state === "denied") {
+      setGpsFor("pickup", "denied");
+    } else if (autoGeo.state === "unavailable") {
+      setGpsFor("pickup", "unavailable");
+    } else if (autoGeo.state === "error") {
+      setGpsFor("pickup", "unavailable");
+    }
+  }, [autoGeo.state, autoGeo.point, autoGeo.address, autoGeo.accuracy]);
+
   function submit() {
     setAttempted(true);
     if (Object.keys(errors).length === 0) next();
@@ -520,7 +551,11 @@ function AddressesStep({
             }
             sx={{ minHeight: 48 }}
           >
-            {state === "locating" ? "Finding you…" : "Use my location"}
+            {state === "locating"
+               ? "Finding you…"
+               : side === "pickup" && autoGeo.state === "ready" && !touched.pickup
+                 ? "Update location"
+                 : "Use my location"}
           </Button>
           {hasMapbox && (
             <Button
@@ -541,6 +576,14 @@ function AddressesStep({
               removeLabel={copy.removeLabel}
               onDelete={() => setPin(side, address(side), null)}
             />
+            {side === "pickup" && autoGeo.state === "ready" && !touched.pickup && (
+              <Alert
+                severity="success"
+                sx={{ mt: 0.5, borderRadius: "12px" }}
+              >
+                📍 GPS detected your location. You can edit this or use the map to adjust.
+              </Alert>
+            )}
             {pinStale(side) && (
               <Alert
                 severity="warning"
@@ -1595,6 +1638,7 @@ function ReviewStep({
   error: string | null;
   signedIn: boolean | null;
 }) {
+  const cod = parseCod(draft.codAmount) ?? 0;
   const split = resolveSplit(draft, estimate?.total ?? 0);
   return (
     <PickupShell

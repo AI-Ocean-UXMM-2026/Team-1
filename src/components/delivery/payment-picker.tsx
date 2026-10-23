@@ -389,24 +389,15 @@ export function PayAfterRequest({
       )}
       <button
         type="button"
-        className={passToReceiver ? "pay-after-primary" : "pay-after-secondary"}
+        className="pay-after-secondary pay-after-ghosted"
         onClick={() => void share()}
       >
         {copied ? "Link copied" : "Share pay link for someone else"}
       </button>
-      {orderId && passToReceiver && (
-        <Link
-          className="pay-after-secondary"
-          href={`/track?order=${encodeURIComponent(orderId)}&pay=1`}
-        >
-          <PaymentLogo method="mmqr" size={28} />
-          Pay it yourself with MMQR
-        </Link>
-      )}
       <p className="pay-after-note">
         {wantsMmqr
           ? `Your request is saved, but it is not paid yet. Scan the MMQR on the next screen. ${atDoor > 0 ? `The rider will collect the remaining ${currency.format(atDoor)} in cash.` : "The rider collects no cash after payment is confirmed."}`
-          : `Pay online, share the link so the receiver can pay, or hand ${currency.format(balance)} to the rider in cash.`}
+          : `Pay online or share the link so the receiver can pay.`}
       </p>
     </section>
   );
