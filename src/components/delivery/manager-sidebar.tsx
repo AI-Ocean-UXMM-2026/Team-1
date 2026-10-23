@@ -66,7 +66,7 @@ export function ManagerSidebar({
         {
           id: "complaints",
           label: "Customer Complaints",
-          href: "/complaints",
+          href: "/manager/complaints",
           icon: "help",
         },
       ],

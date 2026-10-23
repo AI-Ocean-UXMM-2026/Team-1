@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthDialog } from "@/components/delivery/auth-dialog";
 import {
   ActionToast,
@@ -26,8 +26,18 @@ import "./complaints-dashboard.css";
 
 const complaintNavItems = [
   { id: "queue", label: "Queue", href: "/complaints", icon: "help" },
-  { id: "classified", label: "By Priority", href: "/complaints?tab=classified", icon: "filter" },
-  { id: "analytics", label: "Analytics", href: "/complaints?tab=analytics", icon: "compass" },
+  {
+    id: "classified",
+    label: "By Priority",
+    href: "/complaints?tab=classified",
+    icon: "filter",
+  },
+  {
+    id: "analytics",
+    label: "Analytics",
+    href: "/complaints?tab=analytics",
+    icon: "compass",
+  },
 ] as const;
 
 function complaintTone(item: SupportCase) {
@@ -38,23 +48,31 @@ function complaintTone(item: SupportCase) {
   return "status-warm";
 }
 
-export function ComplaintsApp() {
+export function ComplaintsApp({
+  hideMobileNav = false,
+  hideClassification = false,
+}: {
+  hideMobileNav?: boolean;
+  hideClassification?: boolean;
+} = {}) {
   // Detect user role dynamically - allows both managers and support staff
   const [userRole, setUserRole] = useState<"manager" | "support">("support");
   const [roleLoading, setRoleLoading] = useState(true);
-  
+
   useEffect(() => {
     const detectRole = async () => {
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (session?.user?.id) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", session.user.id)
           .single();
-        
+
         if (profile?.role === "manager") {
           setUserRole("manager");
         } else {
@@ -63,7 +81,7 @@ export function ComplaintsApp() {
       }
       setRoleLoading(false);
     };
-    
+
     detectRole();
   }, []);
 
@@ -75,15 +93,12 @@ export function ComplaintsApp() {
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [classifying, setClassifying] = useState(false);
-  const [classificationResult, setClassificationResult] = useState<
-    | {
-        priority: string;
-        category: string;
-        confidence: number | null;
-        mode: string;
-      }
-    | null
-  >(null);
+  const [classificationResult, setClassificationResult] = useState<{
+    priority: string;
+    category: string;
+    confidence: number | null;
+    mode: string;
+  } | null>(null);
   const [classificationHistory, setClassificationHistory] = useState<
     Array<{
       id: string;
@@ -120,49 +135,57 @@ export function ComplaintsApp() {
     null;
 
   // Create the classify function before using it in useEffect
-  const classifySelectedComplaint = useCallback(async (complaint?: SupportCase) => {
-    const target = complaint || selectedComplaint;
-    if (!target) return;
-    setClassifying(true);
-    try {
-      const result = await classifyComplaint(target.description);
-      setClassificationResult({
-        priority: result.priority,
-        category: result.category,
-        confidence: result.categoryConfidence,
-        mode: result.mode,
-      });
-      // Add to history
-      setClassificationHistory((prev) => [
-        {
-          id: Date.now().toString(),
-          complaintId: target.id,
-          subject: target.subject,
-          category: result.category,
+  const classifySelectedComplaint = useCallback(
+    async (complaint?: SupportCase) => {
+      const target = complaint || selectedComplaint;
+      if (!target) return;
+      setClassifying(true);
+      try {
+        const result = await classifyComplaint(target.description);
+        setClassificationResult({
           priority: result.priority,
+          category: result.category,
           confidence: result.categoryConfidence,
           mode: result.mode,
-          timestamp: new Date(),
-        },
-        ...prev.slice(0, 9), // Keep last 10
-      ]);
-    } catch (cause) {
-      // Silently fail for auto-classification
-      console.warn("Auto-classification failed:", cause);
-    } finally {
-      setClassifying(false);
-    }
-  }, [selectedComplaint]);
+        });
+        // Add to history
+        setClassificationHistory((prev) => [
+          {
+            id: Date.now().toString(),
+            complaintId: target.id,
+            subject: target.subject,
+            category: result.category,
+            priority: result.priority,
+            confidence: result.categoryConfidence,
+            mode: result.mode,
+            timestamp: new Date(),
+          },
+          ...prev.slice(0, 9), // Keep last 10
+        ]);
+      } catch (cause) {
+        // Silently fail for auto-classification
+        console.warn("Auto-classification failed:", cause);
+      } finally {
+        setClassifying(false);
+      }
+    },
+    [selectedComplaint],
+  );
 
   useEffect(() => {
     void selectedId;
     setResolution("");
     setClassificationResult(null);
     // Auto-classify the selected complaint
-    if (selectedComplaint) {
+    if (selectedComplaint && !hideClassification) {
       void classifySelectedComplaint(selectedComplaint);
     }
-  }, [selectedComplaint, classifySelectedComplaint]);
+  }, [
+    selectedComplaint,
+    classifySelectedComplaint,
+    hideClassification,
+    selectedId,
+  ]);
 
   const selectedOrder = selectedComplaint?.order_id
     ? (workspace.data.orders.find(
@@ -183,16 +206,24 @@ export function ComplaintsApp() {
   const categorizedComplaints = useMemo(() => {
     return {
       p1: workspace.data.supportCases.filter(
-        (item) => item.priority === "urgent" && (item.status === "open" || item.status === "in_progress")
+        (item) =>
+          item.priority === "urgent" &&
+          (item.status === "open" || item.status === "in_progress"),
       ),
       p2: workspace.data.supportCases.filter(
-        (item) => item.priority === "high" && (item.status === "open" || item.status === "in_progress")
+        (item) =>
+          item.priority === "high" &&
+          (item.status === "open" || item.status === "in_progress"),
       ),
       p3: workspace.data.supportCases.filter(
-        (item) => item.priority === "normal" && (item.status === "open" || item.status === "in_progress")
+        (item) =>
+          item.priority === "normal" &&
+          (item.status === "open" || item.status === "in_progress"),
       ),
       p4: workspace.data.supportCases.filter(
-        (item) => item.priority === "low" && (item.status === "open" || item.status === "in_progress")
+        (item) =>
+          item.priority === "low" &&
+          (item.status === "open" || item.status === "in_progress"),
       ),
     };
   }, [workspace.data.supportCases]);
@@ -264,11 +295,7 @@ export function ComplaintsApp() {
       <nav className="complaints-sidenav">
         <div className="sidenav-group">
           {complaintNavItems.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              className="sidenav-link"
-            >
+            <Link key={item.id} href={item.href} className="sidenav-link">
               <Icon name={item.icon} size={18} />
               <span>{item.label}</span>
             </Link>
@@ -278,7 +305,7 @@ export function ComplaintsApp() {
 
       <div className="complaints-shell" id="complaints-queue">
         <PageHeader
-          title="Customer Complaints"
+          title="Intelligent Customer Complaints"
           description="Manage delivery complaints from customers. Classify by urgency and resolve."
         />
 
@@ -286,7 +313,8 @@ export function ComplaintsApp() {
           <div className="workspace-demo">
             <DemoBadge>Complaints preview</DemoBadge>
             <span>
-              Complaint actions are illustrative until a support account signs in.
+              Complaint actions are illustrative until a support account signs
+              in.
             </span>
           </div>
         )}
@@ -333,13 +361,17 @@ export function ComplaintsApp() {
               />
             </div>
 
-            <section className="complaints-layout">
+            <section
+              className={`complaints-layout ${hideClassification ? "complaints-layout--no-classification" : ""}`}
+            >
               <div className="operations-panel complaints-queue-panel">
                 <div className="section-head-inline">
                   <h2>Complaint queue</h2>
                   <span>
                     {filteredComplaints.length}{" "}
-                    {filteredComplaints.length === 1 ? "complaint" : "complaints"}
+                    {filteredComplaints.length === 1
+                      ? "complaint"
+                      : "complaints"}
                   </span>
                 </div>
                 <div className="complaints-list">
@@ -373,7 +405,9 @@ export function ComplaintsApp() {
                   <>
                     <div className="section-head-inline">
                       <h2>{selectedComplaint.subject}</h2>
-                      <span className={`status-badge ${complaintTone(selectedComplaint)}`}>
+                      <span
+                        className={`status-badge ${complaintTone(selectedComplaint)}`}
+                      >
                         {sentenceCase(selectedComplaint.priority)} priority
                       </span>
                     </div>
@@ -392,7 +426,7 @@ export function ComplaintsApp() {
                         <dt>Opened</dt>
                         <dd>{formatDateTime(selectedComplaint.created_at)}</dd>
                       </div>
-                      {classificationResult && (
+                      {!hideClassification && classificationResult && (
                         <>
                           <div>
                             <dt>AI Classification</dt>
@@ -423,9 +457,9 @@ export function ComplaintsApp() {
                             <div>
                               <dt>Confidence</dt>
                               <dd>
-                                {(classificationResult.confidence * 100).toFixed(
-                                  0,
-                                )}
+                                {(
+                                  classificationResult.confidence * 100
+                                ).toFixed(0)}
                                 %
                               </dd>
                             </div>
@@ -473,7 +507,9 @@ export function ComplaintsApp() {
                             disabled={classifying}
                             onClick={async () => {
                               setNotice(null);
-                              await classifySelectedComplaint(selectedComplaint || undefined);
+                              await classifySelectedComplaint(
+                                selectedComplaint || undefined,
+                              );
                               setNotice(`Re-classified with Jev`);
                             }}
                           >
@@ -518,57 +554,60 @@ export function ComplaintsApp() {
                 )}
               </aside>
 
-              {/* Classification History Sidebar */}
-              <aside className="complaints-sidebar">
-                <div className="complaints-sidebar-header">
-                  <h3>
-                    <Icon name="history" size={14} />
-                    Classification History
-                  </h3>
-                </div>
-                <div className="complaints-sidebar-content">
-                  {classificationHistory.length === 0 ? (
-                    <div className="complaints-history-empty">
-                      Classifications will appear here
-                    </div>
-                  ) : (
-                    <div>
-                      {classificationHistory.map((item) => (
-                        <div
-                          key={item.id}
-                          className="complaints-history-item"
-                          title={item.subject}
-                        >
-                          <div className="complaints-history-item-header">
-                            <span className="complaints-history-item-subject">
-                              {item.subject}
-                            </span>
-                          </div>
-                          <span className="complaints-history-item-category">
-                            {item.category}
-                          </span>
-                          <div className="complaints-history-item-meta">
-                            <span>{item.priority}</span>
-                            {item.confidence !== null && (
-                              <span>
-                                {(item.confidence * 100).toFixed(0)}%
+              {!hideClassification && (
+                <aside className="complaints-sidebar">
+                  <div className="complaints-sidebar-header">
+                    <h3>
+                      <Icon name="history" size={14} />
+                      Classification History
+                    </h3>
+                  </div>
+                  <div className="complaints-sidebar-content">
+                    {classificationHistory.length === 0 ? (
+                      <div className="complaints-history-empty">
+                        Classifications will appear here
+                      </div>
+                    ) : (
+                      <div>
+                        {classificationHistory.map((item) => (
+                          <div
+                            key={item.id}
+                            className="complaints-history-item"
+                            title={item.subject}
+                          >
+                            <div className="complaints-history-item-header">
+                              <span className="complaints-history-item-subject">
+                                {item.subject}
                               </span>
-                            )}
-                            <span style={{ fontSize: "10px" }}>
-                              {item.mode === "jev" ? "AI" : "Pattern"}
+                            </div>
+                            <span className="complaints-history-item-category">
+                              {item.category}
                             </span>
+                            <div className="complaints-history-item-meta">
+                              <span>{item.priority}</span>
+                              {item.confidence !== null && (
+                                <span>
+                                  {(item.confidence * 100).toFixed(0)}%
+                                </span>
+                              )}
+                              <span style={{ fontSize: "10px" }}>
+                                {item.mode === "jev" ? "AI" : "Pattern"}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </aside>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </aside>
+              )}
             </section>
           </>
         )}
       </div>
-      {!signedOut && <MobileNav label="Complaints" items={complaintNavItems} />}
+      {!signedOut && !hideMobileNav && (
+        <MobileNav label="Complaints" items={complaintNavItems} />
+      )}
       <ActionToast message={notice} onDismiss={() => setNotice(null)} />
       <AuthDialog
         open={authOpen}

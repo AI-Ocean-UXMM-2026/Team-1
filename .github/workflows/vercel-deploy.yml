@@ -1,0 +1,35 @@
+
+name: Deploy to Vercel
+
+on:
+  push:
+    branches:
+      - main
+      - codex/device-2-operations-integrations
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.PROJECT_ID }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+            vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+          else
+            vercel deploy --yes --token="$VERCEL_TOKEN"
+          fi

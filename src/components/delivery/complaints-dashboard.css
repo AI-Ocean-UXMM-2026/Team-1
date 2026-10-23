@@ -18,7 +18,7 @@
   grid-column: 1;
   grid-row: 2;
   background-color: var(--color-surface-subtle);
-  border-right: 1px solid var(--color-border-subtle);
+  border-right: 1px solid var(--color-border);
   padding: 20px 0;
   overflow-y: auto;
   max-height: calc(100vh - var(--header-height, 60px));
@@ -36,7 +36,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   text-decoration: none;
   border-radius: 6px;
   transition: all 0.2s;
@@ -47,12 +47,12 @@
 
 .sidenav-link:hover {
   background-color: var(--color-background);
-  color: var(--color-brand-blue);
+  color: var(--color-info);
 }
 
 .sidenav-link[aria-current="page"],
 .sidenav-link.is-active {
-  background-color: var(--color-brand-blue);
+  background-color: var(--color-info);
   color: white;
 }
 
@@ -77,7 +77,7 @@
   gap: 12px;
   padding: 16px 24px;
   background-color: var(--color-surface-subtle);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
   margin: 0;
 }
 
@@ -87,17 +87,17 @@
   border: 1px solid var(--color-border);
   border-radius: 6px;
   font-size: 14px;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   background-color: var(--color-background);
 }
 
 .complaints-search input::placeholder {
-  color: var(--color-text-subtle);
+  color: var(--color-text-secondary);
 }
 
 .complaints-search input:focus {
   outline: none;
-  border-color: var(--color-brand-blue);
+  border-color: var(--color-info);
   box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
 }
 
@@ -108,7 +108,7 @@
   gap: 16px;
   padding: 24px;
   background-color: var(--color-background);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .operations-kpis > div {
@@ -119,14 +119,14 @@
 
 .operations-kpis span {
   font-size: 13px;
-  color: var(--color-text-subtle);
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 .operations-kpis strong {
   font-size: 24px;
   font-weight: 600;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
 }
 
 /* Layout */
@@ -136,6 +136,10 @@
   gap: 24px;
   padding: 24px;
   flex: 1;
+}
+
+.complaints-layout--no-classification {
+  grid-template-columns: 300px 1fr;
 }
 
 .complaints-queue-panel {
@@ -151,8 +155,6 @@
   flex-direction: column;
   gap: 0;
   background-color: var(--color-background);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -162,14 +164,14 @@
   justify-content: space-between;
   padding: 16px 20px;
   background-color: var(--color-surface-subtle);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .complaints-sidebar-header h3 {
   font-size: 14px;
   font-weight: 600;
   margin: 0;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -185,12 +187,12 @@
   padding: 20px;
   text-align: center;
   font-size: 13px;
-  color: var(--color-text-subtle);
+  color: var(--color-text-secondary);
 }
 
 .complaints-history-item {
   padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -210,7 +212,7 @@
 
 .complaints-history-item-subject {
   font-weight: 600;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -222,7 +224,7 @@
   padding: 2px 6px;
   background-color: var(--color-surface-subtle);
   border-radius: 3px;
-  color: var(--color-text-subtle);
+  color: var(--color-text-secondary);
   font-size: 11px;
   font-weight: 500;
 }
@@ -232,7 +234,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: var(--color-text-subtle);
+  color: var(--color-text-secondary);
   font-size: 11px;
 }
 
@@ -242,20 +244,20 @@
   justify-content: space-between;
   padding: 16px 20px;
   background-color: var(--color-surface-subtle);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
   border-radius: 8px 8px 0 0;
 }
 
 .section-head-inline h2 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .section-head-inline span {
   font-size: 13px;
-  color: var(--color-text-subtle);
+  color: var(--color-text-secondary);
 }
 
 /* Complaints List */
@@ -266,9 +268,6 @@
   flex-direction: column;
   gap: 0;
   background-color: var(--color-background);
-  border: 1px solid var(--color-border-subtle);
-  border-top: none;
-  border-radius: 0 0 8px 8px;
 }
 
 .complaint-row {
@@ -276,10 +275,10 @@
   align-items: flex-start;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
   background-color: transparent;
   border: none;
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
   cursor: pointer;
   transition: all 0.2s;
   text-align: left;
@@ -294,7 +293,7 @@
 }
 
 .complaint-row.is-selected {
-  background-color: var(--color-brand-blue);
+  background-color: var(--color-info);
   color: white;
 }
 
@@ -326,8 +325,6 @@
   flex-direction: column;
   gap: 0;
   background-color: var(--color-background);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -346,7 +343,7 @@
 .complaints-description {
   padding: 16px 20px 0;
   font-size: 14px;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   line-height: 1.6;
   margin: 0;
 }
@@ -357,14 +354,14 @@
   flex-direction: column;
   gap: 0;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .operations-detail-list > div {
   display: flex;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
   font-size: 13px;
 }
 
@@ -374,12 +371,12 @@
 
 .operations-detail-list dt {
   font-weight: 600;
-  color: var(--color-text-subtle);
+  color: var(--color-text-secondary);
 }
 
 .operations-detail-list dd {
   margin: 0;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   text-align: right;
 }
 
@@ -390,7 +387,7 @@
   gap: 8px;
   padding: 16px 20px;
   background-color: var(--color-surface-subtle);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
   border-radius: 6px;
   font-size: 13px;
 }
@@ -413,7 +410,7 @@
   padding: 16px 20px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
 }
 
 .operations-field textarea {
@@ -423,7 +420,7 @@
   font-family: inherit;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   background-color: var(--color-background);
   resize: vertical;
   transition: border-color 0.2s;
@@ -431,7 +428,7 @@
 
 .operations-field textarea:focus {
   outline: none;
-  border-color: var(--color-brand-blue);
+  border-color: var(--color-info);
   box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
 }
 
@@ -440,7 +437,7 @@
   display: flex;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: 1px solid var(--color-border);
   flex-wrap: wrap;
 }
 
@@ -459,30 +456,30 @@
 }
 
 .button-primary {
-  background-color: var(--color-brand-blue);
+  background-color: var(--color-info);
   color: white;
 }
 
 .button-primary:hover:not(:disabled) {
-  background-color: var(--color-brand-blue-hover, #0056b3);
+  background-color: var(--color-info-text, #0056b3);
   box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
 }
 
 .button-primary:disabled {
-  background-color: var(--color-background-disabled);
-  color: var(--color-text-disabled);
+  background-color: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
   cursor: not-allowed;
 }
 
 .button-outline {
   background-color: transparent;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   border: 1px solid var(--color-border);
 }
 
 .button-outline:hover:not(:disabled) {
-  background-color: var(--color-background-secondary);
-  border-color: var(--color-border-hover);
+  background-color: var(--color-surface-subtle);
+  border-color: var(--color-border-control);
 }
 
 .button-outline:disabled {
@@ -499,13 +496,13 @@
   gap: 12px;
   padding: 40px;
   text-align: center;
-  color: var(--color-text-subtle);
+  color: var(--color-text-secondary);
 }
 
 .empty-state h2 {
   font-size: 18px;
   font-weight: 600;
-  color: var(--color-text-body);
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -518,7 +515,7 @@
   padding: 20px;
   text-align: center;
   font-size: 13px;
-  color: var(--color-text-subtle);
+  color: var(--color-text-secondary);
 }
 
 /* Status Badge */
@@ -583,7 +580,7 @@
     gap: 0;
     padding: 8px;
     border-right: none;
-    border-bottom: 1px solid var(--color-border-subtle);
+    border-bottom: 1px solid var(--color-border);
     max-height: 60px;
     overflow-x: auto;
   }
@@ -638,5 +635,5 @@
 }
 
 .complaints-list::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-border-hover);
+  background-color: var(--color-border-control);
 }

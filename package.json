@@ -2,6 +2,7 @@
   "name": "oern",
   "version": "0.1.0",
   "private": true,
+  "author": "shoonelenor is the owner of playground codes",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

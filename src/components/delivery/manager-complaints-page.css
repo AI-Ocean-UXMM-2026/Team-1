@@ -1,0 +1,210 @@
+/* Manager Complaints Page - Uses Oern design system (dispatch-navy, kiln-orange, light canvas) */
+
+.manager-app.manager-complaints-page {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  gap: 0;
+  background-color: var(--color-canvas, #f8fafc);
+}
+
+/* Tab Navigation - Oern style tabs in manager topbar */
+.manager-app .manager-topbar.manager-complaints-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 16px;
+  gap: 8px;
+  border-bottom: 1px solid var(--color-hairline, #e2e8f0);
+}
+
+.manager-topbar .manager-complaints-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  height: 100%;
+}
+
+.manager-topbar .manager-complaints-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary-subtle, #475569);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease-out;
+  white-space: nowrap;
+  text-decoration: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.manager-topbar .manager-complaints-tab:hover:not(.is-active) {
+  color: var(--color-dispatch-navy, #172b4d);
+  background-color: var(--color-surface-subtle, #f1f5f9);
+}
+
+.manager-topbar .manager-complaints-tab.is-active {
+  color: var(--color-kiln-orange, #c2410c);
+  border-bottom-color: var(--color-kiln-orange, #c2410c);
+  background-color: var(--color-orange-wash, #fff7ed);
+  font-weight: 600;
+}
+
+/* Content area using Oern canvas color */
+.manager-app.manager-complaints-page .manager-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background-color: var(--color-canvas, #f8fafc);
+}
+
+/* View Container */
+.manager-complaints-view {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-canvas, #f8fafc);
+}
+
+/* Complaints App Override - hide its own header and sidebar when nested in manager */
+.manager-app .manager-content .manager-complaints-view .complaints-app {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  gap: 0;
+  min-height: 100%;
+  background: transparent;
+}
+
+.manager-app
+  .manager-content
+  .manager-complaints-view
+  .complaints-app
+  .workspace-header {
+  display: none !important;
+}
+
+.manager-app
+  .manager-content
+  .manager-complaints-view
+  .complaints-app
+  .complaints-sidenav {
+  display: none !important;
+}
+
+.manager-app
+  .manager-content
+  .manager-complaints-view
+  .complaints-app
+  .complaints-shell {
+  grid-column: 1;
+  grid-row: 1;
+  border-radius: 0;
+  overflow: auto;
+  background: transparent;
+}
+
+.manager-app
+  .manager-content
+  .manager-complaints-view
+  .complaints-app
+  .mobile-bottom-nav {
+  display: none !important;
+}
+
+/* Manager Classification Page Override - uses Oern colors */
+.manager-app .manager-content .manager-complaints-view .mcp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 100%;
+  background: var(--color-canvas, #f8fafc);
+}
+
+.manager-app .manager-content .manager-complaints-view .mcp-header {
+  display: none;
+}
+
+.manager-app .manager-content .manager-complaints-view .mcp-layout {
+  max-width: none;
+  margin: 0;
+  padding: 16px 24px 24px;
+  gap: 16px;
+  flex: 1;
+  background: var(--color-canvas, #f8fafc);
+}
+
+/* Oern-style cards and panels */
+.manager-app .manager-content .manager-complaints-view .operations-panel,
+.manager-app .manager-content .manager-complaints-view .complaints-shell,
+.manager-app .manager-content .manager-complaints-view .complaints-sidebar,
+.manager-app .manager-content .manager-complaints-view .complaints-detail,
+.manager-app .manager-content .manager-complaints-view .complaints-queue-panel,
+.manager-app .manager-content .manager-complaints-view .mcp-card {
+  border-radius: 12px;
+  border: 1px solid var(--color-hairline, #e2e8f0);
+  background-color: var(--color-surface, #ffffff);
+}
+
+/* Card headers */
+.manager-app .manager-content .manager-complaints-view .section-head-inline,
+.manager-app .manager-content .manager-complaints-view .mcp-card-head {
+  background-color: var(--color-surface-subtle, #f1f5f9);
+  border-bottom: 1px solid var(--color-hairline, #e2e8f0);
+  font-weight: 600;
+  color: var(--color-dispatch-navy, #172b4d);
+}
+
+/* Tablet and Mobile Responsive */
+@media (max-width: 1024px) {
+  .manager-app.manager-complaints-page {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-app.manager-complaints-page .manager-sidebar {
+    display: none;
+  }
+
+  .manager-topbar .manager-complaints-tab {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 768px) {
+  .manager-topbar.manager-complaints-topbar {
+    padding: 0 12px;
+  }
+
+  .manager-topbar .manager-complaints-tabs {
+    gap: 2px;
+  }
+
+  .manager-topbar .manager-complaints-tab {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: 40px;
+  }
+
+  .manager-app .manager-content .manager-complaints-view .mcp-layout {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .manager-app .manager-content .manager-complaints-view .mcp-sidebar {
+    display: none;
+  }
+}
