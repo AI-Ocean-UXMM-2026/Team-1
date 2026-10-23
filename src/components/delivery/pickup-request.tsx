@@ -35,19 +35,19 @@ import { CustomerHeader } from "@/components/delivery/customer-home";
 import { CustomerBottomNav } from "@/components/delivery/customer-pages";
 import { CustomerSheet } from "@/components/delivery/customer-sheet";
 import { Loader } from "@/components/delivery/loader";
+import { MMQRPaymentFlow } from "@/components/delivery/mmqr-payment-flow";
 import {
   PayAfterRequest,
   PayerChoice,
   PayRouteChoice,
 } from "@/components/delivery/payment-picker";
 import { AddressField } from "@/components/delivery/pickup-address-field";
-import { MMQRPaymentFlow } from "@/components/delivery/mmqr-payment-flow";
+import {
+  HelpIcon,
+  PickupProgressBar,
+} from "@/components/delivery/pickup-enhancements";
 import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import { usePickupDraft } from "@/components/delivery/use-pickup-draft";
-import {
-  PickupProgressBar,
-  HelpIcon,
-} from "@/components/delivery/pickup-enhancements";
 import {
   type PickupRewards,
   usePickupRewards,
@@ -371,16 +371,12 @@ function AddressesStep({
   draft,
   update,
   errors,
-  estimate,
-  roadKm,
   next,
   onBack,
 }: {
   draft: PickupDraft;
   update: (patch: Partial<PickupDraft>) => void;
   errors: PickupErrors;
-  estimate: FeeEstimate | null;
-  roadKm: boolean;
   next: () => void;
   onBack: () => void;
 }) {
@@ -481,8 +477,6 @@ function AddressesStep({
     setAttempted(true);
     if (Object.keys(errors).length === 0) next();
   }
-
-  const pinned = Boolean(draft.pickupPoint && draft.deliveryPoint);
 
   function renderSide(side: Side) {
     const copy = SIDE_COPY[side];
@@ -660,16 +654,12 @@ function DetailsStep({
   draft,
   update,
   errors,
-  estimate,
-  roadKm,
   next,
   onBack,
 }: {
   draft: PickupDraft;
   update: (patch: Partial<PickupDraft>) => void;
   errors: PickupErrors;
-  estimate: FeeEstimate | null;
-  roadKm: boolean;
   next: () => void;
   onBack: () => void;
 }) {
@@ -1124,10 +1114,15 @@ function draftEstimate(draft: PickupDraft, routedKm: number | null = null) {
       ? zoneFor({ address: draft.deliveryAddress })
       : null);
   const point1 =
-    draft.pickupPoint ?? (p1 ? { latitude: (p1 as FeeZone).lat, longitude: (p1 as FeeZone).lng } : null);
+    draft.pickupPoint ??
+    (p1
+      ? { latitude: (p1 as FeeZone).lat, longitude: (p1 as FeeZone).lng }
+      : null);
   const point2 =
     draft.deliveryPoint ??
-    (p2 ? { latitude: (p2 as FeeZone).lat, longitude: (p2 as FeeZone).lng } : null);
+    (p2
+      ? { latitude: (p2 as FeeZone).lat, longitude: (p2 as FeeZone).lng }
+      : null);
 
   const distanceKm = routedKm ?? roadDistanceKm(point1, point2);
   return distanceKm === null
@@ -1358,7 +1353,6 @@ function PaymentStep({
   next: () => void;
 }) {
   const [couponOpen, setCouponOpen] = useState(false);
-  const cod = parseCod(draft.codAmount) ?? 0;
   const split = resolveSplit(draft, estimate?.total ?? 0);
   const mine = draft.payer === "me";
   const normalizedCode = normalizeCouponCode(draft.couponCode);
@@ -1601,7 +1595,6 @@ function ReviewStep({
   error: string | null;
   signedIn: boolean | null;
 }) {
-  const cod = parseCod(draft.codAmount) ?? 0;
   const split = resolveSplit(draft, estimate?.total ?? 0);
   return (
     <PickupShell
@@ -1918,29 +1911,29 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
             We’ve received your request for pickup {sent.summary.toLowerCase()}.
             We’ll assign a rider next; follow the order to see when.
           </Typography>
-           {sent.notice && <Alert severity="warning">{sent.notice}</Alert>}
-           {sent.payOnline > 0 && (
-             <MMQRPaymentFlow
-               amount={sent.payOnline}
-               reference={sent.code}
-               merchantId="oern-merchant"
-               merchantName="Oern"
-               onConfirmed={() =>
-                 router.push(`/track?order=${encodeURIComponent(sent.id)}`)
-               }
-               onCancel={() =>
-                 router.push(`/track?order=${encodeURIComponent(sent.id)}`)
-               }
-             />
-           )}
-           <PayAfterRequest
-             orderId={sent.id}
-             code={sent.code}
-             balance={sent.balance}
-             payOnline={sent.payOnline}
-             method={sent.method}
-             passToReceiver={sent.passToReceiver}
-           />
+          {sent.notice && <Alert severity="warning">{sent.notice}</Alert>}
+          {sent.payOnline > 0 && (
+            <MMQRPaymentFlow
+              amount={sent.payOnline}
+              reference={sent.code}
+              merchantId="oern-merchant"
+              merchantName="Oern"
+              onConfirmed={() =>
+                router.push(`/track?order=${encodeURIComponent(sent.id)}`)
+              }
+              onCancel={() =>
+                router.push(`/track?order=${encodeURIComponent(sent.id)}`)
+              }
+            />
+          )}
+          <PayAfterRequest
+            orderId={sent.id}
+            code={sent.code}
+            balance={sent.balance}
+            payOnline={sent.payOnline}
+            method={sent.method}
+            passToReceiver={sent.passToReceiver}
+          />
           <Button
             component={Link}
             href={`/track?order=${encodeURIComponent(sent.id)}`}
@@ -1972,8 +1965,6 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
         draft={draft}
         update={update}
         errors={addressErrors}
-        estimate={grossEstimate}
-        roadKm={routedKm !== null}
         next={() => router.push("/pickup/details")}
         onBack={goBack}
       />
@@ -1982,8 +1973,6 @@ export function PickupRequestPage({ step = "route" }: { step?: PickupStep }) {
         draft={draft}
         update={update}
         errors={detailErrors}
-        estimate={grossEstimate}
-        roadKm={routedKm !== null}
         next={() => router.push("/pickup/payment")}
         onBack={goBack}
       />
