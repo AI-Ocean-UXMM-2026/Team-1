@@ -50,9 +50,9 @@ export function ComplaintsApp() {
       
       if (session?.user?.id) {
         const { data: profile } = await supabase
-          .from("operations_profile")
+          .from("profiles")
           .select("role")
-          .eq("user_id", session.user.id)
+          .eq("id", session.user.id)
           .single();
         
         if (profile?.role === "manager") {
@@ -215,7 +215,7 @@ export function ComplaintsApp() {
     }
   }
 
-  if (workspace.isLoading)
+  if (roleLoading || workspace.isLoading)
     return <LoadingBlock title="Opening complaints dashboard…" />;
   const signedOut = !workspace.isAuthenticated && !workspace.isDemo;
 
