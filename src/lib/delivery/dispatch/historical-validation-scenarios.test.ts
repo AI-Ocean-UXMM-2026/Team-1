@@ -5,6 +5,7 @@
  * without breaking existing functionality.
  */
 
+/// <reference types="vitest" />
 import { describe, it, expect } from "vitest";
 import {
   freeFlowTime,

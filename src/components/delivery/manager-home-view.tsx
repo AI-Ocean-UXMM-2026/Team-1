@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/delivery/common";
 import "./manager-home.css";
 import "./manager-home-simple.css";
 import { Icon } from "@/components/delivery/icons";
+import { ManagerClassificationWidget } from "@/components/delivery/manager-classification-widget";
 import {
   type attentionSummary,
   managerExceptions,
@@ -547,6 +548,7 @@ export function ManagerHomeView({
         <div className="mh-stack">
           <Alerts exceptions={exceptions} />
           <RecentDeliveries orders={recentList} />
+          <ManagerClassificationWidget />
         </div>
         <div className="mh-stack">
           <OperationalHealth rows={health} />

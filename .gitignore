@@ -49,3 +49,4 @@ playwright-report/
 .next-e2e
 .next-profile/
 *-darwin.png
+*/node_modules

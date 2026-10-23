@@ -1,0 +1,23 @@
+{
+  "name": "remotion-demo",
+  "version": "1.0.0",
+  "description": "Remotion Best Practices Demo Video",
+  "type": "module",
+  "scripts": {
+    "start": "remotion studio",
+    "render": "remotion render src/index.tsx DemoShowcase_1Min out.mp4",
+    "render:preview": "remotion render src/index.tsx DemoShowcase_1Min --props='{}'",
+    "build": "remotion build"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.538",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.538",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "typescript": "^5.0.0"
+  }
+}
