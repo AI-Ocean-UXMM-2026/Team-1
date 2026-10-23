@@ -91,6 +91,10 @@ OPENROUTER_API_KEY=sk-or-v1-...                         # optional, enables AI c
 
 Full docs indexed in [docs/README.md](docs/README.md): architecture, database schema & RLS, API reference, operations manual, COD/payments, delivery lifecycle, testing. App feature catalog in [PROJECT_APP.md](PROJECT_APP.md).
 
+## Pitching Video
+
+- https://drive.google.com/drive/folders/1z0_khOiw90ut2f7kGJ0RGgGg520V0kng
+
 ## DEMO
 
 - https://oern-app.vercel.app/
