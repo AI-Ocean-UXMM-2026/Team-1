@@ -371,67 +371,6 @@ const SIDE_COPY: Record<
 /** What a fix is good enough for: a pin within this many metres needs no nudge. */
 const GOOD_FIX_METRES = 150;
 
-/** The price so far, so nobody reaches step 3 to learn what the trip costs. */
-function FeePreview({
-  estimate,
-  roadKm,
-  pinned,
-}: {
-  estimate: FeeEstimate | null;
-  /** True once the distance is a driving distance rather than a straight-line guess. */
-  roadKm: boolean;
-  pinned: boolean;
-}) {
-  return (
-    <Box
-      component="section"
-      aria-label="Delivery fee estimate"
-      sx={{
-        p: 2,
-        borderRadius: "16px",
-        border: "1px solid",
-        borderColor: "divider",
-        bgcolor: "background.paper",
-      }}
-    >
-      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-        Delivery fee estimate
-      </Typography>
-      {estimate ? (
-        <>
-          <Typography
-            sx={{
-              fontSize: 24,
-              fontWeight: 800,
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {currency.format(estimate.total)}
-          </Typography>
-          {estimate.zones && estimate.zones.label !== "Base fee" && (
-            <Typography variant="caption" sx={{ display: "block" }}>
-              {estimate.zones.local
-                ? `Within ${estimate.zones.pickup.zone}`
-                : `${estimate.zones.pickup.zone} to ${estimate.zones.delivery.zone}`}
-            </Typography>
-          )}
-          <Typography variant="caption" color="text.secondary">
-            {roadKm ? "By road" : "About"} {estimate.distanceKm.toFixed(1)} km
-            {roadKm ? "" : " in a straight line, adjusted for roads"}. Coupons
-            and points come off at the next step.
-          </Typography>
-        </>
-      ) : (
-        <Typography variant="body2" color="text.secondary">
-          {pinned
-            ? "Working out the distance…"
-            : "Pick a suggestion, use your location or choose a spot on the map for both addresses and the price shows here."}
-        </Typography>
-      )}
-    </Box>
-  );
-}
-
 function AddressesStep({
   draft,
   update,
@@ -716,7 +655,6 @@ function AddressesStep({
       >
         {renderSide("pickup")}
         {renderSide("delivery")}
-        <FeePreview estimate={estimate} roadKm={roadKm} pinned={pinned} />
       </Box>
     </PickupShell>
   );
@@ -1122,11 +1060,6 @@ function DetailsStep({
             </Field>
           </AccordionDetails>
         </Accordion>
-        <FeePreview
-          estimate={estimate}
-          roadKm={roadKm}
-          pinned={Boolean(draft.pickupPoint && draft.deliveryPoint)}
-        />
       </Box>
     </PickupShell>
   );
