@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchPointsBalance, validateCoupon } from "@/lib/delivery/actions";
-import type { PickupDraft } from "@/lib/delivery/pickup-draft";
 import {
   applyServerRewards,
   normalizeCouponCode,
@@ -19,6 +18,8 @@ export type CouponStatus =
 
 export type PickupRewards = {
   signedIn: boolean | null;
+  /** The signed-in account, to tell the order's owner from anyone else. */
+  userId: string | null;
   balance: number;
   couponStatus: CouponStatus;
   applied: RewardsApplied;
@@ -30,11 +31,12 @@ export type PickupRewards = {
  * counts toward the total.
  */
 export function usePickupRewards(
-  draft: PickupDraft,
+  draft: { couponCode: string; usePoints: boolean },
   fee: number | null,
   enabled: boolean,
 ): PickupRewards {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [balance, setBalance] = useState(0);
   const [result, setResult] = useState<{
     key: string;
@@ -50,11 +52,12 @@ export function usePickupRewards(
     void supabase.auth
       .getSession()
       .then(async ({ data }) => {
-        const userId = data.session?.user.id;
+        const id = data.session?.user.id;
         if (!live) return;
-        setSignedIn(Boolean(userId));
-        if (userId) {
-          const points = await fetchPointsBalance(supabase, userId);
+        setSignedIn(Boolean(id));
+        setUserId(id ?? null);
+        if (id) {
+          const points = await fetchPointsBalance(supabase, id);
           if (live) setBalance(points);
         }
       })
@@ -114,5 +117,5 @@ export function usePickupRewards(
     [fee, couponStatus, draft.usePoints, balance],
   );
 
-  return { signedIn, balance, couponStatus, applied };
+  return { signedIn, userId, balance, couponStatus, applied };
 }

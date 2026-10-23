@@ -37,6 +37,12 @@ export type DeliveryOrder = {
   parcel_weight_kg: number | null;
   /** Not stored yet; see orderPaymentMethod. Absent means cash on delivery. */
   payment_method?: "mmqr" | "ctzpay" | "cod" | null;
+  /** The fee quoted at request time; rewards apply to it. Absent on older orders. */
+  delivery_fee?: number | null;
+  /** Coupon and points discount already taken off, in MMK. */
+  discount_amount?: number;
+  /** Paid in the app and returned because the order was cancelled, in MMK. */
+  refunded_amount?: number;
   cod_amount: number;
   cod_status: "not_required" | "pending" | "collected" | "settled";
   estimated_delivery_at: string | null;

@@ -98,6 +98,8 @@ export type PickupDraft = {
   payNow: string;
   /** Who pays the delivery: the sender or someone else (usually the receiver). */
   payer: Payer;
+  /** Pay when the request is sent, or leave it for later from Track. */
+  payChoice: "now" | "later";
   /** Coupon code as typed; checked against the database before it counts. */
   couponCode: string;
   /** Spend loyalty points on the fee, as many as the rules allow. */
@@ -167,6 +169,7 @@ export function emptyDraft(
     paymentMethod: null,
     payNow: "",
     payer: "me",
+    payChoice: "later",
     couponCode: "",
     usePoints: false,
     awayFromHome: false,
@@ -217,6 +220,7 @@ export function sanitizeDraft(raw: unknown, fresh: PickupDraft): PickupDraft {
     paymentMethod: isPaymentMethod(r.paymentMethod) ? r.paymentMethod : null,
     payNow: text(r.payNow, 12),
     payer: r.payer === "other" ? "other" : "me",
+    payChoice: r.payChoice === "now" ? "now" : "later",
     couponCode: text(r.couponCode, 24),
     usePoints: r.usePoints === true,
     awayFromHome: r.awayFromHome === true,
@@ -283,6 +287,29 @@ export function describeParcel(draft: PickupDraft) {
 export function isMyanmarPhone(value: string) {
   const digits = value.replace(/[\s()-]/g, "");
   return /^(\+?95|0)9\d{7,9}$/.test(digits);
+}
+
+/**
+ * A Myanmar mobile number the way it is read out: "09 421 555 018". Anything
+ * that is not a valid number is returned as typed, so editing is never fought.
+ */
+export function formatMyanmarPhone(value: string) {
+  const trimmed = value.trim();
+  if (!isMyanmarPhone(trimmed)) return trimmed;
+  const digits = trimmed.replace(/[\s()+-]/g, "").replace(/^95/, "0");
+  const national = digits.startsWith("0") ? digits : `0${digits}`;
+  const rest = national.slice(2);
+  const groups = [national.slice(0, 2), rest.slice(0, 3), rest.slice(3, 6)];
+  const tail = rest.slice(6);
+  return [...groups, tail].filter(Boolean).join(" ");
+}
+
+/** Whole kyat with thousands separators for a field at rest: "25000" -> "25,000". */
+export function formatKyat(input: string) {
+  const amount = parseCod(input);
+  return amount === null || amount === 0
+    ? input.trim()
+    : amount.toLocaleString("en-US");
 }
 
 /** COD in whole kyat: blank means none, anything else must be a sensible integer. */

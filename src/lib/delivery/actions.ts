@@ -403,6 +403,45 @@ export async function redeemManualOrderCoupon(
   return { discount: data.discount, codAmount: data.cod_amount };
 }
 
+/** Whether payments are in sandbox mode, where Pay settles without real money. */
+export async function fetchPaymentSandbox(supabase: DeliveryActionClient) {
+  const { data, error } = await supabase
+    .from("payment_settings")
+    .select("sandbox")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.sandbox === true;
+}
+
+/** Sandbox only: marks the parcel's whole balance paid. No money moves. */
+export async function sandboxPayOrder(
+  supabase: DeliveryActionClient,
+  trackingCode: string,
+  method: "mmqr" | "ctzpay" = "mmqr",
+) {
+  const { data, error } = await supabase
+    .rpc("sandbox_pay_order", {
+      p_tracking_code: trackingCode,
+      p_method: method,
+    })
+    .single();
+  if (error) throw new Error(error.message);
+  return { paid: data.paid };
+}
+
+/** Remembers the quoted fee on a new order so rewards can be applied later. */
+export async function recordOrderFee(
+  supabase: DeliveryActionClient,
+  orderId: string,
+  fee: number,
+) {
+  const { error } = await supabase.rpc("record_order_fee", {
+    p_order_id: orderId,
+    p_fee: fee,
+  });
+  if (error) throw new Error(error.message);
+}
+
 /** Applies a coupon and/or points to an order the customer just created. */
 export async function redeemOrderRewards(
   supabase: DeliveryActionClient,

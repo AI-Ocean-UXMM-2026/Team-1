@@ -716,17 +716,38 @@ const PLACE_RANK = ["address", "poi", "neighborhood", "locality", "place"];
 /** The country is redundant in a delivery address, so it is dropped from the label. */
 const COUNTRY_SUFFIX = /,\s*Myanmar(\s*\(Burma\))?$/i;
 
-export function reverseGeocodeUrl(point: MapPoint) {
+/** How many features to ask for per place level. Mapbox rejects `limit` alongside more than one `types` value. */
+export const REVERSE_GEOCODE_LIMIT = 5;
+
+export function reverseGeocodeUrl(point: MapPoint, type: string) {
   const params = new URLSearchParams({
     access_token: MAPBOX_TOKEN,
-    types: PLACE_RANK.join(","),
-    limit: "5",
+    types: type,
+    limit: String(REVERSE_GEOCODE_LIMIT),
   });
   return `https://api.mapbox.com/geocoding/v5/mapbox.places/${point.longitude},${point.latitude}.json?${params}`;
 }
 
-type GeocodeFeature = { place_name?: string; place_type?: string[] };
+type GeocodeFeature = {
+  place_name?: string;
+  place_type?: string[];
+  relevance?: number;
+};
+
 type GeocodeBody = { features?: GeocodeFeature[] };
+
+/** Round-robin so equal-rank features keep Mapbox's relevance order instead of one type's block. */
+function interleave(groups: GeocodeFeature[][]) {
+  const merged: GeocodeFeature[] = [];
+  const longest = Math.max(0, ...groups.map((group) => group.length));
+  for (let i = 0; i < longest; i += 1) {
+    for (const group of groups) {
+      const feature = group[i];
+      if (feature) merged.push(feature);
+    }
+  }
+  return merged;
+}
 
 function placeRank(feature: GeocodeFeature) {
   const ranks = (feature.place_type ?? [])
@@ -749,14 +770,25 @@ export function pickPlaceLabel(features: GeocodeFeature[]) {
   return label || null;
 }
 
-/** A human-readable place name for a picked point, or null if it can't be resolved. */
+/**
+ * A human-readable place name for a picked point, or null if it can't be resolved.
+ * One request per place level, because Mapbox only accepts `limit` with a single
+ * `types` value; the results are merged back into relevance order.
+ */
 export async function reverseGeocode(point: MapPoint, signal?: AbortSignal) {
   if (!hasMapbox) return null;
   try {
-    const response = await fetch(reverseGeocodeUrl(point), { signal });
-    if (!response.ok) return null;
-    const body = (await response.json()) as GeocodeBody;
-    return pickPlaceLabel(body.features ?? []);
+    const groups = await Promise.all(
+      PLACE_RANK.map(async (type) => {
+        const response = await fetch(reverseGeocodeUrl(point, type), {
+          signal,
+        });
+        if (!response.ok) return [];
+        const body = (await response.json()) as GeocodeBody;
+        return body.features ?? [];
+      }),
+    );
+    return pickPlaceLabel(interleave(groups));
   } catch {
     return null;
   }

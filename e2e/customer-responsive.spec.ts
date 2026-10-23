@@ -112,7 +112,7 @@ test("text scaled to 200% keeps the pickup action reachable", async ({
   await signInAs(context, "customer", tables());
   await page.goto("/pickup/details");
   await page.addStyleTag({ content: "html{font-size:200%}" });
-  const next = page.getByRole("button", { name: /next: review/i });
+  const next = page.getByRole("button", { name: /next: payment/i });
   await expect(next).toBeInViewport();
   const box = await next.boundingBox();
   const viewport = page.viewportSize();

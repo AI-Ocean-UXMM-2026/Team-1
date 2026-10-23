@@ -242,6 +242,12 @@ export type Database = {
           },
         ];
       };
+      payment_settings: {
+        Row: { id: boolean; sandbox: boolean };
+        Insert: { id?: boolean; sandbox?: boolean };
+        Update: { sandbox?: boolean };
+        Relationships: [];
+      };
       coupons: {
         Row: {
           active: boolean;
@@ -325,6 +331,9 @@ export type Database = {
       };
       delivery_orders: {
         Row: {
+          refunded_amount: number;
+          refunded_at: string | null;
+          delivery_fee: number | null;
           coupon_id: string | null;
           discount_amount: number;
           points_redeemed: number;
@@ -2591,6 +2600,18 @@ export type Database = {
           discount: number;
           reason: string | null;
         }[];
+      };
+      cancel_unconfirmed_paid_orders: {
+        Args: { p_minutes?: number };
+        Returns: number;
+      };
+      sandbox_pay_order: {
+        Args: { p_tracking_code: string; p_method?: string };
+        Returns: { paid: number; cod_amount: number }[];
+      };
+      record_order_fee: {
+        Args: { p_order_id: string; p_fee: number };
+        Returns: undefined;
       };
       redeem_manual_order_coupon: {
         Args: { p_order_id: string; p_fee: number; p_coupon_code: string };

@@ -251,11 +251,7 @@ export function RiderJobBoard({
                   <span className="rj-main">
                     <span className="rj-card-title-row">
                       <strong className="rj-card-title">{title}</strong>
-                      {job.priority === "urgent" || job.priority === "high" ? (
-                        <span className="rj-tag is-urgent">
-                          {job.priority === "urgent" ? "Urgent" : "Priority"}
-                        </span>
-                      ) : index === 0 && awayKm != null ? (
+                      {index === 0 && awayKm != null ? (
                         <span className="rj-tag">Nearest</span>
                       ) : null}
                     </span>

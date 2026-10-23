@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { PaymentLogo } from "@/components/delivery/payment-logos";
 import "./payment-picker.css";
@@ -56,12 +57,69 @@ export function PaymentMethodPicker({
   );
 }
 
+/** Pay when the request is sent, or pass and settle later from Track. */
+export function PayWhenChoice({
+  name,
+  value,
+  total,
+  onChange,
+}: {
+  name: string;
+  value: "now" | "later";
+  total: number;
+  onChange: (choice: "now" | "later") => void;
+}) {
+  const options = [
+    {
+      id: "now" as const,
+      title: `Pay ${currency.format(total)} now`,
+      hint: "Create the request, then scan its MMQR with CTZPay or another participating app. We wait for confirmation before showing Paid.",
+    },
+    {
+      id: "later" as const,
+      title: "Pay later",
+      hint: "Pay from Track, share the link so the receiver can pay, or hand cash to the rider.",
+    },
+  ];
+  return (
+    <fieldset className="pay-picker">
+      <legend>How would you like to pay?</legend>
+      <div className="pay-options" role="radiogroup">
+        {options.map((option) => (
+          <label
+            key={option.id}
+            className={`pay-option${value === option.id ? " is-selected" : ""}`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.id}
+              checked={value === option.id}
+              onChange={() => onChange(option.id)}
+            />
+            {option.id === "now" ? (
+              <PaymentLogo method="mmqr" />
+            ) : (
+              <PaymentLogo method="cod" />
+            )}
+            <span className="pay-option-copy">
+              <strong>{option.title}</strong>
+              <small>{option.hint}</small>
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 /** Line items and the total, with the cash due at the door called out. */
 export function FeeBreakdown({
   estimate,
   method,
   itemCash = 0,
   paidNow,
+  flexiblePayment = false,
 }: {
   estimate: FeeEstimate | null;
   method: PaymentMethod;
@@ -69,6 +127,8 @@ export function FeeBreakdown({
   itemCash?: number;
   /** Prepaid only: what is paid in the app now. Defaults to all of it. */
   paidNow?: number;
+  /** How to pay is decided later, so no method-specific line is shown. */
+  flexiblePayment?: boolean;
 }) {
   if (!estimate)
     return (
@@ -79,9 +139,21 @@ export function FeeBreakdown({
   const prepaid = isPrepaid(method);
   const owed = estimate.total + itemCash;
   const split = splitPayment(owed, paidNow ?? owed);
+  // How this is settled is the customer's next choice, so the summary never
+  // claims the money has already moved; it states what is owed and stops.
+  const dueLine = flexiblePayment
+    ? ""
+    : !prepaid
+      ? `Pay the rider ${currency.format(owed)} in cash${itemCash > 0 ? " (fee plus goods)" : ""}.`
+      : split.cashDue === 0
+        ? `${currency.format(owed)} to pay. Nothing at the door.`
+        : `The rest is cash on delivery: the rider collects ${currency.format(split.cashDue)}.`;
   return (
-    <section className="pay-fee" aria-label="Delivery fee">
-      <h3>Delivery fee</h3>
+    <section
+      className="pay-fee"
+      aria-label={flexiblePayment ? "Price summary" : "Delivery fee"}
+    >
+      <h3>{flexiblePayment ? "Price summary" : "Delivery fee"}</h3>
       <dl>
         {estimate.lines.map((line) => (
           <div
@@ -96,10 +168,10 @@ export function FeeBreakdown({
           <dt>Total fee</dt>
           <dd>{currency.format(estimate.total)}</dd>
         </div>
-        {prepaid && itemCash > 0 && (
+        {(prepaid || flexiblePayment) && itemCash > 0 && (
           <>
             <div>
-              <dt>Goods</dt>
+              <dt>{flexiblePayment ? "Goods to collect" : "Goods"}</dt>
               <dd>{currency.format(itemCash)}</dd>
             </div>
             <div className="pay-fee-total">
@@ -121,16 +193,12 @@ export function FeeBreakdown({
           </>
         )}
       </dl>
-      <p className="pay-fee-due">
-        {!prepaid
-          ? `Pay the rider ${currency.format(owed)} in cash${itemCash > 0 ? " (fee plus goods)" : ""}.`
-          : split.cashDue === 0
-            ? "Pay it all online. Nothing to pay at the door."
-            : `The rest is cash on delivery: the rider collects ${currency.format(split.cashDue)}.`}
+      <p className="pay-fee-due" hidden={!dueLine}>
+        {dueLine}
       </p>
       <p className="pay-fee-meta">
-        About {estimate.distanceKm.toFixed(1)} km by road. Estimate; the final
-        fee is confirmed when a rider is assigned.
+        About {estimate.distanceKm.toFixed(1)} km. Estimate; the final fee is
+        confirmed when a rider is assigned.
       </p>
     </section>
   );
@@ -140,14 +208,22 @@ export function FeeBreakdown({
 export function PayerChoice({
   name,
   value,
+  amount,
   onChange,
 }: {
   name: string;
   value: Payer;
+  /** What the delivery costs, so the commitment names its figure. */
+  amount?: number;
   onChange: (payer: Payer) => void;
 }) {
+  const total = amount && amount > 0 ? currency.format(amount) : null;
   const options: { id: Payer; label: string; hint: string }[] = [
-    { id: "me", label: "I’ll pay", hint: "Online now, or cash at the door." },
+    {
+      id: "me",
+      label: total ? `I'll pay ${total}` : "I'll pay",
+      hint: "You settle it from Track, or hand cash to the rider.",
+    },
     {
       id: "other",
       label: "Someone else pays",
@@ -182,31 +258,32 @@ export function PayerChoice({
 }
 
 /**
- * Shown once the request is sent and the tracking code exists. Pay now opens
- * the steps for the chosen app with the amount and reference filled in; the
- * pay link lets someone else do the same from anywhere. Payment is confirmed
- * by staff, so this says so instead of pretending the order is already paid.
+ * Shown once the request and its payment reference exist. MMQR is the rail;
+ * CTZPay is one of the participating apps that scans it. The actual scan and
+ * provider confirmation live on Track, where the order balance can update.
  */
 export function PayAfterRequest({
+  orderId,
   code,
   balance,
   payOnline,
   method,
 }: {
+  /** When given, offers paying right away on the Track screen. */
+  orderId?: string;
   code: string;
   balance: number;
   payOnline: number;
   method: PaymentMethod;
 }) {
-  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   if (balance <= 0) return null;
-  const label = paymentMethodInfo(method).label;
   const atDoor = balance - payOnline;
+  const wantsMmqr = orderId && payOnline > 0 && isPrepaid(method);
 
   async function share() {
     const url = `${window.location.origin}/track?code=${encodeURIComponent(code)}&pay=1`;
-    const text = `Pay ${currency.format(balance)} for parcel ${code} on Oern (MMQR or CTZPay)`;
+    const text = `Pay ${currency.format(balance)} for parcel ${code} on Oern (MMQR, CTZPay included)`;
     try {
       if (typeof navigator.share === "function") {
         await navigator.share({ title: "Pay for a delivery", text, url });
@@ -223,33 +300,16 @@ export function PayAfterRequest({
   return (
     <section className="pay-after" aria-label="Pay for this delivery">
       <h3>Pay for this delivery</h3>
-      {payOnline > 0 && (
-        <>
-          <button
-            type="button"
-            className="pay-after-primary"
-            aria-expanded={open}
-            onClick={() => setOpen((value) => !value)}
-          >
-            <PaymentLogo method={method} size={32} />
-            Pay {currency.format(payOnline)} now with {label}
-          </button>
-          {open && (
-            <ol className="pay-steps">
-              <li>
-                Open your bank or wallet app and send{" "}
-                <strong>{currency.format(payOnline)}</strong> with {label}.
-              </li>
-              <li>
-                Use <strong>{code}</strong> as the reference.
-              </li>
-              <li>
-                Once it arrives, the order shows Paid and the rider collects
-                less cash.
-              </li>
-            </ol>
-          )}
-        </>
+      {orderId && (
+        <Link
+          className="pay-after-primary"
+          href={`/track?order=${encodeURIComponent(orderId)}&pay=1`}
+        >
+          <PaymentLogo method="mmqr" size={32} />
+          {wantsMmqr
+            ? `Continue to MMQR · ${currency.format(payOnline)}`
+            : `Pay ${currency.format(balance)} with MMQR`}
+        </Link>
       )}
       <button
         type="button"
@@ -259,10 +319,9 @@ export function PayAfterRequest({
         {copied ? "Link copied" : "Share pay link for someone else"}
       </button>
       <p className="pay-after-note">
-        {atDoor > 0
-          ? `Whatever is not paid online is cash at the door: ${currency.format(atDoor)} after your payment. `
-          : ""}
-        Online payment is not connected yet, so staff confirm it by hand.
+        {wantsMmqr
+          ? `Your request is saved, but it is not paid yet. Scan the MMQR on the next screen. ${atDoor > 0 ? `The rider will collect the remaining ${currency.format(atDoor)} in cash.` : "The rider collects no cash after payment is confirmed."}`
+          : `Pay online, share the link so the receiver can pay, or hand ${currency.format(balance)} to the rider in cash.`}
       </p>
     </section>
   );

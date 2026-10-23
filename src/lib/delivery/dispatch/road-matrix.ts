@@ -45,6 +45,8 @@ export type RoadMatrixDeps = {
   sleep?: (ms: number) => Promise<void>;
   /** Reuse and fill previously fetched legs; omit to always fetch. */
   cache?: RoadPairCache;
+  /** Optional local road graph; when present it replaces Mapbox matrix calls. */
+  graph?: import("../routing/graph.ts").Graph;
 };
 
 export type RoadMatrixStats = {
@@ -245,6 +247,19 @@ export async function buildRoadMatrix(
     totalPairs,
     coverage: 0,
   };
+  if (deps?.graph) {
+    const { buildShortestPathMatrix } = await import("../routing/matrix.ts");
+    const matrix = buildShortestPathMatrix(deps.graph, points, params);
+    return {
+      matrix,
+      stats: {
+        ...empty,
+        realPairs: n * (n - 1),
+        totalPairs: n * (n - 1),
+        coverage: 1,
+      },
+    };
+  }
   if (!deps?.token || n < 2) return { matrix: base, stats: empty };
 
   const { tiles } = planTiles(points, {
@@ -376,6 +391,11 @@ export async function buildRoadMatrix(
       }
     }
   const coverage = totalPairs === 0 ? 0 : realPairs / totalPairs;
+  if (coverage < 0.5) {
+    console.warn(
+      `Road matrix coverage is low: ${(coverage * 100).toFixed(1)}%`,
+    );
+  }
   return {
     matrix: {
       n,

@@ -2,7 +2,7 @@
 
 Drop the licensed brand artwork here and the app uses it automatically:
 
-- `mmqr.svg` — MMQR (Myanmar QR) mark
+- `mmqr.webp` — MMQR (Myanmar QR) mark
 - `ctzpay.svg` — CTZPay mark
 
 SVG or PNG (rename the extension in `src/components/delivery/payment-logos.tsx`).

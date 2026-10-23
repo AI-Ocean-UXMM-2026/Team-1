@@ -44,6 +44,16 @@ import { AddressField } from "@/components/delivery/pickup-address-field";
 import { useBackNavigation } from "@/components/delivery/use-back-navigation";
 import { usePickupDraft } from "@/components/delivery/use-pickup-draft";
 import {
+  PickupProgressBar,
+  HelpIcon,
+  FieldWithHelp,
+  ErrorRecovery,
+  FeeExplanation,
+  CODExplanation,
+  SandboxModeNotice,
+  NetworkTimeout,
+} from "@/components/delivery/pickup-enhancements";
+import {
   type PickupRewards,
   usePickupRewards,
 } from "@/components/delivery/use-pickup-rewards";
@@ -59,6 +69,7 @@ import {
   type FeeEstimate,
   PARCEL_WEIGHT_KG,
   roadDistanceKm,
+  zoneFor,
 } from "@/lib/delivery/delivery-fee";
 import { currency } from "@/lib/delivery/format";
 import { hasMapbox, reverseGeocode } from "@/lib/delivery/mapbox";
@@ -242,6 +253,8 @@ function PickupShell({
   children: ReactNode;
 }) {
   const index = STEPS.findIndex((item) => item.id === step);
+  const stepNumber = (index + 1) as 1 | 2 | 3 | 4;
+  
   return (
     <main className="customer-app pickup-app">
       <CustomerHeader
@@ -252,6 +265,9 @@ function PickupShell({
         showBell={false}
         onBack={onBack}
       />
+      <Box sx={{ px: 2 }}>
+        <PickupProgressBar step={stepNumber} />
+      </Box>
       <Box
         sx={{
           px: 2,
@@ -1056,9 +1072,24 @@ function DetailsStep({
                 maxLength={300}
               />
             </Field>
+            <Box sx={{ mb: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+                <Typography
+                  component="label"
+                  htmlFor="cod-amount"
+                  variant="subtitle2"
+                  sx={{ display: "block", fontWeight: 700 }}
+                >
+                  Cash on delivery (MMK)
+                </Typography>
+                <HelpIcon
+                  title="What is COD?"
+                  description="The rider collects this amount in cash from the recipient when delivering the package."
+                />
+              </Box>
             <Field
               id="cod-amount"
-              label="Cash on delivery (MMK)"
+              label=""
               error={show("codAmount")}
               hint="Leave blank if the recipient pays nothing on delivery."
             >
@@ -1077,6 +1108,7 @@ function DetailsStep({
                 error={show("codAmount")}
               />
             </Field>
+            </Box>
             <Field id="pickup-notes" label="Note for the rider">
               <TextInput
                 id="pickup-notes"
@@ -1148,8 +1180,23 @@ function SummaryRow({
 }
 
 function draftEstimate(draft: PickupDraft, routedKm: number | null = null) {
+  // Use explicit pins if set; otherwise fall back to township/city coordinates
+  // resolved from typed addresses so fee calculation works before pins are dropped.
+  const p1 =
+    draft.pickupPoint ??
+    (draft.pickupAddress.trim() ? zoneFor({ address: draft.pickupAddress }) : null);
+  const p2 =
+    draft.deliveryPoint ??
+    (draft.deliveryAddress.trim()
+      ? zoneFor({ address: draft.deliveryAddress })
+      : null);
+  const point1 =
+    draft.pickupPoint ?? (p1 ? { latitude: p1.lat, longitude: p1.lng } : null);
+  const point2 =
+    draft.deliveryPoint ?? (p2 ? { latitude: p2.lat, longitude: p2.lng } : null);
+
   const distanceKm =
-    routedKm ?? roadDistanceKm(draft.pickupPoint, draft.deliveryPoint);
+    routedKm ?? roadDistanceKm(point1, point2);
   return distanceKm === null
     ? null
     : estimateDeliveryFee({
@@ -1159,9 +1206,9 @@ function draftEstimate(draft: PickupDraft, routedKm: number | null = null) {
         // Both ends set the base fee: where the parcel is collected and where
         // it is going. The pins decide; the addresses settle which township an
         // overlap belongs to.
-        pickupPoint: draft.pickupPoint,
+        pickupPoint: point1,
         pickupAddress: draft.pickupAddress,
-        deliveryPoint: draft.deliveryPoint,
+        deliveryPoint: point2,
         deliveryAddress: draft.deliveryAddress,
         // How it is paid is not chosen here, so no cash handling is added.
         cashHandling: false,

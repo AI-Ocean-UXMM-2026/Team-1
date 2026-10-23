@@ -123,7 +123,7 @@ function finish(
     seed: inst.params.seed,
     iterations: result.iterations,
     stopReason: result.stopReason,
-    dataQuality: matrix.source,
+    dataQuality: { matrixSource: matrix.source },
     hash: hashString(signature),
   };
 }

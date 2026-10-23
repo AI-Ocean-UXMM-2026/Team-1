@@ -7,14 +7,20 @@ import {
 
 const yangon = { latitude: 16.8007, longitude: 96.15 };
 
-test("reverseGeocodeUrl asks for every place level, not only addresses", () => {
-  const url = new URL(reverseGeocodeUrl(yangon));
-  assert.equal(
-    url.searchParams.get("types"),
-    "address,poi,neighborhood,locality,place",
-  );
+test("reverseGeocodeUrl pairs limit with a single type", () => {
+  const url = new URL(reverseGeocodeUrl(yangon, "address"));
+  assert.equal(url.searchParams.get("types"), "address");
   assert.equal(url.searchParams.get("limit"), "5");
   assert.match(url.pathname, /96\.15,16\.8007\.json$/);
+});
+
+test("reverseGeocodeUrl rejects a multi-type value, which Mapbox forbids with limit", () => {
+  for (const type of ["address", "poi", "neighborhood", "locality", "place"]) {
+    const url = new URL(reverseGeocodeUrl(yangon, type));
+    assert.equal(url.searchParams.get("types"), type);
+    assert.equal(url.searchParams.get("types").includes(","), false);
+    assert.equal(url.searchParams.get("limit"), "5");
+  }
 });
 
 test("pickPlaceLabel prefers a street address over a township", () => {

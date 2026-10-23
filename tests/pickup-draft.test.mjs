@@ -134,3 +134,62 @@ test("a stored draft is cleaned before use", () => {
   assert.equal(clean.recipientName, "");
   assert.equal(sanitizeDraft("junk", fresh), fresh);
 });
+
+test("phone numbers are read back in the usual Myanmar grouping", async () => {
+  const { formatMyanmarPhone } = await import(
+    "../src/lib/delivery/pickup-draft.ts"
+  );
+  assert.equal(formatMyanmarPhone("09421555018"), "09 421 555 018");
+  assert.equal(formatMyanmarPhone("+95 9 421 555 018"), "09 421 555 018");
+  assert.equal(formatMyanmarPhone("959421555018"), "09 421 555 018");
+  assert.equal(formatMyanmarPhone("0942155501"), "09 421 555 01");
+});
+
+test("an invalid phone number is left exactly as typed", async () => {
+  const { formatMyanmarPhone } = await import(
+    "../src/lib/delivery/pickup-draft.ts"
+  );
+  assert.equal(formatMyanmarPhone("  12345 "), "12345");
+  assert.equal(formatMyanmarPhone(""), "");
+});
+
+test("kyat amounts get separators and bad input is left alone", async () => {
+  const { formatKyat } = await import("../src/lib/delivery/pickup-draft.ts");
+  assert.equal(formatKyat("25000"), "25,000");
+  assert.equal(formatKyat("1,250,000"), "1,250,000");
+  assert.equal(formatKyat(""), "");
+  assert.equal(formatKyat("abc"), "abc");
+});
+
+test("a place label keeps each name once and drops the country", async () => {
+  const { tidyDetail } = await import("../src/lib/delivery/places.ts");
+  assert.equal(tidyDetail("Bahan", "Yangon, Yangon, Myanmar"), "Yangon");
+  assert.equal(
+    tidyDetail("Pyay Road", "Kamayut, Yangon, Yangon, Myanmar (Burma)"),
+    "Kamayut, Yangon",
+  );
+  assert.equal(tidyDetail("Bahan", "Bahan, Yangon"), "Yangon");
+  assert.equal(tidyDetail("Yangon", ""), "");
+});
+
+test("the pay-now choice is kept only when it is exactly now", async () => {
+  const { emptyDraft, sanitizeDraft } = await import(
+    "../src/lib/delivery/pickup-draft.ts"
+  );
+  const fresh = emptyDraft();
+  assert.equal(fresh.payChoice, "later");
+  assert.equal(sanitizeDraft({ payChoice: "now" }, fresh).payChoice, "now");
+  assert.equal(sanitizeDraft({ payChoice: "yes" }, fresh).payChoice, "later");
+  assert.equal(sanitizeDraft({}, fresh).payChoice, "later");
+});
+
+test("a whole address label loses repeats and the country", async () => {
+  const { tidyLabel } = await import("../src/lib/delivery/places.ts");
+  assert.equal(tidyLabel("Shwepyithar, Yangon, Yangon"), "Shwepyithar, Yangon");
+  assert.equal(
+    tidyLabel("Bahan, Yangon, Yangon, Myanmar (Burma)"),
+    "Bahan, Yangon",
+  );
+  assert.equal(tidyLabel("Hlaing"), "Hlaing");
+  assert.equal(tidyLabel(""), "");
+});

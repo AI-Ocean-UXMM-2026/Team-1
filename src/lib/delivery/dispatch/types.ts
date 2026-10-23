@@ -188,6 +188,18 @@ export type SolverMetrics = {
   ruinStopReason: "iterations" | "deadline" | "stagnated" | "skipped";
 };
 
+export type DataQuality = {
+  matrixSource: Matrix["source"];
+  /** Phase 5: Arc cost source breakdown (percentages) */
+  arcSources?: {
+    mapbox_live: number;      // Percentage of arcs using Mapbox
+    yutra_historical: number; // Percentage of arcs using YUTRA
+    haversine: number;        // Percentage of arcs using Haversine
+  };
+  /** Average confidence of all arc costs (0..1) */
+  averageConfidence?: number;
+};
+
 export type Plan = {
   routes: PlanRoute[];
   unassigned: { requestId: string; reason: UnassignedReason }[];
@@ -195,7 +207,7 @@ export type Plan = {
   seed: number;
   iterations: number;
   stopReason: "converged" | "iterations" | "deadline";
-  dataQuality: Matrix["source"];
+  dataQuality: DataQuality;
   hash: string;
   metrics?: SolverMetrics;
 };

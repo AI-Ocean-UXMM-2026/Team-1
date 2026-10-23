@@ -50,7 +50,9 @@ const tables = () => ({
 
 const DRAFT = {
   pickupAddress: "12 Pyay Road, Kamayut",
+  pickupPoint: { latitude: 16.78, longitude: 96.15 },
   deliveryAddress: "Bahan, near Inya Road",
+  deliveryPoint: { latitude: 16.82, longitude: 96.13 },
   recipientName: "Daw Hnin",
   recipientPhone: "09 421 555 018",
 };
@@ -69,7 +71,11 @@ const screens: {
   { name: "notifications", path: "/notifications", ready: /notifications/i },
   { name: "pickup addresses", path: "/pickup", ready: "Pickup address" },
   { name: "pickup details", path: "/pickup/details", ready: "Recipient name" },
-  { name: "pickup payment", path: "/pickup/payment", ready: "Who pays?" },
+  {
+    name: "pickup payment",
+    path: "/pickup/payment",
+    ready: "Coupon and points",
+  },
   {
     name: "pickup review",
     path: "/pickup/review",

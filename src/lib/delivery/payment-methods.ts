@@ -14,13 +14,13 @@ export const PAYMENT_METHODS: readonly PaymentMethodInfo[] = [
   {
     id: "mmqr",
     label: "MMQR",
-    hint: "Scan with any bank or wallet app that supports MMQR.",
+    hint: "Scan with any bank or wallet app that supports MMQR, CTZPay included.",
     prepaid: true,
   },
   {
     id: "ctzpay",
     label: "CTZPay",
-    hint: "Pay with your CTZPay wallet before the rider arrives.",
+    hint: "CTZPay is part of MMQR: pay with your CTZPay wallet before the rider arrives.",
     prepaid: true,
   },
   {
