@@ -11,7 +11,7 @@ import type { PaymentMethod } from "@/lib/delivery/payment-methods";
  * broken image.
  */
 const LOGO_SRC: Partial<Record<PaymentMethod, string>> = {
-  mmqr: "/payments/mmqr.webp",
+  mmqr: "/payments/mmqr.svg",
   ctzpay: "/payments/ctzpay.svg",
 };
 

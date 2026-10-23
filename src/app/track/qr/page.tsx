@@ -22,6 +22,8 @@ export default function TrackQrPage() {
   const [qr, setQr] = useState<MMQRQRCode | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [remaining, setRemaining] = useState(15 * 60);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +47,50 @@ export default function TrackQrPage() {
     };
   }, [amount, code]);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRemaining((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSuccess(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  const timeDisplay = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+  if (success) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          backgroundColor: "#f8fafc",
+          px: 2,
+          py: 4,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 2,
+        }}
+      >
+        <Typography
+          variant="h6"
+          sx={{ fontWeight: 750, color: "success.dark" }}
+        >
+          Payment successful
+        </Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          {currency.format(amount)} received · {code}
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box
       sx={{
@@ -66,6 +112,13 @@ export default function TrackQrPage() {
         sx={{ color: "text.secondary", textAlign: "center" }}
       >
         Reference: {code}
+      </Typography>
+
+      <Typography
+        variant="h4"
+        sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}
+      >
+        {timeDisplay}
       </Typography>
 
       {loading && <CircularProgress />}
@@ -102,10 +155,10 @@ export default function TrackQrPage() {
 
       {qr && (
         <Button
-          size="small"
-          variant="text"
+          variant="contained"
+          fullWidth
           onClick={() => downloadQRCode(qr, `mmqr-${code}.png`)}
-          sx={{ textTransform: "none", mt: "auto" }}
+          sx={{ textTransform: "none", maxWidth: 360 }}
         >
           Save QR
         </Button>
