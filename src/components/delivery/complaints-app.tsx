@@ -39,7 +39,35 @@ function complaintTone(item: SupportCase) {
 }
 
 export function ComplaintsApp() {
-  const workspace = useOperationsWorkspace("support");
+  // Detect user role dynamically - allows both managers and support staff
+  const [userRole, setUserRole] = useState<"manager" | "support">("support");
+  const [roleLoading, setRoleLoading] = useState(true);
+  
+  useEffect(() => {
+    const detectRole = async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user?.id) {
+        const { data: profile } = await supabase
+          .from("operations_profile")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .single();
+        
+        if (profile?.role === "manager") {
+          setUserRole("manager");
+        } else {
+          setUserRole("support");
+        }
+      }
+      setRoleLoading(false);
+    };
+    
+    detectRole();
+  }, []);
+
+  const workspace = useOperationsWorkspace(userRole);
   const [authOpen, setAuthOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState("");
